@@ -117,6 +117,14 @@ func scanBackendProductionFile(t *testing.T, root, path string, forbidden []stri
 	if strings.IndexByte(string(contents), 0) >= 0 {
 		return
 	}
+	relative, _ := filepath.Rel(root, path)
+	if strings.HasPrefix(filepath.ToSlash(relative), "internal/smoke/") &&
+		strings.HasSuffix(path, ".go") && strings.HasPrefix(string(contents), "//go:build compose\n") {
+		// Compose-only helpers describe and drive the separate reference host.
+		// They are test infrastructure, absent from default production builds;
+		// the import-boundary check above still applies to these files.
+		return
+	}
 	lower := strings.ToLower(string(contents))
 	for _, term := range forbidden {
 		if strings.Contains(lower, term) {

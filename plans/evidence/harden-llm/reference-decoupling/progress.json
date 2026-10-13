@@ -8,9 +8,10 @@
     "P01",
     "P02",
     "P03",
-    "P04"
+    "P04",
+    "P05"
   ],
-  "nextStep": "P05.S01",
+  "nextStep": "P06.S01",
   "steps": {
     "P00.S01": {
       "status": "done"
@@ -199,22 +200,22 @@
       "status": "done"
     },
     "P05.S01": {
-      "status": "pending"
+      "status": "done"
     },
     "P05.S02": {
-      "status": "pending"
+      "status": "done"
     },
     "P05.S03": {
-      "status": "pending"
+      "status": "done"
     },
     "P05.S04": {
-      "status": "pending"
+      "status": "done"
     },
     "P05.S05": {
-      "status": "pending"
+      "status": "done"
     },
     "P05.S06": {
-      "status": "pending"
+      "status": "done"
     },
     "P06.S01": {
       "status": "pending"
@@ -230,10 +231,10 @@
     }
   },
   "releaseAuthorization": "User explicitly requested push to main and deploy to production; required gates remain in force.",
-  "releaseStatus": "P00–P04 complete; P04 phase checkpoint prepared; P05/P06 and production acceptance pending; not deployed",
+  "releaseStatus": "P00-P04 pushed; P05 complete locally and ready for checkpoint; P06 certification/deployment pending; production unchanged",
   "ownerGates": {
     "CHECK-420": "accepted and encoded",
     "CHECK-421": "ADR-HLLM-034 recorded",
-    "CHECK-422": "pending before P05.S02/P06"
+    "CHECK-422": "Database target approved 2026-10-13: existing compose-postgres-1/compose_default, isolated harden_llm database/role. Owner commands reviewed in docs/reference-production-cutover.md; actual provisioning and Garage permission probe remain P06."
   }
 }

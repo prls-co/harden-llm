@@ -1,0 +1,286 @@
+TAP version 13
+# Subtest: TEST-233 resolves approved ownership and excludes ambient application variables
+ok 1 - TEST-233 resolves approved ownership and excludes ambient application variables
+  ---
+  duration_ms: 11.462534
+  type: 'test'
+  ...
+# Subtest: TEST-233 requires the consumer-owned Harden LLM Laminar key
+ok 2 - TEST-233 requires the consumer-owned Harden LLM Laminar key
+  ---
+  duration_ms: 1.902133
+  type: 'test'
+  ...
+# Subtest: TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data
+ok 3 - TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data
+  ---
+  duration_ms: 1.856921
+  type: 'test'
+  ...
+# Subtest: TEST-234 reports semantic identity and mount equality without exposing values
+ok 4 - TEST-234 reports semantic identity and mount equality without exposing values
+  ---
+  duration_ms: 6.550537
+  type: 'test'
+  ...
+# Subtest: TEST-234 check is read-only and equivalent apply never invokes up
+ok 5 - TEST-234 check is read-only and equivalent apply never invokes up
+  ---
+  duration_ms: 4.683192
+  type: 'test'
+  ...
+# Subtest: TEST-234 example production descriptor no longer manages the shared Caddy owner
+ok 6 - TEST-234 example production descriptor no longer manages the shared Caddy owner
+  ---
+  duration_ms: 0.355414
+  type: 'test'
+  ...
+# Subtest: TEST-234 blocks an unapproved runtime difference before application
+ok 7 - TEST-234 blocks an unapproved runtime difference before application
+  ---
+  duration_ms: 2.236806
+  type: 'test'
+  ...
+# Subtest: TEST-234 rejects a container from the wrong Compose project and never fills sources from it
+ok 8 - TEST-234 rejects a container from the wrong Compose project and never fills sources from it
+  ---
+  duration_ms: 1.819375
+  type: 'test'
+  ...
+# Subtest: TEST-233 missing approved sources fail before runtime inspection
+ok 9 - TEST-233 missing approved sources fail before runtime inspection
+  ---
+  duration_ms: 1.192328
+  type: 'test'
+  ...
+# Subtest: TEST-234 applies only the selected service with the reviewed nonsecret override
+ok 10 - TEST-234 applies only the selected service with the reviewed nonsecret override
+  ---
+  duration_ms: 4.211504
+  type: 'test'
+  ...
+# Subtest: TEST-234 descriptor loading keeps the descriptor itself nonsecret
+ok 11 - TEST-234 descriptor loading keeps the descriptor itself nonsecret
+  ---
+  duration_ms: 1.022442
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate release rejects a stale but internally equivalent descriptor
+ok 12 - TEST-260 candidate release rejects a stale but internally equivalent descriptor
+  ---
+  duration_ms: 4.784762
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate release rejects a wrong image label and unhealthy runtime
+ok 13 - TEST-260 candidate release rejects a wrong image label and unhealthy runtime
+  ---
+  duration_ms: 3.485174
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate-aware apply permits an old runtime and requires convergence
+ok 14 - TEST-260 candidate-aware apply permits an old runtime and requires convergence
+  ---
+  duration_ms: 3.872907
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate options reject invalid intent before Docker
+ok 15 - TEST-260 candidate options reject invalid intent before Docker
+  ---
+  duration_ms: 151.010561
+  type: 'test'
+  ...
+# Subtest: TEST-450 schema image override follows the accepted gateway image without a daemon descriptor
+not ok 16 - TEST-450 schema image override follows the accepted gateway image without a daemon descriptor
+  ---
+  duration_ms: 2.965395
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:478:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+
+    + undefined
+    - 'harden-llm-gateway:fixture'
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'harden-llm-gateway:fixture'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:481:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: TEST-450 accepted gateway schema runs exactly once before applications with the same context
+not ok 17 - TEST-450 accepted gateway schema runs exactly once before applications with the same context
+  ---
+  duration_ms: 3.410714
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:517:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    1 !== 2
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 2
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:521:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: TEST-450 failed schema prevents application startup and redacts diagnostics
+not ok 18 - TEST-450 failed schema prevents application startup and redacts diagnostics
+  ---
+  duration_ms: 2.722169
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:532:1'
+  failureType: 'testCodeFailure'
+  error: 'schema failure must be fatal before application up'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:537:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: TEST-450 missing service is rejected before schema or application starts
+not ok 19 - TEST-450 missing service is rejected before schema or application starts
+  ---
+  duration_ms: 3.73037
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:549:4'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:551:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: TEST-450 wrong image is rejected before schema or application starts
+not ok 20 - TEST-450 wrong image is rejected before schema or application starts
+  ---
+  duration_ms: 2.415897
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:549:4'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:551:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: TEST-450 wrong command is rejected before schema or application starts
+not ok 21 - TEST-450 wrong command is rejected before schema or application starts
+  ---
+  duration_ms: 2.316922
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:549:4'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:551:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: TEST-450 build stanza is rejected before schema or application starts
+not ok 22 - TEST-450 build stanza is rejected before schema or application starts
+  ---
+  duration_ms: 2.32195
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:549:4'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:551:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: TEST-450 different database is rejected before schema or application starts
+not ok 23 - TEST-450 different database is rejected before schema or application starts
+  ---
+  duration_ms: 2.436383
+  type: 'test'
+  location: '/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:549:4'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test/production_config_test.mjs:551:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: TEST-450 frontend-only apply never starts a schema service
+ok 24 - TEST-450 frontend-only apply never starts a schema service
+  ---
+  duration_ms: 2.467418
+  type: 'test'
+  ...
+# Subtest: TEST-450 no-change apply starts neither schema nor applications
+ok 25 - TEST-450 no-change apply starts neither schema nor applications
+  ---
+  duration_ms: 2.252895
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 17
+# fail 8
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 443.722353

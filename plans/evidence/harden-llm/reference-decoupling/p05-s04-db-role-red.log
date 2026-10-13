@@ -1,0 +1,6 @@
+--- FAIL: TestComposeDeploymentContract (0.37s)
+    compose_caddy_test.go:49: test application must not inherit the PostgreSQL bootstrap superuser
+    compose_caddy_test.go:51: test application must not inherit the PostgreSQL bootstrap superuser
+FAIL
+FAIL    github.com/prls-co/harden-llm/internal/deploytest   0.376s
+FAIL

@@ -1,0 +1,268 @@
+TAP version 13
+# Subtest: initial preview bootstrap requires its explicit Cloudflare token
+ok 1 - initial preview bootstrap requires its explicit Cloudflare token
+  ---
+  duration_ms: 7.087812
+  type: 'test'
+  ...
+# Subtest: initial preview bootstrap trims and selects only its explicit Cloudflare token
+ok 2 - initial preview bootstrap trims and selects only its explicit Cloudflare token
+  ---
+  duration_ms: 1.119057
+  type: 'test'
+  ...
+# Subtest: preview bootstrap is wired to the explicit token helper and has no SSH credential-file dependency
+ok 3 - preview bootstrap is wired to the explicit token helper and has no SSH credential-file dependency
+  ---
+  duration_ms: 35.969468
+  type: 'test'
+  ...
+# Subtest: branch identities are stable, bounded, distinct and cannot target production
+ok 4 - branch identities are stable, bounded, distinct and cannot target production
+  ---
+  duration_ms: 22.004906
+  type: 'test'
+  ...
+# Subtest: pushes, PRs and schedules never authorize browser tests
+ok 5 - pushes, PRs and schedules never authorize browser tests
+  ---
+  duration_ms: 1.552166
+  type: 'test'
+  ...
+# Subtest: image rebuilds follow application inputs, not docs or test-only changes
+ok 6 - image rebuilds follow application inputs, not docs or test-only changes
+  ---
+  duration_ms: 4.498238
+  type: 'test'
+  ...
+# Subtest: deployments require an enabled same-repository branch and a passing current revision
+ok 7 - deployments require an enabled same-repository branch and a passing current revision
+  ---
+  duration_ms: 6.480738
+  type: 'test'
+  ...
+# Subtest: automatic task graphs are browser-free; browser tasks require explicit authorization
+ok 8 - automatic task graphs are browser-free; browser tasks require explicit authorization
+  ---
+  duration_ms: 73.8066
+  type: 'test'
+  ...
+# Subtest: preview workflows use the policy and never check out fork code on the deployment runner
+ok 9 - preview workflows use the policy and never check out fork code on the deployment runner
+  ---
+  duration_ms: 16.799404
+  type: 'test'
+  ...
+# Subtest: routes and state enforce exact environment ownership before writes
+ok 10 - routes and state enforce exact environment ownership before writes
+  ---
+  duration_ms: 56.864284
+  type: 'test'
+  ...
+# Subtest: preview control files and image reuse are idempotent
+ok 11 - preview control files and image reuse are idempotent
+  ---
+  duration_ms: 41.012532
+  type: 'test'
+  ...
+# Subtest: preview gateway bounds Go memory and uses the shared identity contract
+ok 12 - preview gateway bounds Go memory and uses the shared identity contract
+  ---
+  duration_ms: 13.255109
+  type: 'test'
+  ...
+# Subtest: preview templates expose no host ports or production telemetry and protect generated dotenv
+ok 13 - preview templates expose no host ports or production telemetry and protect generated dotenv
+  ---
+  duration_ms: 9.430774
+  type: 'test'
+  ...
+# Subtest: release CI builds the production frontend image through its private BuildKit secret
+ok 14 - release CI builds the production frontend image through its private BuildKit secret
+  ---
+  duration_ms: 12.746191
+  type: 'test'
+  ...
+# Subtest: preview credential encryption key is standard-base64 32 bytes and existing merge keeps it
+ok 15 - preview credential encryption key is standard-base64 32 bytes and existing merge keeps it
+  ---
+  duration_ms: 17.449819
+  type: 'test'
+  ...
+# Subtest: TEST-233 resolves approved ownership and excludes ambient application variables
+ok 16 - TEST-233 resolves approved ownership and excludes ambient application variables
+  ---
+  duration_ms: 73.054006
+  type: 'test'
+  ...
+# Subtest: TEST-233 requires the consumer-owned Harden LLM Laminar key
+ok 17 - TEST-233 requires the consumer-owned Harden LLM Laminar key
+  ---
+  duration_ms: 15.94005
+  type: 'test'
+  ...
+# Subtest: TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data
+ok 18 - TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data
+  ---
+  duration_ms: 23.73214
+  type: 'test'
+  ...
+# Subtest: TEST-234 reports semantic identity and mount equality without exposing values
+ok 19 - TEST-234 reports semantic identity and mount equality without exposing values
+  ---
+  duration_ms: 30.842017
+  type: 'test'
+  ...
+# Subtest: TEST-234 check is read-only and equivalent apply never invokes up
+ok 20 - TEST-234 check is read-only and equivalent apply never invokes up
+  ---
+  duration_ms: 28.107634
+  type: 'test'
+  ...
+# Subtest: TEST-234 example production descriptor no longer manages the shared Caddy owner
+ok 21 - TEST-234 example production descriptor no longer manages the shared Caddy owner
+  ---
+  duration_ms: 1.069266
+  type: 'test'
+  ...
+# Subtest: TEST-234 blocks an unapproved runtime difference before application
+ok 22 - TEST-234 blocks an unapproved runtime difference before application
+  ---
+  duration_ms: 6.104155
+  type: 'test'
+  ...
+# Subtest: TEST-234 rejects a container from the wrong Compose project and never fills sources from it
+ok 23 - TEST-234 rejects a container from the wrong Compose project and never fills sources from it
+  ---
+  duration_ms: 10.071119
+  type: 'test'
+  ...
+# Subtest: TEST-233 missing approved sources fail before runtime inspection
+ok 24 - TEST-233 missing approved sources fail before runtime inspection
+  ---
+  duration_ms: 4.005833
+  type: 'test'
+  ...
+# Subtest: TEST-234 applies only the selected service with the reviewed nonsecret override
+ok 25 - TEST-234 applies only the selected service with the reviewed nonsecret override
+  ---
+  duration_ms: 14.890037
+  type: 'test'
+  ...
+# Subtest: TEST-234 descriptor loading keeps the descriptor itself nonsecret
+ok 26 - TEST-234 descriptor loading keeps the descriptor itself nonsecret
+  ---
+  duration_ms: 6.382492
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate release rejects a stale but internally equivalent descriptor
+ok 27 - TEST-260 candidate release rejects a stale but internally equivalent descriptor
+  ---
+  duration_ms: 46.469863
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate release rejects a wrong image label and unhealthy runtime
+ok 28 - TEST-260 candidate release rejects a wrong image label and unhealthy runtime
+  ---
+  duration_ms: 17.524189
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate-aware apply permits an old runtime and requires convergence
+ok 29 - TEST-260 candidate-aware apply permits an old runtime and requires convergence
+  ---
+  duration_ms: 8.995218
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate options reject invalid intent before Docker
+ok 30 - TEST-260 candidate options reject invalid intent before Docker
+  ---
+  duration_ms: 431.713717
+  type: 'test'
+  ...
+# Subtest: TEST-450 schema image override follows the accepted gateway image without a daemon descriptor
+ok 31 - TEST-450 schema image override follows the accepted gateway image without a daemon descriptor
+  ---
+  duration_ms: 6.70623
+  type: 'test'
+  ...
+# Subtest: TEST-450 accepted gateway schema runs exactly once before applications with the same context
+ok 32 - TEST-450 accepted gateway schema runs exactly once before applications with the same context
+  ---
+  duration_ms: 24.171509
+  type: 'test'
+  ...
+# Subtest: TEST-450 failed schema prevents application startup and redacts diagnostics
+ok 33 - TEST-450 failed schema prevents application startup and redacts diagnostics
+  ---
+  duration_ms: 16.653107
+  type: 'test'
+  ...
+# Subtest: TEST-450 missing service is rejected before schema or application starts
+ok 34 - TEST-450 missing service is rejected before schema or application starts
+  ---
+  duration_ms: 13.736453
+  type: 'test'
+  ...
+# Subtest: TEST-450 wrong image is rejected before schema or application starts
+ok 35 - TEST-450 wrong image is rejected before schema or application starts
+  ---
+  duration_ms: 15.585467
+  type: 'test'
+  ...
+# Subtest: TEST-450 wrong command is rejected before schema or application starts
+ok 36 - TEST-450 wrong command is rejected before schema or application starts
+  ---
+  duration_ms: 14.995624
+  type: 'test'
+  ...
+# Subtest: TEST-450 build stanza is rejected before schema or application starts
+ok 37 - TEST-450 build stanza is rejected before schema or application starts
+  ---
+  duration_ms: 11.880102
+  type: 'test'
+  ...
+# Subtest: TEST-450 different database is rejected before schema or application starts
+ok 38 - TEST-450 different database is rejected before schema or application starts
+  ---
+  duration_ms: 12.757009
+  type: 'test'
+  ...
+# Subtest: TEST-450 frontend-only apply never starts a schema service
+ok 39 - TEST-450 frontend-only apply never starts a schema service
+  ---
+  duration_ms: 16.115367
+  type: 'test'
+  ...
+# Subtest: TEST-450 no-change apply starts neither schema nor applications
+ok 40 - TEST-450 no-change apply starts neither schema nor applications
+  ---
+  duration_ms: 11.649055
+  type: 'test'
+  ...
+# Subtest: one connection-only CPA configuration is selected without embedded credentials
+ok 41 - one connection-only CPA configuration is selected without embedded credentials
+  ---
+  duration_ms: 11.302226
+  type: 'test'
+  ...
+# Subtest: Compose gives the same bearer to the public gateway and reference client
+ok 42 - Compose gives the same bearer to the public gateway and reference client
+  ---
+  duration_ms: 1.696692
+  type: 'test'
+  ...
+# Subtest: active setup uses the reference API and has no retired synchronization path
+ok 43 - active setup uses the reference API and has no retired synchronization path
+  ---
+  duration_ms: 5.163144
+  type: 'test'
+  ...
+1..43
+# tests 43
+# suites 0
+# pass 43
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1974.871962

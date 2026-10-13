@@ -1,0 +1,9 @@
+--- FAIL: TestSharedIngressOwnership (0.00s)
+    shared_caddy_test.go:122: frontend smoke Caddyfile omits "handle @private_metrics {"
+    shared_caddy_test.go:122: frontend smoke Caddyfile omits "respond 404"
+    shared_caddy_test.go:122: frontend smoke Caddyfile omits "@gateway path /v1/* /api/v1/* /healthz /readyz"
+    shared_caddy_test.go:122: frontend smoke Caddyfile omits "handle @gateway {"
+    shared_caddy_test.go:122: frontend smoke Caddyfile omits "reverse_proxy harden-llm-gateway:8080"
+FAIL
+FAIL    github.com/prls-co/harden-llm/internal/deploytest   0.004s
+FAIL

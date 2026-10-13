@@ -346,6 +346,12 @@ export function resolveConfiguration(descriptor, { readSource = readEnvironmentS
       environment: descriptor.serviceEnvironmentOverrides?.[service] ?? {},
     };
   }
+  // The one-shot schema command is the gateway artifact, not a managed daemon.
+  if (descriptor.serviceImageOverrides?.["harden-llm-gateway"]) {
+    serviceEnvironmentOverrides["gateway-schema"] = {
+      image: descriptor.serviceImageOverrides["harden-llm-gateway"],
+    };
+  }
   return {
     descriptor,
     sources,
@@ -877,6 +883,17 @@ export function runCheck(descriptor, { services = descriptorServiceNames(descrip
   };
 }
 
+function validateSchemaService(model) {
+  const gateway = model.services["harden-llm-gateway"];
+  const schema = model.services["gateway-schema"];
+  const database = environmentMap(gateway.environment).HARDEN_LLM_DATABASE_URL;
+  if (!schema || schema.image !== gateway.image || !equalJSON(schema.command, ["schema"])
+    || Object.hasOwn(schema, "build") || !database
+    || environmentMap(schema.environment).HARDEN_LLM_DATABASE_URL !== database) {
+    fail("gateway-schema must use the accepted gateway image, schema command and protected database configuration without a build", "invalid_schema_service");
+  }
+}
+
 export function runApply(descriptor, services, run = defaultProcessRunner, { expectedRelease = null } = {}) {
   services = normalizeSelectedServices(descriptor, services);
   expectedRelease = normalizeExpectedRelease(expectedRelease);
@@ -904,7 +921,13 @@ export function runApply(descriptor, services, run = defaultProcessRunner, { exp
   if (second.candidate?.desiredDifferences.length > 0) {
     fail("desired application images or release metadata do not match the expected release", "candidate_mismatch");
   }
+  const applySchema = services.includes("harden-llm-gateway");
+  if (applySchema) validateSchemaService(second.resolved.model);
   withOverrideFile(second.resolved, (overridePath) => {
+    if (applySchema) {
+      const schemaArgs = buildComposeArguments(descriptor, ["run", "--rm", "--no-deps", "--pull", "never", "gateway-schema"], overridePath);
+      processResultOutput(run("docker", schemaArgs, { env: buildComposeEnvironment(second.resolved) }));
+    }
     const upArgs = buildComposeArguments(descriptor, ["up", "-d", "--no-build", "--no-deps", "--pull", "never", "--wait", "--wait-timeout", "300", ...services], overridePath);
     processResultOutput(run("docker", upArgs, { env: buildComposeEnvironment(second.resolved) }));
   });

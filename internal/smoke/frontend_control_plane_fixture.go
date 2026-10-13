@@ -28,9 +28,10 @@ type frontendControlPlaneFixture struct {
 	context       map[string]any
 	mu            sync.Mutex
 	active        bool
+	unavailable   bool
 }
 
-func startFrontendControlPlaneFixture(t *testing.T, internalToken string, origins []string, email, password, userID string) string {
+func startFrontendControlPlaneFixture(t *testing.T, internalToken string, origins []string, email, password, userID string) (string, *frontendControlPlaneFixture) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
@@ -63,10 +64,17 @@ func startFrontendControlPlaneFixture(t *testing.T, internalToken string, origin
 	})
 
 	port := listener.Addr().(*net.TCPAddr).Port
-	return "http://host.docker.internal:" + strconv.Itoa(port)
+	return "http://host.docker.internal:" + strconv.Itoa(port), fixture
 }
 
 func (fixture *frontendControlPlaneFixture) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	fixture.mu.Lock()
+	unavailable := fixture.unavailable
+	fixture.mu.Unlock()
+	if unavailable {
+		http.Error(writer, "synthetic identity outage", http.StatusServiceUnavailable)
+		return
+	}
 	switch {
 	case request.URL.Path == "/health/ready" && request.Method == http.MethodGet:
 		writeFrontendControlPlaneJSON(writer, http.StatusOK, map[string]string{"status": "ok", "service": "control-plane-fixture"})

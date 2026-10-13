@@ -106,11 +106,11 @@ test("preview workflows use the policy and never check out fork code on the depl
 test("routes and state enforce exact environment ownership before writes", async () => {
   const state = branchIdentity("feat/test");
   const route = routeFor(state);
-  assert.match(route, /@api path \/v1\/\* \/healthz \/readyz/);
+  assert.match(route, /@api path \/v1\/\* \/api\/v1\/\* \/healthz \/readyz/);
   assert(route.includes(`${state.project}-web:4000`));
   assert.match(route, /header_up X-Forwarded-Proto https/);
   assert(route.includes(`${state.project}-gateway:8080`));
-  assert.doesNotMatch(route, /garage|artifacts|\/api\//);
+  assert.doesNotMatch(route, /garage|artifacts/);
   assert.doesNotMatch(route, /harden-llm\.prls\.co|otel-collector/);
   assert.throws(() => routeFor({ ...state, host: "harden-llm.prls.co" }));
   assert.throws(() => routeFor({ ...state, project: "harden-llm" }));

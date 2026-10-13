@@ -11,9 +11,10 @@ Harden LLM accepts standard OpenAI-style requests on these routes:
 
 The public bearer is `HARDEN_LLM_TOKEN`. Use that same value from the ignored
 root `.env` for normal OpenAI SDK clients and the Phoenix reference app. The
-upstream `CPA_API_KEY` is private to the gateway. History is not part of the
-REST API: direct requests are stateless and are never recorded. Phoenix
-records only its own completed requests in its shared reference history.
+upstream `CPA_API_KEY` is private to the gateway. Direct `/v1` requests are
+stateless and never recorded in product history. The separate `/api/v1`
+reference API composes key-scoped saved settings, cache, history and artifacts.
+Both surfaces use the same bearer validator; neither requires Portal cookies.
 
 ## OpenAI-compatible request
 
@@ -21,7 +22,7 @@ Use an OpenAI SDK's normal base URL and token settings. This example uses
 Responses input as a single string:
 
 ```bash
-API=https://harden-llm-api.prls.co/v1
+API=https://harden-llm.prls.co/v1
 curl --fail-with-body --silent --show-error \
   "$API/responses" \
   -H "Authorization: Bearer ${HARDEN_LLM_TOKEN}" \
@@ -88,13 +89,13 @@ streaming should not treat this final-only stream as equivalent.
 
 ## Go library
 
-The root Go package uses the same execution engine without HTTP or environment
-loading. Supply a connection directly to `hardenllm.New`, then choose its
-native model ID on each request:
+For built-in provider transports and telemetry composition, use the public
+`stateful` package with explicit configuration. This client requires no database
+or HTTP server:
 
 ```go
 apiKey := os.Getenv("CPA_API_KEY")
-client, err := hardenllm.New(hardenllm.Options{
+client, err := stateful.NewClient(stateful.ClientOptions{
     DefaultConnection: "cpa",
     Connections: []hardenllm.Connection{{
         ID: "cpa", Provider: "cpa", Protocol: "responses",
@@ -116,10 +117,17 @@ result, err := client.Call(ctx, hardenllm.Request{
 })
 ```
 
-The library does not read `.env`; the application supplies credentials and
-optional cache/telemetry implementations. It has no profile CRUD or history
-store. `Client.Call` returns the normalized result and accounting metadata; it
-does not persist the request.
+Import `github.com/prls-co/harden-llm` as `hardenllm` and
+`github.com/prls-co/harden-llm/stateful`. Libraries do not read `.env`.
+`stateful.NewClient` creates the provider effects; `stateful.NewService` adds
+reference storage using an application-supplied pool, credential vault, catalog
+and artifact client. Neither requires an HLLM access token when used in process.
+
+For fully injected effects, the root `hardenllm.New(hardenllm.Options{...})`
+accepts a `ConnectionCatalog`, executor and optional cache/observer/model
+discovery functions. It owns no authentication, SQL or telemetry SDK. All entry
+points use this one engine; `Client.Call` returns results/accounting without
+creating a history record.
 
 ## Access, health, and history boundaries
 
@@ -127,7 +135,17 @@ does not persist the request.
 loaded valid startup configuration; neither probe calls CPA. The `/v1/*`
 routes require `Authorization: Bearer <HARDEN_LLM_TOKEN>`.
 
-There are no profile, login, run-history, trace, or artifact endpoints on the
-gateway. Human login is only for accessing the Phoenix reference UI. All
-enabled logins share the frontend's history, while direct API calls remain
-unrecorded.
+The `/api/v1` reference surface exposes profile snapshots/bundles, drafts,
+runs, history, statistics and authenticated artifact downloads. The server
+derives the storage scope from the validated key. Equal keys share data;
+different keys are isolated. Callers cannot submit an owner, user ID or key hash
+to select another scope. Human login belongs only to the Phoenix host and shared
+Portal; the host sends its configured HLLM key to the gateway server-side.
+
+Git presets contain metadata and starting values. Explicit Save creates a new
+complete snapshot with a UUID and date suffix, after one bounded provider
+probe; supplied provider secrets are encrypted in PostgreSQL. Environment-bound
+presets use explicitly configured deployment credentials. Editing alone saves
+only a draft. History summaries load first and full records load on expansion.
+See OpenAPI and [architecture](architecture.md) for the reference contracts and
+persistence failure outcomes.

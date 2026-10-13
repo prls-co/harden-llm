@@ -11,7 +11,7 @@
 
 Restore the baseline Harden-LLM UI and its useful workflows while separating one stateless Go execution engine, a reusable stateful wrapper, shared services, reusable Phoenix components, and shared ingress. Ordinary OpenAI-compatible clients use one base URL and a configured HLLM bearer without profiles or login. Reference REST uses that same bearer contract for API-key-scoped profiles, history, drafts and diagnostics. The core owns no authentication or storage scope. Reuse Agent Platform PostgreSQL for saved application state and reference history, existing Garage for artifacts, and existing Laminar only for the diagnostic traces it already receives; remove superseded code/storage without migrating obsolete HLLM data.
 
-v5.3 changes only two execution contracts: a missing or failed readback after an uncertain COMMIT means `unconfirmed`, because a delayed commit can become visible later; and production `runApply` explicitly runs the accepted image's one-shot schema service before starting selected applications, retaining `--no-deps`. These corrections add TEST-450/451 within existing steps; there are still seven phases and 72 steps. P00–P03 are complete at the phase checkpoints; P04 is next. Main and production have not been promoted. Section 11 links the verified phase checkpoints; uncommitted work is not a completed phase.
+v5.3 changes only two execution contracts: a missing or failed readback after an uncertain COMMIT means `unconfirmed`, because a delayed commit can become visible later; and production `runApply` explicitly runs the accepted image's one-shot schema service before starting selected applications, retaining `--no-deps`. These corrections add TEST-450/451 within existing steps; there are still seven phases and 72 steps. P00–P04 are complete at the pushed phase checkpoints; P05.S01–S06 are complete locally and ready for their checkpoint. Main and production have not been promoted. Section 11 links the verified phase checkpoints; uncommitted work is not a completed phase.
 
 ## 2. Design consensus and trade-offs
 
@@ -51,6 +51,21 @@ Baseline capabilities include profile picker/editor/CRUD/bundles/model refresh/c
 - Current `frontend/lib/harden_llm_web/router.ex` uses shared `PrlsWeb.Access` with `:require_access`; `/home/kirill/p/masked-recall/web/lib/model_recall_web_web/router.ex` uses the same integration with an additional `{:product, "model-recall"}` requirement. Reuse the shared identity authority, not Model Recall's account/product access policy.
 - `/home/kirill/p/prls-portal/lib/prls_portal_web/router.ex` exposes operator-only `/admin`; `admin_live.ex` implements create-user, reset-password and disable-user through Control Plane. `/home/kirill/p/prls-control-plane/contracts/openapi.yaml` and `docs/operations.md` own those contracts. This is source evidence, not a claim that live provisioning was exercised.
 - Current Go REST `internal/gateway/httpapi/httpapi.go:authorize` checks one bearer; Phoenix resolves Portal identity for frontend admission/drafts. The target replaces frontend user-ID draft ownership with key scope and generalizes the one HTTP bearer validator to the configured key list. Shared Control Plane token issuance exists in its source, but its account/product permissions are outside this design: do not add that verification path or an HLLM token registry. Source evidence is not deployed acceptance.
+
+P05 live-owner check (2026-10-13): the local Docker daemon has no deployed
+Agent Platform standalone `services.postgres` or `prls-agent-platform-storage`
+network. `compose-postgres-1` is owned by `prls-co/self-imp-bin-eval`, project
+`compose`, on `compose_default`. Agent Platform's current local shared-service
+lock/runbook point to that owner's Temporal deployment and explicitly prohibit
+starting the standalone PostgreSQL/Temporal stack alongside it. Read-only SQL
+found no `harden_llm` database or role there. Kirill approved using an isolated HLLM database/role on this existing server
+on 2026-10-13. Use its existing `compose_default` network, without adding a
+PostgreSQL service or changing the other owner's Compose declaration.
+Do not silently start the standalone stack, switch to another database or alter
+the other owner's dirty files. The shared Garage inventory also has no dedicated
+HLLM artifact bucket, so bucket/key provisioning remains a P06 prerequisite.
+These findings refine deployment evidence, not the settled PostgreSQL history
+or single-process architecture. See the [P05 work log](evidence/harden-llm/reference-decoupling/phase-p05-in-progress.md).
 
 ### 2.2. API keys, complete saved profiles and frontend admission
 
@@ -2218,7 +2233,7 @@ Generate ciphertext deterministically only in encryption tests using an injected
 
 ## 11. Execution log template
 
-Current execution evidence is in [progress.json](evidence/harden-llm/reference-decoupling/progress.json) and the [P00](evidence/harden-llm/reference-decoupling/phase-p00.md), [P01](evidence/harden-llm/reference-decoupling/phase-p01.md), [P02](evidence/harden-llm/reference-decoupling/phase-p02.md), [P03](evidence/harden-llm/reference-decoupling/phase-p03.md) and [P04](evidence/harden-llm/reference-decoupling/phase-p04.md) checkpoints. P00–P04 are complete; resume **P05.S01** in `/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl`, branch `feat/reference-decoupling`. The issue #100 phase comment records the pushed checkpoint SHA. The chronological [P04 log](evidence/harden-llm/reference-decoupling/phase-p04-in-progress.md) retains failed attempts; its final checkpoint is authoritative. The canonical plan is this file on the implementation branch, not the frozen v5.2 planning worktree or the stale primary checkout. CHECK-422 and the trusted main-owned preview control-assets gate remain for P05/P06. No main, dev or production promotion has run. Do not repeat the completed one-time dev reset. Copy this template for later phases and retain failures and deviations.
+Current execution evidence is in [progress.json](evidence/harden-llm/reference-decoupling/progress.json) and the [P00](evidence/harden-llm/reference-decoupling/phase-p00.md), [P01](evidence/harden-llm/reference-decoupling/phase-p01.md), [P02](evidence/harden-llm/reference-decoupling/phase-p02.md), [P03](evidence/harden-llm/reference-decoupling/phase-p03.md), [P04](evidence/harden-llm/reference-decoupling/phase-p04.md) and [P05](evidence/harden-llm/reference-decoupling/phase-p05.md) checkpoints. P00–P05 are complete (68/72 steps); resume **P06.S01** in `/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl`, branch `feat/reference-decoupling`. The issue #100 phase comment records pushed checkpoint SHAs. Chronological phase logs retain failed attempts; final checkpoints are authoritative. This file on the implementation branch is canonical, not the frozen v5.2 planning worktree or stale primary checkout. CHECK-422 live provisioning/permission proof and exact-SHA release/deployment remain P06 gates. No main, dev or production promotion has run. Do not repeat the completed one-time dev reset. Copy this template for later phases and retain failures and deviations.
 
 ```yaml
 phase_id: ""

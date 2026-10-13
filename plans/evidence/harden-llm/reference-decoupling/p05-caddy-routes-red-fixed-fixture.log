@@ -1,0 +1,20 @@
+F
+======================================================================
+FAIL: test_routes_preserve_policy_tls_and_failure_isolation (__main__.TestRoutePolicy.test_routes_preserve_policy_tls_and_failure_isolation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/kirill/.cache/harden-llm-tmp/caddy-reference-routing/tests/test_routes.py", line 389, in test_routes_preserve_policy_tls_and_failure_isolation
+    self._assert_route_behavior(candidate)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/home/kirill/.cache/harden-llm-tmp/caddy-reference-routing/tests/test_routes.py", line 424, in _assert_route_behavior
+    self.assertEqual("8080", json_body(body)["port"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '8080' != '4000'
+- 8080
++ 4000
+
+
+----------------------------------------------------------------------
+Ran 1 test in 5.912s
+
+FAILED (failures=1)

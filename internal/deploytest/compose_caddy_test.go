@@ -18,7 +18,7 @@ import (
 )
 
 var productionServices = []string{
-	"harden-llm-gateway", "harden-postgres", "otel-collector",
+	"harden-llm-gateway", "otel-collector",
 	"prometheus", "loki", "tempo", "grafana",
 }
 
@@ -40,7 +40,7 @@ func TestComposeDeploymentContract(t *testing.T) {
 	assertServiceNames(
 		t,
 		production,
-		append(append([]string(nil), productionServices...), "harden-llm-web", "otel-collector-state-init"),
+		append(append([]string(nil), productionServices...), "harden-llm-web", "gateway-schema", "otel-collector-state-init"),
 		"production",
 	)
 	assertProductionFrontend(t, production)
@@ -103,7 +103,7 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 	sort.Strings(wantServices)
 	actualServices := make(map[string]any, len(services))
 	for name, service := range services {
-		if name != "otel-collector-state-init" {
+		if name != "otel-collector-state-init" && name != "gateway-schema" {
 			actualServices[name] = service
 		}
 	}
@@ -115,7 +115,7 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		t.Errorf("otel-collector-state-init network mode = %q, want none", stateInit["network_mode"])
 	}
 	for name, raw := range services {
-		if name == "otel-collector-state-init" {
+		if name == "otel-collector-state-init" || name == "gateway-schema" {
 			continue
 		}
 		service := asObject(t, raw, "effective service "+name)
@@ -144,9 +144,9 @@ func assertEffectiveTopology(t *testing.T, config map[string]any) {
 		gatewayEnv["HARDEN_LLM_TOKEN"] == gatewayEnv["CPA_API_KEY"] {
 		t.Errorf("gateway connection/auth configuration = %#v", gatewayEnv)
 	}
-	for _, forbidden := range []string{"HARDEN_LLM_DATABASE_URL", "HARDEN_LLM_ARTIFACT_ENDPOINT", "HARDEN_LLM_CONTROL_PLANE_URL", "HARDEN_LLM_STATIC_TOKEN"} {
+	for _, forbidden := range []string{"HARDEN_LLM_CONTROL_PLANE_URL", "HARDEN_LLM_STATIC_TOKEN"} {
 		if _, exists := gatewayEnv[forbidden]; exists {
-			t.Errorf("stateless gateway receives retired setting %s", forbidden)
+			t.Errorf("gateway receives retired identity setting %s", forbidden)
 		}
 	}
 	gateway := asObject(t, services["harden-llm-gateway"], "gateway")
@@ -213,8 +213,8 @@ func assertProductionFrontend(t *testing.T, config map[string]any) {
 		t.Errorf("production web build secrets = %#v, want private_module_token", webBuild["secrets"])
 	}
 	webEnv := environmentValueMap(t, web["environment"])
-	if webEnv["HARDEN_LLM_TOKEN"] != "contract-incoming-bearer-token" || webEnv["HARDEN_LLM_DATABASE_URL"] == "" {
-		t.Errorf("reference frontend bearer/database configuration is incomplete: %#v", webEnv)
+	if webEnv["HARDEN_LLM_TOKEN"] != "contract-incoming-bearer-token" || webEnv["HARDEN_LLM_DATABASE_URL"] != "" {
+		t.Errorf("reference frontend requires its bearer and must not receive database credentials: %#v", webEnv)
 	}
 	if _, exists := webEnv["PRIVATE_MODULE_TOKEN"]; exists {
 		t.Error("private module token is exposed to the web runtime")
@@ -243,16 +243,21 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 	}
 	wanted := append(
 		append([]string(nil), proxyServices...),
-		"caddy", "fake-provider", "garage", "laminar", "otel-collector-state-init",
+		"caddy", "fake-provider", "garage", "laminar", "gateway-schema", "otel-collector-state-init", "harden-postgres",
 	)
 	model := "backend smoke"
 	if frontend {
-		wanted = append(wanted, "harden-postgres", "harden-llm-web")
+		wanted = append(wanted, "harden-llm-web")
 		model = "frontend smoke"
 	}
 	assertServiceNames(t, config, wanted, model)
 
 	services := objectField(t, config, "services")
+	postgres := asObject(t, services["harden-postgres"], model+" PostgreSQL")
+	postgresEnv := environmentValueMap(t, postgres["environment"])
+	if postgresEnv["POSTGRES_USER"] != "postgres" {
+		t.Error("test application must not inherit the PostgreSQL bootstrap superuser")
+	}
 	caddy := asObject(t, services["caddy"], model+" caddy")
 	if image := stringField(t, caddy, "image"); image != "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648" {
 		t.Errorf("%s Caddy image = %q, want the pinned isolated test image", model, image)
@@ -262,7 +267,7 @@ func assertSmokeTopology(t *testing.T, root string, config map[string]any, front
 	}
 
 	environment := environmentValueMap(t, caddy["environment"])
-	for _, name := range []string{"HARDEN_LLM_API_HOST", "HARDEN_LLM_GRAFANA_HOST"} {
+	for _, name := range []string{"HARDEN_LLM_GRAFANA_HOST"} {
 		if strings.TrimSpace(environment[name]) == "" {
 			t.Errorf("%s Caddy environment omits %s", model, name)
 		}
@@ -417,12 +422,20 @@ func composeContractEnvironment() []string {
 		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY=contract-harden-laminar-project-key",
 		"PRLS_LOKI_S3_ACCESS_KEY=contract-prls-loki-access-key",
 		"PRLS_LOKI_S3_SECRET_KEY=contract-prls-loki-secret-key",
-		"HARDEN_LLM_API_HOST=api.harden.test", "HARDEN_LLM_GRAFANA_HOST=grafana.harden.test",
+		"HARDEN_LLM_GRAFANA_HOST=grafana.harden.test",
 		"HARDEN_LLM_WEB_HOST=app.harden.test",
 		"PRLS_PORTAL_URL=https://portal.harden.test",
 		"PRLS_PORTAL_HOST=portal.harden.test",
 		"HARDEN_LLM_CONFIG_FILE=/tmp/harden-llm-contract/upstreams.json",
 		"HARDEN_LLM_TOKEN=contract-incoming-bearer-token",
+		"HARDEN_LLM_TEST_SECOND_TOKEN=contract-second-bearer-token",
+		"HARDEN_LLM_DATABASE_URL=postgresql://harden_llm:synthetic-db-password@platform-postgres:5432/harden_llm",
+		"HARDEN_LLM_POSTGRES_NETWORK=contract-shared-postgres",
+		"HARDEN_LLM_CREDENTIAL_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"HARDEN_LLM_ARTIFACT_ENDPOINT=http://garage-shared:3900",
+		"HARDEN_LLM_ARTIFACT_BUCKET=harden-llm-artifacts",
+		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID=synthetic-artifact-access",
+		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY=synthetic-artifact-secret",
 		"CPA_API_KEY=contract-upstream-key",
 		"HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN=contract-control-plane-internal-token",
 		"PRIVATE_MODULE_TOKEN=contract-private-module-token",

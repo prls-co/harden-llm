@@ -42,13 +42,14 @@ test("Compose gives the same bearer to the public gateway and reference client",
   assert.match(gateway, /^      CPA_API_KEY: \$\{CPA_API_KEY:\?[^\n]+\}$/m);
   assert.doesNotMatch(frontend, /CPA_API_KEY|HARDEN_LLM_STATIC_TOKEN|HARDEN_LLM_PROFILE_USER_IDS/);
   assert.doesNotMatch(gateway, /HARDEN_LLM_STATIC_TOKEN|HARDEN_LLM_STATIC_TOKEN_USER_ID|HARDEN_LLM_CONTROL_PLANE_URL/);
-  assert.match(frontend, /HARDEN_LLM_DATABASE_URL:/);
+  assert.doesNotMatch(frontend, /HARDEN_LLM_DATABASE_URL:|HARDEN_LLM_CREDENTIAL_KEY:/);
+  assert.match(gateway, /HARDEN_LLM_DATABASE_URL: \$\{HARDEN_LLM_DATABASE_URL:\?/);
   assert.doesNotMatch(gateway, /^  harden-postgres:/m);
-  assert.match(frontend, /^  harden-postgres:/m);
+  assert.doesNotMatch(frontend, /^  harden-postgres:/m);
   assert.doesNotMatch(frontend, /harden-postgres:\n\s+condition: service_healthy/);
 });
 
-test("active setup and client documentation have no profile API or synchronization path", () => {
+test("active setup uses the reference API and has no retired synchronization path", () => {
   const activeFiles = [
     ".env.example",
     "README.md",
@@ -70,7 +71,6 @@ test("active setup and client documentation have no profile API or synchronizati
     const source = read(file);
     assert.doesNotMatch(source, /HARDEN_LLM_STATIC_TOKEN|HARDEN_LLM_STATIC_TOKEN_USER_ID/);
     assert.doesNotMatch(source, /sync-profiles|HARDEN_LLM_PROFILE_USER_IDS/);
-    assert.doesNotMatch(source, /\/api\/v1\/(?:run|profiles|history|traces|artifacts)/);
   }
 
   for (const retiredPath of [

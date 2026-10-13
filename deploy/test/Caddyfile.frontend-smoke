@@ -5,17 +5,28 @@ import /etc/caddy/test/Caddyfile.smoke
 	import security_headers
 
 	@private_metrics path /metrics
-	respond @private_metrics 404
-
-	request_body {
-		max_size 3MB
+	handle @private_metrics {
+		respond 404
 	}
 
-	reverse_proxy harden-llm-web:4000
+	@gateway path /v1/* /api/v1/* /healthz /readyz
+	handle @gateway {
+		request_body {
+			max_size 8MB
+		}
+		reverse_proxy harden-llm-gateway:8080
+	}
+
+	handle {
+		request_body {
+			max_size 3MB
+		}
+		reverse_proxy harden-llm-web:4000
+	}
 }
 
 {$PRLS_PORTAL_HOST} {
-    tls {$HARDEN_LLM_TLS_MODE}
-    import security_headers
-    reverse_proxy host.docker.internal:4004
+	tls {$HARDEN_LLM_TLS_MODE}
+	import security_headers
+	reverse_proxy host.docker.internal:4004
 }

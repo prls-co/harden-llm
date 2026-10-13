@@ -186,7 +186,8 @@ func (api *API) observeHTTP(next http.Handler) http.Handler {
 		ctx := api.propagator.Extract(request.Context(), propagation.HeaderCarrier(request.Header))
 		ctx, endRequest := api.telemetry.StartHTTP(ctx, request.Method)
 		wrapped := &statusWriter{ResponseWriter: writer, status: http.StatusOK}
-		next.ServeHTTP(wrapped, request.WithContext(ctx))
+		request = request.WithContext(ctx)
+		next.ServeHTTP(wrapped, request)
 		_, route, matched := strings.Cut(request.Pattern, " ")
 		if !matched {
 			route = "unmatched"

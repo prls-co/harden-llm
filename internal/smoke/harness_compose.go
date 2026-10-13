@@ -40,7 +40,7 @@ const (
 
 var requiredSmokeStackServices = []string{
 	"caddy", "harden-llm-gateway", "garage", "otel-collector",
-	"laminar", "prometheus", "loki", "tempo", "grafana",
+	"laminar", "prometheus", "loki", "tempo", "grafana", "harden-postgres", "harden-llm-web",
 }
 
 // ComposeReport is the threshold evidence shared by TEST-034 and EVAL-004.
@@ -70,13 +70,18 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	}
 	project := fmt.Sprintf("harden-llm-smoke-%d-%d", os.Getpid(), time.Now().UnixNano())
 	secrets := smokeEnvironment(t, material, httpPort, httpsPort)
-	if strings.TrimSpace(os.Getenv("PRIVATE_MODULE_TOKEN")) == "" {
-		t.Fatal("PRIVATE_MODULE_TOKEN is required to build the private Control Plane Go module")
-	}
-	secrets["PRIVATE_MODULE_TOKEN"] = os.Getenv("PRIVATE_MODULE_TOKEN")
+	secrets["HARDEN_LLM_WEB_HOST"] = "app.smoke.localhost"
+	secrets["HARDEN_LLM_WEB_PUBLIC_URL"] = fmt.Sprintf("https://app.smoke.localhost:%d", httpsPort)
+	secrets["PRLS_PORTAL_HOST"] = "portal.smoke.localhost"
+	secrets["PRLS_PORTAL_URL"] = fmt.Sprintf("https://portal.smoke.localhost:%d", httpsPort)
+	controlURL, identity := startFrontendControlPlaneFixture(t, secrets["HARDEN_LLM_CONTROL_PLANE_INTERNAL_TOKEN"],
+		[]string{secrets["HARDEN_LLM_WEB_PUBLIC_URL"]}, "reference@example.test", "synthetic-reference-password", "reference-user")
+	secrets["HARDEN_LLM_CONTROL_PLANE_URL"] = controlURL
 	composeFiles := []string{
 		filepath.Join(root, "docker-compose.yml"),
 		filepath.Join(root, "deploy", "test", "compose.smoke.yml"),
+		filepath.Join(root, "deploy", "frontend", "compose.frontend.yml"),
+		filepath.Join(root, "deploy", "test", "compose.frontend-smoke.yml"),
 	}
 	runner := composeRunner{
 		root: root, project: project, environment: secrets, files: composeFiles,
@@ -114,17 +119,10 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 		}
 	})
 
-	pullContext, cancelPull := context.WithTimeout(context.Background(), 20*time.Minute)
-	if err := runner.run(pullContext, nil, "pull", "--ignore-buildable"); err != nil {
-		cancelPull()
-		t.Fatalf("pre-pull pinned images: %v", err)
-	}
-	cancelPull()
-	validateFrontendSmokeCaddyfile(t, runner)
-
+	prepareSmokeApplications(t, runner)
 	started := time.Now()
 	startContext, cancelStart := context.WithTimeout(context.Background(), 6*time.Minute)
-	err = runner.run(startContext, nil, "up", "-d", "--build", "--wait", "--wait-timeout", "300")
+	err = runner.run(startContext, nil, "up", "-d", "--no-build", "--wait", "--wait-timeout", "300")
 	cancelStart()
 	if err != nil {
 		t.Fatalf("start Compose stack: %v\n%s", err, runner.diagnostics())
@@ -140,18 +138,18 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	report := ComposeReport{TotalServices: len(requiredSmokeStackServices), Readiness: readiness, CorrelationBackends: 4}
 	report.ReadyServices = assertContainerTopology(t, runner)
 	client := caddyClient(httpsPort, false)
-	waitHTTPStatus(t, client, "https://api.smoke.localhost/readyz", http.StatusOK, 45*time.Second, nil)
+	waitHTTPStatus(t, client, "https://app.smoke.localhost/readyz", http.StatusOK, 45*time.Second, nil)
 	waitHTTPStatus(t, client, "https://grafana.smoke.localhost/api/health", http.StatusOK, 45*time.Second, nil)
 
 	token := secrets["HARDEN_LLM_TOKEN"]
 	assertProxyComposeBoundary(t, runner)
-	requestJSON(t, client, http.MethodGet, "https://api.smoke.localhost/v1/models", nil, "", http.StatusUnauthorized)
-	models := requestJSON(t, client, http.MethodGet, "https://api.smoke.localhost/v1/models", nil, token, http.StatusOK)
+	requestJSON(t, client, http.MethodGet, "https://app.smoke.localhost/v1/models", nil, "", http.StatusUnauthorized)
+	models := requestJSON(t, client, http.MethodGet, "https://app.smoke.localhost/v1/models", nil, token, http.StatusOK)
 	modelData := array(t, models["data"], "model list data")
 	if len(modelData) != 1 || object(t, modelData[0], "model")["id"] != "smoke-model" {
 		t.Fatalf("model discovery = %#v", models)
 	}
-	response := requestJSON(t, client, http.MethodPost, "https://api.smoke.localhost/v1/responses", map[string]any{
+	response := requestJSON(t, client, http.MethodPost, "https://app.smoke.localhost/v1/responses", map[string]any{
 		"model": "smoke-model", "input": "return the smoke response", "store": false,
 		"harden": map[string]any{
 			"upstream": "smoke", "cache": "off", "diagnostics": true,
@@ -171,20 +169,44 @@ func RunComposeSmoke(t *testing.T) ComposeReport {
 	if report.RunID == "" || report.TraceID == "" {
 		t.Fatal("Responses result returned empty diagnostic IDs")
 	}
-	requestJSON(t, client, http.MethodGet, "https://api.smoke.localhost/api/v1/history", nil, token, http.StatusNotFound)
-	requestJSON(t, client, http.MethodPost, "https://api.smoke.localhost/api/v1/run", map[string]any{}, token, http.StatusNotFound)
 	correlation := correlateBackends(t, runner, report)
 	report.CorrelatedBackends = correlation
 	if correlation != report.CorrelationBackends {
 		t.Fatalf("backend correlation = %d/%d", correlation, report.CorrelationBackends)
 	}
 	assertGrafanaDatasources(t, client, secrets["GRAFANA_ADMIN_USER"], secrets["GRAFANA_ADMIN_PASSWORD"])
+	assertReferenceCompose(t, runner, client, identity)
 	assertProxyComposeBoundary(t, runner)
 
 	t.Logf("Compose evidence: ready=%d/%d readiness=%s correlation=%d/%d run=%s trace=%s",
 		report.ReadyServices, report.TotalServices, report.Readiness.Round(time.Millisecond),
 		report.CorrelatedBackends, report.CorrelationBackends, report.RunID, report.TraceID)
 	return report
+}
+
+// prepareSmokeApplications shares build/setup ownership with the opt-in browser fixture.
+func prepareSmokeApplications(t *testing.T, runner composeRunner) {
+	t.Helper()
+	token := os.Getenv("PRIVATE_MODULE_TOKEN")
+	if strings.TrimSpace(token) == "" {
+		t.Fatal("PRIVATE_MODULE_TOKEN is required to build the private dependencies")
+	}
+	runner.environment["PRIVATE_MODULE_TOKEN"] = token
+	defer delete(runner.environment, "PRIVATE_MODULE_TOKEN")
+	pullContext, cancelPull := context.WithTimeout(context.Background(), 20*time.Minute)
+	if err := runner.run(pullContext, nil, "pull", "caddy", "harden-postgres", "garage", "otel-collector", "otel-collector-state-init", "laminar", "prometheus", "loki", "tempo", "grafana"); err != nil {
+		cancelPull()
+		t.Fatalf("pre-pull pinned images: %v", err)
+	}
+	cancelPull()
+	validateFrontendSmokeCaddyfile(t, runner)
+
+	buildContext, cancelBuild := context.WithTimeout(context.Background(), 20*time.Minute)
+	if err := runner.run(buildContext, nil, "build", "harden-llm-gateway", "harden-llm-web", "fake-provider"); err != nil {
+		cancelBuild()
+		t.Fatalf("build composed applications: %v", err)
+	}
+	cancelBuild()
 }
 
 func validateFrontendSmokeCaddyfile(t *testing.T, runner composeRunner) {
@@ -222,7 +244,7 @@ func validateFrontendSmokeCaddyfile(t *testing.T, runner composeRunner) {
 		"--mount", fmt.Sprintf("type=bind,source=%s,target=/etc/caddy/test,readonly", filepath.Join(runner.root, "deploy", "test")),
 	}
 	for _, name := range []string{
-		"HARDEN_LLM_API_HOST", "HARDEN_LLM_GRAFANA_HOST",
+		"HARDEN_LLM_GRAFANA_HOST",
 		"HARDEN_LLM_TLS_MODE", "HARDEN_LLM_WEB_HOST", "PRLS_PORTAL_HOST",
 	} {
 		value, exists := environment[name]
@@ -417,6 +439,7 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 	configPath := filepath.Join(filepath.Dir(material.ca), "upstreams.json")
 	connectionConfig := map[string]any{
 		"default_upstream": "smoke",
+		"api_key_envs":     []string{"HARDEN_LLM_TOKEN", "HARDEN_LLM_TEST_SECOND_TOKEN"},
 		"upstreams": []map[string]any{{
 			"id": "smoke", "provider": "openai", "protocol": "responses",
 			"base_url": "https://fake-provider:8443/v1", "api_key_env": "CPA_API_KEY",
@@ -432,13 +455,26 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 	if err := os.WriteFile(configPath, configContents, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	databasePassword := textSecret("db")
+	artifactAccess, artifactSecret := "GK"+strings.ToUpper(hexSecret(16)), hexSecret(32)
 	return map[string]string{
-		"HARDEN_LLM_API_HOST": "api.smoke.localhost", "HARDEN_LLM_GRAFANA_HOST": "grafana.smoke.localhost",
-		"PRLS_SMOKE_OBSERVABILITY_NETWORK":   "prls-observability-smoke-" + hexSecret(8),
-		"PRLS_LAMINAR_PROJECT_API_KEY":       textSecret("lmnr"),
-		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY": textSecret("lmnr-harden"),
-		"HARDEN_LLM_LAMINAR_ENDPOINT":        "laminar:8001",
-		"HARDEN_LLM_BIND_ADDRESS":            "127.0.0.1", "HARDEN_LLM_HTTP_PORT": strconv.Itoa(httpPort),
+		"HARDEN_LLM_TEST_SECOND_TOKEN":           textSecret("hllm-key-b-"),
+		"HARDEN_LLM_CREDENTIAL_KEY":              base64.StdEncoding.EncodeToString(randomBytes(32)),
+		"HARDEN_LLM_DATABASE_URL":                "postgresql://harden_llm:" + databasePassword + "@harden-postgres:5432/harden_llm?sslmode=disable",
+		"HARDEN_LLM_POSTGRES_NETWORK":            "unused-external-network",
+		"HARDEN_LLM_ARTIFACT_ENDPOINT":           "http://garage:3900",
+		"HARDEN_LLM_ARTIFACT_BUCKET":             "harden-llm-observability-smoke",
+		"HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID":      artifactAccess,
+		"HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY":  artifactSecret,
+		"HARDEN_LLM_WEB_SECRET_KEY_BASE":         hexSecret(64),
+		"HARDEN_LLM_WEB_SESSION_SIGNING_SALT":    textSecret("sign"),
+		"HARDEN_LLM_WEB_SESSION_ENCRYPTION_SALT": textSecret("encrypt"),
+		"HARDEN_LLM_GRAFANA_HOST":                "grafana.smoke.localhost",
+		"PRLS_SMOKE_OBSERVABILITY_NETWORK":       "prls-observability-smoke-" + hexSecret(8),
+		"PRLS_LAMINAR_PROJECT_API_KEY":           textSecret("lmnr"),
+		"HARDEN_LLM_LAMINAR_PROJECT_API_KEY":     textSecret("lmnr-harden"),
+		"HARDEN_LLM_LAMINAR_ENDPOINT":            "laminar:8001",
+		"HARDEN_LLM_BIND_ADDRESS":                "127.0.0.1", "HARDEN_LLM_HTTP_PORT": strconv.Itoa(httpPort),
 		"HARDEN_LLM_HTTPS_PORT": strconv.Itoa(httpsPort), "HARDEN_LLM_TLS_MODE": "internal",
 		"HARDEN_LLM_RELEASE": "compose-smoke-0.1.0", "HARDEN_LLM_ENVIRONMENT": "test",
 		"PRLS_PORTAL_URL":                         "https://a.prls.co",
@@ -447,10 +483,10 @@ func smokeEnvironment(t *testing.T, material tlsMaterial, httpPort, httpsPort in
 		"HARDEN_LLM_CONFIG_FILE":                  configPath,
 		"HARDEN_LLM_TOKEN":                        textSecret("harden-llm-smoke-"),
 		"CPA_API_KEY":                             textSecret("smoke-provider-"),
-		"HARDEN_LLM_POSTGRES_PASSWORD":            textSecret("db"),
+		"HARDEN_LLM_POSTGRES_PASSWORD":            databasePassword,
 		"GARAGE_RPC_SECRET":                       hexSecret(32), "GARAGE_SMOKE_BUCKET": "harden-llm-observability-smoke",
-		"GARAGE_SMOKE_ACCESS_KEY": "GK" + strings.ToUpper(hexSecret(16)),
-		"GARAGE_SMOKE_SECRET_KEY": hexSecret(32),
+		"GARAGE_SMOKE_ACCESS_KEY": artifactAccess,
+		"GARAGE_SMOKE_SECRET_KEY": artifactSecret,
 		"PRLS_LOKI_S3_ACCESS_KEY": "GK" + strings.ToUpper(hexSecret(16)), "PRLS_LOKI_S3_SECRET_KEY": hexSecret(32),
 		"GRAFANA_ADMIN_USER": "smoke-admin", "GRAFANA_ADMIN_PASSWORD": textSecret("grafana"),
 		"SMOKE_CA_CERT": material.ca, "SMOKE_PROVIDER_CERT": material.certificate, "SMOKE_PROVIDER_KEY": material.key,
@@ -614,6 +650,12 @@ func requestJSON(t *testing.T, client *http.Client, method, target string, docum
 	if response.StatusCode != wantStatus {
 		t.Fatalf("%s %s = %s, want %d: %s", method, target, response.Status, wantStatus, contents)
 	}
+	if wantStatus == http.StatusNoContent {
+		if len(contents) != 0 {
+			t.Fatal("204 response has a body")
+		}
+		return nil
+	}
 	var envelope map[string]any
 	if err := json.Unmarshal(contents, &envelope); err != nil {
 		t.Fatalf("decode %s: %v: %s", target, err, contents)
@@ -774,9 +816,6 @@ func assertProxyComposeBoundary(t *testing.T, runner composeRunner) {
 		t.Fatal(err)
 	}
 	gateway := effective.Services["harden-llm-gateway"]
-	if _, exists := effective.Services["harden-postgres"]; exists {
-		t.Fatal("proxy-only Compose unexpectedly starts the reference database")
-	}
 	if gateway.Environment["HARDEN_LLM_TOKEN"] != runner.environment["HARDEN_LLM_TOKEN"] ||
 		gateway.Environment["CPA_API_KEY"] != runner.environment["CPA_API_KEY"] ||
 		gateway.Environment["HARDEN_LLM_TOKEN"] == gateway.Environment["CPA_API_KEY"] {
@@ -785,7 +824,7 @@ func assertProxyComposeBoundary(t *testing.T, runner composeRunner) {
 	if gateway.Environment["HARDEN_LLM_CONFIG_FILE"] != "/etc/harden-llm/upstreams.json" {
 		t.Fatal("gateway does not load the single mounted connection catalog")
 	}
-	for _, key := range []string{"HARDEN_LLM_DATABASE_URL", "HARDEN_LLM_ARTIFACT_ENDPOINT", "HARDEN_LLM_CONTROL_PLANE_URL"} {
+	for _, key := range []string{"HARDEN_LLM_CONTROL_PLANE_URL"} {
 		if _, exists := gateway.Environment[key]; exists {
 			t.Fatalf("proxy gateway still receives retired application setting %s", key)
 		}

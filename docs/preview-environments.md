@@ -34,9 +34,9 @@ shared host.
 
 Human accounts and enabled-login access belong to the PRLS Control Plane and
 Portal. Each preview uses the shared login flow. Every enabled login in that
-environment sees the same Phoenix call history; the preview's own PostgreSQL
-volume isolates it from other previews and production. Workspace drafts are
-scoped to the stable user ID. Direct `/v1` API calls are never recorded.
+environment uses the host API key's reference history; the preview's own
+PostgreSQL volume isolates it from other previews and production. Draft keys
+add the stable Portal user ID within the API key scope. Direct `/v1` API calls are never recorded.
 
 The trusted preview host reads the protected shared application environment
 from its configured `sharedEnvFile`. The gateway connection file is selected by
@@ -49,8 +49,9 @@ specific. No profiles are synchronized and no HLLM users are provisioned.
 
 Each branch Compose project contains Phoenix, the stateless Go gateway,
 PostgreSQL, and bounded web logs. There is no branch Garage service. The
-gateway mounts the connection file read-only; Phoenix owns the per-environment
-history database. Preview telemetry export is disabled. Automated health and
+gateway mounts the connection file read-only and owns the per-environment
+reference database through its stateful wrapper. Phoenix has no SQL access.
+The one-shot `gateway-schema` command runs before the gateway starts. Preview telemetry export is disabled. Automated health and
 configuration checks make no provider request.
 
 ## Host and cleanup boundaries
@@ -58,7 +59,7 @@ configuration checks make no provider request.
 A dedicated Caddy router and Cloudflare tunnel serve preview hostnames. The
 router joins each branch's private network; application containers do not
 share an ingress network with sibling branches or production. HTTPS terminates
-at Cloudflare. `/v1/*`, `/healthz`, and `/readyz` route to the gateway; the app
+at Cloudflare. `/v1/*`, `/api/v1/*`, `/healthz`, and `/readyz` route to the gateway; the app
 host routes to Phoenix. `/metrics` is not public.
 
 One repository-scoped self-hosted runner executes orchestration from the

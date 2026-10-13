@@ -1,0 +1,13 @@
+--- FAIL: TestHTTPObservationUsesMatchedRoute (0.00s)
+    --- FAIL: TestHTTPObservationUsesMatchedRoute//readyz (0.00s)
+        telemetry_test.go:50: log route = unmatched, want /readyz
+        telemetry_test.go:63: span route = unmatched, want /readyz
+    --- FAIL: TestHTTPObservationUsesMatchedRoute//v1/responses (0.00s)
+        telemetry_test.go:50: log route = unmatched, want /v1/responses
+        telemetry_test.go:63: span route = unmatched, want /v1/responses
+    --- FAIL: TestHTTPObservationUsesMatchedRoute//api/v1/history/private-record?secret=private (0.00s)
+        telemetry_test.go:50: log route = unmatched, want /api/v1/history/{runID}
+        telemetry_test.go:63: span route = unmatched, want /api/v1/history/{runID}
+FAIL
+FAIL    github.com/prls-co/harden-llm/internal/gateway/httpapi  0.011s
+FAIL

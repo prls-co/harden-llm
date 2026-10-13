@@ -1,0 +1,21 @@
+--- FAIL: TestReferenceTopology (0.00s)
+    --- FAIL: TestReferenceTopology/one_shared_database_attachment_and_no_Phoenix_storage (0.00s)
+        reference_topology_test.go:26: dedicated HLLM PostgreSQL must be retired in favor of Agent Platform services.postgres
+        reference_topology_test.go:29: production no longer owns a dedicated database volume
+        reference_topology_test.go:34: gateway must receive required protected HARDEN_LLM_DATABASE_URL
+        reference_topology_test.go:37: Phoenix must not receive HARDEN_LLM_DATABASE_URL
+        reference_topology_test.go:34: gateway must receive required protected HARDEN_LLM_CREDENTIAL_KEY
+        reference_topology_test.go:41: reference production must explicitly enable history
+        reference_topology_test.go:46: shared PostgreSQL must attach through the owner-provided external network
+        reference_topology_test.go:50: gateway must join the single shared PostgreSQL network
+    --- FAIL: TestReferenceTopology/same_selected_key_and_host-only_human_admission (0.00s)
+        reference_topology_test.go:63: reference transport must use the accepted 75-second bound
+    --- FAIL: TestReferenceTopology/schema_command_reuses_the_gateway_image (0.00s)
+        reference_topology_test.go:69: production requires the accepted gateway image's one-shot schema command
+    --- FAIL: TestReferenceTopology/one_hostname_routes_both_bearer_APIs (0.00s)
+        reference_topology_test.go:85: existing shared ingress route must send both REST surfaces to Go
+    --- FAIL: TestReferenceTopology/clean_cut_is_confined_to_obsolete_HLLM_storage (0.00s)
+        reference_topology_test.go:91: explicit HLLM-only reset manifest is required
+FAIL
+FAIL    github.com/prls-co/harden-llm/internal/deploytest   0.003s
+FAIL
