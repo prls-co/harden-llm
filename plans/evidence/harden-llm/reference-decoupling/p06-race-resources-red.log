@@ -1,0 +1,5 @@
+--- FAIL: TestIntegrationRaceOwnsTimingResources (0.00s)
+    integration_race_resources_test.go:29: race-instrumented SQL deadlines must own the host timing resources; independent compilers must not overlap
+FAIL
+FAIL  github.com/prls-co/harden-llm/internal/testkit  0.008s
+FAIL
