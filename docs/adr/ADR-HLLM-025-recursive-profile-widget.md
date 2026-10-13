@@ -112,3 +112,8 @@ Direct API validation remains strict. TEST-456/457 and the amended real T3 chain
 cover selection, saved/reloaded state and qualified diagnostics. This corrects
 the earlier same-profile-only recovery coverage without adding a role, service,
 compatibility reader or fallback. See [the RCA](../rca/mixed-recovery-profile-reasoning.md).
+
+Merged application `0773784111baf5858fb799a730e169dfb052a3c1` passed all 29
+release tasks in run 38474634696 attempt 1 and is deployed with scoped/full
+configuration and public HTTP acceptance. The RCA section 5 links image and
+record-preservation evidence. No stored-data correction was required.

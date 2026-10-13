@@ -154,7 +154,7 @@ records release/images, scoped application, full equivalence and limitations.
 Do not repeat initial provisioning, retired-resource cleanup or the completed
 one-time draft correction as a routine deployment step.
 
-## 7. Current preset workflow release (#115)
+## 7. Preset workflow release (#115)
 
 Application source is `ff5c968bc3c2263956fb1f946935395506347bfc`, certified by
 release 38455292756 attempt 1 (29 tasks). The
@@ -169,3 +169,18 @@ owners, credentials, upstream metadata and routing are verified unchanged. No
 draft correction or provisioning is required; rejected credential fields were
 never stored. Retain schema-compatible previous images and the protected
 checkpoint. Subsequent docs-only commits do not relabel the application source.
+
+## 8. Current mixed recovery-profile release (#119)
+
+Application source is `0773784111baf5858fb799a730e169dfb052a3c1`, certified by
+release 38474634696 attempt 1 (29 tasks, no cleanup issues). The
+[RCA](rca/mixed-recovery-profile-reasoning.md#5-release-and-scope) records exact
+image identities, scoped/full equivalence and public HTTP acceptance. The same
+40 templates and 30 credential-configured drafts match source. The originally
+reported failed record is preserved in full.
+
+Apply only the gateway/frontend image and release fields. The shared reasoning
+projection also handles existing saved drafts, so no SQL correction or data
+reset is required. Keys, metadata, shared/telemetry owners and Caddy are unchanged.
+Retain the protected checkpoint and schema-compatible previous images; docs-only
+closeout does not change application identity. Deployment made no inference call.

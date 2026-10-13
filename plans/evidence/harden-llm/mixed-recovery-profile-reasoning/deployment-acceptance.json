@@ -1,0 +1,45 @@
+{
+  "sourceSHA": "0773784111baf5858fb799a730e169dfb052a3c1",
+  "release": {
+    "runID": 38474634696,
+    "attempt": 1,
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/38474634696/attempts/1"
+  },
+  "environmentURL": "https://harden-llm.prls.co",
+  "applications": [
+    {
+      "component": "web",
+      "imageID": "sha256:0d918d226d54ca4ba21e65cf2341aa94715d1155f8b97f7a6df3944334a9e132",
+      "sourceSHA": "0773784111baf5858fb799a730e169dfb052a3c1",
+      "health": "healthy",
+      "restarts": 0
+    },
+    {
+      "component": "gateway",
+      "imageID": "sha256:64e3076d1ce37f052a4da9f6dfad17aa7ca268ac4a3f5c75ad2a2d494f5abf09",
+      "sourceSHA": "0773784111baf5858fb799a730e169dfb052a3c1",
+      "health": "healthy",
+      "restarts": 0
+    }
+  ],
+  "presets": {
+    "count": 40,
+    "configured": 30,
+    "allDraftsMatchCertifiedSource": true
+  },
+  "reportedFailedRecordPreserved": true,
+  "protectedSourcesAndDeploymentBearerUnchanged": true,
+  "sharedAndTelemetryOwnersUnchanged": [
+    "/harden-llm-otel-collector-1",
+    "/harden-llm-loki-1",
+    "/harden-llm-prometheus-1",
+    "/harden-llm-tempo-1",
+    "/harden-llm-grafana-1",
+    "/compose-postgres-1",
+    "/garage-shared-garage-shared-1"
+  ],
+  "caddyUnchanged": true,
+  "publicHTTPAcceptance": "passed",
+  "additionalPaidCalls": 0,
+  "browserLayoutChecked": false
+}

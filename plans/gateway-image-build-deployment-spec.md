@@ -27,9 +27,9 @@ decision.
 ## 2. Artifact and production identity
 
 Current production identity is recorded in the
-[preset workflow RCA](../docs/rca/preset-draft-persistence-and-live-qualification.md#5-acceptance-and-rollout):
-application source `ff5c968bc3c2263956fb1f946935395506347bfc`, exact release run
-38455292756 attempt 1, and both immutable application image IDs. The initial
+[mixed recovery-profile RCA](../docs/rca/mixed-recovery-profile-reasoning.md#5-release-and-scope):
+application source `0773784111baf5858fb799a730e169dfb052a3c1`, exact release run
+38474634696 attempt 1, and both immutable application image IDs. The initial
 reference-decoupling release remains in
 [P06](evidence/harden-llm/reference-decoupling/phase-p06.md). Subsequent
 deployment-tool/docs commits are not application image identities.

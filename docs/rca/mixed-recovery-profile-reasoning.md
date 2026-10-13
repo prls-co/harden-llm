@@ -67,9 +67,37 @@ call is introduced. Evidence is under
 
 ## 5. Release and scope
 
-Exact-source release, image identities and deployed acceptance are appended
-after certification/application and recorded in #119. Deployment changes only
-the gateway/frontend artifacts through the existing operator. Keys, shared
-owners, routing and stored data remain unchanged. Restored-draft normalization
-requires no SQL correction or compatibility reader. Browser layout and live
-provider replay are outside this corrective scope.
+PR [#120](https://github.com/prls-co/harden-llm/pull/120) is merged at application
+source `0773784111baf5858fb799a730e169dfb052a3c1`. Main fast and all three CodeQL
+analyses passed. Exact-source [release 38474634696, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/38474634696/attempts/1)
+passed all 29 tasks, including the amended mixed-profile T3 chain, with no
+cleanup errors/warnings. The uploaded release, integration and integration-race
+reports are retained beside the original RED/GREEN and fast failure evidence.
+
+Clean exact-source local builds produced these deployed identities:
+
+| Component | Image ID | State |
+| --- | --- | --- |
+| Gateway | `sha256:64e3076d1ce37f052a4da9f6dfad17aa7ca268ac4a3f5c75ad2a2d494f5abf09` | healthy, zero restarts |
+| Frontend | `sha256:0d918d226d54ca4ba21e65cf2341aa94715d1155f8b97f7a6df3944334a9e132` | healthy, zero restarts |
+
+The existing operator applied only those two image/release identities, with
+schema execution before application startup. Scoped and full seven-service
+configuration checks are equivalent. TEST-435 public HTTP health/authentication
+and release checks passed at `https://harden-llm.prls.co`. All 40 deployed preset
+drafts match certified source; the same 30 have configured credentials.
+
+The complete reported failed history record is unchanged. Protected settings,
+deployment bearer, upstream metadata, all seven shared/telemetry owner identities
+and Caddy are verified unchanged. No SQL correction, data reset, provisioning or
+compatibility reader was needed. The protected checkpoint and schema-compatible
+previous images are retained; disposable operator/build worktrees are removed.
+The [deployment record](../../plans/evidence/harden-llm/mixed-recovery-profile-reasoning/deployment-acceptance.json)
+contains the redacted acceptance facts. Subsequent docs-only commits do not
+rebuild or relabel these images.
+
+This correction adds no original plan phase or architectural layer. The extra
+fresh-rerun conversion and async test acknowledgement are explained in sections
+3–4 and retain the existing contract and assertion oracles. Browser layout,
+interactive Portal and additional paid inference were not checked. Previous
+live-preset qualification is retained evidence; it is not a replay of this run.

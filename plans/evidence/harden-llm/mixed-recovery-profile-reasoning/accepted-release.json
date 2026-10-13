@@ -1,0 +1,71 @@
+{
+  "attempt": 1,
+  "conclusion": "success",
+  "event": "workflow_dispatch",
+  "headBranch": "main",
+  "headSha": "0773784111baf5858fb799a730e169dfb052a3c1",
+  "jobs": [
+    {
+      "completedAt": "2026-10-13T21:59:44Z",
+      "conclusion": "success",
+      "databaseId": 115562205538,
+      "name": "mode",
+      "startedAt": "2026-10-13T21:59:38Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/38474634696/job/115562205538"
+    },
+    {
+      "completedAt": "2026-10-13T22:11:30Z",
+      "conclusion": "success",
+      "databaseId": 115562263050,
+      "name": "browser-free release",
+      "startedAt": "2026-10-13T21:59:46Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/38474634696/job/115562263050"
+    },
+    {
+      "completedAt": "2026-10-13T21:59:44Z",
+      "conclusion": "skipped",
+      "databaseId": 115562264564,
+      "name": "fast T0-T2",
+      "startedAt": "2026-10-13T21:59:45Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/38474634696/job/115562264564"
+    },
+    {
+      "completedAt": "2026-10-13T21:59:44Z",
+      "conclusion": "skipped",
+      "databaseId": 115562264697,
+      "name": "pooled T3 integration",
+      "startedAt": "2026-10-13T21:59:45Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/38474634696/job/115562264697"
+    },
+    {
+      "completedAt": "2026-10-13T21:59:44Z",
+      "conclusion": "skipped",
+      "databaseId": 115562264738,
+      "name": "explicitly requested browser checks",
+      "startedAt": "2026-10-13T21:59:45Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/38474634696/job/115562264738"
+    },
+    {
+      "completedAt": "2026-10-13T21:59:44Z",
+      "conclusion": "skipped",
+      "databaseId": 115562265242,
+      "name": "explicit Docker lifecycle fault suite",
+      "startedAt": "2026-10-13T21:59:45Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/38474634696/job/115562265242"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/prls-co/harden-llm/actions/runs/38474634696/attempts/1"
+}
