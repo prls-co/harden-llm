@@ -1,0 +1,17 @@
+browser-free release  Run make test-release ﻿2026-10-13T08:45:35.0829260Z ##[group]Run make test-release
+browser-free release  Run make test-release 2026-10-13T08:45:35.0829661Z ^[[36;1mmake test-release^[[0m
+browser-free release  Run make test-release 2026-10-13T08:45:35.0891298Z shell: /usr/bin/bash -e {0}
+browser-free release  Run make test-release 2026-10-13T08:45:35.0891651Z env:
+browser-free release  Run make test-release 2026-10-13T08:45:35.0891924Z   GO_VERSION: 1.26.6
+browser-free release  Run make test-release 2026-10-13T08:45:35.0892285Z   GOPRIVATE: github.com/prls-co/prls-control-plane
+browser-free release  Run make test-release 2026-10-13T08:45:35.0892711Z   NODE_VERSION: 22.22.1
+browser-free release  Run make test-release 2026-10-13T08:45:35.0893026Z   ELIXIR_VERSION: 1.20.2
+browser-free release  Run make test-release 2026-10-13T08:45:35.0893346Z   OTP_VERSION: 28.4.3
+browser-free release  Run make test-release 2026-10-13T08:45:35.0893724Z   INSTALL_DIR_FOR_OTP: /home/runner/work/_temp/.setup-beam/otp
+browser-free release  Run make test-release 2026-10-13T08:45:35.0894255Z   INSTALL_DIR_FOR_ELIXIR: /home/runner/work/_temp/.setup-beam/elixir
+browser-free release  Run make test-release 2026-10-13T08:45:35.0897578Z   PRIVATE_MODULE_TOKEN: ***
+browser-free release  Run make test-release 2026-10-13T08:45:35.0897935Z ##[endgroup]
+browser-free release  Run make test-release 2026-10-13T08:45:35.1168362Z node scripts/run-test-tier.mjs --task release
+browser-free release  Run make test-release 2026-10-13T08:47:37.2622176Z {"accepted":false,"selector":"release","taskCount":28,"failure":{"taskId":"go-static","status":1,"failureSummary":"go run ./cmd/loki-schema-guard | Loki schema transition validation passed: accepted=2 new_future=0 as_of=2026-10-13 | go test -tags=live ./internal/providers/... ./internal/smoke/... -run '^$'","failureDetail":"make[1]: *** [Makefile:27: test-static] Terminated\n\nmake[1]: Entering directory '/home/runner/work/harden-llm/harden-llm'\ngo run ./cmd/loki-schema-guard\nLoki schema transition validation passed: accepted=2 new_future=0 as_of=2026-10-13\ngo test -tags=live ./internal/providers/... ./internal/smoke/... -run '^$'"},"cleanupErrors":[],"cleanupWarnings":[],"output":"/home/runner/work/harden-llm/harden-llm/tmp/test-feedback/runner-1791881257259-4291-79304c24f2bc1c62.json"}
+browser-free release  Run make test-release 2026-10-13T08:47:39.2619474Z make: *** [Makefile:77: test-release] Error 1
+browser-free release  Run make test-release 2026-10-13T08:47:39.2636999Z ##[error]Process completed with exit code 2.
