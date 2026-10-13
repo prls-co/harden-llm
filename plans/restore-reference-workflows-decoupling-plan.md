@@ -2094,7 +2094,7 @@ Generate ciphertext deterministically only in encryption tests using an injected
 ## 9. Reproducibility
 
 - Record source SHA, branch, OS/architecture, tool versions, dependency locks, image IDs, test namespace, seeds and commands with each phase report.
-- Planning reference: Linux/amd64, Go 1.26.6 from `go.mod`; Elixir 1.20.2 and OTP 28.4.3 from repository host guidance; Node version from the current CI/toolchain declaration. Capture actual versions with `go version`, `node --version`, `elixir --version`, `docker version` when their tracks run. No GPU is required.
+- Planning reference: Linux/amd64, Go 1.26.9 from `go.mod` (P06 security refresh; earlier measurements used 1.26.6); Elixir 1.20.2 and OTP 28.4.3 from repository host guidance; Node version from the current CI/toolchain declaration. Capture actual versions with `go version`, `node --version`, `elixir --version`, `docker version` when their tracks run. No GPU is required.
 - Reuse pinned image identities in `Dockerfile`, `frontend/Dockerfile`, `deploy/images.lock.json`, integration Compose and shared-owner locks. Agent Platform's source uses PostgreSQL 16.4; do not substitute the retired dedicated frontend PostgreSQL 17.9 as production authority. Verify actual shared version before schema acceptance.
 - Preserve `go.sum`, `frontend/mix.lock` and asset dependency locks. A fresh worktree may require the existing `mix deps.get` setup before offline execution; dependency download is not test evidence.
 - Integration uses existing leased resources, unique namespaces and bounded teardown. No arbitrary sleeps or global serialization to conceal races. Named unavoidable global-resource exceptions require the existing machine-checked rationale.
