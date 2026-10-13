@@ -1,6 +1,6 @@
 # ADR-HLLM-033: Stateless core and stateful reference libraries
 
-- Status: Accepted, 2026-10-12; implementation proceeds through P00–P06.
+- Status: Accepted 2026-10-12; implemented and deployed 2026-10-13.
 - Supersedes: ADR-HLLM-031's profile-free/reference-owned persistence boundary.
 - Contract: [PLAN-HLLM-REFERENCE-DECOUPLING-002](../../plans/restore-reference-workflows-decoupling-plan.md), v5.3.
 
@@ -36,3 +36,23 @@ read-only for concrete host needs; its migration is not required for release.
 TEST-420 freezes source provenance and canonical ownership. Core, storage,
 HTTP, UI, composed and deployed tests prove their own boundaries in subsequent
 phases. This ADR is a decision, not runtime or production evidence.
+
+## 4. Implementation refinements and acceptance (2026-10-13)
+
+P01 gives `DiagnosticCapture` an `ErrorCode` so projection failure still invokes
+the one terminal callback with a bounded diagnostic and no unsafe payload;
+TEST-421/445 retain unchanged inference and detachment assertions. P02 adds the
+explicit `Config.CacheTTL` field, retaining the already planned 86,400-second
+default and TEST-439 expiry behavior. P04 moves client/error declarations with
+the components before revising their behavior, so the package never imports its
+host. The widget retains its local Save/refresh pending state; workspace async
+orchestration remains host-owned. The accepted history interaction loads full
+records on details expansion, retaining the original controls and full data.
+TEST-428–431/446–448 and EVAL-424 cover these boundaries.
+
+These refinements add no independent service, new permission model or fallback.
+Rollback across the authorized schema/data clean cut is not image-only; see
+ADR-HLLM-028. The exact source, CI and deployed acceptance are in
+[P06](../../plans/evidence/harden-llm/reference-decoupling/phase-p06.md).
+The [conformance audit](../../plans/evidence/harden-llm/reference-decoupling/plan-conformance-audit.md)
+records the full comparison against the pre-implementation v5.3 plan.

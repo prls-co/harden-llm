@@ -5,6 +5,9 @@
 - Requirements: REQ-008 through REQ-013, REQ-016, and `PLAN-HLLM-WIDGET-PARITY-001`
 - Verification: TEST-105 through TEST-111; release/browser evidence is recorded separately
 
+
+> **2026-10-13 ownership amendment:** ADR-HLLM-033 supersedes saved-profile-only refresh, local-only workspace drafts and default model fallbacks. The reusable widget keeps local edit/Save/refresh state, while the host persists its opaque draft key through reference REST. The dated decision below remains historical where it conflicts.
+
 ## Context
 
 The utility-llm comparison identified three ownership boundaries that materially

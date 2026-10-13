@@ -6,15 +6,15 @@
 - Target repository: `/home/kirill/harden-llm`
 - Go module: `github.com/prls-co/harden-llm`
 - Contract source repository: `/home/kirill/utility-llm`
-- Version: `1.6.0-openai-proxy`
+- Version: `1.7.0-reference-decoupling`
 - Owners: package maintainers and self-hosted runtime implementers
-- Date: 2026-10-06
+- Date: 2026-10-13
 - Document ID: `SPEC-HARDEN-LLM-SELF-HOSTED-GO-001`
-- Summary: This specification defines the self-hosted Go library and stateless OpenAI-compatible `/v1` proxy. The proxy has one configured connection set, uses `HARDEN_LLM_TOKEN` for incoming API access, and owns no profiles, human identity, history, or application database dependency when cache is disabled. Phoenix is a separate reference application; it alone records its calls and owns shared history/drafts in PostgreSQL. Control Plane owns human identity and access. The active 2026-10-06 ownership amendment below supersedes earlier profile, account-owned storage, artifact-route, and custom-run API sections; OpenAPI is the Go/Phoenix boundary.
+- Summary: The root Go library is the stateless execution core. Public `stateful/` composes provider/cache/observer effects and owns profiles, encrypted credentials, drafts, cache, reference history and artifacts under the validated `api_key_hash`. One gateway serves ordinary `/v1` and reference `/api/v1`; `HardenLlmUI` and its Phoenix host consume OpenAPI. Control Plane/Portal own human admission. Ordinary `/v1` requests do not create history.
 
-> **Current contract (2026-10-06):** ADR-HLLM-031/032 and `plans/proxy-and-reference-app-simplification-plan.md` define the active implementation. Earlier sections remain historical design evidence where they conflict. The proxy exposes `/v1/models`, `/v1/chat/completions`, and `/v1/responses`; login identity is not sent to it. Only the Phoenix reference application stores shared history.
+> **Current contract (2026-10-13):** ADR-HLLM-033/034 and [PLAN-HLLM-REFERENCE-DECOUPLING-002](../restore-reference-workflows-decoupling-plan.md) supersede the 2026-10-06 proxy/reference ownership amendment. [Architecture](../../docs/architecture.md), `api/openapi.yaml`, and that plan define the active implementation; the detailed sections below remain historical design/protocol evidence wherever they conflict. There is one wrapper-owned PostgreSQL pool, key-scoped Garage paths, complete create-on-save profiles, per-Portal-user draft keys within the host API-key scope, and no artifact journal, startup seeding, local user registry or compatibility data migration. [P06 evidence](../evidence/harden-llm/reference-decoupling/phase-p06.md) records production acceptance.
 
-## 2. Canonical stack
+## 2. Historical stack choices (see current contract above)
 
 | Layer | Canonical choice | Responsibility |
 | --- | --- | --- |
@@ -743,6 +743,6 @@ telemetry and Phoenix. These additions are verified by TEST-223 through
 TEST-228 and WEB-TEST-076; they add no service, provider fallback, legacy
 reader, public setting or browser requirement.
 
-## OpenAI proxy ownership amendment (2026-10-06)
+## Historical OpenAI proxy ownership amendment (2026-10-06; superseded)
 
-ADR-HLLM-031/032 define the active bearer-only gateway and /v1/models, /v1/chat/completions and /v1/responses. One configured runtime; no history/profile routes. Cache stays optional and separate from Phoenix history. OpenAPI is the boundary. Conflicting historical profile CRUD, per-user gateway persistence, required identity lookup and /api/v1/run are superseded by REQ-400–415.
+ADR-HLLM-031/032 introduced the former profile-free gateway with Phoenix-owned history. ADR-HLLM-033/034 now supersede that ownership: the stateless core remains independent, while `stateful/` owns reference persistence behind `/api/v1`. The ordinary OpenAI protocol remains active. Do not restore the retired Phoenix database or remove the restored reference routes based on this historical amendment.

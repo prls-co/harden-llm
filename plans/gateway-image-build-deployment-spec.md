@@ -24,9 +24,15 @@ recovery, bit-for-bit reproducible image layers, a production capacity result,
 or a supported multi-host rollout. Those require separate evidence and a new
 decision.
 
-## 2. Current artifact and production identity
+## 2. Artifact and production identity
 
-The 2026-09-22 retirement transition keeps the already-running application
+Current reference-decoupling production identity is recorded in
+[P06](evidence/harden-llm/reference-decoupling/phase-p06.md): application source
+`bbdb5d77bc76424804427ca30a7bf9ddc453d0cf`, exact release run 38377471293 attempt 1,
+and both immutable application image IDs. Subsequent deployment-tool/docs commits
+are not application image identities.
+
+The historical 2026-09-22 retirement transition kept the already-running application
 image and changes only its local Docker reference in the protected descriptor.
 The image itself is not rebuilt or changed by this documentation and publisher
 cleanup.
@@ -67,7 +73,9 @@ IDs or OCI digests; that has not been certified.
 
 The frontend image, Postgres, Garage, telemetry services, configuration
 sources, secrets, profiles, sessions, and persistent volumes are outside this
-gateway-only lifecycle change.
+gateway-only lifecycle change. The separately approved reference-decoupling
+P05/P06 expansion is recorded in ADR-HLLM-028 and the KER acceptance table;
+`docs/reference-production-cutover.md` owns its schema/shared-service operations.
 
 ## 4. Build contract for a future application release
 
@@ -373,6 +381,11 @@ is a successful reference transition, not a claim that a new application
 image was deployed.
 
 ## 6. Rollback
+
+This procedure requires compatibility with the current schema and retained data.
+The reference-decoupling clean cut discarded the pre-cutover HLLM database; the
+old PR #97 image is not an image-only rollback target. Follow ADR-HLLM-028 and
+the reference cutover runbook for this boundary.
 
 1. Stop if the intended prior image is not present on the target daemon or its
    image ID/version cannot be verified.

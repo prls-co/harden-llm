@@ -1,6 +1,6 @@
 # ADR-HLLM-034: Reference history owner and artifacts
 
-- Status: Accepted, 2026-10-12; implementation and production evidence are pending.
+- Status: Accepted 2026-10-12; implemented and deployed 2026-10-13.
 - Contract: PLAN-HLLM-REFERENCE-DECOUPLING-002 v5.3, sections 8.2–8.4.
 - Tests: TEST-420, TEST-436, TEST-426/427/442/443/451.
 
@@ -52,3 +52,29 @@ schema command before application startup, retaining `--no-deps`. These owner
 checks and TEST-450/433 are required; configuration source is not live evidence.
 TEST-420/436 prove contract consistency only. Subsequent real storage, composed
 and deployed checks prove their own boundaries without browsers/paid inference.
+
+## 5. Storage representation and physical owner (2026-10-13)
+
+P03 changes opaque `history.request` and `history.result` from the plan's JSONB
+to PostgreSQL `json`; the queryable summary stays JSONB. This avoids full-body
+normalization and preserves the validated payload encoding. The canonical
+OpenAPI schema is loaded once and validates one exact-number tree, rather than
+maintaining handwritten duplicate validators or scanning the full record again.
+Use PostgreSQL microsecond precision consistently in timestamps and summaries.
+Pre-resolution application failures have `selectedTarget:null`, null output and
+local correlation IDs; successful results still require a complete target.
+The core detaches diagnostic timestamp pointers and wrapper inputs before use.
+TEST-442/451 and the P03 mutation/race regressions retain full payload equality,
+the 17 MiB rejection boundary, two-second operation bounds and no replay.
+
+The planned standalone Agent Platform server was not deployed on the host.
+The approved live target is Agent Platform's existing Temporal PostgreSQL,
+physically owned by `self-imp-bin-eval`: `compose-postgres-1` on `compose_default`.
+Kirill approved that isolated HLLM database/role on 2026-10-13. CHECK-422 permission
+and Garage lifecycle probes passed without restarting either shared owner.
+This refines the physical target and does not add a PostgreSQL daemon or change
+history ownership. Configuration and proof are in the
+[cutover runbook](../reference-production-cutover.md) and
+[P06 evidence](../../plans/evidence/harden-llm/reference-decoupling/phase-p06.md).
+Schema version 1 was created fresh under the approved reset; no legacy converter
+or rollback of discarded data exists.

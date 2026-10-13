@@ -5,6 +5,9 @@
 - Requirements: REQ-004, REQ-007, REQ-008, REQ-009, REQ-010, REQ-011, REQ-018, REQ-019
 - Verification: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001` `TEST-017`, `go test ./... -count=1`, and the tagged Postgres seed test
 
+
+> **2026-10-13 ownership amendment:** Seeding and owner-scoped backfill are superseded by ADR-HLLM-033. Git presets now fill drafts; explicit Save creates an immutable complete key-scoped snapshot. The dated decision below is historical and does not authorize startup writes.
+
 ## Context
 
 The current read-only source checkout at `/home/kirill/p/utility-llm` is clean

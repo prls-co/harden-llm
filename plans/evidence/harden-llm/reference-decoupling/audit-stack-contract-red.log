@@ -1,0 +1,8 @@
+--- FAIL: TestReferenceDecouplingContract (0.04s)
+    reference_decoupling_contract_test.go:92: canonical policy plans/from_utility-llm/self-hosted-go-stack-spec.md does not declare accepted reference ownership "ADR-HLLM-033/034"
+    reference_decoupling_contract_test.go:92: canonical policy plans/from_utility-llm/self-hosted-go-stack-spec.md does not declare accepted reference ownership "api_key_hash"
+    reference_decoupling_contract_test.go:92: canonical policy plans/from_utility-llm/self-hosted-go-stack-spec.md does not declare accepted reference ownership "stateful/"
+    reference_decoupling_contract_test.go:92: canonical policy plans/from_utility-llm/self-hosted-go-stack-spec.md does not declare accepted reference ownership "HardenLlmUI"
+FAIL
+FAIL    github.com/prls-co/harden-llm/internal/testkit  0.048s
+FAIL

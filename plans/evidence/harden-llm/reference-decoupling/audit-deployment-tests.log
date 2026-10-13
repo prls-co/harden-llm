@@ -1,0 +1,184 @@
+TAP version 13
+# Subtest: application environment contains only the one connection and incoming bearer path
+ok 1 - application environment contains only the one connection and incoming bearer path
+  ---
+  duration_ms: 7.126452
+  type: 'test'
+  ...
+# Subtest: required connection and bearer inputs fail explicitly
+ok 2 - required connection and bearer inputs fail explicitly
+  ---
+  duration_ms: 1.398668
+  type: 'test'
+  ...
+# Subtest: TEST-235 native Compose resolution preserves quoting, empties, precedence, and escaped dollars
+ok 3 - TEST-235 native Compose resolution preserves quoting, empties, precedence, and escaped dollars
+  ---
+  duration_ms: 151.19902
+  type: 'test'
+  ...
+# Subtest: TEST-233 resolves approved ownership and excludes ambient application variables
+ok 4 - TEST-233 resolves approved ownership and excludes ambient application variables
+  ---
+  duration_ms: 19.639697
+  type: 'test'
+  ...
+# Subtest: TEST-233 requires the consumer-owned Harden LLM Laminar key
+ok 5 - TEST-233 requires the consumer-owned Harden LLM Laminar key
+  ---
+  duration_ms: 6.431431
+  type: 'test'
+  ...
+# Subtest: TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data
+ok 6 - TEST-233 rejects a conflicting PRLS owner and credential-shaped descriptor data
+  ---
+  duration_ms: 3.401019
+  type: 'test'
+  ...
+# Subtest: TEST-234 reports semantic identity and mount equality without exposing values
+ok 7 - TEST-234 reports semantic identity and mount equality without exposing values
+  ---
+  duration_ms: 13.201865
+  type: 'test'
+  ...
+# Subtest: TEST-234 check is read-only and equivalent apply never invokes up
+ok 8 - TEST-234 check is read-only and equivalent apply never invokes up
+  ---
+  duration_ms: 8.296713
+  type: 'test'
+  ...
+# Subtest: TEST-234 example production descriptor no longer manages the shared Caddy owner
+ok 9 - TEST-234 example production descriptor no longer manages the shared Caddy owner
+  ---
+  duration_ms: 0.731695
+  type: 'test'
+  ...
+# Subtest: TEST-234 blocks an unapproved runtime difference before application
+ok 10 - TEST-234 blocks an unapproved runtime difference before application
+  ---
+  duration_ms: 5.051342
+  type: 'test'
+  ...
+# Subtest: TEST-234 rejects a container from the wrong Compose project and never fills sources from it
+ok 11 - TEST-234 rejects a container from the wrong Compose project and never fills sources from it
+  ---
+  duration_ms: 4.284823
+  type: 'test'
+  ...
+# Subtest: TEST-233 missing approved sources fail before runtime inspection
+ok 12 - TEST-233 missing approved sources fail before runtime inspection
+  ---
+  duration_ms: 2.47268
+  type: 'test'
+  ...
+# Subtest: TEST-234 applies only the selected service with the reviewed nonsecret override
+ok 13 - TEST-234 applies only the selected service with the reviewed nonsecret override
+  ---
+  duration_ms: 7.935896
+  type: 'test'
+  ...
+# Subtest: TEST-234 descriptor loading keeps the descriptor itself nonsecret
+ok 14 - TEST-234 descriptor loading keeps the descriptor itself nonsecret
+  ---
+  duration_ms: 2.616981
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate release rejects a stale but internally equivalent descriptor
+ok 15 - TEST-260 candidate release rejects a stale but internally equivalent descriptor
+  ---
+  duration_ms: 23.171372
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate release rejects a wrong image label and unhealthy runtime
+ok 16 - TEST-260 candidate release rejects a wrong image label and unhealthy runtime
+  ---
+  duration_ms: 3.961767
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate-aware apply permits an old runtime and requires convergence
+ok 17 - TEST-260 candidate-aware apply permits an old runtime and requires convergence
+  ---
+  duration_ms: 4.794279
+  type: 'test'
+  ...
+# Subtest: TEST-260 candidate options reject invalid intent before Docker
+ok 18 - TEST-260 candidate options reject invalid intent before Docker
+  ---
+  duration_ms: 225.490402
+  type: 'test'
+  ...
+# Subtest: TEST-450 schema image override follows the accepted gateway image without a daemon descriptor
+ok 19 - TEST-450 schema image override follows the accepted gateway image without a daemon descriptor
+  ---
+  duration_ms: 2.044081
+  type: 'test'
+  ...
+# Subtest: TEST-450 accepted gateway schema runs exactly once before applications with the same context
+ok 20 - TEST-450 accepted gateway schema runs exactly once before applications with the same context
+  ---
+  duration_ms: 7.131607
+  type: 'test'
+  ...
+# Subtest: TEST-450 failed schema prevents application startup and redacts diagnostics
+ok 21 - TEST-450 failed schema prevents application startup and redacts diagnostics
+  ---
+  duration_ms: 4.141747
+  type: 'test'
+  ...
+# Subtest: TEST-450 missing service is rejected before schema or application starts
+ok 22 - TEST-450 missing service is rejected before schema or application starts
+  ---
+  duration_ms: 3.758516
+  type: 'test'
+  ...
+# Subtest: TEST-450 wrong image is rejected before schema or application starts
+ok 23 - TEST-450 wrong image is rejected before schema or application starts
+  ---
+  duration_ms: 2.638711
+  type: 'test'
+  ...
+# Subtest: TEST-450 wrong command is rejected before schema or application starts
+ok 24 - TEST-450 wrong command is rejected before schema or application starts
+  ---
+  duration_ms: 2.938905
+  type: 'test'
+  ...
+# Subtest: TEST-450 build stanza is rejected before schema or application starts
+ok 25 - TEST-450 build stanza is rejected before schema or application starts
+  ---
+  duration_ms: 2.143807
+  type: 'test'
+  ...
+# Subtest: TEST-450 different database is rejected before schema or application starts
+ok 26 - TEST-450 different database is rejected before schema or application starts
+  ---
+  duration_ms: 2.541864
+  type: 'test'
+  ...
+# Subtest: TEST-450 frontend-only apply never starts a schema service
+ok 27 - TEST-450 frontend-only apply never starts a schema service
+  ---
+  duration_ms: 6.219134
+  type: 'test'
+  ...
+# Subtest: TEST-450 no-change apply starts neither schema nor applications
+ok 28 - TEST-450 no-change apply starts neither schema nor applications
+  ---
+  duration_ms: 2.25677
+  type: 'test'
+  ...
+# Subtest: TEST-234 compares resolved physical network names and detects real membership drift
+ok 29 - TEST-234 compares resolved physical network names and detects real membership drift
+  ---
+  duration_ms: 2.276964
+  type: 'test'
+  ...
+1..29
+# tests 29
+# suites 0
+# pass 29
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 727.986264

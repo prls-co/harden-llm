@@ -1,0 +1,61 @@
+{
+  "checkedAt": "2026-10-13T13:54:52.116768+00:00",
+  "auditBaseSHA": "01f255a3cce0012e5fb2291e0cf1d7a3a82a7668",
+  "applicationSHA": "bbdb5d77bc76424804427ca30a7bf9ddc453d0cf",
+  "scope": "documentation, policy and test traceability only; no application build or redeploy",
+  "checks": [
+    {
+      "command": "go test ./internal/testkit ./internal/retry -count=1",
+      "result": "pass",
+      "evidence": "audit-go-tests.log"
+    },
+    {
+      "command": "node --test scripts/test/production_config_test.mjs scripts/test/production_config_compose_test.mjs scripts/test/deployment_configuration_test.mjs",
+      "result": "29 passed; zero failures/skips",
+      "evidence": "audit-deployment-tests.log"
+    },
+    {
+      "command": "node scripts/verify-test-tiers.mjs",
+      "result": "accepted; fast selection 10 tasks",
+      "evidence": "audit-tier-validator.log"
+    },
+    {
+      "check": "plan structure and traceability",
+      "result": "72 steps, 16 requirements, 32 tests, 125 RTM rows; zero errors",
+      "evidence": "audit-plan-validation.json"
+    },
+    {
+      "check": "production full seven-service configuration",
+      "result": "equivalent",
+      "evidence": "audit-production-config.log"
+    },
+    {
+      "check": "production applications exact release and configuration",
+      "result": "equivalent",
+      "evidence": "audit-app-identity.log"
+    },
+    {
+      "check": "TEST-435 fresh public HTTP acceptance, no provider calls or stored-record reads",
+      "result": "pass",
+      "evidence": "audit-http-acceptance.json"
+    }
+  ],
+  "expectedFailure": {
+    "check": "new TEST-420 stack-spec inclusion before documentation correction",
+    "result": "failed for stale ownership",
+    "evidence": "audit-stack-contract-red.log"
+  },
+  "operatorInvocationCorrection": "Full-service check rejected --expected-release because it supports only application services. Ran full check without that flag and separate application check with it; both exit 0. CLI reports are text logs, not JSON. No mutation occurred.",
+  "retainedRelease": {
+    "run": "https://github.com/prls-co/harden-llm/actions/runs/38377471293/attempts/1",
+    "tasksPassed": 28,
+    "repeated": false
+  },
+  "notRun": [
+    "browser layout or interactive Portal session",
+    "live-provider inference",
+    "new database provisioning/reset",
+    "full release suite for unchanged application"
+  ],
+  "nextWorkIssue": "https://github.com/prls-co/harden-llm/issues/107"
+}
