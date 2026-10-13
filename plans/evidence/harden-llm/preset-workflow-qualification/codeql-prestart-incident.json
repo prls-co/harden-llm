@@ -1,0 +1,42 @@
+{
+  "sourceSHA": "1a6ed34e8a674640f05b097c7dff34f5d75fe655",
+  "runID": 38459380313,
+  "attempt": 1,
+  "workflowPath": "dynamic/github-code-scanning/codeql",
+  "workflowEvent": "dynamic",
+  "workflowStatus": "completed",
+  "workflowConclusion": "failure",
+  "unstartedJob": {
+    "id": 115510280938,
+    "name": "Analyze (actions)",
+    "status": "queued",
+    "conclusion": null,
+    "runner_id": null,
+    "runner_name": null,
+    "started_at": "2026-10-13T20:00:40Z",
+    "completed_at": null,
+    "steps": []
+  },
+  "otherChecks": [
+    {
+      "name": "Analyze (javascript-typescript)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Analyze (go)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Analyze (actions)",
+      "status": "queued",
+      "conclusion": null
+    }
+  ],
+  "jobRerunRequest": "CLI rejected; direct REST job rerun returned HTTP 403: Jobs in this workflow run cannot be re-run",
+  "mainTreeEqualsPassingPRTree": true,
+  "sourceRootCauseVerified": false,
+  "securitySettingsChanged": false,
+  "trackedBy": "https://github.com/prls-co/harden-llm/issues/113"
+}

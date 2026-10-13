@@ -1,0 +1,12 @@
+{
+  "ownedScratchAndRedundantFilesRemoved": 27,
+  "privateDiagnosticFilesRetained": 8,
+  "cleanExactSourceBuildCheckoutRemoved": true,
+  "dependencyCachesRetained": true,
+  "rollbackCheckpointsAndImagesRetained": true,
+  "applicationSourceSHA": "ff5c968bc3c2263956fb1f946935395506347bfc",
+  "operatorCheckoutAfterDocsMerge": "1a6ed34e8a674640f05b097c7dff34f5d75fe655",
+  "finalScopedAndFullChecks": "equivalent",
+  "applicationImagesRebuiltForDocs": false,
+  "recordedAt": "2026-10-13T20:03:49Z"
+}

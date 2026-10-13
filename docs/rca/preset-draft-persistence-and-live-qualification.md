@@ -135,3 +135,23 @@ The HLLM corrective scope is complete. Investigate remaining upstream causes in
 [CPA #5](https://github.com/prls-co/CLIProxyAPI-setup/issues/5), then explicitly
 qualify repaired models before restoring presets. Supply OpenAI/Anthropic keys
 if those templates are needed. Browser checks remain an optional separate opt-in.
+
+## 7. Documentation closeout: repeated unstarted GitHub scan
+
+PR #117 merged this acceptance record at
+`1a6ed34e8a674640f05b097c7dff34f5d75fe655`, with the same tree as the PR revision
+that passed every analysis. Subsequent main [CodeQL run 38459380313](https://github.com/prls-co/harden-llm/actions/runs/38459380313)
+completed/failure while `Analyze (actions)` stayed queued with no runner,
+steps, completion or conclusion. Go and JavaScript passed; there is no failed
+Actions execution or security finding to diagnose. Its deeper GitHub cause is
+unverified. The job rerun was rejected as non-rerunnable.
+
+This repeats the independent incident in
+[#113](https://github.com/prls-co/harden-llm/issues/113), previously affecting
+JavaScript. The [incident record](../../plans/evidence/harden-llm/preset-workflow-qualification/codeql-prestart-incident.json)
+preserves the exact failed run and empty job. Scan configuration/oracles and
+application images remain unchanged. A later successful scan does not repair
+or relabel this failed run. The certified application release and production
+checks in section 5 remain separate; final documentation checks are reported
+in #115. The operator apply output and completed cleanup are also retained in
+the evidence directory.

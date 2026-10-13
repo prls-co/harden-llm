@@ -2924,3 +2924,10 @@ made no inference call. Browser layout/interactive Portal were not checked.
 The [RCA](rca/preset-draft-persistence-and-live-qualification.md) records exact
 scope changes, full accepted evidence and CPA-owner issue #5 for upstream causes.
 Subsequent documentation commits do not rebuild/relabel these application images.
+
+The main documentation closeout `1a6ed34` encountered a second unstarted GitHub
+scan: Go/JavaScript succeeded but Actions had no runner/steps while its parent
+run was completed/failure. GitHub rejected the job rerun. The exact failure is
+retained in [RCA section 7](rca/preset-draft-persistence-and-live-qualification.md#7-documentation-closeout-repeated-unstarted-github-scan)
+and owner issue #113. No scan setting or application image is changed to make
+that run appear successful; subsequent revision checks are separate evidence.
