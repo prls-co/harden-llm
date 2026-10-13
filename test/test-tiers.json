@@ -14,6 +14,10 @@
     {
       "path": "frontend/test/harden_llm_web/security_observability_test.exs",
       "resource": "global_observability_application_configuration"
+    },
+    {
+      "path": "frontend/test/harden_llm_web/live/gateway_workflows_test.exs",
+      "resource": "global_reference_gateway_application_configuration"
     }
   ],
   "tasks": [
@@ -651,6 +655,49 @@
       "requiredFor": ["baseline", "release"],
       "benchmarkLanes": ["full-system"],
       "pathSelectors": ["Makefile", "**/*.go", "go.mod", "go.sum"]
+    },
+    {
+      "id": "frontend-gateway-workflows",
+      "testIds": [
+        "TEST-454",
+        "WEB-TEST-126"
+      ],
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration,frontendintegration",
+        "./internal/gateway/httpapi",
+        "-run",
+        "^TestFrontendPresetWorkflows$",
+        "-count=1",
+        "-timeout=15m",
+        "-v"
+      ],
+      "dependsOn": [],
+      "timeoutMs": 900000,
+      "cleanupOwner": "integration-pool",
+      "network": "local-only",
+      "credentialKeys": [],
+      "requiredFor": [
+        "release"
+      ],
+      "servicePool": {
+        "composeFile": "deploy/test/compose.integration.yml",
+        "services": [
+          {
+            "name": "harden-postgres",
+            "port": 5432
+          }
+        ]
+      },
+      "pathSelectors": [
+        "frontend/**",
+        "stateful/**",
+        "internal/gateway/httpapi/**",
+        "api/**"
+      ]
     }
   ]
 }

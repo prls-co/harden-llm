@@ -273,3 +273,13 @@ Corrected main source `739cfda1ea6a67fb7a2ee737e31d8342c58f36d0` passed all 28
 tasks in release 38439024276 attempt 1, including the real Compose boundary,
 with no cleanup issues. The [RCA acceptance](../rca/reference-preset-schema-and-recovery-ui.md#7-merged-and-deployed-acceptance)
 retains failed/passing reports and keeps browser/provider opt-ins explicit.
+
+## Preset workflow boundary amendment (2026-10-13)
+
+Issue #115 adds TEST-454, an explicit T3 real LiveView/client/Go/PostgreSQL task
+with native protocol fixtures. It runs separately from offline fast and Go-only
+integration, using private compilation/listener resources. Its serial host API
+configuration is recorded in the manifest. TEST-455 remains an authorized live
+track; discovery/Prepare/stubbed success are not provider qualification. The
+[RCA](../rca/preset-draft-persistence-and-live-qualification.md) records actual
+failures and the canary input correction without weakening any assertion.

@@ -1437,7 +1437,10 @@ defmodule HardenLlmWeb.WorkspaceLive do
     |> Map.put_new("modelId", draft["definition"]["modelId"])
     |> Map.put_new("recoveryPolicy", draft["definition"]["recoveryPolicy"])
     |> Map.put("selectedProfileId", id)
-    |> Map.put("profileEditor", HardenLlmUI.ProfileForm.profile_form(draft))
+    |> Map.put(
+      "profileEditor",
+      draft |> HardenLlmUI.ProfileForm.profile_form() |> HardenLlmUI.ProfileForm.draft_snapshot()
+    )
   end
 
   defp history_route_pagination(params) do
@@ -2114,12 +2117,16 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
-  defp run_disabled?(form, schema_check, run_ref) do
+  defp run_disabled?(form, schema_check, run_ref, profiles) do
     profile_id = String.trim(form[:selectedProfileId].value || "")
     schema = String.trim(form[:schema].value || "")
     call_type = response_call_type(form.params || %{})
 
     run_ref != nil or profile_id == "" or
+      not Enum.any?(
+        profiles,
+        &(&1["id"] == profile_id and get_in(&1, ["credentialStatus", "configured"]) == true)
+      ) or
       (call_type == "structured" and (schema == "" or schema_check.status != :valid))
   end
 

@@ -66,7 +66,11 @@ defmodule HardenLlmWeb.ConnCase do
 
     case result do
       {:ok, %{pid: pid} = view, html} ->
-        :ok = Req.Test.allow(HardenLlmUI.Client, self(), pid)
+        if Application.get_env(:harden_llm, :harden_api_req_options, [])[:plug] ==
+             {Req.Test, HardenLlmUI.Client} do
+          :ok = Req.Test.allow(HardenLlmUI.Client, self(), pid)
+        end
+
         ExUnit.Callbacks.on_exit(fn -> stop_live_view(view) end)
         {:ok, view, html}
 

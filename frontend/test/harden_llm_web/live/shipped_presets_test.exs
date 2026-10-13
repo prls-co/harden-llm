@@ -11,7 +11,7 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
            |> File.read!()
            |> Jason.decode!()
 
-  setup %{conn: conn} do
+  setup %{conn: conn} = context do
     parent = self()
     fixture = File.read!("../test/fixtures/reference/workspace.json") |> Jason.decode!()
 
@@ -26,7 +26,7 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
           "presetId" => id,
           "definition" => preset["definition"],
           "credentialStatus" => %{
-            "configured" => true,
+            "configured" => id != context[:missing_credentials],
             "source" => "deployment",
             "id" => preset["credentialBinding"]["deploymentUpstreamId"]
           }
@@ -50,7 +50,7 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
             |> Map.put("sourceProfileId", id)
             |> Map.put("presetId", id)
             |> Map.put("credentialStatus", %{
-              "configured" => true,
+              "configured" => id != context[:missing_credentials],
               "source" => "deployment",
               "id" => preset["credentialBinding"]["deploymentUpstreamId"]
             })
@@ -68,6 +68,9 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
         {"POST", "/api/v1/state"} ->
           {:ok, bytes, request} = Plug.Conn.read_body(request)
           body = Jason.decode!(bytes)
+          # The real gateway rejects credential fields even when their value is empty.
+          refute Map.has_key?(body["payload"]["profileEditor"] || %{}, "apiKey")
+          send(parent, {:preset_state, body})
           Req.Test.json(request, Map.put(body, "revision", body["revision"] + 1))
 
         {"POST", "/api/v1/run"} ->
@@ -109,6 +112,7 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
 
       render_settled(view, 1_000)
       assert has_element?(view, "#run_selectedProfileId[value='#{id}']")
+      refute has_element?(view, "#draft-error")
 
       for call_type <- ["text", "structured"] do
         view
@@ -145,6 +149,22 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
     render_settled(view, 1_000)
     assert has_element?(view, "#run-submit[disabled]")
     assert has_element?(view, "#schema-status", "object schemas must define properties")
+    refute_receive {:preset_run, _}, 50
+  end
+
+  @tag missing_credentials: "CPA GPT-5.6 Sol"
+  test "unconfigured templates remain editable but cannot run", %{conn: conn} do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+
+    view
+    |> element("#run_selectedProfileId")
+    |> render_change(%{"run" => %{"selectedProfileId" => "CPA GPT-5.6 Sol"}})
+
+    render_settled(view, 1_000)
+    assert has_element?(view, "#run-submit[disabled]")
+    view |> element("#model-config-toggle") |> render_click()
+    assert has_element?(view, "#profile-credential-toggle:not([disabled])")
     refute_receive {:preset_run, _}, 50
   end
 end

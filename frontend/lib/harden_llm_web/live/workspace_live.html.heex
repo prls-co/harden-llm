@@ -231,7 +231,7 @@
                 id="run-submit"
                 type="submit"
                 formnovalidate
-                disabled={run_disabled?(@form, @schema_check, @run_ref)}
+                disabled={run_disabled?(@form, @schema_check, @run_ref, @profiles)}
                 phx-disable-with="Running…"
                 class="ullm-btn ullm-btn-primary"
               >

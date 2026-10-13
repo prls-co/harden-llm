@@ -92,3 +92,8 @@ after all 28 browser-free release tasks passed. The
 [RCA acceptance](../rca/reference-preset-schema-and-recovery-ui.md#7-merged-and-deployed-acceptance)
 separates deterministic interaction coverage from deployed HTTP/image proof.
 No browser layout or real-provider interaction is claimed by this correction.
+
+Issue #115 extends this with actual HTTP/storage/execution coverage. TEST-454
+configures the fixed repair/escalation/rerun positions through the same editor,
+checks persisted/reloaded values and exact provider routing under one budget.
+No additional recovery graph, profile service or execution engine is added.

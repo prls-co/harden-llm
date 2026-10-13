@@ -19,6 +19,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -46,6 +47,11 @@ type referenceHTTPFixture struct {
 
 func referenceHTTP(t *testing.T, history, artifacts bool) referenceHTTPFixture {
 	t.Helper()
+	return referenceHTTPConfigured(t, history, artifacts, nil, nil)
+}
+
+func referenceHTTPConfigured(t *testing.T, history, artifacts bool, presets stateful.Catalog, native http.HandlerFunc) referenceHTTPFixture {
+	t.Helper()
 	_, dsn := integrationtest.PostgresLease(t)
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -63,6 +69,13 @@ func referenceHTTP(t *testing.T, history, artifacts bool) referenceHTTPFixture {
 	}
 	calls := &atomic.Int32{}
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if native != nil {
+			if r.Method == http.MethodPost {
+				calls.Add(1)
+			}
+			native(w, r)
+			return
+		}
 		_, _ = io.Copy(io.Discard, r.Body)
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/v1/models" {
@@ -79,22 +92,34 @@ func referenceHTTP(t *testing.T, history, artifacts bool) referenceHTTPFixture {
 	t.Cleanup(provider.Close)
 	roots := x509.NewCertPool()
 	roots.AddCert(provider.Certificate())
-	data, err := os.ReadFile("../../../test/fixtures/reference/presets.json")
-	if err != nil {
-		t.Fatal(err)
+	if presets == nil {
+		data, err := os.ReadFile("../../../test/fixtures/reference/presets.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		presets, err = stateful.ParseCatalog(data)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
-	presets, err := stateful.ParseCatalog(data)
-	if err != nil {
-		t.Fatal(err)
-	}
+	connections := []hardenllm.Connection{}
+	seen := map[string]bool{}
 	for id, preset := range presets {
 		var definition map[string]any
 		if json.Unmarshal(preset.Definition, &definition) != nil {
 			t.Fatal("invalid shared preset")
 		}
-		definition["baseUrl"] = provider.URL + "/v1"
+		base := provider.URL + "/v1"
+		if definition["provider"] == "google" {
+			base = provider.URL
+		}
+		definition["baseUrl"] = base
 		preset.Definition, _ = json.Marshal(definition)
-		preset.Binding = stateful.ProfileCredentialBinding{Source: "deployment", DeploymentUpstreamID: "fixture"}
+		binding := preset.Binding.DeploymentUpstreamID
+		if !seen[binding] {
+			connections = append(connections, hardenllm.Connection{ID: binding, Provider: definition["provider"].(string), Protocol: definition["apiInferenceType"].(string), BaseURL: base, APIKey: "fixture-provider-secret"})
+			seen[binding] = true
+		}
 		presets[id] = preset
 	}
 	keyA, keyB := "synthetic-key-a-"+uuid.NewString(), "synthetic-key-b-"+uuid.NewString()
@@ -113,7 +138,7 @@ func referenceHTTP(t *testing.T, history, artifacts bool) referenceHTTPFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{Connections: []hardenllm.Connection{{ID: "fixture", Provider: "cpa", Protocol: "responses", BaseURL: provider.URL + "/v1", APIKey: "fixture-provider-secret"}}, DefaultConnection: "fixture", EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}}, Pool: pool, Presets: presets, Vault: vault, History: stateful.HistoryConfig{Enabled: history}, Artifacts: store})
+	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{Connections: connections, DefaultConnection: connections[0].ID, EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}}, Pool: pool, Presets: presets, Vault: vault, History: stateful.HistoryConfig{Enabled: history}, Artifacts: store})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +148,12 @@ func referenceHTTP(t *testing.T, history, artifacts bool) referenceHTTPFixture {
 	}
 	server := httptest.NewServer(api.Handler())
 	t.Cleanup(server.Close)
-	preset := presets["CPA Responses"]
+	ids := make([]string, 0, len(presets))
+	for id := range presets {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	preset := presets[ids[0]]
 	return referenceHTTPFixture{api: api, server: server, pool: pool, service: service, keyA: keyA, keyB: keyB, calls: calls, snapshot: stateful.SaveProfileInput{Name: preset.Name, PresetID: "CPA Responses", Definition: preset.Definition, Inputs: preset.Inputs, Binding: preset.Binding}}
 }
 

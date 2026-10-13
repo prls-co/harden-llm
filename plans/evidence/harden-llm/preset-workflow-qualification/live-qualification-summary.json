@@ -1,0 +1,712 @@
+{
+  "source": "one real provider call per mode, no retries",
+  "caseCount": 80,
+  "failedPresetIDs": [
+    "CPA claude-3-5-haiku-20241022",
+    "CPA claude-3-7-sonnet-20250219",
+    "CPA claude-fable-5",
+    "CPA claude-fable-5-1",
+    "CPA claude-opus-4-1-20250805",
+    "CPA claude-opus-4-20250514",
+    "CPA claude-opus-5-5",
+    "CPA claude-sonnet-4-20250514",
+    "CPA claude-sonnet-4-5-20250929",
+    "Novita DeepSeek V4 Flash"
+  ],
+  "cases": [
+    {
+      "attemptCount": 1,
+      "id": "CPA GPT-5.6 Luna",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA GPT-5.6 Sol",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-3-5-haiku-20241022",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-3-7-sonnet-20250219",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-fable-5",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-fable-5-1",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-haiku-4-5-20251001",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-haiku-5-5",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-opus-4-1-20250805",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-opus-4-20250514",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-4-5-20251101",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-4-6",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-4-7",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-4-8",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-5",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-opus-5-5",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-sonnet-4-20250514",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-sonnet-4-5-20250929",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-sonnet-4-6",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-sonnet-5",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-sonnet-5-5",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA codex-auto-review",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-5.5",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-5.6-terra",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-6-astra",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-6-luna",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-6-sol",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-6.1-sol",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.1 Flash Lite",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.1 Pro Preview",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.5 Flash",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.5 Flash Lite",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.7 Flash",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "Novita DeepSeek V4 Flash",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Novita DeepSeek V4 Pro",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "OpenRouter DeepSeek V4 Flash",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "OpenRouter DeepSeek V4 Pro",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "OpenRouter GPT-OSS 120B",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "OpenRouter GPT-OSS 20B",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Perplexity GPT-6.1 Sol",
+      "mode": "structured",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA GPT-5.6 Luna",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA GPT-5.6 Sol",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-3-5-haiku-20241022",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-3-7-sonnet-20250219",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-fable-5",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-fable-5-1",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-haiku-4-5-20251001",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-haiku-5-5",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-opus-4-1-20250805",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-opus-4-20250514",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-4-5-20251101",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-4-6",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-4-7",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-4-8",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-opus-5",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-opus-5-5",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-sonnet-4-20250514",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "CPA claude-sonnet-4-5-20250929",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-sonnet-4-6",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-sonnet-5",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA claude-sonnet-5-5",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA codex-auto-review",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-5.5",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-5.6-terra",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-6-astra",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-6-luna",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-6-sol",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "CPA gpt-6.1-sol",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.1 Flash Lite",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.1 Pro Preview",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.5 Flash",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.5 Flash Lite",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Gemini 3.7 Flash",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "errorCode": "inference_failed",
+      "id": "Novita DeepSeek V4 Flash",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "failed",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Novita DeepSeek V4 Pro",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "OpenRouter DeepSeek V4 Flash",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "OpenRouter DeepSeek V4 Pro",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "OpenRouter GPT-OSS 120B",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "OpenRouter GPT-OSS 20B",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    },
+    {
+      "attemptCount": 1,
+      "id": "Perplexity GPT-6.1 Sol",
+      "mode": "text",
+      "providerInvoked": true,
+      "status": "succeeded",
+      "usedRepair": false
+    }
+  ],
+  "qualifiedPresetIDs": [
+    "CPA GPT-5.6 Luna",
+    "CPA GPT-5.6 Sol",
+    "CPA claude-haiku-4-5-20251001",
+    "CPA claude-haiku-5-5",
+    "CPA claude-opus-4-5-20251101",
+    "CPA claude-opus-4-6",
+    "CPA claude-opus-4-7",
+    "CPA claude-opus-4-8",
+    "CPA claude-opus-5",
+    "CPA claude-sonnet-4-6",
+    "CPA claude-sonnet-5",
+    "CPA claude-sonnet-5-5",
+    "CPA codex-auto-review",
+    "CPA gpt-5.5",
+    "CPA gpt-5.6-terra",
+    "CPA gpt-6-astra",
+    "CPA gpt-6-luna",
+    "CPA gpt-6-sol",
+    "CPA gpt-6.1-sol",
+    "Gemini 3.1 Flash Lite",
+    "Gemini 3.1 Pro Preview",
+    "Gemini 3.5 Flash",
+    "Gemini 3.5 Flash Lite",
+    "Gemini 3.7 Flash",
+    "Novita DeepSeek V4 Pro",
+    "OpenRouter DeepSeek V4 Flash",
+    "OpenRouter DeepSeek V4 Pro",
+    "OpenRouter GPT-OSS 120B",
+    "OpenRouter GPT-OSS 20B",
+    "Perplexity GPT-6.1 Sol"
+  ],
+  "activeTemplateCount": 40,
+  "configuredAndQualifiedCount": 30,
+  "sourceCaseFailuresRetained": true
+}

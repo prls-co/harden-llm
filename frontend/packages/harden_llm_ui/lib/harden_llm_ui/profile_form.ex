@@ -11,6 +11,9 @@ defmodule HardenLlmUI.ProfileForm do
 
   def empty_form(policy), do: ProfileDefaults.empty_form(policy)
 
+  @doc "Editor snapshot for workspace persistence; entered keys stay in local staging."
+  def draft_snapshot(params) when is_map(params), do: Map.delete(params, "apiKey")
+
   def runtime_options(value) when is_map(value), do: value
 
   def runtime_options(value) when is_binary(value) do
