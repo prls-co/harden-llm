@@ -1839,3 +1839,11 @@ TEST-434/435 remain explicit deployed identity/HTTP checks.
 - Pass criteria: all 24 presets/48 submissions pass, no unsupported shipped schema or leaked credential, no additional recovery recursion/engine/service, no weakened existing oracle.
 - Expected runtime: 1–10 seconds for focused suites.
 - Historical relationship: TEST-017 stays retired; its all-profile behavioral oracle is restored at this new owner/ID. See `docs/rca/reference-preset-schema-and-recovery-ui.md` for the coverage failure and correction.
+
+
+### Composed port ownership regression (TEST-034/433)
+
+- Locations: `internal/smoke/ports{,_test}.go`, `internal/smoke/harness_compose.go`, `internal/smoke/frontend_fixture_test.go`.
+- Cheap command: `go test ./internal/smoke -run '^TestSmokeHTTPSPort$' -count=1`.
+- Assertions: accept one assigned loopback port; reject zero/out-of-range/non-loopback/malformed/multiple publications. Both fixtures delegate binding/allocation to Docker; no released host-port probing.
+- Distinct real boundary: canonical `go-compose` task starts the owned ingress, observes its assigned port and executes unchanged full-system assertions; cleanup verifies no owned resources remain. The opt-in browser fixture shares setup but is not launched by this correction.

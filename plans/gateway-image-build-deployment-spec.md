@@ -202,6 +202,7 @@ P05/P06 expansion is recorded in ADR-HLLM-028 and the KER acceptance table;
      set -euo pipefail
 
      : "${HLLM_RELEASE_SHA:?Set the accepted release-run head SHA}"
+     : "${PRIVATE_MODULE_TOKEN:?Set the private dependency read credential; never print it}"
      HLLM_DOCKER_CONTEXT="${HLLM_DOCKER_CONTEXT:-default}"
      case "$HLLM_RELEASE_SHA" in
        (????????????????????????????????????????)
@@ -252,6 +253,7 @@ P05/P06 expansion is recorded in ADR-HLLM-028 and the KER acceptance table;
        --platform linux/amd64 \
        --build-arg "VERSION=$HLLM_RELEASE_SHA" \
        --build-arg "REVISION=$HLLM_RELEASE_SHA" \
+       --secret id=private_module_token,env=PRIVATE_MODULE_TOKEN \
        --tag "$HLLM_IMAGE_TAG" "$HLLM_BUILD_ROOT"
 
      HLLM_IMAGE_METADATA="$(docker --context "$HLLM_DOCKER_CONTEXT" \
