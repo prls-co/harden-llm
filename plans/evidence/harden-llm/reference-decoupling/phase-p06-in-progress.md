@@ -56,3 +56,24 @@ single shared `composeCommand` expectation; it still requires the exact raw
 Compose test, count=1, managed lifecycle and browser-free boundary. The first
 validation failed and is not counted as passing; the subsequent command result
 is the acceptance evidence. No application behavior changed.
+
+## 3. Security refresh after the second release attempt
+
+Run 38373119904 attempt 1 at `1e450b8eb87545cbbe902a29591fb40be56a16c8`
+passed static/build/lint, unit/parity/API/observability, Compose contracts and
+real PostgreSQL integration, then failed `go-vulnerability`. Remaining tasks
+were cancelled; this is not release acceptance. No cleanup issues occurred.
+The scan reported 11 reachable standard-library advisories, including
+GO-2026-6617 also affecting `golang.org/x/net` v0.58.0.
+
+Verified the Go release history and official vulnerability record; moved the
+module, CI and three builder pins to Go 1.26.9 and the official Alpine 3.23
+manifest `sha256:6750308561953d451210ed1a8086d36c8c8bdcbf672d38d9d0d424b8a7a0216c`.
+Updated x/net to v0.60.0 and its required x/* dependency chain using `go get` and
+`go mod tidy`. No source behavior or vulnerability assertions were suppressed.
+ADR-HLLM-011 records the security refresh and browser opt-in boundary.
+
+`go tool govulncheck ./...` now reports no vulnerabilities. The complete local
+fast gate passes all ten tasks with zero cleanup issues (`p06-security-fast.json`).
+A new exact-SHA hosted release, immutable builds and deployment remain required.
+Production and shared services are unchanged.

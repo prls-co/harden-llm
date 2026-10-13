@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.26.6"
+  GO_VERSION: "1.26.9"
   GOPRIVATE: github.com/prls-co/prls-control-plane
   NODE_VERSION: "22.22.1"
   ELIXIR_VERSION: "1.20.2"
