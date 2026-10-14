@@ -1,0 +1,5 @@
+--- FAIL: TestStatusWriterFlushError (0.00s)
+    response_writer_test.go:29: logging wrapper concealed flush failure: <nil>
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/gateway/httpapi	0.010s
+FAIL

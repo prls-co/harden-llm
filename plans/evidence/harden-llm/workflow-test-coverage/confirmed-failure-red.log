@@ -1,0 +1,35 @@
+Running ExUnit with seed: 754132, max_cases: 24
+Excluding tags: [:test]
+Including tags: [location: {"test/harden_llm_web/live/restored_workflow_test.exs", 120}]
+
+
+
+  1) test a failed run with confirmed history reports failure without recording uncertainty (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:115
+     Expected truthy, got false
+     code: assert has_element?(view, "#run-error", "The run failed.")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN5l2Qv6hx00pwGB",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.940.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#run-error"
+
+         # 3
+         "The run failed."
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:137: (test)
+
+
+Finished in 1.1 seconds (1.1s async, 0.00s sync)
+
+Result: 0/1 passed, 15 excluded
+Failed: 1 test

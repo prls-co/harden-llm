@@ -48,6 +48,7 @@ export function verifyInteractions(model) {
 
 // The reviewed reference cases start at TEST-452. New cases must declare their
 // gate in the canonical catalog; task registration stays solely in the manifest.
+// This checks source ownership and selection, not observed runtime execution.
 export function verifyCaseCoverage(manifest, backendSpec, frontendSpec, files) {
   const sections = [...backendSpec.matchAll(/^### (TEST-(\d+)):([^]*?)(?=^### |^## |$(?![^]))/gm)];
   let checked = 0;
@@ -68,13 +69,27 @@ export function verifyCaseCoverage(manifest, backendSpec, frontendSpec, files) {
       if (!selectTasks(manifest, gate).some(t => t.id === task.id)) throw new Error(`${caseID} task is excluded from ${gate}`);
       const marker = new RegExp(`\\b${caseID}\\b`);
       const consumers = [...files].filter(([file, text]) => section.includes(file) && marker.test(text));
-      const owns = ([file]) => {
+      const owns = ([file, text]) => {
         const command = task.command;
         const directory = task.workingDirectory ?? "";
-        if (command[0] === "mix" && command[1] === "test") return file.startsWith(`${directory}/test/`) && (command.length === 2 || command.some(a => file === `${directory}/${a}`));
-        if (command[0] === "node" && command[1] === "--test") return command.includes(file);
-        if (command.join(" ") === "make test-unit") return file.endsWith("_test.go") && !files.get(file).startsWith("//go:build");
-        if (command[0] === "go" && command.includes("test")) return file.endsWith("_test.go") && command.some(a => a === "./..." || file.startsWith(a.replace(/^\.\//, "") + "/"));
+        if (command[0] === "mix" && command[1] === "test") {
+          if (!/^\s*test\s+"[^"\n]+"/m.test(text)) return false;
+          const excludes = files.get(`${directory}/test/test_helper.exs`)?.match(/ExUnit\.start\(exclude:\s*\[([^\]]+)\]/)?.[1] ?? "";
+          const excludedTags = [...excludes.matchAll(/:(\w+)/g)].map(m => m[1]);
+          const moduleTags = [...text.matchAll(/^\s*@moduletag\s+(:\w+|\[[^\]\n]*\])/gm)].flatMap(m => [...m[1].matchAll(/:(\w+)/g)].map(v => v[1]));
+          const included = command.flatMap((a, i) => a === "--include" || a === "--only" ? [command[i + 1]] : a.match(/^--(?:include|only)=(.+)$/)?.slice(1) ?? []);
+          if (moduleTags.some(tag => excludedTags.includes(tag) && !included.includes(tag))) return false;
+          return file.startsWith(`${directory}/test/`) && (command.length === 2 || command.some(a => file === `${directory}/${a}`));
+        }
+        if (command[0] === "node" && command[1] === "--test") return command.includes(file) && /^\s*test\s*\(/m.test(text);
+        const goTests = [...text.matchAll(/^func (Test\w+)\(t \*testing\.T\)/gm)].map(m => m[1]);
+        if (!goTests.length) return false;
+        if (command.join(" ") === "make test-unit") return file.endsWith("_test.go") && !text.startsWith("//go:build");
+        if (command[0] === "go" && command.includes("test")) {
+          const run = command.indexOf("-run");
+          if (run !== -1 && !goTests.some(name => new RegExp(command[run + 1]).test(name))) return false;
+          return file.endsWith("_test.go") && command.some(a => a === "./..." || file.startsWith(a.replace(/^\.\//, "") + "/"));
+        }
         return false;
       };
       if (!consumers.some(owns)) throw new Error(`${caseID} has no executable consumer owned by ${task.id}`);

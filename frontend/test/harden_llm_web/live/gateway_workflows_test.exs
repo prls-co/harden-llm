@@ -25,12 +25,12 @@ defmodule HardenLlmWeb.GatewayWorkflowsTest do
       Application.put_env(:harden_llm, :harden_api_req_options, options)
     end)
 
-    context =
-      HardenLlmWeb.APIContext.server("workspace:" <> "fixture-user")
-
-    {:ok, conn: authenticated_conn(conn), context: context}
+    {:ok,
+     conn: authenticated_conn(conn),
+     context: HardenLlmWeb.APIContext.server("workspace:fixture-user")}
   end
 
+  @tag :preset_workflow
   test "every shipped preset selects, persists, reloads and executes both modes through the real gateway",
        %{conn: conn, context: context} do
     {:ok, %{"profiles" => profiles}} = Client.list_profiles(context)
@@ -39,37 +39,49 @@ defmodule HardenLlmWeb.GatewayWorkflowsTest do
     view |> element("#input-advanced-toggle") |> render_click()
     render_settled(view, 10_000)
 
-    for profile <- profiles do
-      id = profile["id"]
+    view =
+      Enum.reduce(profiles, view, fn profile, view ->
+        id = profile["id"]
 
-      view
-      |> element("#run_selectedProfileId")
-      |> render_change(%{"run" => %{"selectedProfileId" => id}})
-
-      render_settled(view, 10_000)
-      refute has_element?(view, "#draft-error"), id
-      {:ok, state} = Client.get_state(context)
-      assert state["payload"]["selectedProfileId"] == id
-      refute Map.has_key?(state["payload"]["profileEditor"], "apiKey")
-      assert state["revision"] > 0
-
-      for mode <- ["text", "structured"] do
         view
-        |> form("#run-form", %{
-          "run" => %{"callType" => mode, "userPrompt" => "Return the fixture object."}
-        })
-        |> render_change()
+        |> element("#run_selectedProfileId")
+        |> render_change(%{"run" => %{"selectedProfileId" => id}})
 
         render_settled(view, 10_000)
-        refute has_element?(view, "#run-submit[disabled]"), "#{id}: #{mode}"
-        view |> form("#run-form") |> render_submit()
-        render_settled(view, 10_000)
-        refute has_element?(view, "#run-error"), "#{id}: #{mode}: #{render(view)}"
-        assert has_element?(view, "#run-output", "deterministic"), id
-      end
-    end
+        refute has_element?(view, "#draft-error"), id
+        {:ok, state} = Client.get_state(context)
+        assert state["payload"]["selectedProfileId"] == id
+        refute Map.has_key?(state["payload"]["profileEditor"], "apiKey")
+        assert state["revision"] > 0
+
+        GenServer.stop(view.pid)
+        {:ok, reloaded, _} = live(conn, "/")
+        render_settled(reloaded, 10_000)
+        assert has_element?(reloaded, "#run_selectedProfileId[value='#{id}']"), id
+        refute has_element?(reloaded, "#draft-error"), id
+        {:ok, restored} = Client.get_state(context)
+        assert restored["payload"] == state["payload"], id
+
+        for mode <- ["text", "structured"] do
+          reloaded
+          |> form("#run-form", %{
+            "run" => %{"callType" => mode, "userPrompt" => "Return the fixture object."}
+          })
+          |> render_change()
+
+          render_settled(reloaded, 10_000)
+          refute has_element?(reloaded, "#run-submit[disabled]"), "#{id}: #{mode}"
+          reloaded |> form("#run-form") |> render_submit()
+          render_settled(reloaded, 10_000)
+          refute has_element?(reloaded, "#run-error"), "#{id}: #{mode}"
+          assert has_element?(reloaded, "#run-output", "deterministic"), id
+        end
+
+        reloaded
+      end)
 
     {:ok, persisted} = Client.get_state(context)
+    GenServer.stop(view.pid)
     {:ok, reloaded, _} = live(conn, "/")
     render_settled(reloaded, 10_000)
 
@@ -81,6 +93,7 @@ defmodule HardenLlmWeb.GatewayWorkflowsTest do
     refute has_element?(reloaded, "#draft-error")
   end
 
+  @tag :preset_workflow
   test "repair and escalation settings persist and execute the finite six-attempt chain", %{
     conn: conn,
     context: context
@@ -173,5 +186,75 @@ defmodule HardenLlmWeb.GatewayWorkflowsTest do
     assert has_element?(reloaded, "#output-trace", "6")
     assert {:ok, state_after_reload} = Client.get_state(context)
     assert state_after_reload["payload"]["recoveryPolicy"] == policy
+  end
+
+  # TEST-464 / WEB-TEST-130
+  @tag :transport_workflow
+  test "actual interruption during inference gives an unknown outcome without replay", %{
+    conn: conn,
+    context: context
+  } do
+    view = run_transport_prompt(conn, "interrupt-before-terminal")
+    assert has_element?(view, "#run-error", "outcome is unknown")
+    refute has_element?(view, "#run-output", "OK")
+    assert_terminal_record(context, "interrupt-before-terminal", "failed")
+  end
+
+  @tag :transport_workflow
+  test "actual interruption after terminal preserves known output and reports recording uncertainty",
+       %{conn: conn, context: context} do
+    view = run_transport_prompt(conn, "interrupt-after-terminal")
+    assert has_element?(view, "#run-output", "OK")
+    assert has_element?(view, "#run-error", "history recording could not be confirmed")
+    assert_terminal_record(context, "interrupt-after-terminal", "succeeded")
+  end
+
+  defp assert_terminal_record(context, prompt, status) do
+    # The inference task may finish detached recording just after transport ends.
+    # Await the owned record using a bounded API read, never resubmit inference.
+    deadline = System.monotonic_time(:millisecond) + 5_000
+    record = read_terminal_record(context, prompt, deadline)
+    assert record["request"]["input"]["userPrompt"] == prompt
+    assert record["result"]["status"] == status
+    assert length(record["result"]["attempts"]) == 1
+    assert record["result"]["providerInvoked"]
+  end
+
+  defp read_terminal_record(context, prompt, deadline) do
+    assert System.monotonic_time(:millisecond) < deadline,
+           "detached terminal record did not appear"
+
+    {:ok, %{"items" => items}} = Client.list_history(context)
+
+    records =
+      Enum.map(items, fn item ->
+        {:ok, record} = Client.get_history(context, item["runId"])
+        record
+      end)
+
+    case Enum.filter(records, &(get_in(&1, ["request", "input", "userPrompt"]) == prompt)) do
+      [record] -> record
+      [] -> read_terminal_record(context, prompt, deadline)
+      _ -> flunk("transport interruption produced duplicate history")
+    end
+  end
+
+  defp run_transport_prompt(conn, prompt) do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 10_000)
+
+    unless has_element?(view, "[name='run[callType]']") do
+      view |> element("#input-advanced-toggle") |> render_click()
+      render_settled(view, 10_000)
+    end
+
+    view
+    |> form("#run-form", %{"run" => %{"userPrompt" => prompt, "callType" => "text"}})
+    |> render_change()
+
+    render_settled(view, 10_000)
+    view |> form("#run-form") |> render_submit()
+    render_settled(view, 10_000)
+    view
   end
 end

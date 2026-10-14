@@ -4,6 +4,7 @@ package schema
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -46,6 +47,14 @@ func TestSchemaContract(t *testing.T) {
 	for _, raw := range invalid {
 		if err := ValidateContract(json.RawMessage(raw)); err == nil {
 			t.Fatalf("unsupported contracted schema accepted: %s", raw)
+		}
+	}
+	// TEST-461: each condition in the strict object guard has its own witness.
+	for _, additional := range []any{true, "false", nil} {
+		raw, _ := json.Marshal(map[string]any{"type": "object", "properties": map[string]any{}, "required": []any{}, "additionalProperties": additional})
+		var invalid *ContractError
+		if err := ValidateContract(raw); !errors.As(err, &invalid) || invalid.Path != "/additionalProperties" || invalid.Keyword != "additionalProperties" {
+			t.Fatalf("invalid additionalProperties did not identify its exact guard: %v", err)
 		}
 	}
 

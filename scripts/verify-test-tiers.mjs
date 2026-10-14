@@ -115,6 +115,7 @@ async function main() {
     try { consumers.set(file, await fs.readFile(path.join(repositoryRoot, file), "utf8")); }
     catch (error) { if (error.code !== "ENOENT") throw error; }
   }
+  consumers.set("frontend/test/test_helper.exs", await fs.readFile(path.join(repositoryRoot, "frontend/test/test_helper.exs"), "utf8"));
   verifyCaseCoverage(manifest, backendSpec, frontendSpec, consumers);
   verifyInteractions(JSON.parse(await fs.readFile(path.join(repositoryRoot, "fixtures/parity/source/combinatorial/retry-decision-matrix.json"), "utf8")));
   const verifyLine = "verify: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-race test-vulnerability";

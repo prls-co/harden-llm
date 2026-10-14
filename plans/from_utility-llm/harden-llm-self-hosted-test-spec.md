@@ -1940,6 +1940,61 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Coverage gate: `fast`.
 - Location: `scripts/test/test_coverage_test.mjs`.
 - Command: `node --test scripts/test/test_coverage_test.mjs`; `node scripts/verify-test-tiers.mjs`.
-- Oracle: reviewed case headings declare their required gate; the existing manifest owns task selection. Every declared case has a selected executable consumer and every frontend case has its canonical description. Manual paid cases remain explicit exceptions. Removing a registration, consumer or gate fails.
+- Oracle: reviewed case headings declare their required gate; the existing manifest owns task selection. Every declared case has a selected source consumer with test declarations and every frontend case has its canonical description. Comment-only consumers, module-excluded Mix cases, removed registration/consumer/gate and excluded Go names fail. Manual paid cases remain explicit exceptions. Static ownership is not proof of runtime execution; retained task reports establish observed results.
 - Matrix oracle: independently enumerate feasible domain assignments and required pairs/triples; missing rows, invalid values/constraints and missing permanent regression IDs fail. The current retry model retains all 36 required triples.
 - Reviewed closure begins at TEST-452 and applies to all later case headings; historical cases retain their existing traceability gates. No second registry/scheduler or runtime combinatorial dependency.
+
+### TEST-458: Strict native request oracle
+
+- Coverage gate: `fast`.
+- Locations: `internal/gateway/httpapi/preset_native_oracle_test.go`, `internal/gateway/httpapi/preset_native_fixture_test.go`, `internal/gateway/httpapi/preset_native_expectation_test.go`.
+- Fast command: `go test ./internal/gateway/httpapi -run '^TestPresetNativeFixture' -count=1`.
+- Independent assertions: malformed/trailing JSON, wrong method/path/query credential/header/model/reasoning/schema/options and unexpected fields are rejected. Reviewed native paths and declared setup values define expected requests; no production preparation function calculates expectations.
+- Composition: TEST-454 applies this oracle to all 40 presets in both modes after each preset reload, then the exact six-stage recovery sequence. The matrix retains 80 generation calls, not a duplicate execution before/after reload.
+
+### TEST-459: Public Run admission and owned async ordering
+
+- Coverage gate: `fast`.
+- Frontend cases: WEB-TEST-128.
+- Location: `frontend/test/harden_llm_web/live/restored_workflow_test.exs`.
+- Command: `cd frontend && mix test test/harden_llm_web/live/restored_workflow_test.exs`.
+- Oracle: zero POSTs for blank profile/prompt, invalid structured schema, loading selection and unsaved endpoint changes; clearing each blocker permits one POST. A pending run rejects duplicate events and stale stream references. Out-of-order profile responses preserve the newest complete selection. Queued edits coalesce and reload the latest payload. Private Req owners and acknowledged barriers replace sleeps. Disabled HTML is not the admission oracle.
+
+### TEST-461: Profile option and recovery capability partitions
+
+- Coverage gate: `fast`.
+- Frontend cases: WEB-TEST-129.
+- Locations: `stateful/profile_options_test.go`, `frontend/packages/harden_llm_ui/test/harden_llm_ui/profile_reasoning_test.exs`, `frontend/test/harden_llm_web/live/shipped_presets_test.exs`, `internal/schema/schema_test.go`.
+- Oracle: portable/native reasoning conflict has explicit independent witnesses; temperature nil/false/true and token aliases preserve the declared semantics, explicit false/zero/null and immutable defaults. All five positions preserve full/partial/absent map selections and unrelated options; inheritance compiles only fresh generation; unknown references remain invalid. The actual picker shows partial levels and submits explicit highest. Schema guards reject true and nonboolean additionalProperties with exact path/keyword.
+- Commands: `go test ./stateful -run '^TestProfileOptionDecisionWitnesses$'`; existing package/LiveView tasks.
+
+### TEST-462: Recovery decisions and cross-protocol finite interactions
+
+- Coverage gate: `fast`.
+- Locations: `internal/runtime/recovery_decisions_test.go`, `internal/gateway/httpapi/native_recovery_test.go`.
+- Oracle: every stage stops immediately on success; independently disabled branches retain exact preparation/dispatch order and no semantic-repair wait. Injected time exercises just-before/equal/after retry deadline without sleeping and verifies prepared-operation reuse.
+- Native domain: five source endpoint families × five target families × five recovery positions × syntax/schema failure × zero/one remaining target budget = 500 cases. Every feasible combination executes against native local TLS provider parsers with no database/public network; zero remaining budget means exhaustion before target, never invalid maxAttempts=0. Exact model order, credentials/options/schema, attempts, original selected target and actual result producer are distinct oracles. Small finite domains are exhaustive, avoiding a combinatorial runtime/generator dependency.
+- Commands: `go test ./internal/runtime -run 'TestRecoveryDecisionWitnesses|TestRecoveryDeadlineIndependence'`; `go test ./internal/gateway/httpapi -run '^TestNativeRecoveryInteractions$'`.
+
+### TEST-463: Concurrent SQL revision writers and probe window
+
+- Coverage gate: `release`.
+- Location: `stateful/concurrent_cas_integration_test.go`.
+- Command: existing `go-integration` and `go-integration-race` tasks.
+- Draft oracle: a test-owned PostgreSQL row lock holds two actual pool writers; observed SQL lock waits acknowledge overlap. Release admits exactly one complete winner, one revision conflict and one increment; foreign key scope is unchanged.
+- Credential oracle: two candidates finish their revision reads and block in local provider probes with zero held SQL connections. Releasing both yields one winning ciphertext/revision, one conflict with losing snapshot rollback, and unchanged foreign credentials/profile count. No production data, arbitrary sleeps, success retries or new database service.
+
+### TEST-464: Real client/gateway stream interruption
+
+- Coverage gate: `release`.
+- Frontend cases: WEB-TEST-130.
+- Locations: `internal/gateway/httpapi/frontend_transport_integration_test.go`, `frontend/test/harden_llm_web/live/gateway_workflows_test.exs`.
+- Command: existing `frontend-gateway-workflows` task.
+- Oracle: close the actual owned HTTP connection during provider execution and after a complete terminal event, before recording confirmation. Provider-start and handler-exit acknowledgements bound cancellation. The real client/LiveView reports unknown inference only before terminal, retains terminal output afterwards and reports unconfirmed history. Read both exact records through the API and assert one actual provider dispatch and one PostgreSQL record per case; never synthesize recording success or replay inference.
+
+### TEST-465: Logging writer flush-error propagation
+
+- Coverage gate: `fast`.
+- Location: `internal/gateway/httpapi/response_writer_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestStatusWriterFlush' -count=1`.
+- Oracle: the actual logging writer forwards a closed-connection error through `http.ResponseController`, flushes a supported writer without changing an explicit status, and preserves `http.ErrNotSupported` for unsupported flushing. TEST-464 retains the actual cancellation/history boundary; this cheap root invariant cannot be replaced with a successful flush fake.

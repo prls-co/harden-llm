@@ -583,10 +583,15 @@ defmodule HardenLlmWeb.WorkspaceLive do
         %{assigns: %{run_ref: reference}} = socket
       ) do
     message =
-      if error.ambiguous? do
-        "The run outcome is unknown. Refresh History before deciding whether to run again."
-      else
-        error.message
+      cond do
+        is_map(socket.assigns.run_result) and is_nil(socket.assigns.recording_outcome) ->
+          "The run finished, but history recording could not be confirmed. Refresh History before deciding whether to run again."
+
+        error.ambiguous? ->
+          "The run outcome is unknown. Refresh History before deciding whether to run again."
+
+        true ->
+          error.message
       end
 
     socket =

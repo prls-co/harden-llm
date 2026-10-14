@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "selector": "go-integration-race",
+  "seed": 104729,
+  "manifestSHA256": "6de9906a96bca9181f1b055244d7b5dcd78b7cbf1b16251da15559c15bbb7c9c",
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791982406234-2984846-f6info",
+  "results": [
+    {
+      "taskId": "go-integration-race",
+      "tier": "T3",
+      "resourceClass": "release",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-p=2",
+        "./...",
+        "-tags=integration",
+        "-count=1"
+      ],
+      "status": 1,
+      "seed": 104729,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 76040,
+      "peakRssMiB": 786.84765625,
+      "cpuMs": 147030,
+      "stdoutBytes": 2989,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "ok  \tgithub.com/prls-co/harden-llm\t1.108s\nok  \tgithub.com/prls-co/harden-llm/api\t1.226s\nok  \tgithub.com/prls-co/harden-llm/cmd/harden-llm-gateway\t1.072s\n?   \tgithub.com/prls-co/harden-llm/cmd/loki-schema-guard\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/accounting\t1.012s\nok  \tgithub.com/prls-co/harden-llm/internal/cachekey\t1.017s\nok  \tgithub.com/prls-co/harden-llm/internal/capacity\t1.423s\nok  \tgithub.com/prls-co/harden-llm/internal/deploytest\t1.097s\nok  \tgithub.com/prls-co/harden-llm/internal/diagnostics\t6.391s\nok  \tgithub.com/prls-co/harden-llm/internal/eval\t1.172s\nok  \tgithub.com/prls-co/harden-llm/internal/gateway\t3.895s\n?   \tgithub.com/prls-co/harden-llm/internal/gateway/auth\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t27.599s\nok  \tgithub.com/prls-co/harden-llm/internal/integrationtest\t2.077s\nok  \tgithub.com/prls-co/harden-llm/internal/lokischema\t1.021s\nok  \tgithub.com/prls-co/harden-llm/internal/observability\t1.029s\nok  \tgithub.com/prls-co/harden-llm/internal/pricing\t1.014s\nok  \tgithub.com/prls-co/harden-llm/internal/providers\t1.336s\nok  \tgithub.com/prls-co/harden-llm/internal/redaction\t1.017s\nok  \tgithub.com/prls-co/harden-llm/internal/retry\t1.022s\nok  \tgithub.com/prls-co/harden-llm/internal/runtime\t1.267s\nok  \tgithub.com/prls-co/harden-llm/internal/schema\t1.028s\nok  \tgithub.com/prls-co/harden-llm/internal/smoke\t1.013s\n?   \tgithub.com/prls-co/harden-llm/internal/smoke/fakeprovider\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/stats\t1.015s\nok  \tgithub.com/prls-co/harden-llm/internal/testkit\t2.805s\nok  \tgithub.com/prls-co/harden-llm/internal/traces\t1.031s\n2026/10/14 05:54:26 http: TLS handshake error from 127.0.0.1:54440: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:26 http: TLS handshake error from 127.0.0.1:54450: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:40494: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:45488: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:36246: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:40500: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:45504: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:36252: client sent an HTTP request to an HTTPS server\n--- FAIL: TestConcurrentDraftCAS (5.87s)\n    concurrent_cas_integration_test.go:76: two writers did not reach the owned SQL lock\n2026/10/14 05:54:35 http: TLS handshake error from 127.0.0.1:52260: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:35 http: TLS handshake error from 127.0.0.1:52264: client sent an HTTP request to an HTTPS server\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t15.041s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t15.041s | FAIL",
+      "failureDetail": "ok  \tgithub.com/prls-co/harden-llm\t1.108s\nok  \tgithub.com/prls-co/harden-llm/api\t1.226s\nok  \tgithub.com/prls-co/harden-llm/cmd/harden-llm-gateway\t1.072s\n?   \tgithub.com/prls-co/harden-llm/cmd/loki-schema-guard\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/accounting\t1.012s\nok  \tgithub.com/prls-co/harden-llm/internal/cachekey\t1.017s\nok  \tgithub.com/prls-co/harden-llm/internal/capacity\t1.423s\nok  \tgithub.com/prls-co/harden-llm/internal/deploytest\t1.097s\nok  \tgithub.com/prls-co/harden-llm/internal/diagnostics\t6.391s\nok  \tgithub.com/prls-co/harden-llm/internal/eval\t1.172s\nok  \tgithub.com/prls-co/harden-llm/internal/gateway\t3.895s\n?   \tgithub.com/prls-co/harden-llm/internal/gateway/auth\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t27.599s\nok  \tgithub.com/prls-co/harden-llm/internal/integrationtest\t2.077s\nok  \tgithub.com/prls-co/harden-llm/internal/lokischema\t1.021s\nok  \tgithub.com/prls-co/harden-llm/internal/observability\t1.029s\nok  \tgithub.com/prls-co/harden-llm/internal/pricing\t1.014s\nok  \tgithub.com/prls-co/harden-llm/internal/providers\t1.336s\nok  \tgithub.com/prls-co/harden-llm/internal/redaction\t1.017s\nok  \tgithub.com/prls-co/harden-llm/internal/retry\t1.022s\nok  \tgithub.com/prls-co/harden-llm/internal/runtime\t1.267s\nok  \tgithub.com/prls-co/harden-llm/internal/schema\t1.028s\nok  \tgithub.com/prls-co/harden-llm/internal/smoke\t1.013s\n?   \tgithub.com/prls-co/harden-llm/internal/smoke/fakeprovider\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/stats\t1.015s\nok  \tgithub.com/prls-co/harden-llm/internal/testkit\t2.805s\nok  \tgithub.com/prls-co/harden-llm/internal/traces\t1.031s\n2026/10/14 05:54:26 http: TLS handshake error from 127.0.0.1:54440: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:26 http: TLS handshake error from 127.0.0.1:54450: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:40494: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:45488: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:36246: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:40500: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:45504: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:36252: client sent an HTTP request to an HTTPS server\n--- FAIL: TestConcurrentDraftCAS (5.87s)\n    concurrent_cas_integration_test.go:76: two writers did not reach the owned SQL lock\n2026/10/14 05:54:35 http: TLS handshake error from 127.0.0.1:52260: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:35 http: TLS handshake error from 127.0.0.1:52264: client sent an HTTP request to an HTTPS server\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t15.041s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-1cf95bca0a9f",
+      "startedAtMs": 417,
+      "endedAtMs": 76457
+    }
+  ],
+  "firstFailure": {
+    "taskId": "go-integration-race",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/stateful\t15.041s | FAIL",
+    "failureDetail": "ok  \tgithub.com/prls-co/harden-llm\t1.108s\nok  \tgithub.com/prls-co/harden-llm/api\t1.226s\nok  \tgithub.com/prls-co/harden-llm/cmd/harden-llm-gateway\t1.072s\n?   \tgithub.com/prls-co/harden-llm/cmd/loki-schema-guard\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/accounting\t1.012s\nok  \tgithub.com/prls-co/harden-llm/internal/cachekey\t1.017s\nok  \tgithub.com/prls-co/harden-llm/internal/capacity\t1.423s\nok  \tgithub.com/prls-co/harden-llm/internal/deploytest\t1.097s\nok  \tgithub.com/prls-co/harden-llm/internal/diagnostics\t6.391s\nok  \tgithub.com/prls-co/harden-llm/internal/eval\t1.172s\nok  \tgithub.com/prls-co/harden-llm/internal/gateway\t3.895s\n?   \tgithub.com/prls-co/harden-llm/internal/gateway/auth\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t27.599s\nok  \tgithub.com/prls-co/harden-llm/internal/integrationtest\t2.077s\nok  \tgithub.com/prls-co/harden-llm/internal/lokischema\t1.021s\nok  \tgithub.com/prls-co/harden-llm/internal/observability\t1.029s\nok  \tgithub.com/prls-co/harden-llm/internal/pricing\t1.014s\nok  \tgithub.com/prls-co/harden-llm/internal/providers\t1.336s\nok  \tgithub.com/prls-co/harden-llm/internal/redaction\t1.017s\nok  \tgithub.com/prls-co/harden-llm/internal/retry\t1.022s\nok  \tgithub.com/prls-co/harden-llm/internal/runtime\t1.267s\nok  \tgithub.com/prls-co/harden-llm/internal/schema\t1.028s\nok  \tgithub.com/prls-co/harden-llm/internal/smoke\t1.013s\n?   \tgithub.com/prls-co/harden-llm/internal/smoke/fakeprovider\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/stats\t1.015s\nok  \tgithub.com/prls-co/harden-llm/internal/testkit\t2.805s\nok  \tgithub.com/prls-co/harden-llm/internal/traces\t1.031s\n2026/10/14 05:54:26 http: TLS handshake error from 127.0.0.1:54440: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:26 http: TLS handshake error from 127.0.0.1:54450: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:40494: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:45488: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:36246: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:40500: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:45504: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:30 http: TLS handshake error from 127.0.0.1:36252: client sent an HTTP request to an HTTPS server\n--- FAIL: TestConcurrentDraftCAS (5.87s)\n    concurrent_cas_integration_test.go:76: two writers did not reach the owned SQL lock\n2026/10/14 05:54:35 http: TLS handshake error from 127.0.0.1:52260: client sent an HTTP request to an HTTPS server\n2026/10/14 05:54:35 http: TLS handshake error from 127.0.0.1:52264: client sent an HTTP request to an HTTPS server\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t15.041s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 69,
+    "daemonLockWaitMs": 116,
+    "staleReceiptRecoveryMs": 108
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "generatedAt": "2026-10-14T12:54:42.588Z",
+  "reportPath": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/runner-1791982482588-2984846-98b5da226bd520ae.json"
+}

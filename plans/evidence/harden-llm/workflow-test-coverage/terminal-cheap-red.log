@@ -1,0 +1,35 @@
+Running ExUnit with seed: 86611, max_cases: 24
+Excluding tags: [:test]
+Including tags: [location: {"test/harden_llm_web/live/restored_workflow_test.exs", 101}]
+
+
+
+  1) test missing recording confirmation preserves a received terminal result (HardenLlmWeb.RestoredWorkflowTest)
+     test/harden_llm_web/live/restored_workflow_test.exs:99
+     Expected truthy, got false
+     code: assert has_element?(view, "#run-error", "history recording could not be confirmed")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GN5SI3CeJFc0pwBD",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.940.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#run-error"
+
+         # 3
+         "history recording could not be confirmed"
+
+     stacktrace:
+       test/harden_llm_web/live/restored_workflow_test.exs:110: (test)
+
+
+Finished in 1.0 seconds (1.0s async, 0.00s sync)
+
+Result: 0/1 passed, 14 excluded
+Failed: 1 test

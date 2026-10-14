@@ -14,7 +14,7 @@
 | P01 | Strict native fixture, TEST-458; per-preset reload, TEST-454 / WEB-TEST-126 | Literal native protocol expectations reject malformed/wrong requests; every preset's existing two calls execute after reload, retaining 80 matrix calls and exact six-stage routing. |
 | P02 | Run admission / ordered async events, TEST-459 / WEB-TEST-128 | Rejected direct events make zero POSTs; a blocked duplicate makes exactly one; late selection/completion never overwrites current state; pending autosaves preserve the latest full payload. |
 | P03 | Capability partitions and recovery witnesses, TEST-461/462 / WEB-TEST-129 | Explicit expected maps and field paths; partial/absent maps, inherited targets, unknown references and native-option conflicts; exact early-stop preparation/dispatch/wait and budget outcomes. Small cheap domains are exhaustive. Cross-protocol cases use native parsers and local effects. |
-| P04 | Concurrent CAS and interrupted transport, TEST-463/464 / WEB-TEST-130 | Process-owned barriers, one CAS winner, complete winning state and losing transaction rollback; actual client/gateway interruption preserves known output and never replays inference. |
+| P04 | Concurrent CAS and interrupted transport, TEST-463/464/465 / WEB-TEST-130 | Process-owned barriers, one CAS winner, complete winning state and losing transaction rollback; actual client/gateway interruption preserves known output and never replays inference. TEST-465 adds the cheap flush-error invariant found by T3. |
 | P05 | Verification and closeout | Focused checks, fast gate, affected T3/race and browser-free release selection; updated catalog, ADR-HLLM-015, evidence and issue. Commit/push/merge; rebuild/deploy only if a production defect requires an application change. |
 
 Each step adds regression assertions before changing production behavior. Keep
@@ -39,7 +39,32 @@ negative tests rather than being excluded as inconvenient combinations.
 ## 4. Progress
 
 - P00: complete. Real registration RED identified TEST-452 missing from the manifest; the reviewed closure now registers the current cases, rejects missing consumer/gate bindings and validates the retry model independently. Focused Node cases and existing Go tier-policy test pass.
-- P01–P05: pending.
+- P01: complete. Native malformed-JSON RED is retained; the per-preset reload test initially retained the old view revision and correctly hit CAS. Driving the reloaded view fixes the test lifecycle without changing the application. All 80 runs and the six-stage chain pass strict native oracles; cleanup is clean.
+- P02: complete. Fourteen focused LiveView cases pass, including controlled duplicate/late responses/autosaves and endpoint Save admission.
+- P03: complete. Capability projections/pickers, independent option/guard witnesses, early exits/deadline boundaries and all 500 native cross-protocol/position/failure/budget cases pass. The first native test incorrectly conflated selected target with result producer; its corrected oracle separately asserts both canonical fields. No production behavior changed.
+- P04: complete. Concurrent SQL CAS, actual transport/record readback and cheap flush/error-message regressions pass; final race certification is in P05.
+- P05: in progress. Final fast, T3 and integration-race gates pass with no cleanup issues; merge, exact-source release and scoped application deployment remain.
 - Evidence: `plans/evidence/harden-llm/workflow-test-coverage/`.
 - Protected operator scratch: outside Git; no production credentials or user
   records are needed by these tests.
+
+## 5. Findings and justified scope changes
+
+T3 found the logging writer concealing flush errors; TEST-465 reproduces the root
+invariant at T1 before its direct `ResponseController` forwarding fix. The fast
+terminal test found a misleading post-terminal error; read-only review added a
+full failed-stream/saved-recording regression before narrowing its correction.
+These two defects require gateway and frontend images after exact-source release
+certification. They change no UI controls, layout, storage model or retry policy.
+
+The transport cases share the existing serial workflow module and tagged Go
+launchers; adding a third serial module was rejected by the unchanged policy.
+Test setup accounts for persisted fold state. Source closure explicitly verifies
+selection/ownership rather than runtime execution. Reports and independent
+dispatch/history assertions establish the latter. No extra service/framework,
+browser, paid call, timeout increase or relaxed concurrency rule was introduced.
+
+The first race gate exposed PostgreSQL's transaction-local activity snapshot in
+the overlap observer. Clear that snapshot before each observation on the same
+lock-owning connection; retain both real waits and the unchanged CAS oracles.
+The failed race report and corrected report belong in P05 evidence.

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "selector": "frontend-gateway-workflows",
+  "seed": 104729,
+  "manifestSHA256": "6de9906a96bca9181f1b055244d7b5dcd78b7cbf1b16251da15559c15bbb7c9c",
+  "accepted": true,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791982155404-2944295-9xq5ln",
+  "results": [
+    {
+      "taskId": "frontend-gateway-workflows",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration,frontendintegration",
+        "./internal/gateway/httpapi",
+        "-run",
+        "^TestFrontend(PresetWorkflows|TransportInterruption)$",
+        "-count=1",
+        "-timeout=15m",
+        "-v"
+      ],
+      "status": 0,
+      "seed": 104729,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 219148,
+      "peakRssMiB": 615.046875,
+      "cpuMs": 341150,
+      "stdoutBytes": 1404,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "=== RUN   TestFrontendTransportInterruption\n2026/10/14 05:49:32 http: TLS handshake error from 127.0.0.1:50292: client sent an HTTP request to an HTTPS server\n2026/10/14 05:49:32 http: TLS handshake error from 127.0.0.1:50282: client sent an HTTP request to an HTTPS server\n    frontend_transport_integration_test.go:150: Running ExUnit with seed: 104729, max_cases: 24\n        Excluding tags: [:test, :asset, :browser, :compose, :database]\n        Including tags: [:transport_workflow]\n        \n        ..\n        Finished in 0.7 seconds (0.00s async, 0.7s sync)\n        \n        Result: 2 passed, 2 excluded\n        \n--- PASS: TestFrontendTransportInterruption (120.66s)\n=== RUN   TestFrontendPresetWorkflows\n2026/10/14 05:51:35 http: TLS handshake error from 127.0.0.1:60248: client sent an HTTP request to an HTTPS server\n2026/10/14 05:51:35 http: TLS handshake error from 127.0.0.1:60254: client sent an HTTP request to an HTTPS server\n    frontend_workflows_integration_test.go:116: Running ExUnit with seed: 104729, max_cases: 24\n        Excluding tags: [:test, :asset, :browser, :compose, :database]\n        Including tags: [:preset_workflow]\n        \n        ..\n        Finished in 8.4 seconds (0.00s async, 8.4s sync)\n        \n        Result: 2 passed, 2 excluded\n        \n--- PASS: TestFrontendPresetWorkflows (86.20s)\nPASS\nok  \tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t206.879s\n",
+      "stderrPreview": "",
+      "failureSummary": null,
+      "failureDetail": null,
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-52434ac7e2b1",
+      "startedAtMs": 1615,
+      "endedAtMs": 220763
+    }
+  ],
+  "firstFailure": null,
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 114,
+    "daemonLockWaitMs": 245,
+    "staleReceiptRecoveryMs": 1061
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "generatedAt": "2026-10-14T12:52:56.061Z",
+  "reportPath": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/runner-1791982376061-2944295-e01ea0043eb7743d.json"
+}

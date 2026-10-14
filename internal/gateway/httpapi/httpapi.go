@@ -82,13 +82,11 @@ func (writer *statusWriter) Write(data []byte) (int, error) {
 	return writer.ResponseWriter.Write(data)
 }
 
-func (writer *statusWriter) Flush() {
+func (writer *statusWriter) FlushError() error {
 	if !writer.wrote {
 		writer.WriteHeader(http.StatusOK)
 	}
-	if flusher, ok := writer.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
+	return http.NewResponseController(writer.ResponseWriter).Flush()
 }
 
 func (writer *statusWriter) Unwrap() http.ResponseWriter { return writer.ResponseWriter }

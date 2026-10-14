@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "selector": "frontend-gateway-workflows",
+  "seed": 104729,
+  "manifestSHA256": "362912576def59cfe2f1762c9d9846376ec58ff09e027496cd6d3c2fbfa1209a",
+  "accepted": false,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791981457632-2851699-vmoqj1",
+  "results": [
+    {
+      "taskId": "frontend-gateway-workflows",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration,frontendintegration",
+        "./internal/gateway/httpapi",
+        "-run",
+        "^TestFrontend(PresetWorkflows|TransportInterruption)$",
+        "-count=1",
+        "-timeout=15m",
+        "-v"
+      ],
+      "status": 1,
+      "seed": 104729,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 262220,
+      "peakRssMiB": 590.95703125,
+      "cpuMs": 352650,
+      "stdoutBytes": 2407,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "=== RUN   TestFrontendTransportInterruption\n2026/10/14 05:37:51 http: TLS handshake error from 127.0.0.1:34378: client sent an HTTP request to an HTTPS server\n2026/10/14 05:37:51 http: TLS handshake error from 127.0.0.1:34374: client sent an HTTP request to an HTTPS server\n    frontend_transport_integration_test.go:142: Running ExUnit with seed: 104729, max_cases: 24\n        Excluding tags: [:test, :asset, :browser, :compose, :database]\n        Including tags: [:transport_workflow]\n        \n        .\n        \n          1) test actual interruption during inference gives an unknown outcome without replay (HardenLlmWeb.GatewayWorkflowsTest)\n             test/harden_llm_web/live/gateway_workflows_test.exs:174\n             detached terminal record did not appear\n             code: assert_terminal_record(context, \"interrupt-before-terminal\", \"failed\")\n             stacktrace:\n               test/harden_llm_web/live/gateway_workflows_test.exs:205: HardenLlmWeb.GatewayWorkflowsTest.read_terminal_record/3\n               test/harden_llm_web/live/gateway_workflows_test.exs:197: HardenLlmWeb.GatewayWorkflowsTest.assert_terminal_record/3\n               test/harden_llm_web/live/gateway_workflows_test.exs:181: (test)\n        \n        \n        Finished in 5.7 seconds (0.00s async, 5.7s sync)\n        \n        Result: 1/2 passed, 2 excluded\n        Failed: 1 test\n        \n    frontend_transport_integration_test.go:144: real transport workflow: exit status 2\n2026/10/14 05:40:15 httptest.Server blocked in Close after 5 seconds, waiting for connections:\n  *tls.Conn 0xfb2e79d3188 127.0.0.1:35186 in state active\n--- FAIL: TestFrontendTransportInterruption (165.71s)\n=== RUN   TestFrontendPresetWorkflows\n2026/10/14 05:40:38 http: TLS handshake error from 127.0.0.1:40874: client sent an HTTP request to an HTTPS server\n2026/10/14 05:40:38 http: TLS handshake error from 127.0.0.1:40886: client sent an HTTP request to an HTTPS server\n    frontend_workflows_integration_test.go:116: Running ExUnit with seed: 104729, max_cases: 24\n        Excluding tags: [:test, :asset, :browser, :compose, :database]\n        Including tags: [:preset_workflow]\n        \n        ..\n        Finished in 8.1 seconds (0.00s async, 8.1s sync)\n        \n        Result: 2 passed, 2 excluded\n        \n--- PASS: TestFrontendPresetWorkflows (83.27s)\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t249.020s\nFAIL\n",
+      "stderrPreview": "",
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t249.020s | FAIL",
+      "failureDetail": "=== RUN   TestFrontendTransportInterruption\n2026/10/14 05:37:51 http: TLS handshake error from 127.0.0.1:34378: client sent an HTTP request to an HTTPS server\n2026/10/14 05:37:51 http: TLS handshake error from 127.0.0.1:34374: client sent an HTTP request to an HTTPS server\n    frontend_transport_integration_test.go:142: Running ExUnit with seed: 104729, max_cases: 24\n        Excluding tags: [:test, :asset, :browser, :compose, :database]\n        Including tags: [:transport_workflow]\n        \n        .\n        \n          1) test actual interruption during inference gives an unknown outcome without replay (HardenLlmWeb.GatewayWorkflowsTest)\n             test/harden_llm_web/live/gateway_workflows_test.exs:174\n             detached terminal record did not appear\n             code: assert_terminal_record(context, \"interrupt-before-terminal\", \"failed\")\n             stacktrace:\n               test/harden_llm_web/live/gateway_workflows_test.exs:205: HardenLlmWeb.GatewayWorkflowsTest.read_terminal_record/3\n               test/harden_llm_web/live/gateway_workflows_test.exs:197: HardenLlmWeb.GatewayWorkflowsTest.assert_terminal_record/3\n               test/harden_llm_web/live/gateway_workflows_test.exs:181: (test)\n        \n        \n        Finished in 5.7 seconds (0.00s async, 5.7s sync)\n        \n        Result: 1/2 passed, 2 excluded\n        Failed: 1 test\n        \n    frontend_transport_integration_test.go:144: real transport workflow: exit status 2\n2026/10/14 05:40:15 httptest.Server blocked in Close after 5 seconds, waiting for connections:\n  *tls.Conn 0xfb2e79d3188 127.0.0.1:35186 in state active\n--- FAIL: TestFrontendTransportInterruption (165.71s)\n=== RUN   TestFrontendPresetWorkflows\n2026/10/14 05:40:38 http: TLS handshake error from 127.0.0.1:40874: client sent an HTTP request to an HTTPS server\n2026/10/14 05:40:38 http: TLS handshake error from 127.0.0.1:40886: client sent an HTTP request to an HTTPS server\n    frontend_workflows_integration_test.go:116: Running ExUnit with seed: 104729, max_cases: 24\n        Excluding tags: [:test, :asset, :browser, :compose, :database]\n        Including tags: [:preset_workflow]\n        \n        ..\n        Finished in 8.1 seconds (0.00s async, 8.1s sync)\n        \n        Result: 2 passed, 2 excluded\n        \n--- PASS: TestFrontendPresetWorkflows (83.27s)\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t249.020s\nFAIL",
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-f6cd56f6628e",
+      "startedAtMs": 443,
+      "endedAtMs": 262663
+    }
+  ],
+  "firstFailure": {
+    "taskId": "frontend-gateway-workflows",
+    "status": 1,
+    "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t249.020s | FAIL",
+    "failureDetail": "=== RUN   TestFrontendTransportInterruption\n2026/10/14 05:37:51 http: TLS handshake error from 127.0.0.1:34378: client sent an HTTP request to an HTTPS server\n2026/10/14 05:37:51 http: TLS handshake error from 127.0.0.1:34374: client sent an HTTP request to an HTTPS server\n    frontend_transport_integration_test.go:142: Running ExUnit with seed: 104729, max_cases: 24\n        Excluding tags: [:test, :asset, :browser, :compose, :database]\n        Including tags: [:transport_workflow]\n        \n        .\n        \n          1) test actual interruption during inference gives an unknown outcome without replay (HardenLlmWeb.GatewayWorkflowsTest)\n             test/harden_llm_web/live/gateway_workflows_test.exs:174\n             detached terminal record did not appear\n             code: assert_terminal_record(context, \"interrupt-before-terminal\", \"failed\")\n             stacktrace:\n               test/harden_llm_web/live/gateway_workflows_test.exs:205: HardenLlmWeb.GatewayWorkflowsTest.read_terminal_record/3\n               test/harden_llm_web/live/gateway_workflows_test.exs:197: HardenLlmWeb.GatewayWorkflowsTest.assert_terminal_record/3\n               test/harden_llm_web/live/gateway_workflows_test.exs:181: (test)\n        \n        \n        Finished in 5.7 seconds (0.00s async, 5.7s sync)\n        \n        Result: 1/2 passed, 2 excluded\n        Failed: 1 test\n        \n    frontend_transport_integration_test.go:144: real transport workflow: exit status 2\n2026/10/14 05:40:15 httptest.Server blocked in Close after 5 seconds, waiting for connections:\n  *tls.Conn 0xfb2e79d3188 127.0.0.1:35186 in state active\n--- FAIL: TestFrontendTransportInterruption (165.71s)\n=== RUN   TestFrontendPresetWorkflows\n2026/10/14 05:40:38 http: TLS handshake error from 127.0.0.1:40874: client sent an HTTP request to an HTTPS server\n2026/10/14 05:40:38 http: TLS handshake error from 127.0.0.1:40886: client sent an HTTP request to an HTTPS server\n    frontend_workflows_integration_test.go:116: Running ExUnit with seed: 104729, max_cases: 24\n        Excluding tags: [:test, :asset, :browser, :compose, :database]\n        Including tags: [:preset_workflow]\n        \n        ..\n        Finished in 8.1 seconds (0.00s async, 8.1s sync)\n        \n        Result: 2 passed, 2 excluded\n        \n--- PASS: TestFrontendPresetWorkflows (83.27s)\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t249.020s\nFAIL"
+  },
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 72,
+    "daemonLockWaitMs": 111,
+    "staleReceiptRecoveryMs": 131
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "generatedAt": "2026-10-14T12:42:00.235Z",
+  "reportPath": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/runner-1791981720235-2851699-1e6c4ae28955e882.json"
+}
