@@ -43,7 +43,7 @@ negative tests rather than being excluded as inconvenient combinations.
 - P02: complete. Fourteen focused LiveView cases pass, including controlled duplicate/late responses/autosaves and endpoint Save admission.
 - P03: complete. Capability projections/pickers, independent option/guard witnesses, early exits/deadline boundaries and all 500 native cross-protocol/position/failure/budget cases pass. The first native test incorrectly conflated selected target with result producer; its corrected oracle separately asserts both canonical fields. No production behavior changed.
 - P04: complete. Concurrent SQL CAS, actual transport/record readback and cheap flush/error-message regressions pass; final race certification is in P05.
-- P05: in progress. Original local gates passed, but two exact-source releases exposed schema initialization sharing the request transaction budget. TEST-466 and the administrative-budget correction now require new fast/integration/race evidence, merge, exact-source release and scoped deployment.
+- P05: complete. PRs #123–#125 merged; exact application `4ad4072425a0e67ad48b3c5170008a1a362004e6` passed release 38575382378 attempt 1 (29 tasks, no cleanup issues), main fast and CodeQL. Both immutable images are deployed and healthy; scoped/full configuration, public HTTP/auth and all 40 preset readbacks pass. Evidence below records the failed candidates, explicit schema-budget correction and final limits.
 - Evidence: `plans/evidence/harden-llm/workflow-test-coverage/`.
 - Protected operator scratch: outside Git; no production credentials or user
   records are needed by these tests.

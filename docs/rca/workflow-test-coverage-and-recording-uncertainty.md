@@ -108,8 +108,9 @@ This is an explicit production schema-lifecycle correction beyond the original
 two stream fixes, not just a test warm-up. Remove the unsuccessful Ping. TEST-424
 retains fresh/idempotent/mismatch/partial-failure assertions and adds real SQL
 setting/reset checks plus caller-canceled partial DDL rollback. No table, index,
-data reset or schema version changes. A new exact-source release is required;
-local success alone does not certify the merged candidate or production startup.
+data reset or schema version changes. The corrected exact-source release 38575382378 passed; its evidence and actual
+production application are recorded below. Local success alone was not used to
+certify the merged candidate or production startup.
 
 Private Mix compilation chatter initially displaced useful failures from bounded
 runner previews. The launchers now log the ExUnit section; compile-only failures
@@ -119,9 +120,17 @@ retain their full diagnostic output. This does not alter test selection or resul
 
 The [acceptance ledger](../../plans/evidence/harden-llm/workflow-test-coverage/acceptance.md)
 owns final commands, reports, merged source, exact release and deployed identity.
-The gateway and frontend need rebuilding for their respective corrections.
-Retain shared services, credentials, routing and schema unchanged.
-No production data correction, provider replay or browser launch is required.
+PRs #123–#125 are merged. Application `4ad4072425a0e67ad48b3c5170008a1a362004e6` passed
+[release 38575382378, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/38575382378/attempts/1) with all 29 tasks
+and no cleanup issues, plus exact-main fast and CodeQL. Both locally built images
+are deployed at `https://harden-llm.prls.co/`, healthy with zero restarts; the ledger
+records their immutable IDs. Schema-before-apps, scoped/full equivalence, public
+HTTP/auth, Portal login and all 40 preset definition/input comparisons passed.
+Thirty presets are credential-configured; no additional paid qualification ran.
+Shared services, credentials, upstream metadata and routing are unchanged. No
+production data correction, provider replay or browser launch occurred. The
+operator preset-readback script's initial incorrect GET envelope assumption was
+corrected to the canonical direct `ProfileDraft`, preserving its value oracle.
 
 ## 6. Limits and follow-up
 

@@ -170,7 +170,7 @@ draft correction or provisioning is required; rejected credential fields were
 never stored. Retain schema-compatible previous images and the protected
 checkpoint. Subsequent docs-only commits do not relabel the application source.
 
-## 8. Current mixed recovery-profile release (#119)
+## 8. Mixed recovery-profile release (#119)
 
 Application source is `0773784111baf5858fb799a730e169dfb052a3c1`, certified by
 release 38474634696 attempt 1 (29 tasks, no cleanup issues). The
@@ -184,3 +184,19 @@ projection also handles existing saved drafts, so no SQL correction or data
 reset is required. Keys, metadata, shared/telemetry owners and Caddy are unchanged.
 Retain the protected checkpoint and schema-compatible previous images; docs-only
 closeout does not change application identity. Deployment made no inference call.
+
+## 9. Current workflow-coverage release (#122)
+
+Application `4ad4072425a0e67ad48b3c5170008a1a362004e6`, release 38575382378 attempt 1, passed
+all 29 browser-free tasks and is deployed with both applications healthy. The
+[acceptance ledger](../plans/evidence/harden-llm/workflow-test-coverage/acceptance.md)
+records exact image IDs, scoped/full equivalence, HTTP/auth/Portal checks and all
+40 preset definition/input comparisons. Thirty presets have configured keys.
+
+Apply only the two application image/release identities. `ApplySchema` now uses
+one 30 s administrative acquisition/DDL/commit budget, preserving earlier caller
+cancellation; request 600/500 ms, inference and history limits are unchanged.
+The schema/version/data are unchanged, with no provisioning or draft repair.
+Keep the protected checkpoint and compatible previous images. Shared settings,
+services and ingress were verified unchanged. No browser or paid provider call
+was part of this rollout; later docs-only commits do not relabel application images.
