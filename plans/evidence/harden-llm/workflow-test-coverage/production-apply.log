@@ -1,0 +1,6 @@
+production-config apply: equivalent
+project: harden-llm (default); scoped services: 2
+source: /home/kirill/.config/prls-agent-platform/observability/live.env
+source: /home/kirill/p/harden-llm-production/.env
+source: /home/kirill/p/harden-llm/.env
+runtime: verified; applied: yes

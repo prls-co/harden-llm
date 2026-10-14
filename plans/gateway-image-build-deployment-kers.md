@@ -105,3 +105,16 @@ command's administrative acquisition/DDL/commit budget is 30 s; ordinary request
 offline deadline regression and TEST-424 verifies actual SQL limits and rollback.
 The ineffective fixture warm-up is removed; both failed releases are retained.
 This changes no schema/data, service, reset/retry path or release acceptance gate.
+
+## Workflow coverage production acceptance (#122, 2026-10-14)
+
+KER-IBD-001/003/005 are satisfied by source `4ad4072425a0e67ad48b3c5170008a1a362004e6`, exact
+release 38575382378 attempt 1, clean local builds and verified image/version identities,
+schema-before-apps application and scoped/full equivalence. The
+[ledger](evidence/harden-llm/workflow-test-coverage/acceptance.md) records all 29
+successful tasks and actual deployed HTTP/auth/catalog checks. KER-IBD-004 allows
+only both application image/release identities; shared/telemetry/identity/ingress
+owners, protected settings, metadata and data are unchanged. Previous compatible
+images and mode-0600 checkpoints remain for KER-IBD-006/007. Other KERs and the
+single local build/operator path remain unchanged; no browser or paid canary is
+implied by release acceptance.

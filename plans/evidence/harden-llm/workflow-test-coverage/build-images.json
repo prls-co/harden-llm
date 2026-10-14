@@ -1,0 +1,17 @@
+{
+  "sha": "4ad4072425a0e67ad48b3c5170008a1a362004e6",
+  "images": {
+    "gateway": {
+      "tag": "harden-llm-gateway:release-4ad4072425a0e67ad48b3c5170008a1a362004e6",
+      "image": "sha256:2ddcc9f7f2b76bc58a27129540471628844373d5612804e801e384050c66707a",
+      "platform": "linux/amd64",
+      "version": "4ad4072425a0e67ad48b3c5170008a1a362004e6"
+    },
+    "web": {
+      "tag": "harden-llm-web:release-4ad4072425a0e67ad48b3c5170008a1a362004e6",
+      "image": "sha256:86b15b12186922785099fcbb742d7e51d4034a5661b7094f4b549f5216ffe8e6",
+      "platform": "linux/amd64",
+      "version": "4ad4072425a0e67ad48b3c5170008a1a362004e6"
+    }
+  }
+}

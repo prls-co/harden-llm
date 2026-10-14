@@ -27,12 +27,11 @@ decision.
 ## 2. Artifact and production identity
 
 Current production identity is recorded in the
-[mixed recovery-profile RCA](../docs/rca/mixed-recovery-profile-reasoning.md#5-release-and-scope):
-application source `0773784111baf5858fb799a730e169dfb052a3c1`, exact release run
-38474634696 attempt 1, and both immutable application image IDs. The initial
-reference-decoupling release remains in
-[P06](evidence/harden-llm/reference-decoupling/phase-p06.md). Subsequent
-deployment-tool/docs commits are not application image identities.
+[workflow-coverage acceptance ledger](evidence/harden-llm/workflow-test-coverage/acceptance.md):
+application source `4ad4072425a0e67ad48b3c5170008a1a362004e6`, exact release run
+38575382378 attempt 1, and both immutable application image IDs. Earlier
+reference-decoupling and UI/recovery releases remain historical evidence.
+Subsequent documentation commits are not application image identities.
 
 The historical 2026-09-22 retirement transition kept the already-running application
 image and changes only its local Docker reference in the protected descriptor.
@@ -372,9 +371,12 @@ already-built or already-deployed image.
    healthy with zero unexpected restarts, its container image ID and release
    environment match the selected build, API `/healthz` and `/readyz` return
    HTTP 200, and the Control Plane Portal `/login` remains HTTP 200. The HLLM web root redirects to the Portal login.
-7. Run only the documented read-only artifact inventory probe for the
-   post-deploy integrity boundary. Do not invoke browser or paid-provider
-   checks automatically.
+7. For the current reference wrapper, run TEST-435 for authenticated artifact/
+   history feature status and compare the shared Garage/PostgreSQL owner identities.
+   This proves configuration/readiness, not exhaustive stored-object integrity.
+   The historical `audit-artifacts` CLI is retired; never restore it as a fallback.
+   Artifact-storage changes require their separately selected integrity tests.
+   Do not invoke browser or paid-provider checks automatically.
 8. Record branch, source SHA, image tag and ID, descriptor before/after
    checksums, affected service, health/HTTP results, and checks not performed
    in `docs/release-certification.md`.
@@ -399,8 +401,8 @@ the reference cutover runbook for this boundary.
    service or configuration changes with an old whole-descriptor checkpoint.
 3. Run the service-specific scoped `check`, review its differences using the
    exit table above, then run scoped `apply` with the prior full source SHA.
-4. Verify gateway health, image ID, release identity, API and web probes, and
-   the read-only artifact inventory again.
+4. Verify gateway health, image ID, release identity, API/web and reference
+   feature-status probes, and the shared storage owner identities again.
 5. Retain the failed release image and diagnostics until the cause is
    understood. Do not delete volumes, databases, sessions, or unrelated
    containers during rollback.
@@ -415,7 +417,7 @@ The minimum evidence for a repository-only lifecycle cleanup is:
 - the compressed historic publisher reference matches the recorded SHA-256;
 - the production descriptor resolves the gateway's local tag to its recorded
   image ID and is equivalent to the running service;
-- the public health/readiness checks and read-only artifact inventory pass;
+- the public health/readiness and current reference feature-status checks pass;
 - `main` contains the documentation and retirement changes.
 
 Application source changes still use the application's release gates. A

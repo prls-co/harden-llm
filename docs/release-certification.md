@@ -2953,3 +2953,34 @@ No SQL correction or data reset was needed. Deployment made no inference call;
 browser layout and interactive Portal were not checked. Subsequent docs-only
 commits do not rebuild/relabel these images. Exact redacted acceptance is in
 the [deployment record](../plans/evidence/harden-llm/mixed-recovery-profile-reasoning/deployment-acceptance.json).
+
+## Workflow coverage and schema lifecycle — production (2026-10-14)
+
+Issue #122 / PRs #123–#125 are merged. Application source
+`4ad4072425a0e67ad48b3c5170008a1a362004e6` passed main fast and all three CodeQL analyses.
+[Release 38575382378, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/38575382378/attempts/1) passed all 29 browser-free tasks,
+including integration/race, Compose and real gateway/LiveView workflows, with
+zero cleanup errors/warnings. The plan and [RCA](rca/workflow-test-coverage-and-recording-uncertainty.md)
+retain both failed releases and explain why fixture warm-up was insufficient.
+
+The improved harness covers all 40 presets in text/structured modes after each
+reload, exact six-stage recovery, 500 native recovery interactions, admission/
+async ordering, real concurrent CAS and actual transport interruption. The three
+production corrections concern terminal/recording error messages, flush-error
+propagation and a bounded administrative schema budget. Ordinary request and
+inference limits, data and UI controls/layout are unchanged.
+
+Gateway `sha256:2ddcc9f7f2b76bc58a27129540471628844373d5612804e801e384050c66707a` and frontend
+`sha256:86b15b12186922785099fcbb742d7e51d4034a5661b7094f4b549f5216ffe8e6` run the same accepted SHA, healthy with zero restarts.
+Schema-before-apps application, scoped/full seven-service equivalence, TEST-435
+public HTTP/auth and Portal login passed. All 40 preset definitions/starting
+inputs match source; 30 are credential-configured. Protected settings, metadata,
+shared owners and ingress are unchanged. Previous compatible images and private
+checkpoints are retained; build worktree cleanup passed.
+
+Exact [deployment evidence](../plans/evidence/harden-llm/workflow-test-coverage/deployment-acceptance.json)
+and the [acceptance ledger](../plans/evidence/harden-llm/workflow-test-coverage/acceptance.md)
+separate runtime identity from later documentation commits. No browser layout or
+native events were checked, no new paid provider calls ran, and formal standards
+conformance is not claimed. The next optional acceptance is a bounded explicit
+browser canary for preset selection, Run and repair/escalation controls.
