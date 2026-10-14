@@ -68,3 +68,9 @@ The first race gate exposed PostgreSQL's transaction-local activity snapshot in
 the overlap observer. Clear that snapshot before each observation on the same
 lock-owning connection; retain both real waits and the unchanged CAS oracles.
 The failed race report and corrected report belong in P05 evidence.
+
+The first exact-source release failed at existing `referencePool` setup, before
+three assertion bodies. Add one bounded readiness `Ping` for the fixture's lazy
+pool before real schema application. Retain the failed report and require a new
+merged-SHA release; do not retry that failed candidate, raise production budgets,
+serialize assertions or claim cold production startup from warm fixtures.

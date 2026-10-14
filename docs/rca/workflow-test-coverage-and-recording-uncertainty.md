@@ -85,6 +85,18 @@ snapshot behavior](https://www.postgresql.org/docs/17/monitoring-stats.html#MONI
 The actual overlap, one-winner/conflict, full payload and foreign-scope oracles
 remain unchanged; no storage behavior or timeout is changed.
 
+The first exact merged-source release, run 38568845136 at
+`b361d2344ea2b47797b3d05b0432d62e62efaeaf`, failed in three existing stateful
+cases at `referencePool` setup before their assertions. It proves setup timed
+out, without isolating connection establishment from schema work. The fixture
+created a lazy pgx pool and immediately entered the 600ms production operation
+budget. Its lease's earlier connection had already closed. The shared fixture
+now establishes its own connection with one bounded `Ping` before applying the
+real schema. Pool sizes, parallelism, operation deadlines and assertions remain
+unchanged; no schema retry, timeout increase or production edit is added.
+New exact-source release evidence is required. Warm fixture setup does not
+certify cold production startup.
+
 Private Mix compilation chatter initially displaced useful failures from bounded
 runner previews. The launchers now log the ExUnit section; compile-only failures
 retain their full diagnostic output. This does not alter test selection or results.
