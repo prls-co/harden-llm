@@ -29,7 +29,14 @@ in `integration-race-red.json`, with its root cause in the RCA.
 
 ## 4. Release and deployed identity
 
-Pending exact merged-SHA browser-free release, affected application image construction,
+First exact-main release `38568845136` at `b361d2344ea2b47797b3d05b0432d62e62efaeaf`
+failed during existing stateful fixture setup, before assertions. The RCA explains
+the bounded pool-readiness correction and retains `release-first-failure.json`.
+Production was not changed. The corrected fixture passes the focused integration
+and integration-race gates; `pool-readiness-integration-pass.json` and
+`pool-readiness-race-pass.json` retain the results with no cleanup issues.
+
+Pending corrected exact merged-SHA browser-free release, affected application image construction,
 scoped apply and full identity/HTTP verification. Baseline production equivalence
 was verified read-only across all seven descriptor services before any mutation.
 

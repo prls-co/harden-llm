@@ -18,6 +18,8 @@ import (
 
 func referencePool(t *testing.T, apply bool) (*pgxpool.Pool, string) {
 	t.Helper()
+	setup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	_, dsn := integrationtest.PostgresLease(t)
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -25,14 +27,19 @@ func referencePool(t *testing.T, apply bool) (*pgxpool.Pool, string) {
 	}
 	cfg.MaxConns = 2
 	cfg.MinConns = 0
-	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	pool, err := pgxpool.NewWithConfig(setup, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
+	// NewWithConfig is lazy. Establish this fixture's own connection during
+	// bounded resource setup, before the unchanged 600ms operation budget.
+	if err := pool.Ping(setup); err != nil {
+		t.Fatal("leased pool readiness:", err)
+	}
 	if apply {
-		if err := ApplySchema(context.Background(), pool); err != nil {
-			t.Fatal(err)
+		if err := ApplySchema(setup, pool); err != nil {
+			t.Fatal("leased schema initialization:", err)
 		}
 	}
 	return pool, dsn
