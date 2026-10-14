@@ -87,15 +87,29 @@ remain unchanged; no storage behavior or timeout is changed.
 
 The first exact merged-source release, run 38568845136 at
 `b361d2344ea2b47797b3d05b0432d62e62efaeaf`, failed in three existing stateful
-cases at `referencePool` setup before their assertions. It proves setup timed
-out, without isolating connection establishment from schema work. The fixture
-created a lazy pgx pool and immediately entered the 600ms production operation
-budget. Its lease's earlier connection had already closed. The shared fixture
-now establishes its own connection with one bounded `Ping` before applying the
-real schema. Pool sizes, parallelism, operation deadlines and assertions remain
-unchanged; no schema retry, timeout increase or production edit is added.
-New exact-source release evidence is required. Warm fixture setup does not
-certify cold production startup.
+cases at `referencePool` setup before their assertions. The bounded fixture Ping
+in PR #124 passed local integration/race, but exact-main release 38572926810 at
+`2e65c8094aaa9289c5d97356ec8a0ca0c3889ea6` still failed inside schema application
+for two existing cases. Both failed reports are retained; neither was retried or
+deployed. The second run falsifies connection warm-up as a sufficient correction.
+
+`ApplySchema` incorrectly reused the short request transaction helper: its 600ms
+parent budget included acquiring a connection, inspecting the version, creating
+all tables/indexes and committing. The accepted short limits protect ordinary
+profile/draft/cache/list/status requests; administrative initial DDL is a separate
+lifecycle. TEST-466 reproduces the wrong deadline offline through the actual
+pgx pool acquisition tracer, canceling before network access. It fails at the
+600ms schema deadline and passes with a fixed 30s administrative budget. Earlier
+caller deadlines still win; short requests retain 600/500ms and inference/history
+budgets do not change. Both policies share one transaction implementation and
+parameterized transaction-local SQL settings. No retry or serialization is added.
+
+This is an explicit production schema-lifecycle correction beyond the original
+two stream fixes, not just a test warm-up. Remove the unsuccessful Ping. TEST-424
+retains fresh/idempotent/mismatch/partial-failure assertions and adds real SQL
+setting/reset checks plus caller-canceled partial DDL rollback. No table, index,
+data reset or schema version changes. A new exact-source release is required;
+local success alone does not certify the merged candidate or production startup.
 
 Private Mix compilation chatter initially displaced useful failures from bounded
 runner previews. The launchers now log the ExUnit section; compile-only failures

@@ -96,3 +96,12 @@ unchanged. No provisioning, SQL draft repair or data reset is required. Previous
 schema-compatible images and protected checkpoints satisfy KER-IBD-006/007.
 Other KERs and the one local build/operator path remain unchanged. Docs-only
 closeout commits do not rebuild or relabel application images.
+
+## Schema initialization correction under #122 (2026-10-14)
+
+KER-IBD-005 retains schema-before-apps and atomic failure behavior. The schema
+command's administrative acquisition/DDL/commit budget is 30 s; ordinary request
+600/500 ms, history and inference limits are unchanged. TEST-466 provides the
+offline deadline regression and TEST-424 verifies actual SQL limits and rollback.
+The ineffective fixture warm-up is removed; both failed releases are retained.
+This changes no schema/data, service, reset/retry path or release acceptance gate.

@@ -1537,7 +1537,7 @@ old assertions move to their new owner without weakening their purpose.
   - Command: `go test -tags=integration ./stateful -run '^TestReferenceStorage$' -count=1`.
   - Fixtures/mocks/data: Real PostgreSQL lease; two key hashes; snapshot, hidden-preset, entered-credential, cache, mutable-draft and history rows; cross-key FKs, invalid binding/hash/null cases, credential/draft positive revisions and incompatible schema version.
   - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
-  - Pass criteria: Fresh/versioned ApplySchema is transactional and idempotent; mismatch fails without reset. Composite key-hash predicates/FKs isolate every row and forbid cross-key credential binding. Complete snapshot rows and hidden-preset preferences satisfy their separate constraints. History rows carry the key hash and a page index; no incoming-key/user/session/outbox registry tables. Only leased data is cleaned; cancellation bounds connection checkout. Full transaction/restart/cache behavior remains TEST-438/439/440.
+  - Pass criteria: Fresh/versioned ApplySchema is transactional and idempotent; mismatch fails without reset. Composite key-hash predicates/FKs isolate every row and forbid cross-key credential binding. Complete snapshot rows and hidden-preset preferences satisfy their separate constraints. History rows carry the key hash and a page index; no incoming-key/user/session/outbox registry tables. Only leased data is cleaned; cancellation bounds connection checkout. Schema initialization uses one 30 s administrative budget; short request SQL keeps 600/500 ms. Real SQL settings are transaction-local, and caller cancellation rolls back partial administrative DDL. Full transaction/restart/cache behavior remains TEST-438/439/440.
   - Expected runtime: 30–120s with warm service pool; existing aggregate integration gate remains required.
 
 ### TEST-425: API-key REST access
@@ -1998,3 +1998,10 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `internal/gateway/httpapi/response_writer_test.go`.
 - Command: `go test ./internal/gateway/httpapi -run '^TestStatusWriterFlush' -count=1`.
 - Oracle: the actual logging writer forwards a closed-connection error through `http.ResponseController`, flushes a supported writer without changing an explicit status, and preserves `http.ErrNotSupported` for unsupported flushing. TEST-464 retains the actual cancellation/history boundary; this cheap root invariant cannot be replaced with a successful flush fake.
+
+### TEST-466: Schema and request acquisition budgets
+
+- Coverage gate: `fast`.
+- Location: `stateful/schema_budget_test.go`.
+- Command: `go test ./stateful -run '^TestSchemaAcquisitionBudget$' -count=1`.
+- Oracle: the actual pool acquisition context uses 30 s for administrative schema initialization and 600 ms for request storage; an earlier caller deadline wins for both. A private pgx acquisition tracer captures the deadline and cancels before network I/O. No clock sleep, fake SQL success or database is involved. TEST-424 retains actual DDL, transaction-local SQL timeout, rollback and schema-version boundaries.

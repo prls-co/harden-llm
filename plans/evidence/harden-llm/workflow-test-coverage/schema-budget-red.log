@@ -1,0 +1,6 @@
+--- FAIL: TestSchemaAcquisitionBudget (0.00s)
+    --- FAIL: TestSchemaAcquisitionBudget/schema_initialization/own_deadline (0.00s)
+        schema_budget_test.go:89: acquisition deadline does not use 30s budget: offset=600.000771ms
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.008s
+FAIL

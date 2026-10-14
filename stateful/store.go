@@ -6,11 +6,13 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"strconv"
 	"time"
 )
 
 const storageTransactionTimeout = 600 * time.Millisecond
 const storageStatementTimeout = 500 * time.Millisecond
+const schemaInitializationTimeout = 30 * time.Second
 
 //go:embed schema.sql
 var referenceSchemaSQL string
@@ -42,8 +44,9 @@ func (*SchemaVersionError) Error() string {
 
 // ApplySchema initializes a fresh database once. An incompatible existing
 // schema is an operator error; serving never resets or converts application data.
+// Administrative DDL has one bounded budget separate from short request SQL.
 func ApplySchema(ctx context.Context, pool *pgxpool.Pool) error {
-	return withStorageTx(ctx, pool, pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+	return withSQLTx(ctx, pool, pgx.TxOptions{}, schemaInitializationTimeout, schemaInitializationTimeout, func(ctx context.Context, tx pgx.Tx) error {
 		var exists bool
 		if err := tx.QueryRow(ctx, "SELECT to_regclass('hllm_schema_version') IS NOT NULL").Scan(&exists); err != nil {
 			return err
@@ -69,13 +72,17 @@ func ApplySchema(ctx context.Context, pool *pgxpool.Pool) error {
 // withStorageTx owns a short SQL transaction. It is never used around provider
 // or object-store I/O. One parent budget covers acquisition, statements and commit.
 func withStorageTx(ctx context.Context, pool *pgxpool.Pool, options pgx.TxOptions, fn func(context.Context, pgx.Tx) error) error {
+	return withSQLTx(ctx, pool, options, storageTransactionTimeout, storageStatementTimeout, fn)
+}
+
+func withSQLTx(ctx context.Context, pool *pgxpool.Pool, options pgx.TxOptions, transactionTimeout, statementTimeout time.Duration, fn func(context.Context, pgx.Tx) error) error {
 	if ctx == nil {
 		return errors.New("stateful: context is required")
 	}
 	if pool == nil {
 		return &OperationError{Code: "reference_configuration_error", Message: "Reference PostgreSQL is not configured."}
 	}
-	bounded, cancel := context.WithTimeout(ctx, storageTransactionTimeout)
+	bounded, cancel := context.WithTimeout(ctx, transactionTimeout)
 	defer cancel()
 	tx, err := pool.BeginTx(bounded, options)
 	if err != nil {
@@ -86,7 +93,7 @@ func withStorageTx(ctx context.Context, pool *pgxpool.Pool, options pgx.TxOption
 		defer cancel()
 		_ = tx.Rollback(cleanup)
 	}()
-	if _, err = tx.Exec(bounded, "SET LOCAL statement_timeout = '500ms'"); err != nil {
+	if _, err = tx.Exec(bounded, "SELECT set_config('statement_timeout', $1, true)", strconv.FormatInt(statementTimeout.Milliseconds(), 10)+"ms"); err != nil {
 		return err
 	}
 	if err = fn(bounded, tx); err != nil {

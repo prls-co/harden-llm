@@ -161,3 +161,16 @@ the accepted clean cut, not a hidden fallback or an untested rollback claim.
 
 See the [P06 checkpoint](../../plans/evidence/harden-llm/reference-decoupling/phase-p06.md)
 and [conformance audit](../../plans/evidence/harden-llm/reference-decoupling/plan-conformance-audit.md).
+
+## Administrative schema budget correction (#122, 2026-10-14)
+
+Two exact-source release failures exposed fresh schema DDL using the 600 ms
+request transaction budget. A fixture Ping did not resolve the second failure
+and is removed. `ApplySchema` has one fixed 30 s budget for acquisition, DDL and
+commit; earlier caller deadlines/cancellation win. Short request SQL retains its
+600 ms transaction and 500 ms statement limits. Both policies share the same
+transaction/rollback code and use transaction-local SQL settings. There is no
+new environment knob, retry, reset path, schema version or service. TEST-466
+captures the acquisition deadline offline; TEST-424 verifies actual SQL settings,
+atomic DDL, idempotence/mismatch and cancellation rollback. Exact-source release
+and the existing schema-before-apps apply remain mandatory before promotion.

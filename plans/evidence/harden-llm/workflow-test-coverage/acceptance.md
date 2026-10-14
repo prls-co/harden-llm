@@ -36,6 +36,17 @@ Production was not changed. The corrected fixture passes the focused integration
 and integration-race gates; `pool-readiness-integration-pass.json` and
 `pool-readiness-race-pass.json` retain the results with no cleanup issues.
 
+Second exact-main release `38572926810` at `2e65c8094aaa9289c5d97356ec8a0ca0c3889ea6`
+failed inside schema setup even with a ready connection. `release-second-failure.json`
+and TEST-466 RED/GREEN are retained. The RCA explains the administrative schema
+budget correction and removal of the ineffective fixture Ping. Neither failed
+candidate was deployed. `schema-budget-fast-pass.json`,
+`schema-budget-integration-pass.json` and `schema-budget-race-pass.json` retain
+the corrected local gates with no cleanup issues. The final test-only tightening
+reserves a connection for SQL reset observation and preserves an already-expired
+caller error; the focused deadline and race runs include it. Hosted exact-source
+checks remain the final candidate evidence.
+
 Pending corrected exact merged-SHA browser-free release, affected application image construction,
 scoped apply and full identity/HTTP verification. Baseline production equivalence
 was verified read-only across all seven descriptor services before any mutation.
@@ -47,5 +58,6 @@ owned local HTTP/TLS servers with synthetic keys; PostgreSQL uses isolated lease
 No production row, secret, session or provider response becomes a fixture.
 The existing release task count and fast task count remain 29 and 10.
 The [RCA](../../../../docs/rca/workflow-test-coverage-and-recording-uncertainty.md)
-records the exact production change and corrected test assumptions. No KER
-threshold, production timeout, data model, framework or service was added.
+records the exact production change and corrected test assumptions. No data model, framework or service was added. The schema command gains its own
+30 s administrative budget; request/inference/history limits are unchanged. The
+KER/ADR/plan amendments explicitly record that correction.
