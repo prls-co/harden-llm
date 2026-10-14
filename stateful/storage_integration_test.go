@@ -32,11 +32,6 @@ func referencePool(t *testing.T, apply bool) (*pgxpool.Pool, string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	// NewWithConfig is lazy. Establish this fixture's own connection during
-	// bounded resource setup, before the unchanged 600ms operation budget.
-	if err := pool.Ping(setup); err != nil {
-		t.Fatal("leased pool readiness:", err)
-	}
 	if apply {
 		if err := ApplySchema(setup, pool); err != nil {
 			t.Fatal("leased schema initialization:", err)
@@ -59,6 +54,68 @@ func requireConstraint(t *testing.T, err error, code string) {
 }
 func TestReferenceStorage(t *testing.T) {
 	t.Parallel()
+	t.Run("SQL statement limits are local to each transaction policy", func(t *testing.T) {
+		p, _ := referencePool(t, false)
+		// Reserve one of the two slots so every observation uses the same
+		// remaining connection, rather than an untouched idle connection.
+		reserved, err := p.Acquire(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reserved.Release()
+		var baseline string
+		if err := p.QueryRow(context.Background(), "SHOW statement_timeout").Scan(&baseline); err != nil {
+			t.Fatal(err)
+		}
+		for _, tc := range []struct {
+			name             string
+			transactionLimit time.Duration
+			statementLimit   time.Duration
+			want             string
+		}{
+			{"request", 600 * time.Millisecond, 500 * time.Millisecond, "500ms"},
+			{"schema", 30 * time.Second, 30 * time.Second, "30s"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				err := withSQLTx(context.Background(), p, pgx.TxOptions{}, tc.transactionLimit, tc.statementLimit, func(ctx context.Context, tx pgx.Tx) error {
+					var actual string
+					if err := tx.QueryRow(ctx, "SHOW statement_timeout").Scan(&actual); err != nil {
+						return err
+					}
+					if actual != tc.want {
+						t.Errorf("SQL statement limit = %q, want %q", actual, tc.want)
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				var after string
+				if err := p.QueryRow(context.Background(), "SHOW statement_timeout").Scan(&after); err != nil || after != baseline {
+					t.Fatalf("transaction leaked SQL setting: before=%q after=%q error=%v", baseline, after, err)
+				}
+			})
+		}
+	})
+	t.Run("caller cancellation rolls back partial administrative DDL", func(t *testing.T) {
+		p, _ := referencePool(t, false)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err := withSQLTx(ctx, p, pgx.TxOptions{}, schemaInitializationTimeout, schemaInitializationTimeout, func(ctx context.Context, tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, "CREATE TABLE canceled_schema_probe(value text)"); err != nil {
+				return err
+			}
+			cancel()
+			return nil
+		})
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("canceled caller was not preserved: %v", err)
+		}
+		var absent bool
+		if err := p.QueryRow(context.Background(), "SELECT to_regclass('canceled_schema_probe') IS NULL").Scan(&absent); err != nil || !absent {
+			t.Fatalf("canceled DDL survived transaction: absent=%v error=%v", absent, err)
+		}
+	})
 	t.Run("fresh and idempotent schema has exact tables indexes and version", func(t *testing.T) {
 		p, _ := referencePool(t, false)
 		if err := ApplySchema(context.Background(), p); err != nil {

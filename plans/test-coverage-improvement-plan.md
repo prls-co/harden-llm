@@ -43,7 +43,7 @@ negative tests rather than being excluded as inconvenient combinations.
 - P02: complete. Fourteen focused LiveView cases pass, including controlled duplicate/late responses/autosaves and endpoint Save admission.
 - P03: complete. Capability projections/pickers, independent option/guard witnesses, early exits/deadline boundaries and all 500 native cross-protocol/position/failure/budget cases pass. The first native test incorrectly conflated selected target with result producer; its corrected oracle separately asserts both canonical fields. No production behavior changed.
 - P04: complete. Concurrent SQL CAS, actual transport/record readback and cheap flush/error-message regressions pass; final race certification is in P05.
-- P05: in progress. Final fast, T3 and integration-race gates pass with no cleanup issues; merge, exact-source release and scoped application deployment remain.
+- P05: in progress. Original local gates passed, but two exact-source releases exposed schema initialization sharing the request transaction budget. TEST-466 and the administrative-budget correction now require new fast/integration/race evidence, merge, exact-source release and scoped deployment.
 - Evidence: `plans/evidence/harden-llm/workflow-test-coverage/`.
 - Protected operator scratch: outside Git; no production credentials or user
   records are needed by these tests.
@@ -61,16 +61,23 @@ The transport cases share the existing serial workflow module and tagged Go
 launchers; adding a third serial module was rejected by the unchanged policy.
 Test setup accounts for persisted fold state. Source closure explicitly verifies
 selection/ownership rather than runtime execution. Reports and independent
-dispatch/history assertions establish the latter. No extra service/framework,
-browser, paid call, timeout increase or relaxed concurrency rule was introduced.
+dispatch/history assertions establish the latter. The initial implementation added no service/framework, browser, paid call or
+relaxed concurrency rule. The subsequent administrative-budget correction below
+is the one explicit timeout-policy change; ordinary requests retain their limits.
 
 The first race gate exposed PostgreSQL's transaction-local activity snapshot in
 the overlap observer. Clear that snapshot before each observation on the same
 lock-owning connection; retain both real waits and the unchanged CAS oracles.
 The failed race report and corrected report belong in P05 evidence.
 
-The first exact-source release failed at existing `referencePool` setup, before
-three assertion bodies. Add one bounded readiness `Ping` for the fixture's lazy
-pool before real schema application. Retain the failed report and require a new
-merged-SHA release; do not retry that failed candidate, raise production budgets,
-serialize assertions or claim cold production startup from warm fixtures.
+Two exact-source releases failed during fresh schema initialization before
+existing assertions. PR #124's bounded fixture Ping was insufficient and is
+removed. `ApplySchema` wrongly shared the 600ms request-transaction budget with
+initial administrative DDL. TEST-466 captures the actual acquisition deadline
+offline before network access (RED at 600ms, GREEN at 30s); earlier caller deadlines
+still win. One shared transaction implementation installs the fixed schema 30s
+policy and unchanged request 600/500ms policy. TEST-424 retains schema/version/
+rollback coverage and adds actual SQL setting/reset and caller-cancellation
+rollback checks. This is an explicit production lifecycle correction, with no
+schema/data/retry/concurrency changes. Preserve both failed reports and qualify
+a new merged SHA before either application is deployed.

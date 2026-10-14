@@ -70,3 +70,9 @@ retains actual client/socket/gateway/PostgreSQL cancellation. TEST-465 additiona
 preserves logging-wrapper flush errors at the fast tier. The final
 [audit evidence](../plans/evidence/harden-llm/workflow-test-coverage/acceptance.md)
 records all phases, deliberate RED results and release/deployment boundaries.
+
+TEST-466 covers the schema/request acquisition deadline distinction at T1, with
+no database or network; TEST-424 retains real transactional schema/version and
+rollback semantics, verifies transaction-local SQL limits, and proves caller
+cancellation rolls back partial DDL. The schema command has one 30 s administrative
+budget; ordinary request 600/500 ms and history/inference budgets are unchanged.
