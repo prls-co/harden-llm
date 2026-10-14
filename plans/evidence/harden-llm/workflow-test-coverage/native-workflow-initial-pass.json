@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "selector": "frontend-gateway-workflows",
+  "seed": 104729,
+  "manifestSHA256": "e857a934f53d712c478de372aec44abb6aa918f707be1d7656309be4788b5cd9",
+  "accepted": true,
+  "runDirectory": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/run-1791956910135-435089-tcfy9a",
+  "results": [
+    {
+      "taskId": "frontend-gateway-workflows",
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration,frontendintegration",
+        "./internal/gateway/httpapi",
+        "-run",
+        "^TestFrontendPresetWorkflows$",
+        "-count=1",
+        "-timeout=15m",
+        "-v"
+      ],
+      "status": 0,
+      "seed": 104729,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 83069,
+      "peakRssMiB": 601.91796875,
+      "cpuMs": 159160,
+      "stdoutBytes": 15419,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 7227,
+      "stdoutPreview": "=== RUN   TestFrontendPresetWorkflows\n2026/10/13 22:48:35 http: TLS handshake error from 127.0.0.1:38962: client sent an HTTP request to an HTTPS server\n2026/10/13 22:48:35 http: TLS handshake error from 127.0.0.1:38966: client sent an HTTP request to an HTTPS server\n    frontend_workflows_integration_test.go:116: ==> mime\n        Compiling 1 file (.ex)\n        Generated mime app\n        ==> nimble_options\n        Compiling 3 files (.ex)\n        Generated nimble_options app\n        ==> fine\n        Compiling 1 file (.ex)\n        Generated fine app\n        ==> plug_crypto\n        Compiling 5 files (.ex)\n        Generated plug_crypto app\n        ==> hpax\n        Compiling 4 files (.ex)\n        Generated hpax app\n        ==> harden_llm\n        ===> Analyzing applications...\n        ===> Compiling yamerl\n        ===> Analyzing applications...\n        ===> Compiling mimerl\n        ==> ssl_verify_fun\n        Compiling 7 files (.erl)\n        Generated ssl_verify_fun app\n        ==> harden_llm\n        ===> Analyzing applications...\n        ===> Compiling h2\n        ===> Analyzing applications...\n        ===> Compiling ctx\n        ==> castore\n        Compiling 1 file (.ex)\n        Generated castore app\n        ==> octo_fetch\n        Compiling 3 files (.ex)\n        Generated octo_fetch app\n        ==> mint\n        Compiling 1 file (.erl)\n        Compiling 21 files (.ex)\n        Generated mint app\n        ==> elixir_make\n        Compiling 8 files (.ex)\n        Generated elixir_make app\n        ==> opentelemetry_semantic_conventions\n        Compiling 2 files (.erl)\n        Compiling 79 files (.ex)\n        Generated opentelemetry_semantic_conventions app\n        ==> harden_llm\n        ===> Analyzing applications...\n        ===> Compiling otel_http\n        ==> decimal\n        Compiling 4 files (.ex)\n        Generated decimal app\n        ==> jason\n        Compiling 10 files (.ex)\n        Generated jason app\n        ==> esbuild\n        Compiling 4 files (.ex)\n        Generated esbuild app\n        ==> yaml_elixir\n        Compiling 6 files (.ex)\n            warning: unused require Record\n            \u2502\n          2 \u2502   require Record\n            \u2502   ~\n            \u2502\n            \u2514\u2500 lib/yaml_elixir/yaml_node_keyword_list.ex:2:3\n        \n        Generated yaml_elixir app\n        ==> mix_audit\n        Compiling 16 files (.ex)\n        Generated mix_audit app\n        ==> ex_json_schema\n        Compiling 40 files (.ex)\n        Generated ex_json_schema app\n        ==> harden_llm\n        ===> Analyzing applications...\n        ===> Compiling idna\n        ===> Analyzing applications...\n        ===> Compiling gproc\n        ===> Analyzing applications...\n        ===> Compiling telemetry\n        ==> telemetry_metrics\n        Compiling 7 files (.ex)\n             warning: unused require Logger\n             \u2502\n         392 \u2502   require Logger\n             \u2502   ~\n             \u2502\n             \u2514\u2500 lib/telemetry_metrics.ex:392:3\n        \n        Generated telemetry_metrics app\n        ==> harden_llm\n        ===> Analyzing applications...\n        ===> Compiling telemetry_poller\n        ==> telemetry_metrics_prometheus_core\n        Compiling 9 files (.ex)\n        warning: first..last inside match is deprecated, you must always match on the step: first..last//var or first..last//_ if you want to ignore it\n          lib/core/registry.ex:87: TelemetryMetricsPrometheus.Core.Registry.validate_distribution_buckets!/1\n        \n             warning: unused require Logger\n             \u2502\n         148 \u2502   require Logger\n             \u2502   ~\n             \u2502\n             \u2514\u2500 lib/core.ex:148:3\n        \n        Generated telemetry_metrics_prometheus_core app\n        ==> thousand_island\n        Compiling 18 files (.ex)\n        Generated thousand_island app\n        ==> phoenix_html\n        Compiling 6 files (.ex)\n        Generated phoenix_html app\n        ==> phoenix_template\n        Compiling 4 files (.ex)\n        Generated phoenix_template app\n        ==> expo\n        Compiling 2 files (.erl)\n        Compiling 22 files (.ex)\n        Generated expo app\n        ==> gettext\n        Compiling 18 files (.ex)\n             warning: this clause in cond will never match:\n        \n                 not is_binary(locale)\n        \n             since it has type:\n        \n                 dynamic(false)\n        \n             where \"locale\" was given the types:\n        \n                 # type: binary()\n                 # from: lib/gettext.ex:806:28\n                 locale\n        \n                 # type: binary()\n                 # from: lib/gettext.ex:806:41\n                 is_binary(locale)\n        \n             type warning found at:\n             \u2502\n         808 \u2502       not is_binary(locale) ->\n             \u2502                             ~\n             \u2502\n             \u2514\u2500 lib/gettext.ex:808:29: Gettext.put_locale!/2\n        \n             warning: the following clause is redundant:\n        \n                 defp ensure_empty_msgstr!(%Expo.Message.Plural{} = message)\n        \n             it has type:\n        \n                 dynamic(%Expo.Message.Plural{})\n        \n             previous clauses have already matched on the following types:\n        \n                 %Expo.Message.Singular{}\n                 %Expo.Message.Plural{}\n        \n             \u2502\n         391 \u2502   defp ensure_empty_msgstr!(%Message.Plural{} = message) do\n             \u2502        ~\n             \u2502\n             \u2514\u2500 lib/gettext/extractor.ex:391:8: Gettext.Extractor.ensure_empty_msgstr!/1\n        \n             warning: Kernel.ParallelCompiler.async/1 is deprecated. Use `pmap/2` instead\n             \u2502\n         426 \u2502               Kernel.ParallelCompiler.async(fn ->\n             \u2502                                       ~\n             \u2502\n             \u2514\u2500 lib/gettext/compiler.ex:426:39: Gettext.Compiler.compile_po_files/3\n        \n        Generated gettext app\n        ==> phoenix_pubsub\n        Compiling 12 files (.ex)\n        Generated phoenix_pubsub app\n        ==> harden_llm\n        ===> Analyzing applications...\n        ===> Compiling acceptor_pool\n        ==> dns_cluster\n        Compiling 1 file (.ex)\n             warning: comparison between distinct types found:\n        \n                 net_state.started != :no\n        \n             given types:\n        \n                 dynamic(not :no) != :no\n        \n             where \"net_state\" was given the types:\n        \n                 # type: dynamic()\n                 # from: lib/dns_cluster.ex:207:8\n                 net_state\n        \n                 # type: dynamic(not false and not nil)\n                 # from: lib/dns_cluster.ex:207:8\n                 net_state\n        \n                 # type: dynamic(%{..., started: term()})\n                 # from: lib/dns_cluster.ex:210:25\n                 net_state.started == :no\n        \n                 # type: dynamic(%{..., started: not :no})\n                 # from: lib/dns_cluster.ex:220:25\n                 net_state.started == :no\n        \n             While Elixir can compare across all types, you are comparing across types which are always disjoint, and the result is either always true or always false\n        \n             type warning found at:\n             \u2502\n         221 \u2502           (!release? and net_state.started != :no and net_state[:name_domain] != :longnames) ->\n             \u2502                                            ~\n             \u2502\n             \u2514\u2500 lib/dns_cluster.ex:221:44: DNSCluster.warn_on_invalid_dist/0\n        \n        Generated dns_cluster app\n        ==> harden_llm\n        ===> Analyzing applications...\n        ===> Compiling hpack\n        ===> Analyzing applications...\n        ===> Compiling certifi\n        ===> Analyzing applications...\n        ===> Compiling tls_certificate_check\n        ==> plug\n        Compiling 1 file (.erl)\n        Compiling 42 files (.ex)\n        Generated plug app\n        ==> logger_json\n        Compiling 17 files (.ex)\n             warning: the variable \"len\" is accessed inside size(...) of a bitstring but it was defined outside of the match. You must precede it with the pin operator\n             \u2502\n         234 \u2502     <<_front",
+      "stderrPreview": "",
+      "failureSummary": null,
+      "failureDetail": null,
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-bdbe07c32c3a",
+      "startedAtMs": 424,
+      "endedAtMs": 83493
+    }
+  ],
+  "firstFailure": null,
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 67,
+    "daemonLockWaitMs": 113,
+    "staleReceiptRecoveryMs": 112
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "generatedAt": "2026-10-14T05:49:53.560Z",
+  "reportPath": "/home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/tmp/test-feedback/runner-1791956993560-435089-7a55d5ea26f4401a.json"
+}

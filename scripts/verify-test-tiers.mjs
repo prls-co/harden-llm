@@ -7,6 +7,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { verifyInteractions, verifyCaseCoverage } from "./test-coverage.mjs";
+
 import { loadManifest, selectTasks } from "./run-test-tier.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -107,6 +109,15 @@ async function main() {
   const frontendSpecName = specificationNames.find((name) => name.endsWith("-frontend-spec.md"));
   if (!frontendSpecName) fail("frontend test specification is missing");
   const frontendSpec = await fs.readFile(path.join(specificationDirectory, frontendSpecName), "utf8");
+  const consumers = new Map();
+  const locations = new Set([...backendSpec.matchAll(/`([\w./-]+(?:_test\.go|_test\.exs|(?:_test|\.test)\.mjs))`/g)].map(m => m[1]));
+  for (const file of locations) {
+    try { consumers.set(file, await fs.readFile(path.join(repositoryRoot, file), "utf8")); }
+    catch (error) { if (error.code !== "ENOENT") throw error; }
+  }
+  consumers.set("frontend/test/test_helper.exs", await fs.readFile(path.join(repositoryRoot, "frontend/test/test_helper.exs"), "utf8"));
+  verifyCaseCoverage(manifest, backendSpec, frontendSpec, consumers);
+  verifyInteractions(JSON.parse(await fs.readFile(path.join(repositoryRoot, "fixtures/parity/source/combinatorial/retry-decision-matrix.json"), "utf8")));
   const verifyLine = "verify: format lint build test-static test-unit test-parity test-integration test-integration-race test-api test-observability test-race test-vulnerability";
   if (!makefile.includes(verifyLine)) fail("make verify dependency contract changed");
 

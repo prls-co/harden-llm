@@ -843,3 +843,26 @@ six-call chain after page reload. TEST-457 requires a safe validation code,
 qualified field path and run ID in the message while rejecting raw server-message
 reflection. The [RCA](../../docs/rca/mixed-recovery-profile-reasoning.md) separates
 the earlier isolated-preset evidence from this missing interaction coverage.
+
+## 27. Workflow coverage assurance (#122)
+
+WEB-TEST-128 / TEST-459 uses direct public events and process-owned request
+barriers to prove Run admission, duplicate suppression, stale selection/stream
+handling and autosave coalescence after reload. Its owner is
+`frontend/test/harden_llm_web/live/restored_workflow_test.exs`; run the existing
+`frontend-deterministic` task. WEB-TEST-126 now performs each preset's existing
+two executions after its own reload and retains the exact six-stage chain.
+The native fixture independently verifies actual protocol fields and credentials.
+
+WEB-TEST-129 / TEST-461 adds independently expected full/partial/absent capability
+partitions, explicit middle/highest choices, inherited versus explicit leaves and
+unknown-reference preservation. The actual rendered partial-map picker is exercised
+at every finite position. Existing package tests cover cheap exhaustive projections;
+`shipped_presets_test.exs` covers the rendered event and outgoing wire boundary.
+
+WEB-TEST-130 / TEST-464 uses the actual REST client and gateway with owned HTTP
+connections and isolated PostgreSQL. Interruption during inference is an unknown
+outcome; interruption after a received terminal retains known output and reports
+unconfirmed history. Exact history readback and dispatch counts prohibit replay.
+`gateway_workflows_test.exs` shares the existing serial real-gateway setup;
+the `frontend-gateway-workflows` release task owns the Go launcher.

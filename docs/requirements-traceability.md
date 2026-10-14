@@ -54,3 +54,19 @@ TEST-234 names physical network membership explicitly. Existing test purposes,
 72 plan steps, 16 requirements and 32 reference contract tests are unchanged.
 ADR-HLLM-028 and KER-IBD-004/006 explicitly cover the approved deployment scope
 and schema-compatible recovery limit after deletion of old HLLM data.
+
+## 6. Workflow test audit (#122)
+
+[PLAN-HLLM-WORKFLOW-COVERAGE-001](../plans/test-coverage-improvement-plan.md)
+maps TEST-458–465 / WEB-TEST-128–130 to the restored workflows and strengthens
+TEST-454 without adding a duplicate preset run. The manifest remains the sole
+task registry; independent source-selection and finite-interaction checks are
+TEST-460. Static registration, local execution, exact-source release and
+deployed image identity remain distinct evidence.
+
+TEST-464 preserves known terminal output when recording confirmation is lost;
+its fast regression exercises the root message invariant and its T3 counterpart
+retains actual client/socket/gateway/PostgreSQL cancellation. TEST-465 additionally
+preserves logging-wrapper flush errors at the fast tier. The final
+[audit evidence](../plans/evidence/harden-llm/workflow-test-coverage/acceptance.md)
+records all phases, deliberate RED results and release/deployment boundaries.

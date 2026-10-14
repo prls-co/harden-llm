@@ -1,0 +1,3 @@
+Error: TEST-452 has no unique task registration
+    at verifyCaseCoverage (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/test-coverage.mjs:66:37)
+    at main (file:///home/kirill/.cache/harden-llm-tmp/hllm-reference-decoupling-impl/scripts/verify-test-tiers.mjs:118:3)

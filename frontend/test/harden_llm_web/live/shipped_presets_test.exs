@@ -6,7 +6,7 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
   alias HardenLlmWeb.APIFixtures
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-124
-  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-452
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-452 TEST-453
   @catalog Path.expand("../../../../stateful/presets.json", __DIR__)
            |> File.read!()
            |> Jason.decode!()
@@ -15,8 +15,19 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
     parent = self()
     fixture = File.read!("../test/fixtures/reference/workspace.json") |> Jason.decode!()
 
+    catalog =
+      if id = context[:partial_reasoning] do
+        update_in(
+          @catalog,
+          [id, "definition", "reasoningEffortMap"],
+          &Map.take(&1, ~w(middle highest))
+        )
+      else
+        @catalog
+      end
+
     profiles =
-      @catalog
+      catalog
       |> Enum.sort_by(&elem(&1, 0))
       |> Enum.map(fn {id, preset} ->
         %{
@@ -42,7 +53,7 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
 
         {"GET", "/api/v1/profiles/" <> encoded_id} ->
           id = URI.decode(encoded_id)
-          preset = Map.fetch!(@catalog, id)
+          preset = Map.fetch!(catalog, id)
 
           draft =
             preset
@@ -130,6 +141,13 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
         assert payload["profileId"] == id
         assert payload["callType"] == call_type
         assert payload["modelId"] == preset["definition"]["modelId"]
+        assert payload["reasoningEffort"] == preset["inputs"]["reasoningEffort"]
+
+        assert payload["providerOptions"] ==
+                 Map.merge(
+                   preset["definition"]["defaultOptions"],
+                   preset["inputs"]["providerOptions"]
+                 )
 
         if call_type == "structured" do
           assert payload["schema"] == preset["inputs"]["schema"]
@@ -210,6 +228,58 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
 
       expected = if id == "CPA claude-sonnet-5-5", do: nil, else: "lowest"
       assert target["reasoningEffort"] == expected, "#{prefix}: #{id}"
+      refute has_element?(view, "#run-error")
+    end
+  end
+
+  # TEST-461 / WEB-TEST-129: partial capabilities through the actual controls.
+  @tag partial_reasoning: "CPA gpt-6.1-sol"
+  test "every recovery picker shows a partial map and preserves an explicit highest choice", %{
+    conn: conn
+  } do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_settled(view, 1_000)
+    view |> element("#profile-retry-toggle") |> render_click()
+    render_settled(view, 1_000)
+    view |> element("#profile-rerun-toggle") |> render_click()
+    render_settled(view, 1_000)
+    view |> element("#profile-rerun-generation-config-toggle") |> render_click()
+    render_settled(view, 1_000)
+
+    for {prefix, path} <- [
+          {"profile-original-repair-initial", ~w(jsonRepair initial)},
+          {"profile-original-repair-escalation", ~w(jsonRepair escalation)},
+          {"profile-rerun-generation", ~w(rerun target)},
+          {"profile-rerun-generation-config-json-repair-initial", ~w(rerun jsonRepair initial)},
+          {"profile-rerun-generation-config-json-repair-escalation",
+           ~w(rerun jsonRepair escalation)}
+        ] do
+      selected =
+        Enum.reduce(Enum.reverse(path), %{"profileId" => "CPA gpt-6.1-sol"}, &%{&1 => &2})
+
+      view
+      |> element("##{prefix}-profile")
+      |> render_change(%{"profile" => %{"recoveryPolicy" => selected}})
+
+      render_settled(view, 1_000)
+      assert has_element?(view, "##{prefix}-reasoning:not([disabled])")
+      refute has_element?(view, "##{prefix}-reasoning option[value='lowest']")
+      assert has_element?(view, "##{prefix}-reasoning option[value='middle'][selected]")
+      highest = Enum.reduce(Enum.reverse(path), %{"reasoningEffort" => "highest"}, &%{&1 => &2})
+
+      view
+      |> element("##{prefix}-reasoning")
+      |> render_change(%{"profile" => %{"recoveryPolicy" => highest}})
+
+      render_settled(view, 1_000)
+      assert has_element?(view, "##{prefix}-reasoning option[value='highest'][selected]")
+      view |> form("#run-form") |> render_submit()
+      render_settled(view, 1_000)
+      assert_receive {:preset_run, payload}, 1_000
+      assert get_in(payload["recoveryPolicy"], path)["reasoningEffort"] == "highest"
+      refute has_element?(view, "#draft-error")
       refute has_element?(view, "#run-error")
     end
   end

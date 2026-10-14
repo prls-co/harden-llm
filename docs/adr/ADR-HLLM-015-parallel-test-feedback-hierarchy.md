@@ -303,3 +303,40 @@ release 38474634696 attempt 1, with no cleanup issues. Its
 [RCA](../rca/mixed-recovery-profile-reasoning.md) retains RED/GREEN, all uploaded
 release reports and deployed HTTP acceptance. No tier, opt-in policy, browser
 dependency, provider replay or retry-based passing result is introduced.
+
+## Workflow coverage assurance amendment (2026-10-14)
+
+Issue #122 and `PLAN-HLLM-WORKFLOW-COVERAGE-001` add independently specified
+native request oracles, per-preset execution after reload, public Run admission
+and async ordering, capability/decision partitions, mixed-protocol recovery,
+simultaneous PostgreSQL CAS and actual stream interruption. The 500-case small
+native domain is exhaustive; the existing retry fixture's declared pairs and
+triples are checked independently. No runtime generator/framework is needed.
+
+The reviewed catalog declares required gates; `test/test-tiers.json` remains
+the single registration/selection source. The static checker rejects absent or
+comment-only source consumers, excluded module tags, excluded Go names, and lost
+registration/gate bindings. It checks source ownership and selection rather
+than claiming runtime execution; retained runner reports provide that evidence.
+The review starts at TEST-452; it does not pretend all historical cases gained
+new per-case instrumentation.
+
+TEST-464 extends the existing T3 workflow task and its named serial gateway
+configuration resource. Both selected groups use the same serial Mix module and real-gateway setup; each
+launcher owns its listener, compilation path and isolated database. Flush the
+selected complete event, close only the owned connection and return a failed
+flush so the gateway exits and cancels execution. TEST-465 found and fixes the
+logging writer discarding that error, using direct standard `ResponseController`
+forwarding with no alternate path. Bounded API reads
+observe detached recording without replaying inference. The cheap LiveView
+terminal-versus-recording regression remains in the existing fast task.
+
+That regression exposed a misleading error after a known terminal result;
+the frontend now preserves the result and reports unconfirmed history only when
+the acknowledgement is absent. A full failed stream with saved history retains
+its ordinary failure message. No control, layout, execution policy or data model
+changes. Both affected applications need new images after exact-source release
+certification; shared-owner identities remain separately pinned.
+No browser, paid canary, DOM dependency, KER budget or timeout change is implied.
+The four standards informed test design; formal compliance and organizational
+IV&V independence are not claimed.

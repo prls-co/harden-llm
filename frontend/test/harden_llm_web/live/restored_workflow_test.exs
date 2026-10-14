@@ -35,6 +35,19 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
 
       send(parent, {:reference_request, request.method, request.request_path, body})
 
+      holds = Agent.get(agent, &Map.get(&1, :hold, MapSet.new()))
+
+      if MapSet.member?(holds, {request.method, request.request_path}) do
+        reference = make_ref()
+        send(parent, {:held_request, self(), reference, request.method, request.request_path})
+
+        receive do
+          {:release_request, ^reference} -> :ok
+        after
+          3_000 -> flunk("owned request barrier was not released")
+        end
+      end
+
       case {request.method, request.request_path} do
         {"GET", "/api/v1/profiles"} ->
           Req.Test.json(request, fixture["profiles"])
@@ -65,7 +78,7 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
           request |> Plug.Conn.put_status(201) |> Req.Test.json(fixture["savedProfile"])
 
         {"POST", "/api/v1/run"} ->
-          stream_response(request, fixture["stream"])
+          stream_response(request, Agent.get(agent, &Map.get(&1, :run_events, fixture["stream"])))
 
         {"GET", "/api/v1/history/" <> _id} ->
           Req.Test.json(request, fixture["record"])
@@ -73,17 +86,59 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
         {"GET", "/api/v1/profiles/" <> id} ->
           Req.Test.json(request, Map.fetch!(fixture["details"], URI.decode(id)))
 
-        # Let the superseded app finish mounting so RED reaches the missing UI
-        # assertion. This is a test preparation path, not a production fallback.
-        {"GET", "/v1/models"} ->
-          Req.Test.json(request, APIFixtures.models())
-
         _ ->
           flunk("unexpected reference request #{request.method} #{request.request_path}")
       end
     end)
 
     {:ok, conn: authenticated_conn(conn), fixture: fixture, agent: agent}
+  end
+
+  # TEST-464 / WEB-TEST-130: cheap terminal-versus-recording invariant. The T3
+  # launcher retains the distinct actual socket/client cancellation boundary.
+  test "missing recording confirmation preserves a received terminal result", %{
+    conn: conn,
+    fixture: fixture,
+    agent: agent
+  } do
+    Agent.update(agent, &Map.put(&1, :run_events, Enum.take(fixture["stream"], 3)))
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+    view |> form("#run-form") |> render_submit()
+    render_settled(view, 1_000)
+    assert has_element?(view, "#run-output", "true")
+    assert has_element?(view, "#run-error", "history recording could not be confirmed")
+    assert_receive {:reference_request, "POST", "/api/v1/run", _}, 1_000
+    refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+  end
+
+  test "a failed run with confirmed history reports failure without recording uncertainty", %{
+    conn: conn,
+    fixture: fixture,
+    agent: agent
+  } do
+    events =
+      List.update_at(fixture["stream"], 2, fn event ->
+        event
+        |> Map.put("type", "run.failed")
+        |> put_in(["data", "result", "status"], "failed")
+        |> put_in(["data", "result", "output"], nil)
+        |> put_in(["data", "error"], %{
+          "code" => "provider_error",
+          "message" => "Fixture failure."
+        })
+      end)
+
+    Agent.update(agent, &Map.put(&1, :run_events, events))
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+    view |> form("#run-form") |> render_submit()
+    render_settled(view, 1_000)
+    assert has_element?(view, "#run-error", "The run failed.")
+    refute has_element?(view, "#run-error", "recording could not be confirmed")
+    refute has_element?(view, "#recording-status")
+    assert_receive {:reference_request, "POST", "/api/v1/run", _}, 1_000
+    refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
   end
 
   test "selecting a template fills the complete restored form and baseline controls", %{
@@ -403,6 +458,170 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     assert_receive {:reference_request, "POST", "/api/v1/run", payload}, 1_000
     assert payload["providerOptions"] == options
     refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+  end
+
+  # TEST-459 / WEB-TEST-128: public events and process-owned barriers.
+  test "endpoint edits require Save and restoring the endpoint clears that blocker", %{
+    conn: conn,
+    fixture: f
+  } do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+    view |> element("#model-config-toggle") |> render_click()
+    render_settled(view, 1_000)
+    original = f["details"]["CPA Responses"]["definition"]["baseUrl"]
+
+    view
+    |> element("#profile_baseUrl")
+    |> render_change(%{"profile" => %{"baseUrl" => "https://changed.example/v1"}})
+
+    render_settled(view, 1_000)
+    render_submit(view, "run", %{"run" => %{"userPrompt" => "guard fixture"}})
+    assert has_element?(view, "#run-error", "Save the LLM profile")
+    refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+    view |> element("#profile_baseUrl") |> render_change(%{"profile" => %{"baseUrl" => original}})
+    render_settled(view, 1_000)
+    render_submit(view, "run", %{"run" => %{"userPrompt" => "guard fixture"}})
+    render_settled(view, 1_000)
+    assert_receive {:reference_request, "POST", "/api/v1/run", _}, 1_000
+    refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+  end
+
+  test "direct Run events reject each local blocker before any POST", %{conn: conn} do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+
+    valid = %{
+      "selectedProfileId" => "CPA Responses",
+      "userPrompt" => "guard fixture",
+      "callType" => "text"
+    }
+
+    for {changes, message} <- [
+          {%{"selectedProfileId" => ""}, "Choose a profile"},
+          {%{"userPrompt" => "  "}, "Enter a prompt"},
+          {%{"callType" => "structured", "schema" => "{"}, "JSON"}
+        ] do
+      render_submit(view, "run", %{"run" => Map.merge(valid, changes)})
+      render_settled(view, 1_000)
+      assert has_element?(view, "#run-error", message)
+      refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+      render_submit(view, "run", %{"run" => valid})
+      render_settled(view, 1_000)
+      assert_receive {:reference_request, "POST", "/api/v1/run", payload}, 1_000
+      assert payload["userPrompt"] == "guard fixture"
+      refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+    end
+  end
+
+  test "blocked Run ignores duplicate events and unrelated stream references", %{
+    conn: conn,
+    agent: agent,
+    fixture: f
+  } do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+    Agent.update(agent, &Map.put(&1, :hold, MapSet.new([{"POST", "/api/v1/run"}])))
+    view |> form("#run-form", %{"run" => %{"userPrompt" => "one dispatch"}}) |> render_submit()
+    assert_receive {:held_request, task, reference, "POST", "/api/v1/run"}, 1_000
+    assert_receive {:reference_request, "POST", "/api/v1/run", _}, 1_000
+    render_submit(view, "run", %{"run" => %{"userPrompt" => "duplicate must not dispatch"}})
+    stale = put_in(f, ["run", "result", "output"], %{"sentinel" => "stale-output"})
+
+    send(
+      view.pid,
+      {:run_stream, make_ref(),
+       %{"type" => "run.completed", "data" => %{"result" => stale["run"]["result"]}}}
+    )
+
+    refute has_element?(view, "#run-output", "stale-output")
+    refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+    send(task, {:release_request, reference})
+    render_settled(view, 1_000)
+    assert has_element?(view, "#run-output")
+    refute has_element?(view, "#run-output", "stale-output")
+    refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+  end
+
+  test "late profile response cannot replace the latest selection", %{
+    conn: conn,
+    agent: agent,
+    fixture: f
+  } do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+
+    paths = [
+      {"GET", "/api/v1/profiles/Repair%20Provider"},
+      {"GET", "/api/v1/profiles/CPA%20Responses"}
+    ]
+
+    Agent.update(agent, &Map.put(&1, :hold, MapSet.new(paths)))
+
+    view
+    |> element("#run_selectedProfileId")
+    |> render_change(%{"run" => %{"selectedProfileId" => "Repair Provider"}})
+
+    assert_receive {:held_request, a, ar, "GET", "/api/v1/profiles/Repair%20Provider"}, 1_000
+    render_submit(view, "run", %{"run" => %{"userPrompt" => "must wait"}})
+    assert has_element?(view, "#run-error", "Wait for the selected setup")
+    refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+
+    view
+    |> element("#run_selectedProfileId")
+    |> render_change(%{"run" => %{"selectedProfileId" => "CPA Responses"}})
+
+    assert_receive {:held_request, b, br, "GET", "/api/v1/profiles/CPA%20Responses"}, 1_000
+    send(b, {:release_request, br})
+
+    assert_receive {:reference_request, "POST", "/api/v1/state",
+                    %{"payload" => %{"selectedProfileId" => "CPA Responses"}}},
+                   1_000
+
+    send(a, {:release_request, ar})
+    render_settled(view, 1_000)
+    assert has_element?(view, "#run_selectedProfileId[value='CPA Responses']")
+    {:ok, state} = Client.get_state(HardenLlmWeb.APIContext.server("workspace:fixture-user"))
+    assert state["payload"]["selectedProfileId"] == "CPA Responses"
+
+    assert has_element?(
+             view,
+             "#run_userPrompt",
+             f["details"]["CPA Responses"]["inputs"]["userPrompt"]
+           )
+
+    view |> form("#run-form") |> render_submit()
+    render_settled(view, 1_000)
+
+    assert_receive {:reference_request, "POST", "/api/v1/run", %{"profileId" => "CPA Responses"}},
+                   1_000
+  end
+
+  test "pending draft writes coalesce to the latest complete edit", %{conn: conn, agent: agent} do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+    Agent.update(agent, &Map.put(&1, :hold, MapSet.new([{"POST", "/api/v1/state"}])))
+    view |> form("#run-form", %{"run" => %{"userPrompt" => "first"}}) |> render_change()
+    assert_receive {:held_request, task, reference, "POST", "/api/v1/state"}, 1_000
+    assert_receive {:reference_request, "POST", "/api/v1/state", _}, 1_000
+    view |> form("#run-form", %{"run" => %{"userPrompt" => "second"}}) |> render_change()
+    view |> form("#run-form", %{"run" => %{"userPrompt" => "latest"}}) |> render_change()
+    refute_receive {:reference_request, "POST", "/api/v1/state", _}, 50
+    Agent.update(agent, &Map.put(&1, :hold, MapSet.new()))
+    send(task, {:release_request, reference})
+    render_settled(view, 1_000)
+
+    assert_receive {:reference_request, "POST", "/api/v1/state",
+                    %{"payload" => %{"userPrompt" => "latest"}}},
+                   1_000
+
+    refute_receive {:reference_request, "POST", "/api/v1/state",
+                    %{"payload" => %{"userPrompt" => "second"}}},
+                   50
+
+    {:ok, reloaded, _} = live(conn, "/")
+    render_settled(reloaded, 1_000)
+    assert has_element?(reloaded, "#run_userPrompt", "latest")
   end
 
   defp dom_value(view, selector) do
