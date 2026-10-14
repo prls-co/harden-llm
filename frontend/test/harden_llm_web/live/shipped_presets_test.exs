@@ -6,7 +6,7 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
   alias HardenLlmWeb.APIFixtures
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-124
-  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-452
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-452 TEST-453
   @catalog Path.expand("../../../../stateful/presets.json", __DIR__)
            |> File.read!()
            |> Jason.decode!()

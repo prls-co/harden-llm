@@ -1830,13 +1830,16 @@ TEST-434/435 remain explicit deployed identity/HTTP checks.
 
 ### TEST-452: All shipped presets remain usable through reference Run
 
+- Coverage gate: `fast`.
+- Frontend cases: WEB-TEST-124, WEB-TEST-125.
+
 - Requirements: the corrected REQ-422/425/428/429 workflows from the reference decoupling; issue #109.
 - Tier: T0/T1/T2; no browser/provider execution, credentials or public network.
 - Locations: `stateful/default_catalog_test.go`, `frontend/test/harden_llm_web/live/shipped_presets_test.exs`, `frontend/test/harden_llm_web/live/restored_profiles_test.exs`, `frontend/assets/test/client_core.test.mjs`.
 - Commands: `go test ./stateful -run '^TestDefaultProfileCatalogParity$' -count=1`; `cd frontend && mix test test/harden_llm_web/live/shipped_presets_test.exs test/harden_llm_web/live/restored_profiles_test.exs`; `node --test frontend/assets/test/client_core.test.mjs`.
 - Fixtures: the actual `stateful/presets.json`, unique private Req owners, existing validated terminal-event fixture and synthetic credentials/resolver. No copied production records.
 - Assertions: fresh load has valid shipped schema and enabled Run; every preset is rendered/selectable and submits in both modes; invalid user schema remains disabled; focus shows all choices and typing filters; actual wrapper/preparer retain protocol/path/Agent/DeepInfra/redaction behavior; five finite leaf editors keep credentials, options, refresh, complete save and rebinding local.
-- Pass criteria: all 24 presets/48 submissions pass, no unsupported shipped schema or leaked credential, no additional recovery recursion/engine/service, no weakened existing oracle.
+- Pass criteria: every shipped preset submits in both modes (currently 40 presets/80 submissions), no unsupported shipped schema or leaked credential, no additional recovery recursion/engine/service, no weakened existing oracle.
 - Expected runtime: 1–10 seconds for focused suites.
 - Historical relationship: TEST-017 stays retired; its all-profile behavioral oracle is restored at this new owner/ID. See `docs/rca/reference-preset-schema-and-recovery-ui.md` for the coverage failure and correction.
 
@@ -1862,13 +1865,22 @@ or claim interactive browser/live-provider execution.
 
 ### TEST-453: Workspace credential-free snapshot
 
+- Coverage gate: `fast`.
+- Locations: `frontend/test/harden_llm_web/live/shipped_presets_test.exs`.
+
 Root hydration, preset selection and leaf notifications use one editor snapshot constructor. All shipped presets persist without an `apiKey` field, including empty keys; actual credential and scope guards remain enforced. Fast LiveView coverage asserts absence of draft errors and enabled runs.
 
 ### TEST-454: Real LiveView/gateway/PostgreSQL preset and recovery workflows
 
+- Coverage gate: `release`.
+- Frontend cases: WEB-TEST-126.
+- Locations: `internal/gateway/httpapi/frontend_workflows_integration_test.go`, `frontend/test/harden_llm_web/live/gateway_workflows_test.exs`.
+
 Explicit T3 task `frontend-gateway-workflows` starts the actual Go gateway with actual shipped metadata, isolated PostgreSQL and native protocol HTTP fixtures. It runs real LiveView events and the UI REST client without a successful-response stub. Every preset selects, saves, reads back and executes text/structured requests through actual provider parsers; page reload also verifies persisted state. Repair and escalation configuration must persist, resolve and execute finite targets under the global budget. The separate Mix build path prevents concurrent frontend compilation interference; application gateway configuration is the documented serial resource. Browser and public provider execution are excluded.
 
 ### TEST-455: Explicit live preset qualification
+
+- Coverage gate: `manual`.
 
 `go test -tags=live ./cmd/harden-llm-gateway -run ^TestLivePresetMatrix$` requires explicit authorization, protected startup configuration and a private report path. Each configured preset executes one text and one structured request with cache/history off and a one-attempt/no-repair policy. Retain failures and missing credentials as failures/unconfigured, not passing skips. The matrix proves real provider compatibility, while TEST-454 proves UI/HTTP/persistence/recovery behavior. Canary harness preflight mistakes are retained separately and never justify repeating already-dispatched calls.
 
@@ -1893,6 +1905,9 @@ links source/images/reports and limitations.
 
 ### TEST-456: Shared UI reasoning and finite recovery conversion
 
+- Coverage gate: `fast`.
+- Frontend cases: WEB-TEST-127.
+
 Actual rendered target selections switch mapped/unmapped presets at all five
 positions and submit only supported reasoning. Pure package cases preserve
 explicit supported selections and options, omit unsupported reasoning, normalize
@@ -1902,6 +1917,8 @@ Locations: `frontend/test/harden_llm_web/live/shipped_presets_test.exs` and
 Command: `make test-fast`. No provider, browser or database participates.
 
 ### TEST-457: Rejection field paths and safe diagnostic correlation
+
+- Coverage gate: `fast`.
 
 `stateful/recovery_reasoning_test.go` requires strict invalid-reasoning rejection
 at all five paths and valid preparation when the unsupported field is omitted.
@@ -1915,3 +1932,14 @@ reloads and executes from that reloaded view, retaining the exact six-model
 routing assertion. Command: `node scripts/run-test-tier.mjs --task frontend-gateway-workflows`.
 The [RCA](../../docs/rca/mixed-recovery-profile-reasoning.md) records the original
 production rejection, cheap RED/GREEN and the retained async-acknowledgement miss.
+
+## 31. Workflow coverage assurance (#122)
+
+### TEST-460: Runnable case closure and interaction completeness
+
+- Coverage gate: `fast`.
+- Location: `scripts/test/test_coverage_test.mjs`.
+- Command: `node --test scripts/test/test_coverage_test.mjs`; `node scripts/verify-test-tiers.mjs`.
+- Oracle: reviewed case headings declare their required gate; the existing manifest owns task selection. Every declared case has a selected executable consumer and every frontend case has its canonical description. Manual paid cases remain explicit exceptions. Removing a registration, consumer or gate fails.
+- Matrix oracle: independently enumerate feasible domain assignments and required pairs/triples; missing rows, invalid values/constraints and missing permanent regression IDs fail. The current retry model retains all 36 required triples.
+- Reviewed closure begins at TEST-452 and applies to all later case headings; historical cases retain their existing traceability gates. No second registry/scheduler or runtime combinatorial dependency.

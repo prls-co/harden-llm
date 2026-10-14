@@ -80,10 +80,10 @@
     },
     {
       "id": "runner-contracts",
-      "testIds": ["TEST-049", "TEST-271", "TEST-272", "TEST-273", "TEST-275"],
+      "testIds": ["TEST-049", "TEST-271", "TEST-272", "TEST-273", "TEST-275", "TEST-460"],
       "tier": "T1",
       "resourceClass": "cpu",
-      "command": ["node", "--test", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/test/test_resource_measurement_test.mjs"],
+      "command": ["node", "--test", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/test/test_resource_measurement_test.mjs", "scripts/test/test_coverage_test.mjs"],
       "dependsOn": [],
       "timeoutMs": 180000,
       "cleanupOwner": "runner",
@@ -91,7 +91,7 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "benchmarkLanes": ["fast-candidates"],
-      "pathSelectors": ["scripts/run-test-tier.mjs", "scripts/test-resource-lifecycle.mjs", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/measure-test-resources.mjs", "scripts/test/test_resource_measurement_test.mjs", "test/test-tiers.json"]
+      "pathSelectors": ["scripts/run-test-tier.mjs", "scripts/test-resource-lifecycle.mjs", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/measure-test-resources.mjs", "scripts/test/test_resource_measurement_test.mjs", "test/test-tiers.json", "scripts/test-coverage.mjs", "scripts/test/test_coverage_test.mjs", "plans/from_utility-llm/*test-spec.md", "plans/from_utility-llm/*frontend-spec.md"]
     },
     {
       "id": "production-config-compose",
@@ -109,7 +109,7 @@
     },
     {
       "id": "go-unit",
-      "testIds": ["TEST-005", "TEST-236", "TEST-238", "TEST-239", "TEST-240", "TEST-241", "TEST-242", "TEST-243", "TEST-244", "TEST-245", "TEST-246", "TEST-247", "TEST-248", "TEST-249", "TEST-250", "TEST-258", "TEST-259", "TEST-276", "TEST-278", "TEST-284", "TEST-289", "TEST-401", "TEST-402", "TEST-403", "TEST-404", "TEST-410", "TEST-421", "TEST-422", "TEST-437", "TEST-445", "TEST-423", "TEST-444", "TEST-425", "TEST-449", "TEST-451", "TEST-432"],
+      "testIds": ["TEST-005", "TEST-236", "TEST-238", "TEST-239", "TEST-240", "TEST-241", "TEST-242", "TEST-243", "TEST-244", "TEST-245", "TEST-246", "TEST-247", "TEST-248", "TEST-249", "TEST-250", "TEST-258", "TEST-259", "TEST-276", "TEST-278", "TEST-284", "TEST-289", "TEST-401", "TEST-402", "TEST-403", "TEST-404", "TEST-410", "TEST-421", "TEST-422", "TEST-437", "TEST-445", "TEST-423", "TEST-444", "TEST-425", "TEST-449", "TEST-451", "TEST-432", "TEST-457"],
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["make", "test-unit"],
@@ -432,7 +432,13 @@
         "TEST-405",
         "TEST-406",
         "WEB-TEST-114",
-        "WEB-TEST-115"
+        "WEB-TEST-115",
+        "TEST-452",
+        "TEST-453",
+        "TEST-456",
+        "WEB-TEST-124",
+        "WEB-TEST-125",
+        "WEB-TEST-127"
       ],
       "tier": "T1",
       "resourceClass": "cpu",
