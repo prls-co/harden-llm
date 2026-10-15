@@ -1,0 +1,36 @@
+{
+  "preLiveSource": "545a4954e232959a855b424d8f15947959ff9cbd",
+  "correctedDriverSource": "fc95e608241d1d3af28fde07b219e76bd31fd790",
+  "fast": {
+    "accepted": true,
+    "taskCount": 10,
+    "report": "tmp/test-feedback/runner-1792101634601-2213229-5753c2fa0a2eb784.json",
+    "note": "post-finding source and tests verified before committing fc95e60"
+  },
+  "race": {
+    "accepted": true,
+    "command": "go test -race ./internal/livecapacity ./cmd/harden-llm-loadtest -count=1 -timeout=30s"
+  },
+  "live": {
+    "accepted": false,
+    "status": 1,
+    "timedOut": false,
+    "wallTimeMs": 973640,
+    "peakRssMiB": 410.3515625,
+    "cleanupErrors": [],
+    "report": "tmp/test-feedback/runner-1792101897385-2156854-e84e335823ac2367.json"
+  },
+  "hostedChecks": {
+    "source": "fc95e608241d1d3af28fde07b219e76bd31fd790",
+    "fast": "success",
+    "codeql": "success",
+    "run": "https://github.com/prls-co/harden-llm/actions/runs/38814187953"
+  },
+  "browserRun": false,
+  "productionDeployment": false,
+  "initialFailuresRetained": [
+    "tmp/test-feedback/runner-1792100377378-2072091-82de58345b42ec1b.json",
+    "tmp/test-feedback/runner-1792100426092-2080234-98df511e4cf3ab95.json",
+    "tmp/test-feedback/runner-1792100511260-2090040-7f3bc85aece2e2c0.json"
+  ]
+}

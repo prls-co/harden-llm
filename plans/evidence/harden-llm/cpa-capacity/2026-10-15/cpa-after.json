@@ -1,0 +1,28 @@
+{
+  "request-retry": 3,
+  "max-retry-credentials": 1,
+  "max-retry-interval": 30,
+  "passthrough-headers": false,
+  "disable-cooling": null,
+  "transient-error-cooldown-seconds": null,
+  "save-cooldown-status": null,
+  "routing": {
+    "strategy": "round-robin",
+    "session-affinity": false
+  },
+  "homeEnabled": false,
+  "pluginsConfigured": false,
+  "configSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8",
+  "enabledCredentialCounts": {
+    "claude": 1,
+    "codex": 1
+  },
+  "readbackAtUTC": "2026-10-15T22:06:00.494817+00:00",
+  "nonstream-keepalive-interval": null,
+  "streamingConfigured": false,
+  "image": "ghcr.io/prls-co/cli-proxy-api-patched@sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "imageRevision": "f375487d29a06bd4cb0ad204cc19dbcf6e7dfb6d",
+  "containerStartedAt": "2026-10-04T07:59:51.607040867Z",
+  "restartCount": 0,
+  "oomKilled": false
+}

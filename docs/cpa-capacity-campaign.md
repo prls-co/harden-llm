@@ -113,7 +113,8 @@ scope, logical item IDs, lease/attempt state, next-eligible times and route spen
 reservations durable. Poll the existing authenticated job status URL; publish the
 result only after the accepted contract is complete. Progress should distinguish
 waiting, active, completed, failed and unconfirmed counts and the next retry time.
-This integration requires owner-repository changes and remains a handoff.
+This integration requires owner-repository changes and remains a
+[Query Set owner handoff #69](https://github.com/prls-co/query-set/issues/69).
 
 Treat account/security/policy rejections as a campaign stop. Do not rotate
 identities, IPs or tokens to bypass a restriction. There is no published safe
@@ -167,7 +168,8 @@ this driver moves only undispatched backlog items between explicit routes.
 The 2026-10-15 baseline at source `545a495` exposed a separate 30-second
 response-header deadline in `internal/providers/endpoint.go`, before the 60-second
 overall execution deadline. Its non-streaming CPA calls produced four written-
-request timeouts during the drain. Treat these as unconfirmed outcomes; a matching
+request failures during the drain: two 30-second header timeouts and two network
+errors (10 ms and 1945 ms). Treat these as unconfirmed outcomes; a matching
 CPA 499 is a client cancellation, not proof of an upstream concurrency rejection.
 
 `stateful.ClientOptions.EndpointPolicy.ResponseHeaderTimeout` can explicitly
