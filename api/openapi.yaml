@@ -543,7 +543,11 @@ components:
       bearerFormat: HARDEN_LLM_TOKEN
   responses:
     Error:
-      description: Standard OpenAI error object.
+      description: Standard OpenAI error object. Provider Retry-After hints are preserved as an upward-rounded minimum wait in seconds.
+      headers:
+        Retry-After:
+          description: Minimum seconds to wait before another attempt, when the upstream supplied a positive retry hint.
+          schema: {type: string, pattern: '^[0-9]+$'}
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
@@ -1778,6 +1782,7 @@ components:
         stream: {type: boolean, default: false}
         store: {type: boolean, const: false}
         background: {type: boolean, const: false}
+        service_tier: {type: string, enum: [default], description: Explicitly select standard pricing and performance.}
         max_output_tokens: {type: integer, minimum: 1}
         temperature: {type: number, minimum: 0, maximum: 2}
         top_p: {type: number, minimum: 0, maximum: 1}

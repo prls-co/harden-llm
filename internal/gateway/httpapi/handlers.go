@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -206,7 +207,12 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 		writeRequestError(writer, errors.New("structured output and function tools cannot be combined"), "tools")
 		return
 	}
+	if input.ServiceTier != "" && input.ServiceTier != "default" {
+		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "Only service_tier=default is supported.", "service_tier")
+		return
+	}
 	options := make(map[string]any)
+	putValue(options, "service_tier", input.ServiceTier)
 	putValue(options, "max_output_tokens", input.MaxOutputTokens)
 	putValue(options, "temperature", input.Temperature)
 	putValue(options, "top_p", input.TopP)
@@ -294,6 +300,15 @@ func (api *API) writeCallError(writer http.ResponseWriter, err error, result har
 			parameter = validation.Field
 		}
 	case errors.As(err, &providerError):
+		// Preserve the provider's minimum wait even when no retry remains in
+		// this request. Round upward: downstream admission must not retry early.
+		if providerError.RetryAfter > 0 {
+			seconds := int64(providerError.RetryAfter / time.Second)
+			if providerError.RetryAfter%time.Second != 0 {
+				seconds++
+			}
+			writer.Header().Set("Retry-After", strconv.FormatInt(seconds, 10))
+		}
 		code = safeCode(providerError.Code, "upstream_error")
 		if providerError.Status == http.StatusTooManyRequests {
 			status, typeName, code = http.StatusTooManyRequests, "rate_limit_error", safeCode(providerError.Code, "rate_limit_exceeded")

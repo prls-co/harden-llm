@@ -2005,3 +2005,24 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/schema_budget_test.go`.
 - Command: `go test ./stateful -run '^TestSchemaAcquisitionBudget$' -count=1`.
 - Oracle: the actual pool acquisition context uses 30 s for administrative schema initialization and 600 ms for request storage; an earlier caller deadline wins for both. A private pgx acquisition tracer captures the deadline and cancels before network I/O. No clock sleep, fake SQL success or database is involved. TEST-424 retains actual DDL, transaction-local SQL timeout, rollback and schema-version boundaries.
+
+### TEST-467: Gateway preserves provider admission hints
+
+- Coverage gate: `fast`.
+- Location: `internal/gateway/httpapi/retry_after_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestRetryAfterSurvivesGateway$' -count=1`.
+- Oracle: 429 and 503 provider errors preserve Retry-After rounded upward, including when HLLM retries are disabled.
+
+### TEST-468: Live campaign admission and accounting invariants
+
+- Coverage gate: `fast`.
+- Locations: `internal/livecapacity/scheduler_test.go`, `internal/livecapacity/transport_test.go`, `cmd/harden-llm-loadtest/main_test.go`.
+- Command: `go test ./internal/livecapacity -count=1`.
+- Oracle: concurrency and start pacing, shared cooldown, baseline pause, pinned known-rejection retries, undispatched overflow, reservations including unknown outcomes, cancellation checkpoints, hard stop, overdue/stalled detection, and nonce/model/effort/usage qualification through real gateway handlers with a local TLS provider. These deterministic cases establish no public provider capacity.
+
+### TEST-469: Explicit CPA capacity campaign
+
+- Coverage gate: `cpa-capacity`.
+- Location: `cmd/harden-llm-loadtest/live_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task live-cpa-capacity`.
+- Oracle: three CPA and one official API qualifications, bounded increasing-load ramp, then 1000 validated nonce results with route attribution, one HLLM attempt each, exact counters and reserved spend. Five-second heartbeats show liveness without extending the two-hour inference deadline. Any incomplete/unconfirmed work fails the case and remains in status.json. Explicit paid credentials and a new output directory are required; this task is outside fast, verify, release and ordinary live canaries.
