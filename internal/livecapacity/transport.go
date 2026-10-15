@@ -123,7 +123,7 @@ func (t Transport) Call(parent context.Context, item Item) Measurement {
 					status = m.Attempts[len(m.Attempts)-1].HTTPStatus
 				}
 				switch {
-				case status == 401 || status == 403 || m.ErrorCode == "account_deactivated" || m.ErrorCode == "policy_violation":
+				case status == 401 || status == 403 || m.ErrorCode == "account_deactivated" || m.ErrorCode == "policy_violation" || m.ErrorCode == "insufficient_quota" || m.ErrorCode == "billing_hard_limit_reached" || m.ErrorCode == "billing_not_active":
 					m.Outcome.Kind = "policy"
 				case status == 429 || m.ErrorCode == "auth_unavailable":
 					m.Outcome.Kind = "rejected"

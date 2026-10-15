@@ -6,7 +6,7 @@ The 1000-item backlog reached 996 validated results and four unconfirmed CPA out
 
 The drain took 768.308 seconds (12 min 48.308 s); the complete qualification/ramp/drain campaign took 972.399 seconds (16 min 12.399 s). Conservative official API usage estimate including its qualification was $0.0148985 against the $5 cap. All 718 official API calls returned complete usage; the raw floating-point reservation remainder is approximately zero (4.34e-19 USD), not an unresolved API request. This is a usage estimate, not invoice reconciliation.
 
-The short ramp observed no rejection through four starts/second and eight actually active requests. It does not establish a 16-request upstream cap or sustained safe rate. Sustained CPA traffic exposed transport failures, so production capacity remains unqualified.
+The short ramp observed no rejection at a configured ceiling of four starts/second (3.433 measured mean starts/second) and eight actually active requests. It does not establish a 16-request upstream cap or sustained safe rate. Sustained CPA traffic exposed transport failures, so production capacity remains unqualified.
 
 ## 2. Exact setup and scope
 
@@ -29,6 +29,8 @@ The short ramp observed no rejection through four starts/second and eight actual
 | ramp-4 | 4 | 1 | 24 | 24 | 3 | 24.923 |
 | ramp-8 | 8 | 2 | 24 | 24 | 5 | 13.262 |
 | ramp-16 | 16 | 4 | 24 | 24 | 8 | 11.449 |
+
+Measured mean start rates over each point's admission span were ramp-1: 0.248 starts/s; ramp-2: 0.491 starts/s; ramp-4: 0.970 starts/s; ramp-8: 1.909 starts/s; ramp-16: 3.433 starts/s. These include pacing and client-side slot availability, and differ from end-to-end completion throughput.
 
 The drain accepted 1000 logical items at once, initially CPA eight slots/two starts per second, with API overflow eligible after 30 seconds of queue wait. API admission remained at four slots/one start per second. CPA pauses and reductions occurred after uncertain transport failures.
 
@@ -78,4 +80,6 @@ Initial setup/gate failures are retained in validation.json: bundled OpenAPI syn
 - Raw events: 2122132 bytes, SHA-256 `ee2e94eb104618f76896d67dabc29fcfec424c4d44960d2c469e640a7a3ebf00`.
 - Heartbeats: 189; none extended the hard deadline.
 
-The public driver has been implemented and corrected, but the 1000-result live acceptance gate remains incomplete (996/1000). Production throughput and the corrected breaker still need a separate owner-approved live qualification.
+Final review also added a deterministic billing-quota guard: actionable API billing errors stop the campaign instead of being treated as transient 429s. No billing failure occurred during this live run.
+
+The experiment driver has been implemented and corrected, but the 1000-result live acceptance gate remains incomplete (996/1000). Production throughput and the corrected breaker still need a separate owner-approved live qualification.

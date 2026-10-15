@@ -2018,7 +2018,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Coverage gate: `fast`.
 - Locations: `internal/livecapacity/scheduler_test.go`, `internal/livecapacity/transport_test.go`, `cmd/harden-llm-loadtest/main_test.go`.
 - Command: `go test ./internal/livecapacity -count=1`.
-- Oracle: concurrency and start pacing, shared cooldown, baseline pause, pinned known-rejection retries, undispatched overflow, reservations including unknown outcomes, cancellation checkpoints, hard stop, overdue/stalled detection, a real local response-header timeout remaining unconfirmed, concurrent old failures not inventing a failed single-slot baseline, and nonce/model/effort/usage qualification through real gateway handlers with a local TLS provider. These deterministic cases establish no public provider capacity.
+- Oracle: concurrency and start pacing, shared cooldown, baseline pause, pinned known-rejection retries, undispatched overflow, reservations including unknown outcomes, cancellation checkpoints, hard stop, overdue/stalled detection, a real local response-header timeout remaining unconfirmed, concurrent old failures not inventing a failed single-slot baseline, actionable billing-quota failures stopping admission without retry, and nonce/model/effort/usage qualification through real gateway handlers with a local TLS provider. These deterministic cases establish no public provider capacity.
 
 ### TEST-469: Explicit CPA capacity campaign
 

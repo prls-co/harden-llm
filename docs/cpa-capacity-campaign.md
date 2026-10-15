@@ -116,7 +116,9 @@ waiting, active, completed, failed and unconfirmed counts and the next retry tim
 This integration requires owner-repository changes and remains a
 [Query Set owner handoff #69](https://github.com/prls-co/query-set/issues/69).
 
-Treat account/security/policy rejections as a campaign stop. Do not rotate
+Treat account/security/policy and billing-quota rejections as a campaign stop.
+An API `insufficient_quota` response requires account action; it is not a
+transient 429 to retry or overflow around. Do not rotate
 identities, IPs or tokens to bypass a restriction. There is no published safe
 requests/second threshold guaranteeing immunity from warnings or suspension.
 Confirm the account and hosted-service integration is permitted before production

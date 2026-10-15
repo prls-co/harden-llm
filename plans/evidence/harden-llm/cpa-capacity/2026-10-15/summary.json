@@ -134,7 +134,9 @@
       "admitted": 3,
       "outcomes": {
         "completed": 3
-      }
+      },
+      "admissionStartSpanMs": 8099.589,
+      "measuredMeanStartsPerSecond": 0.24692610946061586
     },
     {
       "phase": "qualify-openai",
@@ -294,7 +296,9 @@
       "admitted": 24,
       "outcomes": {
         "completed": 24
-      }
+      },
+      "admissionStartSpanMs": 92699.397,
+      "measuredMeanStartsPerSecond": 0.24811380380392334
     },
     {
       "phase": "ramp-2",
@@ -374,7 +378,9 @@
       "admitted": 24,
       "outcomes": {
         "completed": 24
-      }
+      },
+      "admissionStartSpanMs": 46850.266,
+      "measuredMeanStartsPerSecond": 0.49092570787111434
     },
     {
       "phase": "ramp-4",
@@ -454,7 +460,9 @@
       "admitted": 24,
       "outcomes": {
         "completed": 24
-      }
+      },
+      "admissionStartSpanMs": 23699.976,
+      "measuredMeanStartsPerSecond": 0.9704651177705834
     },
     {
       "phase": "ramp-8",
@@ -534,7 +542,9 @@
       "admitted": 24,
       "outcomes": {
         "completed": 24
-      }
+      },
+      "admissionStartSpanMs": 12049.931,
+      "measuredMeanStartsPerSecond": 1.9087246225725274
     },
     {
       "phase": "ramp-16",
@@ -614,7 +624,9 @@
       "admitted": 24,
       "outcomes": {
         "completed": 24
-      }
+      },
+      "admissionStartSpanMs": 6699.916,
+      "measuredMeanStartsPerSecond": 3.432878859973767
     },
     {
       "phase": "drain-1000",
@@ -695,7 +707,9 @@
       "outcomes": {
         "completed": 996,
         "unconfirmed": 4
-      }
+      },
+      "admissionStartSpanMs": 767096.798,
+      "measuredMeanStartsPerSecond": 1.3023128275396607
     }
   ],
   "allRoutes": {

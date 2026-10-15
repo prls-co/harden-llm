@@ -184,3 +184,23 @@ func TestResponseHeaderTimeoutRemainsUnconfirmed(t *testing.T) {
 		t.Fatal("unknown outcome replayed or shared admission not reduced", next, s.Items)
 	}
 }
+
+func TestBillingFailureStopsCampaignWithoutRetry(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		io.WriteString(w, `{"error":{"code":"insufficient_quota"}}`)
+	}))
+	defer server.Close()
+	now := time.Now()
+	s := NewScheduler(2, now, RouteConfig{Concurrency: 1}, 5)
+	item, _ := s.Admit(now, false)
+	m := (Transport{URL: server.URL, Token: "fixture", Client: server.Client()}).Call(context.Background(), item)
+	s.Finish(item.ID, m.Outcome, time.Now())
+	if s.StopReason != "account_or_policy_rejection" {
+		t.Fatal("billing rejection treated as transient throttle", m.Outcome, s.StopReason)
+	}
+	if _, ok := s.Admit(now.Add(time.Hour), true); ok {
+		t.Fatal("billing failure retried or overflowed")
+	}
+}
