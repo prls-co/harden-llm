@@ -142,3 +142,45 @@ func TestCampaignRedactsProviderDiagnostics(t *testing.T) {
 		t.Fatal("diagnostic redaction failed")
 	}
 }
+
+// The live CPA baseline exposed the provider response-header deadline before
+// the larger call deadline. Exercise that exact transport boundary cheaply:
+// a written request with no response headers must never become a replay.
+func TestResponseHeaderTimeoutRemainsUnconfirmed(t *testing.T) {
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(io.Discard, r.Body)
+		<-r.Context().Done()
+	}))
+	defer upstream.Close()
+	roots := x509.NewCertPool()
+	roots.AddCert(upstream.Certificate())
+	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{
+		Connections: []hardenllm.Connection{{ID: "cpa", Provider: "cpa", Protocol: "responses", BaseURL: upstream.URL + "/v1", APIKey: "synthetic"}}, DefaultConnection: "cpa",
+		EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}, ResponseHeaderTimeout: 10 * time.Millisecond},
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	api, err := httpapi.New(httpapi.Config{APIKeys: []string{"synthetic-capacity-token-1234567890"}, Service: service})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gateway := httptest.NewServer(api.Handler())
+	defer gateway.Close()
+	now := time.Now()
+	s := NewScheduler(2, now, RouteConfig{Concurrency: 8}, 5)
+	item, _ := s.Admit(now, false)
+	transport := Transport{URL: gateway.URL, Token: "synthetic-capacity-token-1234567890", NoncePrefix: "timeout", Client: gateway.Client()}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	m := transport.Call(ctx, item)
+	if m.HTTPStatus != 502 || m.ErrorCode != "ETIMEDOUT" || m.Outcome.Kind != "unconfirmed" || len(m.Attempts) != 1 || !m.Attempts[0].DispatchObserved {
+		t.Fatalf("lost dispatched result misclassified: %+v", m)
+	}
+	s.Finish(item.ID, m.Outcome, m.Finished)
+	next, ok := s.Admit(m.Finished, true)
+	if !ok || next.Route != "openai" || next.ID == item.ID || s.Items[item.ID].Status != "unconfirmed" || s.CPA.Concurrency != 4 {
+		t.Fatal("unknown outcome replayed or shared admission not reduced", next, s.Items)
+	}
+}

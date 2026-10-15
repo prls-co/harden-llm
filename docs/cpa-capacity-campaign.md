@@ -64,7 +64,9 @@ at half the last clean concurrency and start rate, with a minimum concurrency of
 one. A known throttle/local credential-unavailable rejection pauses all CPA
 admission until its Retry-After plus bounded jitter and reduces concurrency and
 start rate. Without a hint, use bounded exponential backoff. A failure at one
-active slot pauses the route for operator investigation. Known rejections may
+active slot pauses the route for operator investigation. The admitting concurrency
+is retained per item: multiple old in-flight failures cannot be mistaken for a
+failed single-slot baseline after an earlier failure reduces the limit. Known rejections may
 retry up to three attempts on the same route. Uncertain responses are retained
 as unconfirmed and never replayed. Uncertain failures also slow the affected route.
 
@@ -159,3 +161,65 @@ semantics; FIOr owns durable continuation/notification primitives. HLLM owns the
 single-call contract and diagnostics. This experiment does not close HLLM #96:
 that issue requests a separate per-request managed-profile fallback, whereas
 this driver moves only undispatched backlog items between explicit routes.
+
+## 8. Measured timeout boundary and follow-up qualification
+
+The 2026-10-15 baseline at source `545a495` exposed a separate 30-second
+response-header deadline in `internal/providers/endpoint.go`, before the 60-second
+overall execution deadline. Its non-streaming CPA calls produced four written-
+request timeouts during the drain. Treat these as unconfirmed outcomes; a matching
+CPA 499 is a client cancellation, not proof of an upstream concurrency rejection.
+
+`stateful.ClientOptions.EndpointPolicy.ResponseHeaderTimeout` can explicitly
+select the transport header budget for an embedding application. It is not a CPA
+setting and is not currently a gateway environment knob. Changing it requires a
+separate qualification within the overall request budget. The baseline does not
+establish that a larger header budget resolves the native cause.
+
+CPA also has `nonstream-keepalive-interval` (omitted/disabled in this deployment)
+and SSE `streaming.keepalive-seconds` (a separate path). Non-streaming keepalives
+write/flush blank lines while waiting. They may avoid a header wait timeout, but
+can commit HTTP status before a later provider error. Qualify post-flush errors,
+Retry-After propagation, JSON parsing and the unchanged overall deadline before
+enabling them. No shared keepalive or retry configuration was changed here.
+See [CPA owner handoff #6](https://github.com/prls-co/CLIProxyAPI-setup/issues/6).
+
+The baseline also found a driver breaker defect: multiple old requests could
+fail after a concurrency reduction and falsely look like a failed one-slot
+baseline. The corrected driver records the admitting concurrency on each item.
+A deterministic regression reproduces eight old failures without inventing a
+one-slot failure; a genuinely admitted one-slot rejection still pauses the route.
+The original campaign remains on `545a495`; it is not a live qualification of this
+correction. A local real TLS response-header timeout regression also proves that
+a written request stays unconfirmed, shared admission is reduced, and only an
+undispatched sibling can overflow.
+
+## 9. Official usage guidance and community signals
+
+CPA's Codex executor directly calls the ChatGPT Codex backend. It does not spawn
+Codex CLI, so CLI thread limits are not CPA admission settings. Official usage
+varies by plan, model, task complexity, reasoning and shared allowance windows;
+it is not a fixed request count. Current guidance gives GPT-6 Luna estimates of
+350–3000 local messages per five-hour window on Plus/Standard Business, expressly
+without guaranteeing those counts. These are neither requests/second nor
+concurrency guarantees, and the deployed credential's entitlement is not inferred
+from them. [Official usage guidance](https://help.openai.com/en/articles/20001516-managing-usage-with-gpt-6-astra-in-work-and-codex)
+
+Firsthand reports describe a third concurrent desktop chat receiving 429, CLI
+429s with three active sessions and 69% allowance remaining, and account-wide
+429s with four to five child agents on a different model. These reports do not
+establish a universal two-, three- or five-call cap, and session/agent counts are
+not backend in-flight request counts. Our short Luna ramp passing eight measured
+active requests does not invalidate those different workloads or guarantee future
+capacity. [Desktop report](https://github.com/openai/codex/issues/54017),
+[CLI report](https://github.com/openai/codex/issues/54010),
+[child-agent report](https://github.com/openai/codex/issues/41702).
+
+Account eligibility is a separate gate from pacing. OpenAI documents supported
+plan usage in participating apps through Sign in with ChatGPT, and distinguishes
+that from app-server authentication for commercial/hosted services. A working
+CPA response does not establish eligibility for a hosted product. Confirm the
+supported integration rather than treating a lower request rate as a permission
+or a guarantee against warnings.
+[Supported app plan usage](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites),
+[app-server authentication guidance](https://learn.chatgpt.com/docs/app-server#auth-endpoints).

@@ -110,3 +110,27 @@ func TestBaselineFailureAndRetryLimit(t *testing.T) {
 		t.Fatal(s.Items[0])
 	}
 }
+
+func TestInflightFailuresDoNotInventSingleSlotBaseline(t *testing.T) {
+	now := time.Unix(100, 0)
+	s := NewScheduler(9, now, RouteConfig{Concurrency: 8}, 5)
+	for n := 0; n < 8; n++ {
+		if _, ok := s.Admit(now, false); !ok {
+			t.Fatal("missing slot", n)
+		}
+	}
+	for n := 0; n < 8; n++ {
+		s.Finish(n, Outcome{Kind: "unconfirmed"}, now)
+	}
+	if s.CPA.Concurrency != 1 || s.CPA.Disabled {
+		t.Fatal("in-flight failures admitted at eight slots are not a failed single-slot baseline", s.CPA)
+	}
+	last, ok := s.Admit(now.Add(time.Minute), false)
+	if !ok {
+		t.Fatal("real single-slot baseline not admitted")
+	}
+	s.Finish(last.ID, Outcome{Kind: "rejected"}, now.Add(time.Minute))
+	if !s.CPA.Disabled {
+		t.Fatal("real single-slot rejection must pause route")
+	}
+}

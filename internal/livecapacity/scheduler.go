@@ -23,15 +23,16 @@ type RouteConfig struct {
 	Disabled    bool          `json:"disabled"`
 }
 type Item struct {
-	ID        int           `json:"id"`
-	Status    string        `json:"status"`
-	Route     string        `json:"route,omitempty"`
-	Attempts  int           `json:"attempts"`
-	Enqueued  time.Time     `json:"enqueuedAt"`
-	Started   time.Time     `json:"startedAt,omitempty"`
-	QueueWait time.Duration `json:"queueWaitNs"`
-	RetryWait time.Duration `json:"retryWaitNs"`
-	RetryAt   time.Time     `json:"retryAt,omitempty"`
+	AdmissionConcurrency int           `json:"admissionConcurrency"`
+	ID                   int           `json:"id"`
+	Status               string        `json:"status"`
+	Route                string        `json:"route,omitempty"`
+	Attempts             int           `json:"attempts"`
+	Enqueued             time.Time     `json:"enqueuedAt"`
+	Started              time.Time     `json:"startedAt,omitempty"`
+	QueueWait            time.Duration `json:"queueWaitNs"`
+	RetryWait            time.Duration `json:"retryWaitNs"`
+	RetryAt              time.Time     `json:"retryAt,omitempty"`
 }
 type Outcome struct {
 	Kind       string        `json:"kind"` // completed, rejected (known refusal), failed, unconfirmed, policy
@@ -104,6 +105,7 @@ func (s *Scheduler) Admit(now time.Time, overflow bool) (Item, bool) {
 		if item.Attempts == 0 {
 			item.QueueWait = now.Sub(item.Enqueued)
 		}
+		item.AdmissionConcurrency = r.Concurrency
 		item.Status = "active"
 		item.Route = name
 		item.Attempts++
@@ -143,7 +145,7 @@ func (s *Scheduler) Finish(id int, outcome Outcome, now time.Time) {
 	if outcome.Kind == "unconfirmed" {
 		r.Failures++
 		r.PauseUntil = maxTime(r.PauseUntil, now.Add(60*time.Second))
-		if r.Concurrency == 1 {
+		if item.AdmissionConcurrency == 1 {
 			r.Disabled = true
 		} else {
 			r.Concurrency = max(1, r.Concurrency/2)
@@ -164,7 +166,7 @@ func (s *Scheduler) Finish(id int, outcome Outcome, now time.Time) {
 	if until.After(r.PauseUntil) {
 		r.PauseUntil = until
 	}
-	if r.Concurrency == 1 {
+	if item.AdmissionConcurrency == 1 {
 		r.Disabled = true
 	} else {
 		r.Concurrency = max(1, r.Concurrency/2)
