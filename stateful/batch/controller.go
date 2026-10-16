@@ -48,10 +48,11 @@ type Controller struct {
 	RefillWindowBurst bool
 	PacedRecovery     bool
 	AccumulatePace    bool
+	HonorFailureHints bool
 }
 
 func NewController(p Policy) Controller {
-	return Controller{Policy: p, Rate: p.StartRate, BurstLeft: p.Burst, ProbeDelay: 2 * time.Second, RefillWindowBurst: true, PacedRecovery: true, AccumulatePace: true}
+	return Controller{Policy: p, Rate: p.StartRate, BurstLeft: p.Burst, ProbeDelay: 2 * time.Second, RefillWindowBurst: true, PacedRecovery: true, AccumulatePace: true, HonorFailureHints: true}
 }
 func (c *Controller) Configure(p Policy) error {
 	if err := p.Validate(); err != nil {
@@ -182,15 +183,12 @@ func (c *Controller) Complete(now, dispatched, reserved time.Time, probe bool, k
 		if c.Policy.WindowRequests > 0 && !reserved.Before(c.WindowStart) && c.WindowStarts > 0 {
 			c.WindowStarts--
 		}
-		if !dispatched.Before(c.Epoch) {
-			probing := c.Probing
-			if !probe {
-				c.Probing = false
-			}
-			c.Throttle(now, delay)
-			if !probe {
-				c.Probing = probing
-			}
+		c.completeThrottle(now, dispatched, probe, delay)
+	case "failed", "unconfirmed":
+		// A retry hint controls future admission even when this inference's
+		// outcome cannot safely be replayed or its window credit refunded.
+		if c.HonorFailureHints && delay > 0 {
+			c.completeThrottle(now, dispatched, probe, delay)
 		}
 	case "completed":
 		if !c.Cooling || probe {
@@ -204,6 +202,20 @@ func (c *Controller) Complete(now, dispatched, reserved time.Time, probe bool, k
 	}
 	if probe && c.Probing && kind != "completed" && kind != "rejected" {
 		c.Throttle(now, 0)
+	}
+}
+
+func (c *Controller) completeThrottle(now, dispatched time.Time, probe bool, delay time.Duration) {
+	if dispatched.Before(c.Epoch) {
+		return
+	}
+	probing := c.Probing
+	if !probe {
+		c.Probing = false
+	}
+	c.Throttle(now, delay)
+	if !probe {
+		c.Probing = probing
 	}
 }
 

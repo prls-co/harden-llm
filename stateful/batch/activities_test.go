@@ -25,6 +25,7 @@ func TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures(t *testin
 		{"revoked authentication", &hardenllm.ProviderError{Status: 401}, "policy", "upstream_error", 0},
 		{"denied account", &hardenllm.ProviderError{Status: 403}, "policy", "upstream_error", 0},
 		{"ordinary outage", &hardenllm.ProviderError{Status: 503, Code: "server_error"}, "failed", "server_error", 0},
+		{"ordinary outage with admission hint", &hardenllm.ProviderError{Status: 503, Code: "server_error", RetryAfter: time.Minute}, "failed", "server_error", 60000},
 		{"unknown network result", &hardenllm.ProviderError{Code: "NETWORK_ERROR"}, "failed", "NETWORK_ERROR", 0},
 		{"generation timeout", context.DeadlineExceeded, "failed", "provider_timeout", 0},
 		{"untrusted text", errors.New("private-provider-body"), "failed", "upstream_error", 0},
@@ -39,7 +40,7 @@ func TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures(t *testin
 			at := time.Unix(1000, 0)
 			c.Start(at)
 			c.Complete(at, at, at, false, kind, time.Duration(delay)*time.Millisecond)
-			if c.Paused != (tc.kind == "policy") || c.Cooling != (tc.kind == "rejected") {
+			if c.Paused != (tc.kind == "policy") || c.Cooling != (tc.kind == "rejected" || tc.kind == "failed" && tc.wait > 0) {
 				t.Fatal("classification did not control the shared pool correctly")
 			}
 		})

@@ -23,6 +23,8 @@ Each item runs one generation against the configured CPA Responses connection,
 one attempt. A shared dispatcher owns retries for explicit capacity refusals,
 durable cooldown timers, fair admission and one recovery probe. Ordinary errors
 are item errors; no additional outcome-reconciliation service is introduced.
+A positive retry hint on a failed attempt delays independent queued work without
+replaying that inference or refunding its uncertain window reservation.
 
 Batch jobs are separate from reference history. Phoenix retains Portal
 admission, host routes and its existing interactive async lifecycle. Job

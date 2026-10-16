@@ -98,6 +98,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 	s.Controller.RefillWindowBurst = workflow.GetVersion(ctx, "refill-window-burst", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	s.Controller.PacedRecovery = workflow.GetVersion(ctx, "pace-recovery-after-probe", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	s.Controller.AccumulatePace = workflow.GetVersion(ctx, "accrue-launch-rate-credits", workflow.DefaultVersion, 1) != workflow.DefaultVersion
+	s.Controller.HonorFailureHints = workflow.GetVersion(ctx, "honor-failed-attempt-retry-hints", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	if err := workflow.SetQueryHandler(ctx, stateQuery, func() (DispatcherState, error) { return s, nil }); err != nil {
 		return err
 	}

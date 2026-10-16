@@ -78,6 +78,28 @@ func TestNativeThrottleAndMalformedResults(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-483
+func TestNativeErrorTerminalsWithoutUsageRemainUnconfirmed(t *testing.T) {
+	for _, body := range []string{
+		`{"type":"error","error":{"message":"synthetic upstream failure"}}`,
+		`{"type":"response.failed","response":{"status":"failed","error":{"code":"server_error"}}}`,
+		`{"type":"response.incomplete","response":{"status":"incomplete"}}`,
+		`{"type":"response.completed","response":{"status":"completed","model":"gpt-6-luna","output_text":"{\"nonce\":\"fixture-0\"}"}}`,
+	} {
+		t.Run(body, func(t *testing.T) {
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/event-stream")
+				fmt.Fprintf(w, "data: %s\n\n", body)
+			}))
+			defer s.Close()
+			m := (NativeCaller{URL: s.URL, Key: "synthetic", Client: s.Client(), Timeout: time.Second}).Call(context.Background(), "fixture", 0, 1)
+			if m.Kind != "unconfirmed" || m.Code == "qualification_mismatch" {
+				t.Fatalf("missing usage lost the uncertain-outcome budget reserve: %+v", m)
+			}
+		})
+	}
+}
+
 func TestNativeCapturesOnlyBoundedCPACorrelationID(t *testing.T) {
 	for _, tc := range []struct{ header, want string }{
 		{"synthetic-private-prefix-0123abcd", "0123abcd"},

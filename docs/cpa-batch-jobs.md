@@ -18,8 +18,11 @@ placed in Temporal histories. `/v1/jobs` does not write reference history.
 The canonical interface is `api/openapi.yaml`. Storage scope comes from the
 existing matched bearer, never the request body. CPA pool identity comes from
 deployment configuration. All participating replicas must use the same
-namespace, task queue and pool ID. Other direct CPA clients and separate
-deployments remain outside this admission authority.
+namespace, task queue and pool ID. Queue service is round-robin across jobs,
+not a weighted allocation across clients; submitting more jobs can change a
+client's share. Ordinary HLLM `/v1/responses` calls, direct CPA clients and
+separate Temporal namespaces remain outside this admission authority. Route
+participating shared-account work through `/v1/jobs` to obtain the shared limit.
 
 ## 2. Self-hosted configuration
 
@@ -98,8 +101,10 @@ Queued jobs report `admission_window` and `next_attempt_at` while it is exhauste
 Defaults select 128 active slots, a 200-start budget and 61 seconds based on
 the retained experiments. Both this estimate and the launch pace are tunable.
 Each new admission window replenishes its configured burst, still bounded by
-the window budget and active-call ceiling. This avoids turning a 10 ms pacing
-timer into one expensive workflow task for every start when budget is available.
+the window budget and active-call ceiling. Elapsed launch credits accumulate
+between Temporal decisions, with idle catch-up bounded by the configured burst.
+This avoids limiting a 100-start/second policy to one request per workflow task,
+and avoids turning a 10 ms pacing timer into one expensive task per request.
 
 One explicit throttle closes pool admission. Existing calls finish; one queued
 item becomes the recovery probe after `Retry-After`. Without a supplied delay,
@@ -109,6 +114,12 @@ launch rate halves once per throttle episode. A successful recovery probe
 reopens at that adapted pace without granting another initial burst; one
 accepted request does not establish that a whole burst is available. Delayed responses from the prior
 episode cannot reopen the gate or invalidate a successful recovery.
+
+A positive provider `Retry-After` on an ordinary failed or uncertain attempt also
+pauses new admission and selects one later queued item as the recovery probe.
+The failed item remains terminal and keeps its window reservation; honoring the
+hint never makes an ambiguous inference safe to replay. Old Temporal histories
+retain their recorded admission behavior through a workflow version marker.
 
 Policy persists in the dispatcher. To change it, restart workers with the new
 transport/concurrency settings, then send the configured policy explicitly:

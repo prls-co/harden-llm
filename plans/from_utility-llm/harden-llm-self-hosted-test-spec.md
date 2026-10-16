@@ -2053,45 +2053,54 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 
 ### TEST-473: Actual output-length qualification and token diagnostics
 
+- Coverage gate: `fast`.
 - Tier: T1; `internal/livecapacity/native_test.go` uses local HTTP fixtures.
 - Assert exact requested array length/content, nonce and model qualification; retain actual input/output, cached-input and reasoning usage even for failed content qualification. Reasoning is not added twice. A distinct supported scalar-enum fixture requires exactly 512 `x` words and rejects 511/513 words, wrong content or nonce; it preserves core and OpenAPI schema compatibility without replacing the array oracle.
 - The explicit `live`-tagged `cmd/harden-llm-cpatokens` experiment is outside ordinary gates. Its 66-request/15-minute ABBA comparison and source-bound evidence do not invent a TPM limit.
 
 ### TEST-474: Shared CPA admission and transport diagnostics
 
+- Coverage gate: `fast`.
 - Tier: T0/T1; `stateful/batch/controller_test.go`, `stateful/batch/activities_test.go` and `internal/providers/timing_test.go`.
 - Assert independent start rate/concurrency, burst pacing, longest cooldown, one recovery probe, one rate decrease per episode, straggler isolation and policy-update invariants using supplied clocks. Window credits replenish independently of completion speed, every window restores its bounded burst, and oversized retry hints cannot overflow into early admission. Account/billing restrictions pause the pool; quota selection failures retry; ordinary network/outage errors remain item failures.
 - Actual local TLS/SSE execution must retain bounded CPA correlation/header timing and configured transport capacity; TLS and host policy remain enforced.
+- A positive retry hint on a failed/uncertain outcome pauses new admission, preserves the failed item and its window reservation, allows one recovery probe and cannot let a stale failure invalidate recovery. TEST-476 requires the next independent item to wait at least the hint while the failed item is recorded once; workflow versioning preserves old histories.
 
 ### TEST-475: Durable batch HTTP contract
 
+- Coverage gate: `fast`.
 - Tier: T1; `internal/gateway/httpapi/jobs_test.go`.
 - Validate all items before admission, require scoped idempotency, one generation, CPA model/effort, response-cache off and native streaming. Pending result reads return observable 202; terminal reads deliver NDJSON.
 - TEST-480 crosses the actual bearer validator, PostgreSQL and provider boundaries for isolation and idempotency.
 
 ### TEST-476: Temporal scheduling and durable deadlines
 
+- Coverage gate: `fast`.
 - Tier: T1; `stateful/batch/workflows_test.go` uses the Temporal SDK virtual-time environment.
 - Assert a rejected item returns through the dispatcher, successful items are not retried, cooldown metadata is published and the overall job deadline expires queued work. No public network or provider credentials. A new job after 35 idle minutes cannot bypass an account pause; explicit resume performs one recovery probe. Successful completions coalesce metadata writes without losing the five-second heartbeat.
 - Retained synthetic Temporal history replays offline after a real throttle/cooldown/worker restart; workflow changes must preserve V1 replay compatibility.
 
 ### TEST-477: PostgreSQL batch durability and isolation
 
+- Coverage gate: `release`.
 - Tier: T3; `stateful/batch/store_integration_test.go`, existing `go-integration` task.
 - Use a process-owned PostgreSQL lease. Assert additive/idempotent schema setup, independent bearer scopes, immutable manifests/results, conflicting idempotency keys, no duplicate active generation, known-refusal retry and truthful terminal counts.
 
 ### TEST-478: Batch client waiting and verified downloads
 
+- Coverage gate: `fast`.
 - Tier: T1; `httpclient/jobs_test.go`.
 - Exercise real local HTTP responses against canonical OpenAPI. Waiting reports quota state without an inference POST and requires an overall deadline. Missing/duplicate result records are rejected; validated success/error totals must match terminal status.
 
 ### TEST-479: Self-hosted batch composition configuration
 
+- Coverage gate: `fast`.
 - Tier: T0; `cmd/harden-llm-gateway/batch_config_test.go`.
 - Default disabled. Enabled mode requires an explicit self-hosted Temporal endpoint, namespace, trusted CPA pool/upstream and bounded independent controls. Invalid settings produce safe diagnostics. SDK imports are restricted by TEST-003 and ADR-HLLM-035. Native Compose resolution proves the opt-in worker shares the backend image, protected effects and private Temporal network without introducing another database or Temporal service.
 
 ### TEST-480: Real Temporal batch execution and restart recovery
 
+- Coverage gate: `release`.
 - Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
 - The existing runner owns pinned self-hosted Temporal/PostgreSQL/Garage containers. Each case leases its own database, namespace and artifact scope, with bounded cleanup. No browser or public provider.
@@ -2100,7 +2109,9 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 
 ### TEST-481: Explicit live CPA through durable batch API
 
+- Coverage gate: `live-cpa-batch`.
 - Tier: T5, `live && integration && temporalintegration`; ordinary verification cannot invoke it.
+- Location: `internal/gateway/httpapi/jobs_cpa_live_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task live-cpa-batch`, with explicit `HARDEN_LLM_RUN_CPA_BATCH_LIVE=1`, protected `CPA_API_KEY`, bounded case name and fresh private output directory.
 - One isolated Temporal/PostgreSQL/Garage lease; existing public CPA account and model; no account rotation, grouping, official-API fallback or shared CPA configuration change.
 - Each case qualifies its pilots before submitting 1000 distinct requests, records five-second status, and independently validates complete downloaded nonce results. Failed pilots stop main dispatch and remain failed evidence. The array and bounded-text mixed cases retain independent output oracles. Baseline releases five 200-item jobs at 61-second intervals; rolling cases use one 1000-item job. Caller attempts, ready/observed/download timing, usage, errors and executable/source identity remain separate evidence.
@@ -2120,6 +2131,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 
 ### TEST-483: Competing-client scheduling and bounded CPA experiments
 
+- Coverage gate: `fast`.
 - Tier: T0/T1; `internal/livecapacity/strategy_test.go`, bounded-text native HTTP fixture in `native_test.go`.
 - Command: `go test -race ./internal/livecapacity ./stateful/batch -count=1`.
 - The native experiment uses the production batch controller with explicitly identified independent or shared client admission. Fixed/sliding windows, token refill and concurrency fixtures use supplied virtual time; all 1,200 distinct items must complete without replaying unknowns. Identical offered demand precedes and overlaps the foreground job. Retry hints, one probe, combined concurrency, fairness, active/unknown token reservations, policy stops and cancellation/draining are asserted.
@@ -2128,9 +2140,11 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Native controller experiments do not establish Temporal throughput; retain a separate real Temporal API qualification for the selected strategy. Plan: `plans/cpa-shared-capacity-qualification-plan.md`.
 
 - TEST-483 distinct offered-traffic mode keeps foreground quota retries and the original queued-client oracle unchanged. A background load generator retains explicit quota refusals as terminal offered-load outcomes, with 100 initial offers and 25 each at 67/128/189 seconds; new offers then stop. Qualifying the traffic-stop question additionally requires at least 100 distinct foreground items admitted after the background has actually finished. Background ordinary/unknown/policy failures still fail the experiment. CLI `--long-every 1` separately qualifies all foreground requests with bounded 512-word responses; `--mixed` remains 10 percent.
+- Native error, failed and incomplete stream terminals without usage remain unconfirmed, preserving conservative token reservations and prohibiting inference replay. A completed response missing usage also remains unconfirmed; none may be mislabeled as an independently checked content mismatch.
 
 ### TEST-484: Ten thousand durable requests across bearer clients and workflow runs
 
+- Coverage gate: `temporal-endurance`.
 - Tier: T3; explicit `node scripts/run-test-tier.mjs --task go-temporal-endurance`, excluded from ordinary fast/release selection.
 - Location: `internal/gateway/httpapi/jobs_endurance_integration_test.go` (`integration && temporalintegration && endurance`).
 - Ten 1,000-item jobs, two authenticated bearer clients, one production dispatcher and real self-hosted Temporal/PostgreSQL/Garage. Require 10,000 independently validated globally distinct nonces, exactly 10,000 local native-SSE provider calls, one attempt per item, combined overlap <=128, cross-key status rejection and a naturally changed dispatcher run ID proving continue-as-new without lost queued work.

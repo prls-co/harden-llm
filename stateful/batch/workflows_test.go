@@ -40,6 +40,41 @@ func TestDispatcherQueuesAndRetriesOnlyExplicitThrottle(t *testing.T) {
 	}
 	env.AssertExpectations(t)
 }
+
+func TestDispatcherDefersIndependentWorkAfterFailedAttemptHint(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(&a)
+	started := env.Now()
+	first := Ref{Scope: "fixture", JobID: "job", Index: 0}
+	second := Ref{Scope: "fixture", JobID: "job", Index: 1}
+	env.OnActivity(a.Generate, mock.Anything, first).Return(Outcome{Kind: "failed", RetryAfterMS: 7000}, nil).Once()
+	env.OnActivity(a.Generate, mock.Anything, second).Return(func(context.Context, Ref) (Outcome, error) {
+		if env.Now().Before(started.Add(7 * time.Second)) {
+			t.Error("independent work ignored the failed attempt's retry hint")
+		}
+		return Outcome{Kind: "completed", ArtifactID: "result.json"}, nil
+	}).Once()
+	var failures, successes int
+	env.OnActivity(a.Record, mock.Anything, mock.Anything, mock.Anything).Return(func(_ context.Context, _ Ref, o Outcome) (Counts, error) {
+		if o.Kind == "failed" {
+			failures++
+		} else if o.Kind == "completed" {
+			successes++
+		}
+		return Counts{Total: 2, Failed: failures, Succeeded: successes}, nil
+	})
+	env.OnActivity(a.Cooldown, mock.Anything, mock.Anything).Return(nil)
+	p := DefaultPolicy()
+	p.Concurrency = 1
+	state := DispatcherState{Controller: NewController(p), Jobs: []PendingJob{{Job: JobRef{Scope: "fixture", JobID: "job", Count: 2, Deadline: started.Add(time.Hour)}, Ready: []int{0, 1}}}}
+	env.ExecuteWorkflow(DispatcherWorkflow, state)
+	if err := env.GetWorkflowError(); err != nil || failures != 1 || successes != 1 {
+		t.Fatalf("failed item was replayed or independent work lost: failures=%d successes=%d error=%v", failures, successes, err)
+	}
+	env.AssertExpectations(t)
+}
 func TestBatchWorkflowUsesDurableJobDeadline(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()

@@ -52,6 +52,44 @@ func TestAdmissionHonorsLongestDelayAndOnePaceDecrease(t *testing.T) {
 		t.Fatal("repeated throttles shortened cooldown or compounded decrease")
 	}
 }
+
+func TestFailedAttemptRetryHintPausesNewAdmissionsWithoutRefund(t *testing.T) {
+	at := time.Unix(1000, 0)
+	for _, kind := range []string{"failed", "unconfirmed"} {
+		t.Run(kind, func(t *testing.T) {
+			c := NewController(DefaultPolicy())
+			c.Start(at)
+			c.Complete(at.Add(time.Second), at, at, false, kind, time.Minute)
+			if !c.Cooling || c.WindowStarts != 1 || c.CanStart(at.Add(time.Minute), 0) || !c.NextAdmission(at).Equal(at.Add(61*time.Second)) {
+				t.Fatal("failed inference's retry hint did not defer independent work while retaining its reservation")
+			}
+			probe := at.Add(61 * time.Second)
+			if !c.CanStart(probe, 0) {
+				t.Fatal("missing recovery probe")
+			}
+			c.Start(probe)
+			if c.CanStart(probe, 0) {
+				t.Fatal("retry hint admitted more than one recovery probe")
+			}
+			c.Complete(probe.Add(time.Second), probe, probe, true, "completed", 0)
+			c.Complete(probe.Add(2*time.Second), at, at, false, kind, time.Hour)
+			if c.Cooling {
+				t.Fatal("stale failure hint invalidated successful recovery")
+			}
+		})
+	}
+}
+
+func TestRetainedControllerCanPreservePreHintAdmissionBehavior(t *testing.T) {
+	at := time.Unix(1000, 0)
+	c := NewController(DefaultPolicy())
+	c.HonorFailureHints = false
+	c.Start(at)
+	c.Complete(at.Add(time.Second), at, at, false, "failed", time.Minute)
+	if c.Cooling || !c.CanStart(at.Add(time.Second), 0) || c.WindowStarts != 1 {
+		t.Fatal("old history admission behavior changed")
+	}
+}
 func TestAdmissionGrowthDoesNotConfuseRateWithConcurrency(t *testing.T) {
 	now := time.Unix(1000, 0)
 	c := NewController(DefaultPolicy())

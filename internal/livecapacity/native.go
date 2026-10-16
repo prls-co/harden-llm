@@ -152,6 +152,21 @@ func (c NativeCaller) Call(parent context.Context, prefix string, id, attempt in
 		if m.Status >= 400 {
 			return
 		}
+		if terminal == "error" || terminal == "response.failed" || terminal == "response.incomplete" {
+			if m.Code == "" {
+				m.Code = "upstream_stream_error"
+			}
+			if wire.Usage != nil {
+				m.Kind = "failed"
+			}
+			return
+		}
+		if wire.Usage == nil {
+			if m.Code == "" {
+				m.Code = "missing_usage"
+			}
+			return
+		}
 		text := wire.OutputText
 		if text == "" {
 			for _, o := range wire.Output {
