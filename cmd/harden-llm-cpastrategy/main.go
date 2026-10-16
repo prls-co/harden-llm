@@ -38,6 +38,8 @@ func run() error {
 	competing := flag.Bool("competing", true, "offer an independent 200-request competing workload")
 	shared := flag.Bool("shared", false, "coordinate both clients through one controller")
 	mixed := flag.Bool("mixed", false, "10 percent of foreground requests require bounded 512-word output")
+	longEvery := flag.Int("long-every", 0, "bounded 512-word output every N foreground items; 1 means all, 0 disables")
+	trafficStop := flag.Bool("traffic-stop", false, "distinct bounded offered-background experiment; quota refusals are terminal background outcomes")
 	budget := flag.Int64("token-budget", 8000000, "reported input+output allowance including active/unknown reserves, at most 10M")
 	quiet := flag.Duration("quiet", 90*time.Second, "pre-run quiet observation, not an assertion that account quota reset")
 	deadline := flag.Duration("deadline", 30*time.Minute, "hard experiment deadline, at most 2h")
@@ -48,6 +50,12 @@ func run() error {
 	}
 	if !filepath.IsAbs(*out) || *calls < 1 || *calls > 10000 || *budget < 1 || *budget > 10000000 || *quiet < 0 || *quiet > 5*time.Minute || *deadline < time.Second || *deadline > 2*time.Hour || (*shared && !*competing) {
 		return fmt.Errorf("invalid bounded experiment settings")
+	}
+	if *longEvery < 0 || *longEvery > 1000 || (*mixed && *longEvery != 0) || (*trafficStop && (!*competing || *shared)) {
+		return fmt.Errorf("invalid output-load or offered-traffic settings")
+	}
+	if *mixed {
+		*longEvery = 10
 	}
 	p := batch.DefaultPolicy()
 	if *mode == "continuous" {
@@ -87,6 +95,12 @@ func run() error {
 	binaryData, _ := os.ReadFile(binary)
 	binaryHash := sha256.Sum256(binaryData)
 	metadata := map[string]any{"sourceSHA": strings.TrimSpace(string(sha)), "sourceDirty": len(diff) > 0, "sourceDiffSHA256": hex.EncodeToString(hash[:]), "binarySHA256": hex.EncodeToString(binaryHash[:]), "model": "gpt-6-luna", "reasoning": "low", "endpoint": url, "policy": *mode, "foregroundCalls": *calls, "competing": *competing, "sharedController": *shared, "mixedBoundedText": *mixed, "tokenBudget": *budget, "nativeInternalAttempts": nil, "officialAPIUsed": false, "sharedCPAConfigurationChanged": false, "TemporalUsed": false, "startedAt": time.Now().UTC()}
+	metadata["longEvery"] = *longEvery
+	metadata["offeredBackgroundTrafficStops"] = *trafficStop
+	if *trafficStop {
+		metadata["minimumForegroundItemsAdmittedAfterBackgroundFinished"] = min(100, *calls)
+		metadata["backgroundExplicitQuotaRefusalsAreTerminalLoadOutcomes"] = true
+	}
 	if err = writeJSON("metadata.json", metadata); err != nil {
 		return err
 	}
@@ -104,6 +118,9 @@ func run() error {
 		}
 	}
 	actors, items := livecapacity.StrategyWorkload(p, *calls, *competing, *shared)
+	if *trafficStop {
+		actors, items = livecapacity.StrategyOfferedTraffic(p, *calls)
+	}
 	e, err := livecapacity.NewStrategyEngine(time.Now(), actors, items, *budget)
 	if err != nil {
 		return err
@@ -114,7 +131,7 @@ func run() error {
 	caller := livecapacity.NativeCaller{URL: url, Key: os.Getenv("CPA_API_KEY"), Client: client, Timeout: 180 * time.Second}
 	call := func(ctx context.Context, prefix string, id, attempt int) livecapacity.NativeMeasurement {
 		c := caller
-		c.BoundedText = *mixed && id < *calls && id%10 == 0
+		c.BoundedText = *longEvery > 0 && id < *calls && id%*longEvery == 0
 		return c.Call(ctx, prefix, id, attempt)
 	}
 	progress := func(v livecapacity.StrategySnapshot) error {
@@ -129,12 +146,22 @@ func run() error {
 	if err != nil {
 		status = "failed"
 	}
-	for _, a := range s.Actors {
-		if a.Completed != a.Offered {
+	for i, a := range s.Actors {
+		qualified := a.Completed
+		if i > 0 && actors[i].RefusalIsTerminal {
+			qualified += a.TerminalRefusals
+		}
+		if qualified != a.Offered || a.Unknown > 0 || a.Failed > 0 || a.Policy > 0 {
 			status = "failed"
 		}
 	}
+	coverageFailure := ""
+	if *trafficStop && s.ForegroundAdmittedAfterBackgroundFinished < min(100, *calls) {
+		status = "failed"
+		coverageFailure = "insufficient_foreground_dispatch_after_background_finished"
+	}
 	summary := map[string]any{"status": status, "measurement": s, "metadata": metadata, "finishedAt": time.Now().UTC(), "reportedUsageIsNotNativeInternalUsage": true}
+	summary["coverageFailure"] = coverageFailure
 	if writeErr := writeJSON("summary.json", summary); writeErr != nil {
 		return writeErr
 	}

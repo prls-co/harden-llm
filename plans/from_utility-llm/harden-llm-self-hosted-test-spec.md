@@ -2127,6 +2127,8 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Explicit live driver: `go run -tags live ./cmd/harden-llm-cpastrategy --live --output NEW_ABSOLUTE_DIRECTORY`. Requires protected `CPA_API_KEY`; uses only CPA `gpt-6-luna` low. Defaults bound foreground to 1,000 calls, background to 200 offered items, per-call execution to 180 seconds and the whole experiment to 30 minutes. Progress every five seconds, fresh nonces, private artifacts, independent terminal/content validation, campaign token accounting and account-stop behavior remain mandatory.
 - Native controller experiments do not establish Temporal throughput; retain a separate real Temporal API qualification for the selected strategy. Plan: `plans/cpa-shared-capacity-qualification-plan.md`.
 
+- TEST-483 distinct offered-traffic mode keeps foreground quota retries and the original queued-client oracle unchanged. A background load generator retains explicit quota refusals as terminal offered-load outcomes, with 100 initial offers and 25 each at 67/128/189 seconds; new offers then stop. Qualifying the traffic-stop question additionally requires at least 100 distinct foreground items admitted after the background has actually finished. Background ordinary/unknown/policy failures still fail the experiment. CLI `--long-every 1` separately qualifies all foreground requests with bounded 512-word responses; `--mixed` remains 10 percent.
+
 ### TEST-484: Ten thousand durable requests across bearer clients and workflow runs
 
 - Tier: T3; explicit `node scripts/run-test-tier.mjs --task go-temporal-endurance`, excluded from ordinary fast/release selection.

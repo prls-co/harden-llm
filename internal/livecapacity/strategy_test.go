@@ -262,3 +262,71 @@ func TestStrategyRunnerDrainsCallsOnCancellation(t *testing.T) {
 		t.Fatal("runner leaked calls")
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-483
+func TestOfferedBackgroundRefusalsAreTerminalWithoutWeakeningForegroundRetries(t *testing.T) {
+	at := time.Unix(1000, 0)
+	p := batch.DefaultPolicy()
+	p.Concurrency = 1
+	p.Burst = 1
+	p.WindowRequests = 0
+	actors := []StrategyActor{{Name: "foreground", Policy: p}, {Name: "background", Policy: p, RefusalIsTerminal: true}}
+	e, err := NewStrategyEngine(at, actors, []StrategyItem{{Actor: 0, ReadyAt: 15 * time.Second}, {Actor: 1}}, 100000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := e.Take(at)
+	if !ok || b.Actor != 1 {
+		t.Fatal("background offer missing")
+	}
+	e.Finish(NativeMeasurement{ID: b.ID, Attempt: b.Attempt, Started: at, Finished: at.Add(time.Second), Kind: "rejected", RetryAfterMS: 1000})
+	if e.stats[1].TerminalRefusals != 1 || e.Items[b.ID].state != "done" {
+		t.Fatal("one-shot background refusal was requeued")
+	}
+	if _, ok := e.Take(at.Add(2 * time.Second)); ok {
+		t.Fatal("background refusal was replayed")
+	}
+	f, ok := e.Take(at.Add(15 * time.Second))
+	if !ok || f.Actor != 0 {
+		t.Fatal("foreground offer missing")
+	}
+	e.Finish(NativeMeasurement{ID: f.ID, Attempt: f.Attempt, Started: at.Add(15 * time.Second), Finished: at.Add(16 * time.Second), Kind: "rejected", RetryAfterMS: 1000})
+	retry, ok := e.Take(at.Add(17 * time.Second))
+	if !ok || retry.ID != f.ID || retry.Attempt != 2 {
+		t.Fatal("foreground result oracle weakened by background mode")
+	}
+	e.Finish(NativeMeasurement{ID: retry.ID, Attempt: retry.Attempt, Started: at.Add(17 * time.Second), Finished: at.Add(18 * time.Second), Kind: "completed", InputTokens: 10, OutputTokens: 5})
+	if !e.Done() || e.stats[0].Completed != 1 || e.stats[0].TerminalRefusals != 0 || e.stats[1].Completed != 0 || e.stats[1].TerminalRefusals != 1 {
+		t.Fatal("offered-load outcome totals wrong")
+	}
+	if e.Snapshot(at.Add(18*time.Second)).ForegroundAdmittedAfterBackgroundFinished != 1 {
+		t.Fatal("background-stop coverage was not retained")
+	}
+	actors[0].RefusalIsTerminal = true
+	if _, err := NewStrategyEngine(at, actors, []StrategyItem{{Actor: 0}}, 100000); err == nil {
+		t.Fatal("foreground may not discard quota-refused work")
+	}
+}
+
+func TestOfferedTrafficHasBoundedPhasesAndStopsNewArrivals(t *testing.T) {
+	actors, items := StrategyOfferedTraffic(batch.DefaultPolicy(), 1000)
+	if len(actors) != 2 || len(items) != 1175 || !actors[1].RefusalIsTerminal || actors[0].RefusalIsTerminal || actors[1].ShareWithFirst {
+		t.Fatal("offered workload contract wrong")
+	}
+	counts := map[time.Duration]int{}
+	for _, v := range items {
+		if v.Actor == 1 {
+			counts[v.ReadyAt]++
+		} else if v.ReadyAt != 15*time.Second {
+			t.Fatal("foreground start changed")
+		}
+	}
+	if len(counts) != 4 || counts[0] != 100 || counts[67*time.Second] != 25 || counts[128*time.Second] != 25 || counts[189*time.Second] != 25 {
+		t.Fatal("background phases changed", counts)
+	}
+	// The queued-work comparison must retain its original all-1,200-success contract.
+	oldActors, oldItems := StrategyWorkload(batch.DefaultPolicy(), 1000, true, false)
+	if len(oldItems) != 1200 || oldActors[1].RefusalIsTerminal {
+		t.Fatal("existing comparison was weakened")
+	}
+}

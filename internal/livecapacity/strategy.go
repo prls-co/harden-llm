@@ -19,6 +19,26 @@ type StrategyActor struct {
 	Name           string       `json:"name"`
 	Policy         batch.Policy `json:"policy"`
 	ShareWithFirst bool         `json:"shareWithFirst"`
+	// Only a background load generator may treat an explicit refusal as its
+	// terminal offered-load outcome. Application work retains quota retries.
+	RefusalIsTerminal bool `json:"refusalIsTerminal"`
+}
+
+// StrategyOfferedTraffic is a distinct experiment, not the queued-work oracle.
+// New background offers stop at t=189; actual completion is measured separately.
+func StrategyOfferedTraffic(p batch.Policy, calls int) ([]StrategyActor, []StrategyItem) {
+	actors, items := StrategyWorkload(p, calls, true, false)
+	items = items[:calls]
+	actors[1].RefusalIsTerminal = true
+	actors[1].Policy.StartRate, actors[1].Policy.MaximumRate = 10, 10
+	for i := range 175 {
+		at := time.Duration(0)
+		if i >= 100 {
+			at = time.Duration(67+(i-100)/25*61) * time.Second
+		}
+		items = append(items, StrategyItem{Actor: 1, ReadyAt: at})
+	}
+	return actors, items
 }
 
 // StrategyWorkload offers the same independent competing demand in every case:
@@ -66,6 +86,7 @@ type StrategyItem struct {
 type StrategyActorStats struct {
 	Name                                                                            string `json:"name"`
 	Offered, Dispatched, Completed, Rejected, Unknown, Failed, Policy, Active, Peak int
+	TerminalRefusals                                                                int
 	InputTokens, OutputTokens                                                       int64
 	FirstStart, LastFinish                                                          time.Time
 	ReadyMs                                                                         int64
@@ -78,6 +99,7 @@ type StrategySnapshot struct {
 	ReportedTokens, UnknownTokenReserve, ActiveTokenReserve, TokenBudget int64
 	Actors                                                               []StrategyActorStats
 	Controllers                                                          []batch.Controller
+	ForegroundAdmittedAfterBackgroundFinished                            int
 }
 type StrategyEngine struct {
 	Started                               time.Time
@@ -100,6 +122,9 @@ func NewStrategyEngine(at time.Time, actors []StrategyActor, items []StrategyIte
 	for i, a := range actors {
 		if a.Name == "" || a.Policy.Validate() != nil {
 			return nil, fmt.Errorf("invalid strategy actor")
+		}
+		if a.RefusalIsTerminal && (i == 0 || a.ShareWithFirst) {
+			return nil, fmt.Errorf("terminal refusals are restricted to independent background load")
 		}
 		e.stats = append(e.stats, StrategyActorStats{Name: a.Name})
 		if a.ShareWithFirst {
@@ -200,7 +225,9 @@ func (e *StrategyEngine) Finish(m NativeMeasurement) {
 		s.Completed++
 	case "rejected":
 		s.Rejected++
-		if v.Attempt < 16 {
+		if e.Actors[v.Actor].RefusalIsTerminal {
+			s.TerminalRefusals++
+		} else if v.Attempt < 16 {
 			v.state = "queued"
 		} else {
 			s.Failed++
@@ -254,6 +281,13 @@ func (e *StrategyEngine) Snapshot(now time.Time) StrategySnapshot {
 		}
 		if !s.Actors[a].LastFinish.IsZero() {
 			s.Actors[a].ReadyMs = max(0, s.Actors[a].LastFinish.Sub(e.Started.Add(first)).Milliseconds())
+		}
+	}
+	if len(e.Actors) == 2 && e.Actors[1].RefusalIsTerminal && s.Actors[1].Completed+s.Actors[1].TerminalRefusals == s.Actors[1].Offered {
+		for _, v := range e.Items {
+			if v.Actor == 0 && v.Attempt > 0 && v.reserved.After(s.Actors[1].LastFinish) {
+				s.ForegroundAdmittedAfterBackgroundFinished++
+			}
 		}
 	}
 	return s
