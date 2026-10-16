@@ -3045,7 +3045,9 @@ in the consumer closeout below.
 
 Both exact-main browser-free releases passed all 29 tasks. The corrected gateway
 image and retained frontend passed HIGH/CRITICAL scans with zero findings; the
-earlier rejected gateway remains retained and was never deployed. Gateway OCI
+earlier rejected gateway was never deployed; its build/scan evidence remains
+privately archived. The unused rejected image was removed during the conformance
+cleanup after zero container/descriptor-use checks. Gateway OCI
 revision/version and isolated `version` output match the certified source.
 Frontend source is byte-identical across the Go-only follow-up. Owned clean build
 worktrees were removed; immutable images and private evidence remain retained.
@@ -3105,3 +3107,22 @@ authenticated latency, outcomes and live report URLs. The final three prediction
 trials have two expected-entity and one other-entity outcomes; this is bounded
 contract/workflow acceptance, not statistical model-quality equivalence. H's
 qualified component images and credentials remain unchanged. No H browser ran.
+
+### Model Recall conformance and cleanup — October 16
+
+[ADR-HLLM-028](adr/ADR-HLLM-028-local-image-build-deployment.md#model-recall-prerequisite-scope-and-conformance--october-16-2026)
+and the existing [KER acceptance](../plans/gateway-image-build-deployment-kers.md#model-recall-prerequisite-acceptance-2026-10-16)
+now explicitly record the both-image security scope, reuse of the unaffected
+frontend and exact release/image identities. The [consumer plan audit](https://github.com/prls-co/masked-recall/blob/main/plans/model-recall-public-access.md#175-conformance-deviations-and-cleanup--october-16)
+records every original-plan deviation and failed execution/setup step. Local
+full-release attempts on the production daemon were not final acceptance: the
+second report records SIGTERM, `timedOut=false`, cleanup errors/warnings empty.
+Only the successful browser-free exact-main releases qualify those images.
+
+Eight temporary runner reports, the qualification helper and task build logs
+were archived privately in Analytics' existing backup root, member/hash-verified,
+then removed. The unused rejected gateway candidate `sha256:1c9c297c...` was
+removed after verifying no container or protected-descriptor reference. Current
+images, all known-good rollback images, protected configuration/checkpoints,
+credentials and data remain. No H browser, provider request, rebuild or runtime
+restart is part of this documentation-only closeout.
