@@ -41,6 +41,10 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	switch caseName {
 	case "baseline":
 		baseline = true
+		// The producer releases 200 every 61 seconds. Keep all 1,000 starts
+		// eligible for those bursts so a second timer-based pacer cannot distort
+		// the fixed-cadence comparator. Active concurrency remains bounded.
+		policy.Burst = 1000
 	case "rolling-128-50":
 		policy.StartRate, policy.Burst = 50, 100
 	case "rolling-128-100":
