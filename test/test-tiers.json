@@ -241,6 +241,63 @@
       ]
     },
     {
+      "id": "go-temporal-endurance",
+      "testIds": [
+        "TEST-484"
+      ],
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-v",
+        "-tags=integration,temporalintegration,endurance",
+        "./internal/gateway/httpapi",
+        "-run",
+        "^TestTemporalBatchTenThousandAcrossClientsAndRunContinuations$",
+        "-count=1",
+        "-timeout=12m"
+      ],
+      "dependsOn": [],
+      "timeoutMs": 900000,
+      "cleanupOwner": "integration-pool",
+      "network": "local-only",
+      "credentialKeys": [],
+      "requiredFor": [
+        "temporal-endurance"
+      ],
+      "benchmarkLanes": [
+        "integration"
+      ],
+      "servicePool": {
+        "composeFile": "deploy/test/compose.integration.yml",
+        "services": [
+          {
+            "name": "harden-postgres",
+            "port": 5432
+          },
+          {
+            "name": "garage",
+            "port": 3900
+          },
+          {
+            "name": "temporal",
+            "port": 7233
+          }
+        ]
+      },
+      "pathSelectors": [
+        "stateful/batch/**",
+        "internal/gateway/httpapi/**",
+        "internal/integrationtest/temporal.go",
+        "cmd/harden-llm-gateway/**",
+        "api/**",
+        "deploy/test/**",
+        "go.mod",
+        "go.sum"
+      ]
+    },
+    {
       "id": "live-cpa-batch",
       "testIds": [
         "TEST-481"

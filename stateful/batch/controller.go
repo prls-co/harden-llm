@@ -47,10 +47,11 @@ type Controller struct {
 	WindowStarts      int
 	RefillWindowBurst bool
 	PacedRecovery     bool
+	AccumulatePace    bool
 }
 
 func NewController(p Policy) Controller {
-	return Controller{Policy: p, Rate: p.StartRate, BurstLeft: p.Burst, ProbeDelay: 2 * time.Second, RefillWindowBurst: true, PacedRecovery: true}
+	return Controller{Policy: p, Rate: p.StartRate, BurstLeft: p.Burst, ProbeDelay: 2 * time.Second, RefillWindowBurst: true, PacedRecovery: true, AccumulatePace: true}
 }
 func (c *Controller) Configure(p Policy) error {
 	if err := p.Validate(); err != nil {
@@ -111,8 +112,22 @@ func (c *Controller) Start(now time.Time) {
 	}
 	if c.BurstLeft > 0 {
 		c.BurstLeft--
+		c.NextStart = now.Add(time.Second / time.Duration(c.Rate))
+		return
 	}
-	c.NextStart = now.Add(time.Second / time.Duration(c.Rate))
+	interval := time.Second / time.Duration(c.Rate)
+	if c.AccumulatePace {
+		// Temporal decisions are coarser than a 5-10 ms launch interval. Carry
+		// elapsed credits forward, bounded by the configured burst, rather
+		// than limiting throughput to one call per workflow task.
+		oldest := now.Add(-time.Duration(c.Policy.Burst-1) * interval)
+		if c.NextStart.Before(oldest) {
+			c.NextStart = oldest
+		}
+		c.NextStart = c.NextStart.Add(interval)
+	} else {
+		c.NextStart = now.Add(interval)
+	}
 }
 func (c *Controller) Success(now time.Time) {
 	if c.Probing {

@@ -2126,3 +2126,12 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - A successful probe must not grant another initial burst (TEST-474). The original controller exhausted refusal retries under the token-bucket fixture; the complete-results oracle is unchanged. A workflow version marker preserves retained histories (TEST-476).
 - Explicit live driver: `go run -tags live ./cmd/harden-llm-cpastrategy --live --output NEW_ABSOLUTE_DIRECTORY`. Requires protected `CPA_API_KEY`; uses only CPA `gpt-6-luna` low. Defaults bound foreground to 1,000 calls, background to 200 offered items, per-call execution to 180 seconds and the whole experiment to 30 minutes. Progress every five seconds, fresh nonces, private artifacts, independent terminal/content validation, campaign token accounting and account-stop behavior remain mandatory.
 - Native controller experiments do not establish Temporal throughput; retain a separate real Temporal API qualification for the selected strategy. Plan: `plans/cpa-shared-capacity-qualification-plan.md`.
+
+### TEST-484: Ten thousand durable requests across bearer clients and workflow runs
+
+- Tier: T3; explicit `node scripts/run-test-tier.mjs --task go-temporal-endurance`, excluded from ordinary fast/release selection.
+- Location: `internal/gateway/httpapi/jobs_endurance_integration_test.go` (`integration && temporalintegration && endurance`).
+- Ten 1,000-item jobs, two authenticated bearer clients, one production dispatcher and real self-hosted Temporal/PostgreSQL/Garage. Require 10,000 independently validated globally distinct nonces, exactly 10,000 local native-SSE provider calls, one attempt per item, combined overlap <=128, cross-key status rejection and a naturally changed dispatcher run ID proving continue-as-new without lost queued work.
+- No public provider or paid credentials. Hard 10-minute operation deadline, five-second progress and canonical runner-owned resource cleanup. This proves local orchestration scale, not CPA throughput.
+
+- The original non-accumulating pacer admitted one call per workflow decision and failed the unchanged eight-minute job deadline (first job: 593 successes, 407 deadline failures). TEST-474 now requires ten elapsed credits after 100 ms at 100 starts/second, bounds idle catch-up by the configured burst and prevents repeated same-time admission. A version marker preserves old histories; the full 10,000-result oracle and deadline remain unchanged.

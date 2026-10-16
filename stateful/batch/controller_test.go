@@ -210,3 +210,35 @@ func TestSuccessfulRecoveryProbeDoesNotGrantAnotherInitialBurst(t *testing.T) {
 		t.Fatal("paced continuation stalled")
 	}
 }
+
+func TestAdmissionAccruesBoundedRateCreditsBetweenWorkflowDecisions(t *testing.T) {
+	at := time.Unix(1000, 0)
+	p := DefaultPolicy()
+	p.WindowRequests = 0
+	p.Burst = 20
+	p.StartRate = 100
+	c := NewController(p)
+	for range p.Burst {
+		c.Start(at)
+	}
+	count := func(now time.Time) int {
+		n := 0
+		for c.CanStart(now, 0) {
+			c.Start(now)
+			n++
+			if n > 1000 {
+				t.Fatal("unbounded accrued burst")
+			}
+		}
+		return n
+	}
+	if got := count(at.Add(100 * time.Millisecond)); got != 10 {
+		t.Fatalf("workflow decision latency discarded rate credits: got=%d want=10", got)
+	}
+	if got := count(at.Add(time.Minute)); got != p.Burst {
+		t.Fatalf("idle catch-up must stay bounded: got=%d want=%d", got, p.Burst)
+	}
+	if got := count(at.Add(time.Minute)); got != 0 {
+		t.Fatal("same-time loop minted additional credits")
+	}
+}
