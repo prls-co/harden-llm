@@ -59,8 +59,9 @@ type openAIError struct {
 }
 
 type errorResponse struct {
-	Error  openAIError `json:"error"`
-	Harden any         `json:"harden,omitempty"`
+	OutputText string      `json:"output_text,omitempty"`
+	Error      openAIError `json:"error"`
+	Harden     any         `json:"harden,omitempty"`
 }
 
 type statusWriter struct {

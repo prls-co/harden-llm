@@ -156,6 +156,7 @@ func executeRecoveryPlan(
 					return record, NewCacheIntegrityError()
 				}
 				record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
+				record.AssistantText = cached.ProviderResult.AssistantText
 				record.Accounting.Result = cached.ProviderResult.Accounting
 				producer := cached.Producer
 				record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
@@ -220,6 +221,7 @@ func executeRecoveryPlan(
 			emit(work, "run.progress", attempt, false)
 		}
 		result, failure := executor.Execute(providerContext, prepared)
+		record.AssistantText = result.AssistantText
 		activeStream = nil
 		finished := config.Now().UTC()
 		providerUsed := result.ProviderDispatched
@@ -255,7 +257,7 @@ func executeRecoveryPlan(
 				// recovery plan.
 				var providerError *retry.ProviderError
 				if work.call.CallType == "structured" && !errors.As(admissionErr, &providerError) {
-					failure = &retry.ProviderError{Err: admissionErr, Category: retry.CategoryParse}
+					failure = &retry.ProviderError{Err: admissionErr, Code: "STRUCTURED_SCHEMA", Category: retry.CategoryParse}
 				}
 				if previousOutput != "" {
 					captureParseFailureResponse(&record, previousOutput)
@@ -376,6 +378,7 @@ func executeRecoveryPlan(
 								return record, NewCacheIntegrityError()
 							}
 							record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
+							record.AssistantText = cached.ProviderResult.AssistantText
 							record.Accounting.Result = cached.ProviderResult.Accounting
 							producer := cached.Producer
 							record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}

@@ -2984,3 +2984,145 @@ separate runtime identity from later documentation commits. No browser layout or
 native events were checked, no new paid provider calls ran, and formal standards
 conformance is not claimed. The next optional acceptance is a bounded explicit
 browser canary for preset selection, Run and repair/escalation controls.
+
+## October 15 Model Recall schema prerequisite — source checkpoint
+
+The candidate based on `3b79454` adds the consumer's two closed schemas,
+nullable-field handling and preservation of original assistant text. Its
+focused source checks and browser-free fast gate passed; this does not certify
+the production provider route.
+
+A local release selection exposed Bandit 1.12.5 advisories
+[GHSA-69m6-wcv4-rwcf](https://github.com/mtrudel/bandit/security/advisories/GHSA-69m6-wcv4-rwcf)
+and [GHSA-v53v-9hvg-37jf](https://github.com/mtrudel/bandit/security/advisories/GHSA-v53v-9hvg-37jf).
+A normal `mix deps.update bandit` selected Bandit 1.13.1 and its required
+Thousand Island 1.6.0; the refreshed Hex audit reports no advisory packages.
+No audit exclusion or dependency override was added.
+
+The first release selection failed and cancelled siblings; the later local
+selection was interrupted after checking the deployment specification's ban on
+service-heavy release execution against the live production daemon. Neither
+selection is release certification. Their runner reports retain failure and
+cleanup details. The corrected exact candidate must pass the explicit
+`test-hierarchy.yml` browser-free release job in CI, and the accepted main SHA
+must pass that job before any production image build. No browser or paid
+provider call was selected, and production application images remain unchanged.
+
+## October 16 gateway image audit follow-up
+
+The strict-schema change merged as `5f908f6`; its exact-main browser-free
+release run [38864492320](https://github.com/prls-co/harden-llm/actions/runs/38864492320)
+passed. Qualified source images were built with immutable tags. A separate
+image scan rejected the gateway for four HIGH `kin-openapi` findings in
+v0.144.0 (CVE-2026-100351 through CVE-2026-100354). Reachability-aware source
+analysis and image dependency scanning have different scopes; the passing
+source gate does not override this image rejection.
+
+Normal Go module resolution selects `kin-openapi` v0.151.0, including the
+published fixes and its JSON Schema dependency patch to v6.0.3. The four focused
+schema/gateway/provider/runtime packages and ten-task fast gate pass. Required
+new-source CI, exact-main release certification and a rebuilt/scanned gateway
+remain pending. No advisory ignore, replacement module, test threshold or
+provider policy change was added.
+
+The frontend `5f908f6` image and Model Recall's clean product image separately
+passed the HIGH/CRITICAL scan. The frontend source is unchanged by this Go-only
+follow-up; retain its qualified immutable image rather than rebuilding an
+unaffected component. Record its actual component release separately from the
+new gateway release. Neither application has been promoted at this checkpoint.
+
+## October 16 Model Recall prerequisite production qualification
+
+This supersedes the pending-promotion checkpoint above. The prerequisite is on
+`main`, deployed and qualified for the two canonical Model Recall schemas.
+Consumer Model Recall deployment and report acceptance are separately recorded
+in the consumer closeout below.
+
+| Component | Certified source/run | Deployed immutable image |
+| --- | --- | --- |
+| Gateway | `474342a2bbf7273df9b050b386447dc0d7954ea7`, [38869145461](https://github.com/prls-co/harden-llm/actions/runs/38869145461) attempt 1 | `harden-llm-gateway:release-474342a2bbf7273df9b050b386447dc0d7954ea7`, `sha256:3920032b73966b05f0a942de2eabb2a366c1e8615c54b92bdfb737036d7f455f` |
+| Frontend | `5f908f62d244b5b19d86c2ff9691c3deea24e11c`, [38864492320](https://github.com/prls-co/harden-llm/actions/runs/38864492320) attempt 1 | `harden-llm-web:release-5f908f62d244b5b19d86c2ff9691c3deea24e11c`, `sha256:406a42a19ca73a9cbb5135510689a9b470ebeef69ef2417c31e63aaa156872d7` |
+
+Both exact-main browser-free releases passed all 29 tasks. The corrected gateway
+image and retained frontend passed HIGH/CRITICAL scans with zero findings; the
+earlier rejected gateway was never deployed; its build/scan evidence remains
+privately archived. The unused rejected image was removed during the conformance
+cleanup after zero container/descriptor-use checks. Gateway OCI
+revision/version and isolated `version` output match the certified source.
+Frontend source is byte-identical across the Go-only follow-up. Owned clean build
+worktrees were removed; immutable images and private evidence remain retained.
+
+The protected descriptor was checkpointed and promoted with a freshness check.
+Scoped `production-config apply` promoted frontend and gateway separately; the
+gateway's same-image schema command succeeded before startup. Both scoped
+exact-release checks and the full seven-service check are `equivalent`. Both
+applications are healthy with zero restarts. Private gateway health/readiness
+and public curl `https://harden-llm.prls.co/healthz` and `/readyz` return 200;
+anonymous `/profiles` redirects to Portal. Credentials, retained data, support
+services and the deployed reference workflow contract were preserved.
+
+Explicit provider qualification used the real configured CPA Responses route,
+`gpt-5.6-luna`, strict canonical schemas, one attempt, no cache/tools/store/repair.
+The first preparation request failed with known HTTP 400 and zero reported
+tokens: the consumer sent portable effort `lowest` through `/v1/responses`.
+CPA's retained native error names supported native levels including `low`.
+The consumer correction sends native `low` unchanged; the reference interface
+continues to own portable profile mappings. No gateway mapping or fallback was
+added. The failed request was not automatically replayed.
+
+A separately recorded qualification then passed both exact schemas:
+
+| Schema | Result | Harden trace |
+| --- | --- | --- |
+| `mr_preparation_v2` | HTTP 200; required `entity_name: null`; original text parses/validates; one provider attempt, cache off | `b363ba4d-3d31-482b-b925-b09ea0a6d7d2` |
+| `mr_entity_association_v5` | HTTP 200; successful `unknown`/null abstention; original text parses/validates; one provider attempt, cache off | `8970d107-ec50-41b5-b60d-14da66b92f28` |
+
+Canonical schema hashes and effective native payloads are verified by the
+consumer's existing adapter preparation evidence; the CPA request log also
+confirms strict schema and nullable-field transmission. Full original requests,
+responses and failed/successful qualifications remain in private consumer release
+evidence. The sample is three explicit requests: two valid successes and one
+known request rejection, no indeterminate outcome or automatic replay. It is
+contract/routing evidence, not population-level model-quality certification.
+
+No H browser was selected; browser layout was not checked. No application rebuild
+or relabelling is required for this documentation closeout.
+
+
+### Model Recall consumer acceptance — October 16
+
+Consumer runtime M `196896805cc150b0f677f485e9342584a3d1e496` and Analytics
+`e779e34c282811ec3ffa4b3ce60bcb12545a19b9` passed exact-main gates and are
+now deployed. Explicit text, URL and edited-rerun journeys passed with three
+valid published observations. Original responses and Tempo readback confirm
+seven successful structured CPA Luna dispatches, one attempt each, no cache or
+repair: four preparation and three prediction. The edited run reused preparation.
+The consumer sends native `low` and 30,000 ms directly within the native API's
+60,000 ms maximum; no H adapter, mapping or timeout fallback was added.
+
+The existing [consumer release record](https://github.com/prls-co/prls-analytics/blob/main/docs/releases/2026-09-30-model-recall-public-access.md)
+and [single execution plan](https://github.com/prls-co/masked-recall/blob/main/plans/model-recall-public-access.md#17-json-schema-migration--current-execution-plan)
+record the drained deployment, scans, actual backup restore/data preservation,
+authenticated latency, outcomes and live report URLs. The final three prediction
+trials have two expected-entity and one other-entity outcomes; this is bounded
+contract/workflow acceptance, not statistical model-quality equivalence. H's
+qualified component images and credentials remain unchanged. No H browser ran.
+
+### Model Recall conformance and cleanup — October 16
+
+[ADR-HLLM-028](adr/ADR-HLLM-028-local-image-build-deployment.md#model-recall-prerequisite-scope-and-conformance--october-16-2026)
+and the existing [KER acceptance](../plans/gateway-image-build-deployment-kers.md#model-recall-prerequisite-acceptance-2026-10-16)
+now explicitly record the both-image security scope, reuse of the unaffected
+frontend and exact release/image identities. The [consumer plan audit](https://github.com/prls-co/masked-recall/blob/main/plans/model-recall-public-access.md#175-conformance-deviations-and-cleanup--october-16)
+records every original-plan deviation and failed execution/setup step. Local
+full-release attempts on the production daemon were not final acceptance: the
+second report records SIGTERM, `timedOut=false`, cleanup errors/warnings empty.
+Only the successful browser-free exact-main releases qualify those images.
+
+Eight temporary runner reports, the qualification helper and task build logs
+were archived privately in Analytics' existing backup root, member/hash-verified,
+then removed. The unused rejected gateway candidate `sha256:1c9c297c...` was
+removed after verifying no container or protected-descriptor reference. Current
+images, all known-good rollback images, protected configuration/checkpoints,
+credentials and data remain. No H browser, provider request, rebuild or runtime
+restart is part of this documentation-only closeout.

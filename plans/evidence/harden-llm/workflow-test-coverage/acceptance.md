@@ -107,3 +107,20 @@ retained here; redundant runner copies were cleared. Test-owned directories and
 the build worktree are absent; unrelated resources and operational recovery
 checkpoints/images are preserved. Disposable operator scratch is removed after
 GitHub closeout, separately from protected production settings/checkpoints.
+
+## 6. Subsequent Model Recall prerequisite release — October 16
+
+The [production qualification record](../../../../docs/release-certification.md#october-16-model-recall-prerequisite-production-qualification)
+supersedes this ledger's earlier application-image identities. Gateway source
+is now `474342a2bbf7273df9b050b386447dc0d7954ea7`; frontend source is
+`5f908f62d244b5b19d86c2ff9691c3deea24e11c`. It records each exact-main release,
+scan, immutable image, scoped/full configuration and healthy runtime result.
+Both canonical Model Recall schemas passed explicit native-low CPA qualification.
+The earlier native reasoning rejection is retained and counted. This consumer
+prerequisite changes no workflow-coverage assertion or test ID; no H browser ran.
+
+The subsequent [conformance amendment](../../../../docs/adr/ADR-HLLM-028-local-image-build-deployment.md#model-recall-prerequisite-scope-and-conformance--october-16-2026)
+and [KER acceptance](../../../gateway-image-build-deployment-kers.md#model-recall-prerequisite-acceptance-2026-10-16)
+record the both-image security scope, stopped local release attempt and private
+archive/cleanup. These do not alter this ledger's test oracles or certify an
+H browser. Current/known-good images and protected checkpoints remain retained.

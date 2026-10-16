@@ -181,10 +181,12 @@ type Ledger = accounting.Ledger
 type Accounting = accounting.Accounting
 
 type ProviderResult struct {
-	Search     *SearchResult     `json:"search,omitempty"`
-	Output     any               `json:"output"`
-	Accounting Ledger            `json:"accounting"`
-	Stream     StreamDiagnostics `json:"stream,omitempty"`
+	// AssistantText preserves original provider text alongside parsed output.
+	AssistantText string            `json:"assistantText,omitempty"`
+	Search        *SearchResult     `json:"search,omitempty"`
+	Output        any               `json:"output"`
+	Accounting    Ledger            `json:"accounting"`
+	Stream        StreamDiagnostics `json:"stream,omitempty"`
 	// ProviderDispatched records the local transport's observed request-header
 	// write. It is internal and is never persisted on the wire.
 	ProviderDispatched bool `json:"-"`
@@ -279,6 +281,7 @@ type ResultSource struct {
 }
 
 type CallRecord struct {
+	AssistantText        string
 	Search               *SearchResult
 	CallID               string
 	TraceID              string

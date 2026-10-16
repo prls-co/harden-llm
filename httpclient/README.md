@@ -100,7 +100,7 @@ closes this request; it cannot promise to undo remote provider work.
 
 ## Verification
 
-Canonical case: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-472`.
+Canonical case: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-482`.
 
 ```sh
 GOWORK=off go test -mod=readonly -race -count=1 ./httpclient ./api

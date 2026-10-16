@@ -174,3 +174,29 @@ new environment knob, retry, reset path, schema version or service. TEST-466
 captures the acquisition deadline offline; TEST-424 verifies actual SQL settings,
 atomic DDL, idempotence/mismatch and cancellation rollback. Exact-source release
 and the existing schema-before-apps apply remain mandatory before promotion.
+
+## Model Recall prerequisite scope and conformance — October 16, 2026
+
+The explicitly authorized M/A/H schema prerequisite expands KER-IBD-004 to both
+H application images because the required security audit also rejected frontend
+Bandit/Thousand Island dependencies. The Go-only security follow-up then retained
+the qualified frontend from `5f908f6`; the gateway is from `474342a`. No H data,
+credentials, routing, infrastructure or browser change is in this scope.
+
+Both exact-main browser-free CI releases passed all 29 tasks (gateway
+38869145461 / frontend 38864492320, attempt 1). Local full-release attempts on the
+production daemon were a location/order error: one failed the audit; a second
+was stopped (SIGTERM, not timeout). They are not acceptance evidence. Current
+immutable images, schema-before-start, scoped/full equivalence, health and
+consumer acceptance are in the [release record](../release-certification.md#october-16-model-recall-prerequisite-production-qualification)
+and [KER acceptance](../../plans/gateway-image-build-deployment-kers.md#model-recall-prerequisite-acceptance-2026-10-16).
+
+Same-source image byte equality is still not assumed. The consumer owner build
+produced a different product image; it was qualified exactly and re-promoted
+without rebuilding. See the [single consumer plan's conformance audit](https://github.com/prls-co/masked-recall/blob/main/plans/model-recall-public-access.md#175-conformance-deviations-and-cleanup--october-16)
+for all deviations, including its late timeout ADR and failed preservation gate.
+Temporary H runner/build logs were privately archived and verified before
+removal. Only the unused rejected gateway candidate was removed after checking
+all containers and the protected descriptor; current/known-good images and
+mode-0600 checkpoints remain. No publisher, prune job or alternative lifecycle
+was added. Documentation-only merges do not relabel/rebuild the qualified apps.

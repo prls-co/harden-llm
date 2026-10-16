@@ -2042,7 +2042,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Command: `go test -race ./internal/livecapacity -run '^TestNative' -count=1`.
 - Oracle: a validated native `response.completed` returns without connection EOF; exact nonce/model/usage qualify results; explicit 429/Retry-After and policy stops remain distinct from malformed/unknown outcomes. Correlation retains only the validated eight-hex CPA request-ID suffix, excluding the sensitive trace-header prefix and malformed suffixes. The pool continues independent items after an unknown without replaying it, overlaps its configured slots, retries only known rejections, doubles then bisects a deterministic throttle boundary, prevents fast completion from refilling a configured window budget, refunds only explicit same-window refusals while retaining unknown reservations, and permits a recovery probe while an unrelated old call remains active. Native experiments use one existing CPA credential, no official API, unbounded client connection slots up to 1000, five-second progress, and a separate bounded native request deadline. Neither HLLM's 60 s core deadline nor production egress policy changes. Only explicit rejections define the throttle bracket; unknown outliers remain separate and malformed results invalidate calibration; a 1000-result drain still requires exactly 1000 validated results.
 
-### TEST-472: Reference HTTP client, complete outcomes and no inference replay
+### TEST-482: Reference HTTP client, complete outcomes and no inference replay
 
 - Coverage gate: `fast`.
 - Locations: `httpclient/client_test.go`, `httpclient/evidence_test.go`, `httpclient/stream_test.go`, `httpclient/profiles_test.go`, `internal/gateway/httpapi/httpclient_contract_test.go`.
@@ -2104,3 +2104,14 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Command: `node scripts/run-test-tier.mjs --task live-cpa-batch`, with explicit `HARDEN_LLM_RUN_CPA_BATCH_LIVE=1`, protected `CPA_API_KEY`, bounded case name and fresh private output directory.
 - One isolated Temporal/PostgreSQL/Garage lease; existing public CPA account and model; no account rotation, grouping, official-API fallback or shared CPA configuration change.
 - Each case submits 1000 distinct requests, records five-second status, and independently validates complete downloaded nonce results. Baseline releases five 200-item jobs at 61-second intervals; rolling cases use one 1000-item job. Caller attempts, ready/observed/download timing, usage, errors and executable/source identity remain separate evidence.
+
+
+## 32. Model Recall output-contract qualification
+
+### TEST-472: Nullable contracts and original Responses evidence
+
+- Coverage gate: `fast`.
+- Locations: `internal/schema/nullable_test.go`, `internal/gateway/httpapi/structured_output_test.go`.
+- Command: `go test ./internal/schema ./internal/gateway/httpapi ./internal/providers ./internal/runtime -count=1`.
+- Oracle: every supported nullable field accepts null or its declared type, remains required and respects enum. Unsupported unions and nullable roots fail. The real Responses handler and TLS provider adapter dispatch the two exact consumer schemas once with strict JSON Schema. Successful and invalid-schema model outputs retain the exact assistant string; known invalid output carries `STRUCTURED_SCHEMA` and one provider attempt. Caller-supplied unsupported schemas fail with HTTP 400 and no dispatch; a gateway-generated invalid contract fails with HTTP 500 and no dispatch. Existing library structured results remain parsed values. No provider keys, internet or browser are needed.
+- Genuine RED: current contracts rejected nullable types; after adding nullable support, the real handler changed whitespace/key ordering of successful structured output and misclassified both schema error origins as HTTP 502. The source fixtures use the actual consumer contracts, not an invented provider shape.

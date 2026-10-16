@@ -118,3 +118,19 @@ owners, protected settings, metadata and data are unchanged. Previous compatible
 images and mode-0600 checkpoints remain for KER-IBD-006/007. Other KERs and the
 single local build/operator path remain unchanged; no browser or paid canary is
 implied by release acceptance.
+
+## Model Recall prerequisite acceptance (2026-10-16)
+
+| KERs | Applied scope and actual evidence |
+| --- | --- |
+| 001, 003 | Gateway `474342a2bbf7273df9b050b386447dc0d7954ea7`, release 38869145461 attempt 1, image `sha256:3920032b73966b05f0a942de2eabb2a366c1e8615c54b92bdfb737036d7f455f`; frontend `5f908f62d244b5b19d86c2ff9691c3deea24e11c`, release 38864492320 attempt 1, image `sha256:406a42a19ca73a9cbb5135510689a9b470ebeef69ef2417c31e63aaa156872d7`. Docs-only follow-ups do not relabel images. |
+| 004 | Authorized prerequisite includes both application images because security audits required frontend dependency fixes. The later Go-only change reused that qualified frontend. Data, credentials, support/ingress and infrastructure are preserved. |
+| 005 | Both exact-main explicitly browser-free CI releases passed all 29 tasks; image scans have zero HIGH/CRITICAL findings. Existing schema-before-start and scoped/full seven-service equivalence passed. The earlier local release failure/stopped attempt are disclosed, not counted as passes. Native consumer schemas and deployed consumer text/URL/edited rerun passed separately. |
+| 006, 007 | Protected checkpoints, descriptor mode 0600 and known-good/current images remain. Private consumer release evidence archive was member/hash-verified before removing disposable H runner/build logs. Only unused rejected gateway `sha256:1c9c297c...` was removed after zero container/descriptor-use checks; the live frontend with the same source label remains. No credentials or raw private payloads enter Git or the historical publisher source archive. |
+| 002, 008–010 | The existing host-local build/scoped apply and historical publisher bundle remain the single lifecycle. No registry, daemon, scheduler, automatic pruning, adapter or fallback was added. |
+
+The [release record](../docs/release-certification.md#october-16-model-recall-prerequisite-production-qualification)
+contains exact runtime evidence. [ADR-HLLM-028](../docs/adr/ADR-HLLM-028-local-image-build-deployment.md#model-recall-prerequisite-scope-and-conformance--october-16-2026)
+and the [single consumer plan](https://github.com/prls-co/masked-recall/blob/main/plans/model-recall-public-access.md#175-conformance-deviations-and-cleanup--october-16)
+record scope amendments and process deviations without rewriting the original
+baseline. This documentation audit introduces no H implementation or release task.

@@ -132,6 +132,7 @@ paths:
               schema: {$ref: '#/components/schemas/ModelList'}
         '400': {$ref: '#/components/responses/Error'}
         '401': {$ref: '#/components/responses/Error'}
+        '500': {$ref: '#/components/responses/Error'}
         '502': {$ref: '#/components/responses/Error'}
   /v1/chat/completions:
     post:
@@ -162,6 +163,7 @@ paths:
         '413': {$ref: '#/components/responses/Error'}
         '415': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/Error'}
+        '500': {$ref: '#/components/responses/Error'}
         '502': {$ref: '#/components/responses/Error'}
         '504': {$ref: '#/components/responses/Error'}
   /v1/responses:
@@ -194,6 +196,7 @@ paths:
         '413': {$ref: '#/components/responses/Error'}
         '415': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/Error'}
+        '500': {$ref: '#/components/responses/Error'}
         '502': {$ref: '#/components/responses/Error'}
         '504': {$ref: '#/components/responses/Error'}
   /healthz:
@@ -1933,6 +1936,9 @@ components:
             param: {type: [string, 'null']}
             code: {type: string}
           additionalProperties: false
+        output_text:
+          type: string
+          description: Original assistant text when available on a failed call with harden.diagnostics enabled; never repaired or reserialized.
         harden: {$ref: '#/components/schemas/HardenResult'}
       additionalProperties: false
     ModelList:

@@ -189,7 +189,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		if len(request.Schema) == 0 {
 			return Result{}, errors.New("hardenllm: structured calls require a schema")
 		}
-		normalizedSchema, normalizeErr := contractschema.Normalize(request.Schema)
+		normalizedSchema, normalizeErr := NormalizeSchema(request.Schema)
 		if normalizeErr != nil {
 			return Result{}, normalizeErr
 		}
@@ -312,13 +312,19 @@ func runtimeContext(value ObservabilityContext) coreruntime.ObservabilityContext
 	}
 }
 
+// NormalizeSchema validates and normalizes the library's structured-output subset.
+// HTTP callers use it before dispatch to distinguish caller input from internal faults.
+func NormalizeSchema(raw json.RawMessage) (json.RawMessage, error) {
+	return contractschema.Normalize(raw)
+}
+
 func resultFromRecord(record coreruntime.CallRecord) Result {
 	attempts := make([]Attempt, 0, len(record.Attempts))
 	for _, item := range record.Attempts {
 		attempts = append(attempts, publicAttempt(item))
 	}
 	return Result{
-		Search: record.Search,
+		Search: record.Search, AssistantText: record.AssistantText,
 		Output: record.Output, CallID: record.CallID, TraceID: record.TraceID,
 		Origin: Origin{Client: record.Origin.Client, Component: record.Origin.Component, OperationID: record.Origin.OperationID,
 			ParentRunID: record.Origin.ParentRunID, JobID: record.Origin.JobID, TestRunID: record.Origin.TestRunID,

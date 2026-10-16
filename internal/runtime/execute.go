@@ -191,6 +191,7 @@ func Execute(
 				}
 				endCache("hit", nil)
 				record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
+				record.AssistantText = cached.ProviderResult.AssistantText
 				record.Accounting.Result = cached.ProviderResult.Accounting
 				producer := cached.Producer
 				record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
@@ -237,6 +238,7 @@ func Execute(
 			emitProgress("run.progress", number, false)
 		}
 		result, failure := executor.Execute(providerContext, preparedAttempt)
+		record.AssistantText = result.AssistantText
 		activeStream = nil
 		finishedUTC := config.Now().UTC()
 		providerUsed := result.ProviderDispatched
@@ -266,7 +268,7 @@ func Execute(
 			if admissionErr != nil {
 				var providerError *retry.ProviderError
 				if work.call.CallType == "structured" && !errors.As(admissionErr, &providerError) {
-					failure = &retry.ProviderError{Err: admissionErr, Category: retry.CategoryParse}
+					failure = &retry.ProviderError{Err: admissionErr, Code: "STRUCTURED_SCHEMA", Category: retry.CategoryParse}
 					encoded, marshalErr := json.Marshal(result.Output)
 					if marshalErr != nil {
 						failure = marshalErr

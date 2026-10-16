@@ -1,0 +1,68 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "2.0"
+      ]
+    },
+    "entity_proposals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "brand_company",
+              "product_service",
+              "related_term",
+              "other"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "mask",
+              "redact",
+              "keep"
+            ]
+          },
+          "entity_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "category",
+          "action",
+          "entity_name",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "entity_proposals",
+    "suggestions"
+  ],
+  "additionalProperties": false
+}

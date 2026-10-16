@@ -80,3 +80,25 @@ defines the accepted v5.3 boundaries and phase gates. Its
 [execution ledger](plans/evidence/harden-llm/reference-decoupling/progress.json)
 distinguishes implementation and deployment; older ADRs and release reports
 remain historical evidence tied to their original revisions.
+
+
+## Structured output contracts
+
+The stateless library owns the supported schema subset. Use `NormalizeSchema`
+through the root package to validate a caller schema before execution. Nested
+fields may use one supported type or `[type, "null"]` in either order; nullable
+fields remain required and respect enum restrictions. Roots remain non-nullable
+closed objects with every property required. Unsupported unions fail explicitly.
+
+The OpenAI Responses and Chat Completions projections preserve original provider
+assistant text alongside the library's parsed structured result, including key
+order and whitespace. Known invalid output uses `STRUCTURED_SCHEMA` or
+`STRUCTURED_PARSE`; refusal and incomplete completion retain their existing
+codes. With `harden.diagnostics` enabled, a failed response includes original
+`output_text` when available. It is evidence and is never repaired or scored as
+success. Caller-schema rejection is HTTP 400 before dispatch; an invalid contract
+generated inside the gateway is HTTP 500 `internal_contract_error`.
+
+TEST-472 covers nullable types and the exact Model Recall consumer contracts
+through the actual gateway and provider adapter with local TLS fixtures. Live
+provider qualification and deployment remain separate release activities.
