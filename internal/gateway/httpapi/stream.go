@@ -14,7 +14,7 @@ func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, mo
 		writeRequestError(writer, err, "response")
 		return
 	}
-	content, calls, err := outputContent(result.Output)
+	content, calls, err := outputContent(result)
 	if err != nil {
 		writeRequestError(writer, err, "response")
 		return
@@ -84,7 +84,7 @@ func (api *API) streamResponses(writer http.ResponseWriter, request *http.Reques
 		writeRequestError(writer, err, "response")
 		return
 	}
-	content, calls, err := outputContent(result.Output)
+	content, calls, err := outputContent(result)
 	if err != nil {
 		writeRequestError(writer, err, "response")
 		return

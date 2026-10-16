@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "5.0"
+      ]
+    },
+    "prediction": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "identified",
+            "unknown"
+          ]
+        },
+        "entity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "entity"
+      ],
+      "additionalProperties": false
+    },
+    "explanation": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "prediction",
+    "explanation"
+  ],
+  "additionalProperties": false
+}

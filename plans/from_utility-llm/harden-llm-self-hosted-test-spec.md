@@ -2005,3 +2005,14 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/schema_budget_test.go`.
 - Command: `go test ./stateful -run '^TestSchemaAcquisitionBudget$' -count=1`.
 - Oracle: the actual pool acquisition context uses 30 s for administrative schema initialization and 600 ms for request storage; an earlier caller deadline wins for both. A private pgx acquisition tracer captures the deadline and cancels before network I/O. No clock sleep, fake SQL success or database is involved. TEST-424 retains actual DDL, transaction-local SQL timeout, rollback and schema-version boundaries.
+
+
+## 32. Model Recall output-contract qualification
+
+### TEST-472: Nullable contracts and original Responses evidence
+
+- Coverage gate: `fast`.
+- Locations: `internal/schema/nullable_test.go`, `internal/gateway/httpapi/structured_output_test.go`.
+- Command: `go test ./internal/schema ./internal/gateway/httpapi ./internal/providers ./internal/runtime -count=1`.
+- Oracle: every supported nullable field accepts null or its declared type, remains required and respects enum. Unsupported unions and nullable roots fail. The real Responses handler and TLS provider adapter dispatch the two exact consumer schemas once with strict JSON Schema. Successful and invalid-schema model outputs retain the exact assistant string; known invalid output carries `STRUCTURED_SCHEMA` and one provider attempt. Caller-supplied unsupported schemas fail with HTTP 400 and no dispatch; a gateway-generated invalid contract fails with HTTP 500 and no dispatch. Existing library structured results remain parsed values. No provider keys, internet or browser are needed.
+- Genuine RED: current contracts rejected nullable types; after adding nullable support, the real handler changed whitespace/key ordering of successful structured output and misclassified both schema error origins as HTTP 502. The source fixtures use the actual consumer contracts, not an invented provider shape.

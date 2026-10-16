@@ -782,3 +782,13 @@ func completeProviderUsage(input, cacheRead, cacheCreation, output, reasoning in
 	}
 	return usage
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-472
+func TestIncompleteResponseRetainsOriginalAssistantText(t *testing.T) {
+	const partial = `{"schema_version": "5.`
+	response := map[string]any{"status": "incomplete", "incomplete_details": map[string]any{"reason": "max_output_tokens"}, "output": []any{map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": partial}}}}, "output_text": partial, "usage": map[string]any{"input_tokens": 4, "output_tokens": 3, "total_tokens": 7}}
+	result, err := normalizeDecodedResponse(preparedRequest{protocol: "openai.responses", callType: "structured"}, response)
+	if err == nil || result.AssistantText != partial {
+		t.Fatalf("partial evidence changed: text=%q err=%v", result.AssistantText, err)
+	}
+}

@@ -2984,3 +2984,26 @@ separate runtime identity from later documentation commits. No browser layout or
 native events were checked, no new paid provider calls ran, and formal standards
 conformance is not claimed. The next optional acceptance is a bounded explicit
 browser canary for preset selection, Run and repair/escalation controls.
+
+## October 15 Model Recall schema prerequisite — source checkpoint
+
+The candidate based on `3b79454` adds the consumer's two closed schemas,
+nullable-field handling and preservation of original assistant text. Its
+focused source checks and browser-free fast gate passed; this does not certify
+the production provider route.
+
+A local release selection exposed Bandit 1.12.5 advisories
+[GHSA-69m6-wcv4-rwcf](https://github.com/mtrudel/bandit/security/advisories/GHSA-69m6-wcv4-rwcf)
+and [GHSA-v53v-9hvg-37jf](https://github.com/mtrudel/bandit/security/advisories/GHSA-v53v-9hvg-37jf).
+A normal `mix deps.update bandit` selected Bandit 1.13.1 and its required
+Thousand Island 1.6.0; the refreshed Hex audit reports no advisory packages.
+No audit exclusion or dependency override was added.
+
+The first release selection failed and cancelled siblings; the later local
+selection was interrupted after checking the deployment specification's ban on
+service-heavy release execution against the live production daemon. Neither
+selection is release certification. Their runner reports retain failure and
+cleanup details. The corrected exact candidate must pass the explicit
+`test-hierarchy.yml` browser-free release job in CI, and the accepted main SHA
+must pass that job before any production image build. No browser or paid
+provider call was selected, and production application images remain unchanged.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	contractschema "github.com/prls-co/harden-llm/internal/schema"
 	"net"
 	"net/netip"
 	"time"
@@ -142,7 +143,12 @@ type Origin struct {
 }
 
 // Result is the single detailed result returned by Client.Call.
+// SchemaContractError identifies schemas outside the supported structural subset.
+type SchemaContractError = contractschema.ContractError
+
 type Result struct {
+	// AssistantText is original model evidence for protocol projections.
+	AssistantText    string `json:"-"`
 	Search           *SearchResult
 	Output           any
 	CallID           string
