@@ -39,6 +39,8 @@ func run() error {
 	quiet := flag.Duration("quiet", 90*time.Second, "quiet interval before independent points >=64 and final drain")
 	concurrency := flag.Int("concurrency", 64, "wave/drain concurrency")
 	calls := flag.Int("calls", 1000, "drain logical items, at most 1000")
+	windowBurst := flag.Int("window-burst", 0, "drain admission credits per measured quota window, zero disables")
+	windowDuration := flag.Duration("window", 60*time.Second, "measured native quota window for window-burst")
 	interval := flag.Duration("interval", 0, "minimum time between drain starts")
 	callTimeout := flag.Duration("call-timeout", 180*time.Second, "native benchmark-only request budget, at most 5m")
 	deadline := flag.Duration("duration", 2*time.Hour, "hard campaign inference deadline, at most 2h")
@@ -46,6 +48,9 @@ func run() error {
 	flag.Parse()
 	if !*live {
 		return fmt.Errorf("native CPA inference requires --live")
+	}
+	if *windowBurst < 0 || *windowBurst > 1000 || *windowDuration <= 0 {
+		return fmt.Errorf("invalid quota window")
 	}
 	if *output == "" || *maximum < 1 || *maximum > 1000 || *granularity < 1 || *concurrency < 1 || *concurrency > 1000 || *calls < 1 || *calls > 1000 || *quiet < 0 || *interval < 0 || *callTimeout <= 0 || *callTimeout > 5*time.Minute || *deadline <= 0 || *deadline > 2*time.Hour {
 		return fmt.Errorf("invalid bounded native benchmark parameters")
@@ -74,7 +79,7 @@ func run() error {
 	sha, _ := exec.Command("git", "rev-parse", "HEAD").Output()
 	diff, _ := exec.Command("git", "diff", "HEAD").Output()
 	fingerprint := sha256.Sum256(diff)
-	metadata := map[string]any{"sourceSHA": string(sha), "trackedDiffSHA256": hex.EncodeToString(fingerprint[:]), "endpoint": url, "nativeCPAStreaming": true, "model": "gpt-6-luna", "reasoning": "low", "action": *action, "maximum": *maximum, "granularity": *granularity, "quietMs": quiet.Milliseconds(), "concurrency": *concurrency, "calls": *calls, "intervalMs": interval.Milliseconds(), "callTimeoutMs": callTimeout.Milliseconds(), "durationMs": deadline.Milliseconds(), "officialAPIEnabled": false, "sharedCPAConfigurationChanged": false, "HLLMExecutionCoreUsed": false}
+	metadata := map[string]any{"windowBurst": *windowBurst, "windowMs": windowDuration.Milliseconds(), "sourceSHA": string(sha), "trackedDiffSHA256": hex.EncodeToString(fingerprint[:]), "endpoint": url, "nativeCPAStreaming": true, "model": "gpt-6-luna", "reasoning": "low", "action": *action, "maximum": *maximum, "granularity": *granularity, "quietMs": quiet.Milliseconds(), "concurrency": *concurrency, "calls": *calls, "intervalMs": interval.Milliseconds(), "callTimeoutMs": callTimeout.Milliseconds(), "durationMs": deadline.Milliseconds(), "officialAPIEnabled": false, "sharedCPAConfigurationChanged": false, "HLLMExecutionCoreUsed": false}
 	raw, _ := json.MarshalIndent(metadata, "", "  ")
 	if err = os.WriteFile(filepath.Join(*output, "metadata.json"), raw, 0600); err != nil {
 		return err
@@ -86,7 +91,7 @@ func run() error {
 	defer stop()
 	ctx, cancel := context.WithTimeout(parent, *deadline)
 	defer cancel()
-	b := livecapacity.NativeBench{Directory: *output, Events: io.MultiWriter(file, os.Stdout), Started: time.Now(), Call: caller.Call, Redactor: redaction.New(key)}
+	b := livecapacity.NativeBench{WindowBurst: *windowBurst, WindowDuration: *windowDuration, Directory: *output, Events: io.MultiWriter(file, os.Stdout), Started: time.Now(), Call: caller.Call, Redactor: redaction.New(key)}
 	switch *action {
 	case "search":
 		lo, hi, err := b.Search(ctx, *maximum, *granularity, *quiet)

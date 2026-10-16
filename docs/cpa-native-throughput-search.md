@@ -40,3 +40,12 @@ sustained throughput; bisection can be noisy because other clients share quota.
 Use `--action wave --concurrency 256` for one independent burst or
 `--action drain --concurrency 128 --calls 1000 --interval 0s` for a backlog.
 Every run needs a fresh output directory and explicit live authorization.
+
+## 3. Comparing a measured quota window
+
+After measuring recovery timing, `--window-burst B --window Ws` optionally limits
+each drain to B admissions per W seconds. Fast completions do not refill these
+credits. This supports a direct comparison of an immediately refilled pool with
+full bursts separated by the measured reset interval; it is disabled by default.
+A native timeout does not block an unrelated recovery probe. Window parameters
+must come from measurements, not an assumed provider quota.

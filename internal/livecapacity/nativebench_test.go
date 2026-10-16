@@ -5,6 +5,8 @@ package livecapacity
 import (
 	"context"
 	"io"
+	"sort"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -76,5 +78,51 @@ func TestNativeSearchDoublesThenBisectsKnownThrottleBoundary(t *testing.T) {
 		if b.Points[i].Concurrency != c {
 			t.Fatal("wrong search sequence", b.Points)
 		}
+	}
+}
+
+func TestNativeWindowBudgetDoesNotRefillOnFastCompletion(t *testing.T) {
+	var starts []time.Time
+	var mu sync.Mutex
+	b := NativeBench{Directory: t.TempDir(), Events: io.Discard, Started: time.Now(), WindowBurst: 2, WindowDuration: 50 * time.Millisecond, Call: func(ctx context.Context, prefix string, id, attempt int) NativeMeasurement {
+		now := time.Now()
+		mu.Lock()
+		starts = append(starts, now)
+		mu.Unlock()
+		return NativeMeasurement{ID: id, Attempt: attempt, Kind: "completed", Started: now, Finished: now}
+	}}
+	p, err := b.Point(context.Background(), "window", 4, 6, 0, true)
+	if err != nil || p.Completed != 6 {
+		t.Fatalf("window queue failed: %+v %v", p, err)
+	}
+	sort.Slice(starts, func(i, j int) bool { return starts[i].Before(starts[j]) })
+	if starts[2].Sub(starts[0]) < 45*time.Millisecond || starts[4].Sub(starts[2]) < 45*time.Millisecond {
+		t.Fatal("fast completions refilled quota", starts)
+	}
+}
+func TestNativeRecoveryProbeDoesNotWaitForAnIndependentSlowCall(t *testing.T) {
+	release := make(chan struct{})
+	b := NativeBench{Directory: t.TempDir(), Events: io.Discard, Started: time.Now(), FallbackPause: time.Millisecond, Call: func(ctx context.Context, prefix string, id, attempt int) NativeMeasurement {
+		kind := "completed"
+		if id == 0 {
+			select {
+			case <-release:
+			case <-ctx.Done():
+				kind = "unconfirmed"
+			}
+		}
+		if id == 1 && attempt == 1 {
+			kind = "rejected"
+		}
+		if id == 1 && attempt == 2 {
+			close(release)
+		}
+		return NativeMeasurement{ID: id, Attempt: attempt, Kind: kind, Started: time.Now(), Finished: time.Now()}
+	}}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	p, err := b.Point(ctx, "probe", 2, 3, 0, true)
+	if err != nil || p.Completed != 3 || ctx.Err() != nil {
+		t.Fatalf("recovery blocked on unrelated call: %+v %v", p, err)
 	}
 }

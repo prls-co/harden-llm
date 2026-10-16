@@ -35,13 +35,15 @@ type NativePoint struct {
 }
 
 type NativeBench struct {
-	Redactor      *redaction.Redactor
-	Directory     string
-	Events        io.Writer
-	Started       time.Time
-	Call          func(context.Context, string, int, int) NativeMeasurement
-	FallbackPause time.Duration
-	Points        []NativePoint
+	WindowBurst    int
+	WindowDuration time.Duration
+	Redactor       *redaction.Redactor
+	Directory      string
+	Events         io.Writer
+	Started        time.Time
+	Call           func(context.Context, string, int, int) NativeMeasurement
+	FallbackPause  time.Duration
+	Points         []NativePoint
 }
 
 func (b *NativeBench) emit(kind string, data any) error {
@@ -120,6 +122,9 @@ func (b *NativeBench) Point(ctx context.Context, name string, concurrency, n int
 	heartbeat := time.NewTicker(5 * time.Second)
 	defer heartbeat.Stop()
 	var next time.Time
+	var windowStart time.Time
+	windowUsed := 0
+	windowEnabled := retry && b.WindowBurst > 0 && b.WindowDuration > 0
 	probing := false
 	probeActive := false
 	probeID := -1
@@ -154,7 +159,17 @@ func (b *NativeBench) Point(ctx context.Context, name string, concurrency, n int
 			stopped = true
 			p.State = "canceled"
 		}
-		for !stopped && p.Active < concurrency && !time.Now().Before(next) && !time.Now().Before(p.PauseUntil) && (!probing || !probeActive && p.Active == 0) {
+		if windowEnabled {
+			now := time.Now()
+			if windowStart.IsZero() || !now.Before(windowStart.Add(b.WindowDuration)) {
+				windowStart = now
+				windowUsed = 0
+			}
+			if windowUsed >= b.WindowBurst {
+				p.PauseUntil = maxTime(p.PauseUntil, windowStart.Add(b.WindowDuration))
+			}
+		}
+		for !stopped && p.Active < concurrency && !time.Now().Before(next) && !time.Now().Before(p.PauseUntil) && (!probing || !probeActive) {
 			id := -1
 			for i := range items {
 				if items[i].state == "queued" {
@@ -169,6 +184,12 @@ func (b *NativeBench) Point(ctx context.Context, name string, concurrency, n int
 			items[id].attempt++
 			attempt := items[id].attempt
 			p.Dispatched++
+			if windowEnabled {
+				windowUsed++
+				if windowUsed >= b.WindowBurst {
+					p.PauseUntil = maxTime(p.PauseUntil, windowStart.Add(b.WindowDuration))
+				}
+			}
 			p.Active++
 			p.Peak = max(p.Peak, p.Active)
 			next = time.Now().Add(interval)
