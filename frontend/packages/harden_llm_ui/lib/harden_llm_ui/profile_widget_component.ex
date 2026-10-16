@@ -1383,13 +1383,23 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
   attr(:profile_options, :list, default: [])
   attr(:profile_required, :boolean, default: false)
   attr(:profile_class, :string, default: "ullm-input")
-  attr(:profile_change, :string, default: "profile-draft-change")
+
+  attr(:profile_change, :any,
+    default: "profile-draft-change",
+    doc: "Event/JS, or nil to use the host form's change event"
+  )
+
   attr(:profile_placeholder, :string, default: nil)
   attr(:reasoning_input_id, :string, required: true)
   attr(:reasoning_name, :string, required: true)
   attr(:reasoning_value, :any, default: "")
   attr(:reasoning_options, :list, default: [])
-  attr(:reasoning_change, :string, default: "profile-draft-change")
+
+  attr(:reasoning_change, :any,
+    default: "profile-draft-change",
+    doc: "Event/JS, or nil to use the host form's change event"
+  )
+
   attr(:profile_disabled, :boolean, default: false)
   attr(:profile_allow_custom, :boolean, default: true)
   attr(:reasoning_disabled, :boolean, default: false)

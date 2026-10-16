@@ -12,6 +12,8 @@ defmodule HardenLlmUI.ComponentsTest do
     assert has_element?(view, "#portable-query-reasoning option[value='lowest'][selected]")
     assert has_element?(view, "#portable-utility-reasoning option[value='highest'][selected]")
     refute has_element?(view, "#portable-profile-form .ullm-profile-config-toggle")
+    refute has_element?(view, "#portable-query-profile[phx-change]")
+    refute has_element?(view, "#portable-query-reasoning[phx-change]")
 
     view
     |> element("#portable-profile-form")

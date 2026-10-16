@@ -46,18 +46,21 @@ form whose `phx-change` targets its owning LiveComponent:
   profile_options={HardenLlmUI.ProfileWidgetState.profile_options(@profiles)}
   profile_allow_custom={false}
   profile_required={true}
-  profile_change="profiles-change"
+  profile_change={nil}
   reasoning_input_id={@id <> "-query-reasoning"}
   reasoning_name="run[query_reasoning_level]"
   reasoning_value={@query_reasoning_level}
   reasoning_options={HardenLlmUI.ProfileWidgetState.reasoning_options(@profiles, @query_profile_id)}
-  reasoning_change="profiles-change"
+  reasoning_change={nil}
   target={@myself}
 />
 ```
 
 The host handles the normal nested `{"run": {...}}` form event, validates IDs
 against its current eligible catalog, and submits its own product request.
+Use `nil` change attributes to inherit the containing form's change event and
+serialize all current form fields. A string/JS event may instead target one
+row field when the host intentionally handles field-only changes.
 Initialize once with `resolve_selected_profile_id/2` and use
 `profile_reasoning_effort/2` to resolve configured reasoning. Explicit unknown
 profile IDs do not select another profile; their reasoning options are empty.

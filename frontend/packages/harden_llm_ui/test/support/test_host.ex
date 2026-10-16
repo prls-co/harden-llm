@@ -59,12 +59,12 @@ defmodule HardenLlmUI.TestHostLive do
           profile_options={ProfileWidgetState.profile_options(@profiles)}
           profile_allow_custom={false}
           profile_required={true}
-          profile_change="portable-profiles-change"
+          profile_change={nil}
           reasoning_input_id={"portable-#{role}-reasoning"}
           reasoning_name={"row[#{role}_reasoning]"}
           reasoning_value={@rows[role].reasoning}
           reasoning_options={ProfileWidgetState.reasoning_options(@profiles, @rows[role].profile)}
-          reasoning_change="portable-profiles-change"
+          reasoning_change={nil}
           target={nil}
         />
       </form>
