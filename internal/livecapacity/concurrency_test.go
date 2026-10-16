@@ -49,3 +49,12 @@ func TestConcurrencyWaveActuallyOverlapsAndNeverOverflows(t *testing.T) {
 		}
 	}
 }
+
+func TestConcurrencyInvalidBoundsNeverDispatch(t *testing.T) {
+	c := Campaign{}
+	for _, bounds := range [][3]int{{0, 64, 3}, {65, 64, 3}, {1, 129, 1}, {1, 64, 0}} {
+		if err := c.RunConcurrency(context.Background(), bounds[0], bounds[1], bounds[2]); err == nil {
+			t.Fatal("invalid bounds accepted", bounds)
+		}
+	}
+}

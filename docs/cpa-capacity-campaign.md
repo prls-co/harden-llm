@@ -227,3 +227,34 @@ supported integration rather than treating a lower request rate as a permission
 or a guarantee against warnings.
 [Supported app plan usage](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites),
 [app-server authentication guidance](https://learn.chatgpt.com/docs/app-server#auth-endpoints).
+
+## 9. CPA-only concurrency discovery
+
+When explicitly authorized to test CPA alone, supply only `CPA_API_KEY` and run:
+
+```sh
+go run ./cmd/harden-llm-loadtest --live --cpa-only --output /private/new-cpa-concurrency --max-concurrency 64 --waves 3 --duration 30m
+```
+
+This mode constructs no official API connection. It launches fresh, unpaced
+waves at 1, 2, 4, 8 and successive doubled slot counts through the requested
+maximum (at most 128), repeating each level up to five times. Each wave drains
+before the next, with five seconds between waves. The first incomplete wave
+stops escalation. There is no replay of unknown outcomes or overflow. The local
+HTTP regression requires all eight handlers to overlap before responding.
+
+The experiment explicitly sets the provider response-header budget to 60 s,
+within the existing 60 s total request deadline, to remove the previous 30 s
+header-budget confound. Production defaults and shared CPA configuration are
+unchanged. Record actual measurement interval overlap as well as scheduler
+slots; CPA's hidden retries mean client HTTP concurrency does not reveal native
+Codex execution concurrency. Burst failures can also reflect start rate, so a
+failure alone is not proof of a fixed concurrency quota.
+
+Use `--min-concurrency 64 --max-concurrency 64` to repeat just that level
+following a completed cooldown. To test a paced CPA-only backlog instead of
+waves, use `--steady-calls 1000 --max-concurrency 32 --start-interval 250ms`.
+The steady mode admits at most four starts/second and 32 active calls; actual
+active overlap depends on response duration. It stops at the first incomplete
+result rather than hiding failures with retries. These settings are experiment
+controls, not guaranteed account entitlements.

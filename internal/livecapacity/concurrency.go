@@ -10,11 +10,11 @@ import (
 // must finish before another starts; any failed/unknown result stops escalation.
 // CPA may retry internally, so this measures effective CPA HTTP capacity, not
 // unobservable native Codex execution concurrency.
-func (c *Campaign) RunConcurrency(ctx context.Context, maximum, waves int) error {
-	if maximum < 1 || maximum > 128 || waves < 1 || waves > 5 {
+func (c *Campaign) RunConcurrency(ctx context.Context, minimum, maximum, waves int) error {
+	if minimum < 1 || minimum > maximum || maximum < 1 || maximum > 128 || waves < 1 || waves > 5 {
 		return fmt.Errorf("invalid concurrency experiment bounds")
 	}
-	for level := 1; ; level = min(maximum, level*2) {
+	for level := minimum; ; level = min(maximum, level*2) {
 		for wave := 1; wave <= waves; wave++ {
 			s, err := c.RunPhase(ctx, fmt.Sprintf("concurrency-%d-wave-%d", level, wave), level, RouteConfig{Concurrency: level}, false, true, false)
 			if err != nil {

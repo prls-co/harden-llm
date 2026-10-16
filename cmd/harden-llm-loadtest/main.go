@@ -39,6 +39,9 @@ func run(args []string) error {
 	flags := flag.NewFlagSet("harden-llm-loadtest", flag.ContinueOnError)
 	live := flags.Bool("live", false, "explicitly authorize live inference")
 	cpaOnly := flags.Bool("cpa-only", false, "measure simultaneous CPA-only waves; never construct an official API route")
+	minimum := flags.Int("min-concurrency", 1, "CPA-only first wave concurrency")
+	steadyCalls := flags.Int("steady-calls", 0, "CPA-only backlog instead of waves, at most 1000")
+	interval := flags.Duration("start-interval", 250*time.Millisecond, "CPA-only backlog minimum interval between starts")
 	maximum := flags.Int("max-concurrency", 64, "CPA-only maximum simultaneous requests, 1 to 128")
 	waves := flags.Int("waves", 3, "CPA-only repetitions at each concurrency, 1 to 5")
 	directory := flags.String("output", "", "new campaign artifact directory (required)")
@@ -50,7 +53,7 @@ func run(args []string) error {
 	if !*live {
 		return fmt.Errorf("live inference requires --live")
 	}
-	if *maximum < 1 || *maximum > 128 || *waves < 1 || *waves > 5 {
+	if *minimum < 1 || *minimum > *maximum || *steadyCalls < 0 || *steadyCalls > 1000 || *interval < 0 || *maximum < 1 || *maximum > 128 || *waves < 1 || *waves > 5 {
 		return fmt.Errorf("require max-concurrency in [1,128] and waves in [1,5]")
 	}
 	if *directory == "" || *duration <= 0 || *duration > 2*time.Hour || *budget <= 0 || *budget > 5 || math.IsNaN(*budget) || math.IsInf(*budget, 0) {
@@ -95,7 +98,7 @@ func run(args []string) error {
 	sha, _ := exec.Command("git", "rev-parse", "HEAD").Output()
 	diff, _ := exec.Command("git", "diff", "HEAD").Output()
 	fingerprint := sha256.Sum256(diff)
-	metadata := map[string]any{"cpaOnly": *cpaOnly, "maximumConcurrency": *maximum, "wavesPerLevel": *waves, "responseHeaderTimeoutMs": headerTimeout.Milliseconds(), "sourceSHA": string(sha), "trackedDiffSHA256": hex.EncodeToString(fingerprint[:]), "model": "gpt-6-luna", "reasoning": "low", "duration": duration.String(), "apiBudgetUSD": *budget, "apiAttemptReservationUSD": livecapacity.AttemptReservation, "pricingSource": "https://developers.openai.com/api/docs/changelog#september-2026", "syntheticWorkload": true, "persistence": false, "sharedCPAConfigChanged": false}
+	metadata := map[string]any{"cpaOnly": *cpaOnly, "minimumConcurrency": *minimum, "steadyCalls": *steadyCalls, "startIntervalMs": interval.Milliseconds(), "maximumConcurrency": *maximum, "wavesPerLevel": *waves, "responseHeaderTimeoutMs": headerTimeout.Milliseconds(), "sourceSHA": string(sha), "trackedDiffSHA256": hex.EncodeToString(fingerprint[:]), "model": "gpt-6-luna", "reasoning": "low", "duration": duration.String(), "apiBudgetUSD": *budget, "apiAttemptReservationUSD": livecapacity.AttemptReservation, "pricingSource": "https://developers.openai.com/api/docs/changelog#september-2026", "syntheticWorkload": true, "persistence": false, "sharedCPAConfigChanged": false}
 	data, _ := json.MarshalIndent(metadata, "", "  ")
 	if err = os.WriteFile(filepath.Join(*directory, "metadata.json"), data, 0600); err != nil {
 		return err
@@ -107,7 +110,15 @@ func run(args []string) error {
 	campaign := livecapacity.Campaign{Redactor: redaction.New(cpaKey, apiKey, token), ID: time.Now().UTC().Format("20060102T150405Z"), Directory: *directory, Started: time.Now(), Budget: *budget, Transport: livecapacity.Transport{URL: server.URL, Token: token, Client: &http.Client{Timeout: 61 * time.Second}}, Events: io.MultiWriter(events, os.Stdout)}
 	var runErr error
 	if *cpaOnly {
-		runErr = campaign.RunConcurrency(ctx, *maximum, *waves)
+		if *steadyCalls > 0 {
+			var scheduler *livecapacity.Scheduler
+			scheduler, runErr = campaign.RunPhase(ctx, fmt.Sprintf("steady-%d", *maximum), *steadyCalls, livecapacity.RouteConfig{Concurrency: *maximum, Interval: *interval}, false, true, false)
+			if runErr == nil && scheduler.Snapshot(time.Now()).Completed != *steadyCalls {
+				runErr = fmt.Errorf("CPA-only backlog incomplete; see status.json")
+			}
+		} else {
+			runErr = campaign.RunConcurrency(ctx, *minimum, *maximum, *waves)
+		}
 	} else {
 		runErr = campaign.Run(ctx)
 	}

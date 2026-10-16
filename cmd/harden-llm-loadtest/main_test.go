@@ -18,6 +18,9 @@ func TestCPAConcurrencyBounds(t *testing.T) {
 		{"--live", "--cpa-only", "--output", "unused", "--max-concurrency", "129"},
 		{"--live", "--cpa-only", "--output", "unused", "--waves", "0"},
 		{"--live", "--cpa-only", "--output", "unused", "--waves", "6"},
+		{"--live", "--cpa-only", "--output", "unused", "--min-concurrency", "65"},
+		{"--live", "--cpa-only", "--output", "unused", "--steady-calls", "1001"},
+		{"--live", "--cpa-only", "--output", "unused", "--start-interval", "-1s"},
 	} {
 		if err := run(args); err == nil {
 			t.Fatal("unbounded concurrency accepted", args)
