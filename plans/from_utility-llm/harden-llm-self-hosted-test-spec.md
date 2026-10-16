@@ -2026,3 +2026,10 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `cmd/harden-llm-loadtest/live_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task live-cpa-capacity`.
 - Oracle: three CPA and one official API qualifications, bounded increasing-load ramp, then 1000 validated nonce results with route attribution, one HLLM attempt each, exact counters and reserved spend. Five-second heartbeats show liveness without extending the two-hour inference deadline. Any incomplete/unconfirmed work fails the case and remains in status.json. Explicit paid credentials and a new output directory are required; this task is outside fast, verify, release and ordinary live canaries.
+
+### TEST-470: CPA-only simultaneous concurrency experiment
+
+- Coverage gate: `fast` for the deterministic overlap oracle; explicit `--live --cpa-only` for public measurements.
+- Location: `internal/livecapacity/concurrency_test.go`.
+- Command: `go test ./internal/livecapacity -run '^TestConcurrencyWaveActuallyOverlapsAndNeverOverflows$' -count=1`.
+- Oracle: eight real local HTTP handlers must overlap before any response is released; a rejected wave receives exactly one attempt per item and never overflows to OpenAI. The explicit live mode uses only CPA credentials, unpaced waves, five-second heartbeats, a two-hour maximum deadline and stops escalation at the first incomplete wave. Its experiment-only response-header budget is 60 seconds; production defaults remain unchanged. This establishes effective gateway overlap, not CPA's hidden native attempts.

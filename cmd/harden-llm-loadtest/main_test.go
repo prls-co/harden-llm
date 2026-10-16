@@ -11,3 +11,16 @@ func TestLiveOptInAndBudgetValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestCPAConcurrencyBounds(t *testing.T) {
+	for _, args := range [][]string{
+		{"--live", "--cpa-only", "--output", "unused", "--max-concurrency", "0"},
+		{"--live", "--cpa-only", "--output", "unused", "--max-concurrency", "129"},
+		{"--live", "--cpa-only", "--output", "unused", "--waves", "0"},
+		{"--live", "--cpa-only", "--output", "unused", "--waves", "6"},
+	} {
+		if err := run(args); err == nil {
+			t.Fatal("unbounded concurrency accepted", args)
+		}
+	}
+}
