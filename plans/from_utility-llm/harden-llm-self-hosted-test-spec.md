@@ -2049,3 +2049,59 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Command: `go test -race ./httpclient ./api ./internal/gateway/httpapi -count=1`.
 - Profile-capability projection: `TestResolveReasoningEffortUsesOnlyConfiguredPortableLevels` covers explicit supported/unsupported choices, both caller preferences, full/partial/empty/absent maps, deterministic portable order, invalid provider spellings/whitespace and immutable input. No-map omission stays empty; this pure helper neither fetches nor stores a profile and does not weaken actual gateway validation. Consumers must separately prove original retry identity and frozen effective choices across admission/recovery.
 - Oracle: current OpenAPI request/profile/ordered SSE conformance; same bearer scope; optional model/origin; exact JSON number bytes; byte-fragmented UTF-8, LF/CRLF, comments, multiline data and frames above 64 KiB; bounded frame/aggregate/error/catalog reads; cancellation reaches the actual HTTP handler without losing unknown classification; redirects/rejections/lost replies produce one POST, never a reconnect/retry. Complete success/failure survives an absent/invalid/lost history tail; pre-target failure stays definitive without fabricated evidence. Provider counts use observed dispatches, including pre-dispatch attempts, plain cache hits and cached recovery after earlier provider work; contradictory identities/targets/accounting/flags/output are rejected. Configuration formatting/JSON omits the machine key and supplied clients are not mutated. Actual gateway/stateful composition with a local TLS provider performs one Run POST across two real engine generation/repair attempts, preserves the resolved model and disabled history, and rejects an unknown profile without provider work. No database server, browser or public provider is started; SQL/history-storage and production acceptance remain distinct tracks.
+
+
+### TEST-473: Actual output-length qualification and token diagnostics
+
+- Tier: T1; `internal/livecapacity/native_test.go` uses local HTTP fixtures.
+- Assert exact requested array length/content, nonce and model qualification; retain actual input/output, cached-input and reasoning usage even for failed content qualification. Reasoning is not added twice.
+- The explicit `live`-tagged `cmd/harden-llm-cpatokens` experiment is outside ordinary gates. Its 66-request/15-minute ABBA comparison and source-bound evidence do not invent a TPM limit.
+
+### TEST-474: Shared CPA admission and transport diagnostics
+
+- Tier: T0/T1; `stateful/batch/controller_test.go` and `internal/providers/timing_test.go`.
+- Assert independent start rate/concurrency, burst pacing, longest cooldown, one recovery probe, one rate decrease per episode, straggler isolation and policy-update invariants using supplied clocks.
+- Actual local TLS/SSE execution must retain bounded CPA correlation/header timing and configured transport capacity; TLS and host policy remain enforced.
+
+### TEST-475: Durable batch HTTP contract
+
+- Tier: T1; `internal/gateway/httpapi/jobs_test.go`.
+- Validate all items before admission, require scoped idempotency, one generation, CPA model/effort, response-cache off and native streaming. Pending result reads return observable 202; terminal reads deliver NDJSON.
+- TEST-480 crosses the actual bearer validator, PostgreSQL and provider boundaries for isolation and idempotency.
+
+### TEST-476: Temporal scheduling and durable deadlines
+
+- Tier: T1; `stateful/batch/workflows_test.go` uses the Temporal SDK virtual-time environment.
+- Assert a rejected item returns through the dispatcher, successful items are not retried, cooldown metadata is published and the overall job deadline expires queued work. No public network or provider credentials.
+
+- Retained synthetic Temporal history replays offline after a real throttle/cooldown/worker restart; workflow changes must preserve V1 replay compatibility.
+
+### TEST-477: PostgreSQL batch durability and isolation
+
+- Tier: T3; `stateful/batch/store_integration_test.go`, existing `go-integration` task.
+- Use a process-owned PostgreSQL lease. Assert additive/idempotent schema setup, independent bearer scopes, immutable manifests/results, conflicting idempotency keys, no duplicate active generation, known-refusal retry and truthful terminal counts.
+
+### TEST-478: Batch client waiting and verified downloads
+
+- Tier: T1; `httpclient/jobs_test.go`.
+- Exercise real local HTTP responses against canonical OpenAPI. Waiting reports quota state without an inference POST and requires an overall deadline. Missing/duplicate result records are rejected; validated success/error totals must match terminal status.
+
+### TEST-479: Self-hosted batch composition configuration
+
+- Tier: T0; `cmd/harden-llm-gateway/batch_config_test.go`.
+- Default disabled. Enabled mode requires an explicit self-hosted Temporal endpoint, namespace, trusted CPA pool/upstream and bounded independent controls. Invalid settings produce safe diagnostics. SDK imports are restricted by TEST-003 and ADR-HLLM-035.
+
+### TEST-480: Real Temporal batch execution and restart recovery
+
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- The existing runner owns pinned self-hosted Temporal/PostgreSQL/Garage containers. Each case leases its own database, namespace and artifact scope, with bounded cleanup. No browser or public provider.
+- Assert 1000 separate native SSE generations and 1000 distinct schema/nonce-validated result records, bounded HTTP overlap, complete timing/usage, idempotent submission and cross-key rejection. Stop/restart the worker during a known cooldown; 24 items must finish with exactly 25 provider attempts including the one explicit refusal.
+
+
+### TEST-481: Explicit live CPA through durable batch API
+
+- Tier: T5, `live && integration && temporalintegration`; ordinary verification cannot invoke it.
+- Command: `node scripts/run-test-tier.mjs --task live-cpa-batch`, with explicit `HARDEN_LLM_RUN_CPA_BATCH_LIVE=1`, protected `CPA_API_KEY`, bounded case name and fresh private output directory.
+- One isolated Temporal/PostgreSQL/Garage lease; existing public CPA account and model; no account rotation, grouping, official-API fallback or shared CPA configuration change.
+- Each case submits 1000 distinct requests, records five-second status, and independently validates complete downloaded nonce results. Baseline releases five 200-item jobs at 61-second intervals; rolling cases use one 1000-item job. Caller attempts, ready/observed/download timing, usage, errors and executable/source identity remain separate evidence.

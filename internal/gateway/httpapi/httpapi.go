@@ -31,6 +31,7 @@ type ReadinessCheck func(context.Context) error
 type Config struct {
 	APIKeys        []string
 	Service        *stateful.Service
+	Jobs           BatchService
 	Readiness      []ReadinessCheck
 	MaxRunDuration time.Duration
 	Telemetry      *gateway.Telemetry
@@ -41,6 +42,7 @@ type API struct {
 	clientForKey   func(string) (*hardenllm.Client, error)
 	keys           []string
 	service        *stateful.Service
+	jobs           BatchService
 	readiness      []ReadinessCheck
 	maxRunDuration time.Duration
 	telemetry      *gateway.Telemetry
@@ -127,7 +129,7 @@ func New(config Config) (*API, error) {
 		config.Logger = slog.New(slog.DiscardHandler)
 	}
 	api := &API{
-		keys: append([]string(nil), config.APIKeys...), service: config.Service, clientForKey: config.Service.ClientForKey, readiness: append([]ReadinessCheck(nil), config.Readiness...),
+		keys: append([]string(nil), config.APIKeys...), service: config.Service, jobs: config.Jobs, clientForKey: config.Service.ClientForKey, readiness: append([]ReadinessCheck(nil), config.Readiness...),
 		maxRunDuration: config.MaxRunDuration, telemetry: config.Telemetry,
 		propagator: propagation.TraceContext{}, logger: config.Logger,
 	}
@@ -151,6 +153,9 @@ func (api *API) router() http.Handler {
 	mux.HandleFunc("GET /v1/models", api.authorize(api.models))
 	mux.HandleFunc("POST /v1/chat/completions", api.authorize(api.chatCompletions))
 	mux.HandleFunc("POST /v1/responses", api.authorize(api.responses))
+	mux.HandleFunc("POST /v1/jobs", api.authorize(api.createJob))
+	mux.HandleFunc("GET /v1/jobs/{jobID}", api.authorize(api.jobStatus))
+	mux.HandleFunc("GET /v1/jobs/{jobID}/result", api.authorize(api.jobResult))
 	mux.HandleFunc("GET /api/v1/status", api.authorize(api.referenceStatus))
 	mux.HandleFunc("GET /api/v1/profiles/bundle", api.authorize(api.referenceBundle))
 	mux.HandleFunc("PUT /api/v1/profiles/bundle", api.authorize(api.referenceBundle))

@@ -3,7 +3,7 @@
 Import `github.com/prls-co/harden-llm/httpclient` when a Go service consumes an
 already deployed Harden gateway. This package performs HTTP encoding and
 canonical OpenAPI validation. It does not construct providers, access databases,
-issue credentials, schedule jobs, or restore the retired durable operation SDK.
+issue credentials, run a scheduler, or restore the retired durable operation SDK.
 The server owns cache, search, repair and its bounded recovery policy.
 
 ## Configuration and API
@@ -20,7 +20,20 @@ key. A supplied `HTTPClient` is shallow-copied, not modified.
 - `Run(ctx, input)` → one `POST /api/v1/run`, consuming its bounded SSE stream
   and returning `RunOutcome` plus a possible typed error.
 
-All three operations use the same bearer. The key selects the profiles/cache/
+Explicit CPA batch jobs use `SubmitJob(ctx, idempotencyKey, items)`,
+`JobStatus(ctx, jobID)`, `WaitJob(ctx, jobID, onStatus)` and
+`DownloadJobResult(ctx, jobID, writer)`. The server must enable the self-hosted
+batch worker. These calls use `/v1/jobs`, separate from reference runs/history.
+Each job accepts up to 1,000 independent generations. Preserve the exact input
+and idempotency key when retrying an uncertain submission. Waiting and result
+downloads never submit inference. `WaitJob` requires an overall context deadline,
+reports counts/cooldown/worker heartbeat every five seconds and polls with bounded
+HTTP deadlines. The NDJSON downloader verifies terminal counts and distinct IDs;
+publish a downloaded file only after it returns successfully. See
+[CPA batch jobs](../docs/cpa-batch-jobs.md) for configuration, the model/recovery
+contract and the `wait-job` CLI.
+
+All operations use the same bearer. The key selects the profiles/cache/
 history scope; a product `accountId`, customer token or execution grant is not
 sent to Harden. Products sharing saved profile IDs must use the same approved
 key scope. Keep public product authorization in the product, not this client.

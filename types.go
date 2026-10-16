@@ -274,6 +274,8 @@ type Attempt struct {
 }
 
 type StreamDiagnostics struct {
+	CorrelationID    string     `json:"correlationId,omitempty"`
+	HeadersMs        *int64     `json:"headersMs,omitempty"`
 	ReceivedBytes    int64      `json:"receivedBytes"`
 	EventCount       int64      `json:"eventCount"`
 	OutputBytes      int64      `json:"outputBytes"`
@@ -359,6 +361,7 @@ type EndpointPolicy struct {
 	ConnectTimeout        time.Duration
 	TLSHandshakeTimeout   time.Duration
 	ResponseHeaderTimeout time.Duration
+	MaxConnsPerHost       int
 }
 
 // EndpointResolver resolves both IPv4 and IPv6 addresses for policy checks.

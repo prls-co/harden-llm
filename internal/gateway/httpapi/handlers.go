@@ -145,89 +145,12 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 	if !api.decodeRequest(writer, request, &input) {
 		return
 	}
-	if input.PreviousResponseID != "" || input.Background != nil && *input.Background {
-		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", "Server-side response state is not supported by this stateless API.", "previous_response_id")
+	prepared, ok := prepareResponses(writer, input)
+	if !ok {
 		return
 	}
-	if len(input.Include) > 0 {
-		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", "The include field is not supported by this stateless hardening response contract.", "include")
-		return
-	}
-	if strings.TrimSpace(input.Model) == "" {
-		writeError(writer, http.StatusBadRequest, "invalid_request_error", "invalid_request", "model is required.", "model")
-		return
-	}
-	if input.N != nil && *input.N != 1 {
-		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "Only n=1 is supported.", "n")
-		return
-	}
-	if !validatePositiveInt(writer, "max_output_tokens", input.MaxOutputTokens) ||
-		!validateNumberRange(writer, "temperature", input.Temperature, 0, 2) ||
-		!validateNumberRange(writer, "top_p", input.TopP, 0, 1) {
-		return
-	}
-	if input.Truncation != "" && input.Truncation != "auto" && input.Truncation != "disabled" {
-		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "truncation must be auto or disabled.", "truncation")
-		return
-	}
-	messages, err := decodeResponsesInput(input.Input, input.Instructions)
-	if err != nil {
-		writeRequestError(writer, err, "input")
-		return
-	}
-	tools, webSearch, err := decodeTools(input.Tools, true)
-	if err != nil {
-		writeRequestError(writer, err, "tools")
-		return
-	}
-	choice, err := decodeToolChoice(input.ToolChoice, true)
-	if err != nil {
-		writeRequestError(writer, err, "tool_choice")
-		return
-	}
-	callType, schema, err := responsesOutputContract(input.Text)
-	if err != nil {
-		writeRequestError(writer, err, "text")
-		return
-	}
-	connection, cache, timeout, recovery, diagnostics, err := parseHarden(input.Harden)
-	if err != nil {
-		writeRequestError(writer, err, "harden")
-		return
-	}
-	if webSearch && len(tools) > 0 {
-		writeRequestError(writer, errors.New("web search cannot be combined with function tools"), "tools")
-		return
-	}
-	if webSearch && len(input.ToolChoice) > 0 {
-		writeRequestError(writer, errors.New("web_search tool selection uses the configured native search behavior"), "tool_choice")
-		return
-	}
-	if callType == hardenllm.CallTypeStructured && len(tools) > 0 {
-		writeRequestError(writer, errors.New("structured output and function tools cannot be combined"), "tools")
-		return
-	}
-	if input.ServiceTier != "" && input.ServiceTier != "default" {
-		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "Only service_tier=default is supported.", "service_tier")
-		return
-	}
-	options := make(map[string]any)
-	putValue(options, "service_tier", input.ServiceTier)
-	putValue(options, "max_output_tokens", input.MaxOutputTokens)
-	putValue(options, "temperature", input.Temperature)
-	putValue(options, "top_p", input.TopP)
-	putValue(options, "truncation", input.Truncation)
-	putValue(options, "parallel_tool_calls", input.ParallelToolCalls)
-	reasoningEffort, err := responsesReasoningEffort(input.Reasoning)
-	if err != nil {
-		writeRequestError(writer, err, "reasoning")
-		return
-	}
-	result, callErr := api.execute(request.Context(), connection, cache, timeout, recovery, hardenllm.Request{
-		ModelID: input.Model, Messages: messages, CallType: callType, Schema: schema, Tools: tools,
-		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(reasoningEffort), WebSearch: webSearch,
-		ProviderOptions: options,
-	})
+	diagnostics := prepared.Diagnostics
+	result, callErr := api.execute(request.Context(), prepared.Connection, prepared.Cache, prepared.Timeout, prepared.Recovery, prepared.Request)
 	if callErr != nil {
 		api.writeCallError(writer, callErr, result, diagnostics)
 		return
@@ -251,6 +174,101 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	writeJSON(writer, http.StatusOK, response, maximumResponseBytes)
+}
+
+type preparedResponses struct {
+	Request     hardenllm.Request
+	Connection  string
+	Cache       hardenllm.CacheMode
+	Timeout     int64
+	Recovery    hardenllm.RecoveryPolicy
+	Diagnostics bool
+}
+
+func prepareResponses(writer http.ResponseWriter, input responsesRequest) (preparedResponses, bool) {
+	if input.PreviousResponseID != "" || input.Background != nil && *input.Background {
+		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", "Server-side response state is not supported by this stateless API.", "previous_response_id")
+		return preparedResponses{}, false
+	}
+	if len(input.Include) > 0 {
+		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", "The include field is not supported by this stateless hardening response contract.", "include")
+		return preparedResponses{}, false
+	}
+	if strings.TrimSpace(input.Model) == "" {
+		writeError(writer, http.StatusBadRequest, "invalid_request_error", "invalid_request", "model is required.", "model")
+		return preparedResponses{}, false
+	}
+	if input.N != nil && *input.N != 1 {
+		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "Only n=1 is supported.", "n")
+		return preparedResponses{}, false
+	}
+	if !validatePositiveInt(writer, "max_output_tokens", input.MaxOutputTokens) ||
+		!validateNumberRange(writer, "temperature", input.Temperature, 0, 2) ||
+		!validateNumberRange(writer, "top_p", input.TopP, 0, 1) {
+		return preparedResponses{}, false
+	}
+	if input.Truncation != "" && input.Truncation != "auto" && input.Truncation != "disabled" {
+		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "truncation must be auto or disabled.", "truncation")
+		return preparedResponses{}, false
+	}
+	messages, err := decodeResponsesInput(input.Input, input.Instructions)
+	if err != nil {
+		writeRequestError(writer, err, "input")
+		return preparedResponses{}, false
+	}
+	tools, webSearch, err := decodeTools(input.Tools, true)
+	if err != nil {
+		writeRequestError(writer, err, "tools")
+		return preparedResponses{}, false
+	}
+	choice, err := decodeToolChoice(input.ToolChoice, true)
+	if err != nil {
+		writeRequestError(writer, err, "tool_choice")
+		return preparedResponses{}, false
+	}
+	callType, schema, err := responsesOutputContract(input.Text)
+	if err != nil {
+		writeRequestError(writer, err, "text")
+		return preparedResponses{}, false
+	}
+	connection, cache, timeout, recovery, diagnostics, err := parseHarden(input.Harden)
+	if err != nil {
+		writeRequestError(writer, err, "harden")
+		return preparedResponses{}, false
+	}
+	if webSearch && len(tools) > 0 {
+		writeRequestError(writer, errors.New("web search cannot be combined with function tools"), "tools")
+		return preparedResponses{}, false
+	}
+	if webSearch && len(input.ToolChoice) > 0 {
+		writeRequestError(writer, errors.New("web_search tool selection uses the configured native search behavior"), "tool_choice")
+		return preparedResponses{}, false
+	}
+	if callType == hardenllm.CallTypeStructured && len(tools) > 0 {
+		writeRequestError(writer, errors.New("structured output and function tools cannot be combined"), "tools")
+		return preparedResponses{}, false
+	}
+	if input.ServiceTier != "" && input.ServiceTier != "default" {
+		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "Only service_tier=default is supported.", "service_tier")
+		return preparedResponses{}, false
+	}
+	options := make(map[string]any)
+	putValue(options, "service_tier", input.ServiceTier)
+	putValue(options, "max_output_tokens", input.MaxOutputTokens)
+	putValue(options, "temperature", input.Temperature)
+	putValue(options, "top_p", input.TopP)
+	putValue(options, "truncation", input.Truncation)
+	putValue(options, "parallel_tool_calls", input.ParallelToolCalls)
+	reasoningEffort, err := responsesReasoningEffort(input.Reasoning)
+	if err != nil {
+		writeRequestError(writer, err, "reasoning")
+		return preparedResponses{}, false
+	}
+	return preparedResponses{Request: hardenllm.Request{
+		ModelID: input.Model, Messages: messages, CallType: callType, Schema: schema, Tools: tools,
+		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(reasoningEffort), WebSearch: webSearch,
+		ProviderOptions: options,
+	}, Connection: connection, Cache: cache, Timeout: timeout, Recovery: recovery, Diagnostics: diagnostics}, true
 }
 
 func validatePositiveInt(writer http.ResponseWriter, field string, value *int) bool {

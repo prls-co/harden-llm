@@ -1,0 +1,143 @@
+// Package batch owns durable, key-scoped batch execution around the stateless core.
+package batch
+
+import (
+	"fmt"
+	"time"
+)
+
+type Policy struct {
+	Concurrency    int
+	Burst          int
+	StartRate      int
+	MaximumRate    int
+	RefillEstimate time.Duration
+}
+
+func DefaultPolicy() Policy {
+	return Policy{Concurrency: 128, Burst: 100, StartRate: 50, MaximumRate: 200, RefillEstimate: 61 * time.Second}
+}
+func (p Policy) Validate() error {
+	if p.Concurrency < 1 || p.Concurrency > 1000 || p.Burst < 1 || p.Burst > 1000 || p.StartRate < 1 || p.MaximumRate < p.StartRate || p.MaximumRate > 1000 || p.RefillEstimate < time.Second || p.RefillEstimate > time.Hour {
+		return fmt.Errorf("batch: invalid admission policy")
+	}
+	return nil
+}
+
+// Controller contains only deterministic values; workflows supply their clock.
+type Controller struct {
+	Policy       Policy
+	Rate         int
+	BurstLeft    int
+	Successes    int
+	Epoch        time.Time
+	NextStart    time.Time
+	NextEligible time.Time
+	Cooling      bool
+	Probing      bool
+	ProbeDelay   time.Duration
+	Paused       bool
+}
+
+func NewController(p Policy) Controller {
+	return Controller{Policy: p, Rate: p.StartRate, BurstLeft: p.Burst, ProbeDelay: 2 * time.Second}
+}
+func (c *Controller) Configure(p Policy) error {
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	c.Policy = p
+	c.Rate = p.StartRate
+	c.Successes = 0
+	return nil
+}
+func (c *Controller) CanStart(now time.Time, active int) bool {
+	if c.Paused || active >= c.Policy.Concurrency || c.Probing {
+		return false
+	}
+	if c.Cooling {
+		return !now.Before(c.NextEligible)
+	}
+	return c.BurstLeft > 0 || !now.Before(c.NextStart)
+}
+func (c *Controller) Start(now time.Time) {
+	if c.Epoch.IsZero() {
+		c.Epoch = now
+	}
+	if c.Cooling {
+		c.Probing = true
+		return
+	}
+	if c.BurstLeft > 0 {
+		c.BurstLeft--
+	}
+	c.NextStart = now.Add(time.Second / time.Duration(c.Rate))
+}
+func (c *Controller) Success(now time.Time) {
+	if c.Probing {
+		c.Cooling = false
+		c.Probing = false
+		c.Epoch = now
+		c.NextEligible = time.Time{}
+		c.BurstLeft = c.Policy.Burst - 1
+		c.NextStart = now
+		c.ProbeDelay = 2 * time.Second
+		c.Successes = 0
+	}
+	c.Successes++
+	if c.Successes >= 100 {
+		c.Rate = min(c.Policy.MaximumRate, c.Rate*2)
+		c.Successes = 0
+	}
+}
+func (c *Controller) Throttle(now time.Time, delay time.Duration) {
+	if !c.Cooling {
+		c.Rate = max(1, c.Rate/2)
+		c.Successes = 0
+	}
+	if c.Probing {
+		c.Probing = false
+		c.ProbeDelay = min(time.Minute, c.ProbeDelay*2)
+	}
+	c.Cooling = true
+	next := now.Add(delay)
+	if delay <= 0 {
+		next = now.Add(c.ProbeDelay)
+		if estimate := c.Epoch.Add(c.Policy.RefillEstimate); estimate.After(next) {
+			next = estimate
+		}
+	}
+	if next.After(c.NextEligible) {
+		c.NextEligible = next
+	}
+}
+
+// Complete distinguishes the recovery probe from requests admitted before the
+// cooldown. A straggling success cannot reopen admission on the probe's behalf.
+func (c *Controller) Complete(now, dispatched time.Time, probe bool, kind string, delay time.Duration) {
+	switch kind {
+	case "rejected":
+		if !dispatched.Before(c.Epoch) {
+			probing := c.Probing
+			if !probe {
+				c.Probing = false
+			}
+			c.Throttle(now, delay)
+			if !probe {
+				c.Probing = probing
+			}
+		}
+	case "completed":
+		if !c.Cooling || probe {
+			c.Success(now)
+			if probe {
+				c.Epoch = dispatched
+			}
+		}
+	case "policy":
+		c.Paused = true
+	}
+	if probe && c.Probing && kind != "completed" && kind != "rejected" {
+		c.Throttle(now, 0)
+	}
+}

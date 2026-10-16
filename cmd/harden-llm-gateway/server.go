@@ -16,6 +16,7 @@ import (
 	"github.com/prls-co/harden-llm/internal/gateway/httpapi"
 	"github.com/prls-co/harden-llm/internal/redaction"
 	"github.com/prls-co/harden-llm/stateful"
+	"github.com/prls-co/harden-llm/stateful/batch"
 )
 
 const (
@@ -29,9 +30,15 @@ const (
 )
 
 func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func(string) string) (returnErr error) {
+	return runGatewayRuntime(ctx, stdout, stderr, getenv, false)
+}
+func runGatewayRuntime(ctx context.Context, stdout, stderr io.Writer, getenv func(string) string, workerOnly bool) (returnErr error) {
 	config, err := loadServerConfig(getenv)
 	if err != nil {
 		return err
+	}
+	if workerOnly && !config.batch.enabled {
+		return errors.New("batch: worker requires HARDEN_LLM_BATCH_ENABLED=true")
 	}
 	if stdout == nil {
 		stdout = io.Discard
@@ -85,14 +92,38 @@ func runGatewayServer(ctx context.Context, stdout, stderr io.Writer, getenv func
 	if err != nil {
 		return safeStartupError(redactor, "configure shared proxy client", err)
 	}
+	jobs, activities, temporalClient, err := configureBatch(startupContext, config, pool, artifacts, telemetryRuntime)
+	if err != nil {
+		return safeStartupError(redactor, "configure durable batches", err)
+	}
+	if temporalClient != nil {
+		defer temporalClient.Close()
+	}
+	if workerOnly {
+		worker, err := batch.NewWorker(temporalClient, config.batch.taskQueue, activities)
+		if err != nil {
+			return safeStartupError(redactor, "configure batch worker", err)
+		}
+		if err = worker.Start(); err != nil {
+			return safeStartupError(redactor, "start batch worker", err)
+		}
+		defer worker.Stop()
+		telemetryRuntime.Logger().InfoContext(ctx, "batch worker started", "namespace", config.batch.namespace, "task_queue", config.batch.taskQueue, "pool_id", config.batch.poolID)
+		<-ctx.Done()
+		return nil
+	}
 	telemetry, err := gateway.NewTelemetry(telemetryRuntime.TracerProvider(), telemetryRuntime.MeterProvider())
 	if err != nil {
 		return safeStartupError(redactor, "configure HTTP telemetry", err)
 	}
 	var accepting atomic.Bool
+	var jobAPI httpapi.BatchService
+	if jobs != nil {
+		jobAPI = jobs
+	}
 	accepting.Store(true)
 	api, err := httpapi.New(httpapi.Config{
-		APIKeys: config.apiKeys, Service: service, MaxRunDuration: config.maxRunDuration,
+		APIKeys: config.apiKeys, Service: service, Jobs: jobAPI, MaxRunDuration: config.maxRunDuration,
 		Telemetry: telemetry, Logger: telemetryRuntime.Logger(),
 		Readiness: []httpapi.ReadinessCheck{func(context.Context) error {
 			if !accepting.Load() {

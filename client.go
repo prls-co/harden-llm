@@ -355,7 +355,7 @@ func publicAttempt(item coreruntime.AttemptRecord) Attempt {
 	var stream *StreamDiagnostics
 	if item.Stream != nil {
 		value := StreamDiagnostics{ReceivedBytes: item.Stream.ReceivedBytes, EventCount: item.Stream.EventCount, OutputBytes: item.Stream.OutputBytes, OutputCodePoints: item.Stream.OutputCodePoints, TerminalState: item.Stream.TerminalState,
-			FirstEventMs: clonePointer(item.Stream.FirstEventMs), FirstOutputMs: clonePointer(item.Stream.FirstOutputMs), LastEventAt: clonePointer(item.Stream.LastEventAt), LastOutputAt: clonePointer(item.Stream.LastOutputAt)}
+			CorrelationID: item.Stream.CorrelationID, HeadersMs: clonePointer(item.Stream.HeadersMs), FirstEventMs: clonePointer(item.Stream.FirstEventMs), FirstOutputMs: clonePointer(item.Stream.FirstOutputMs), LastEventAt: clonePointer(item.Stream.LastEventAt), LastOutputAt: clonePointer(item.Stream.LastOutputAt)}
 		stream = &value
 	}
 	var waitDiagnostics *WaitDiagnostics

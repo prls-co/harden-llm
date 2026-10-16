@@ -75,3 +75,32 @@ func TestNativeCapturesOnlyBoundedCPACorrelationID(t *testing.T) {
 		})
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-473
+func TestNativeOutputLengthAndUsageAreValidated(t *testing.T) {
+	for _, n := range []int{1, 2} {
+		t.Run(fmt.Sprint(n), func(t *testing.T) {
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Error(err)
+					return
+				}
+				if request["input"] == nil {
+					t.Error("missing length instruction")
+				}
+				items := make([]string, n)
+				for i := range items {
+					items[i] = "x"
+				}
+				out, _ := json.Marshal(map[string]any{"nonce": "fixture-0", "items": items})
+				_ = json.NewEncoder(w).Encode(map[string]any{"status": "completed", "model": "gpt-6-luna", "output_text": string(out), "usage": map[string]any{"input_tokens": 10, "output_tokens": 20, "input_tokens_details": map[string]int{"cached_tokens": 4}, "output_tokens_details": map[string]int{"reasoning_tokens": 3}}})
+			}))
+			defer s.Close()
+			m := (NativeCaller{URL: s.URL, Key: "synthetic", Client: s.Client(), Timeout: time.Second, OutputItems: 2}).Call(context.Background(), "fixture", 0, 1)
+			if (m.Kind == "completed") != (n == 2) || m.OutputTokens != 20 || m.ReasoningTokens == nil || *m.ReasoningTokens != 3 || m.CachedInputTokens == nil || *m.CachedInputTokens != 4 {
+				t.Fatalf("incorrect length/usage qualification: %+v", m)
+			}
+		})
+	}
+}

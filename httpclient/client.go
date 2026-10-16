@@ -74,6 +74,9 @@ func New(config Config) (*Client, error) {
 }
 
 func (client *Client) request(ctx context.Context, method, path, accept string, body []byte) (*http.Response, error) {
+	return client.requestHeaders(ctx, method, path, accept, body, nil)
+}
+func (client *Client) requestHeaders(ctx context.Context, method, path, accept string, body []byte, headers map[string]string) (*http.Response, error) {
 	if client == nil || client.http == nil || ctx == nil {
 		return nil, errors.New("harden HTTP client and context are required")
 	}
@@ -86,6 +89,9 @@ func (client *Client) request(ctx context.Context, method, path, accept string, 
 	}
 	request.Header.Set("Authorization", "Bearer "+client.apiKey)
 	request.Header.Set("Accept", accept)
+	for name, value := range headers {
+		request.Header.Set(name, value)
+	}
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
