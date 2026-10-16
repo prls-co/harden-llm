@@ -114,6 +114,8 @@ func newTemporalBatchFixture(t *testing.T, throttle bool) *temporalBatchFixture 
 	f.temporal, _ = integrationtest.TemporalLease(t)
 	store := &batch.PostgresStore{Pool: pool}
 	policy := batch.DefaultPolicy()
+	// This local provider has no account quota; window timing is covered at T0.
+	policy.WindowRequests = 0
 	if throttle {
 		policy.Concurrency = 2
 		policy.Burst = 2

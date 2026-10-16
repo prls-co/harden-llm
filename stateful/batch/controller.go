@@ -3,6 +3,7 @@ package batch
 
 import (
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -17,7 +18,7 @@ type Policy struct {
 }
 
 func DefaultPolicy() Policy {
-	return Policy{Concurrency: 128, Burst: 100, StartRate: 50, MaximumRate: 200, RefillEstimate: 61 * time.Second, WindowDuration: 61 * time.Second}
+	return Policy{Concurrency: 128, Burst: 200, StartRate: 100, MaximumRate: 200, RefillEstimate: 61 * time.Second, WindowRequests: 200, WindowDuration: 61 * time.Second}
 }
 func (p Policy) Validate() error {
 	if p.Concurrency < 1 || p.Concurrency > 1000 || p.Burst < 1 || p.Burst > 1000 || p.StartRate < 1 || p.MaximumRate < p.StartRate || p.MaximumRate > 1000 || p.RefillEstimate < time.Second || p.RefillEstimate > time.Hour {
@@ -178,4 +179,12 @@ func (c *Controller) Complete(now, dispatched, reserved time.Time, probe bool, k
 	if probe && c.Probing && kind != "completed" && kind != "rejected" {
 		c.Throttle(now, 0)
 	}
+}
+
+// retryDelay saturates before multiplying, preserving very large provider waits.
+func retryDelay(ms int64) time.Duration {
+	if ms > math.MaxInt64/int64(time.Millisecond) {
+		return time.Duration(math.MaxInt64)
+	}
+	return time.Duration(max(0, ms)) * time.Millisecond
 }

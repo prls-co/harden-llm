@@ -25,7 +25,7 @@ func TestBatchSettingsRequireExplicitSelfHostedDependencies(t *testing.T) {
 	env["HARDEN_LLM_BATCH_POOL_ID"] = "shared-cpa"
 	env["HARDEN_LLM_BATCH_UPSTREAM"] = "cpa"
 	s, err = loadBatchSettings(get, conns)
-	if err != nil || s.policy.Concurrency != 128 || s.policy.StartRate != 50 || s.taskQueue != "harden-llm-batch-v1" {
+	if err != nil || s.policy.Concurrency != 128 || s.policy.StartRate != 100 || s.taskQueue != "harden-llm-batch-v1" {
 		t.Fatalf("wrong defaults: %+v %v", s, err)
 	}
 	env["HARDEN_LLM_BATCH_CONCURRENCY"] = "256"

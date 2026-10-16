@@ -154,7 +154,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 			}
 		}
 		wasCooling, wasPaused, wasEligible := s.Controller.Cooling, s.Controller.Paused, s.Controller.NextEligible
-		s.Controller.Complete(workflow.Now(ctx), done.DispatchedAt, done.ReservedAt, done.Probe, done.Outcome.Kind, time.Duration(done.Outcome.RetryAfterMS)*time.Millisecond)
+		s.Controller.Complete(workflow.Now(ctx), done.DispatchedAt, done.ReservedAt, done.Probe, done.Outcome.Kind, retryDelay(done.Outcome.RetryAfterMS))
 		if !coalesceHeartbeats || wasCooling != s.Controller.Cooling || wasPaused != s.Controller.Paused || !wasEligible.Equal(s.Controller.NextEligible) {
 			nextHeartbeat = workflow.Now(ctx)
 		}
@@ -239,7 +239,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 				nextHeartbeat = workflow.Now(ctx)
 			}
 			workflow.Go(ctx, func(child workflow.Context) {
-				callCtx := workflow.WithActivityOptions(child, workflow.ActivityOptions{StartToCloseTimeout: 195 * time.Second, HeartbeatTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}})
+				callCtx := workflow.WithActivityOptions(child, workflow.ActivityOptions{StartToCloseTimeout: 210 * time.Second, HeartbeatTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}})
 				var outcome Outcome
 				if err := workflow.ExecuteActivity(callCtx, a.Generate, r).Get(callCtx, &outcome); err != nil {
 					outcome = Outcome{Kind: "failed", Error: &ItemError{Code: "activity_failed", Message: "The provider activity failed; inspect correlated diagnostics."}}
@@ -258,9 +258,12 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 		}
 		now = workflow.Now(ctx)
 		if len(s.Jobs) == 0 && active == 0 && now.Sub(lastWork) >= 30*time.Minute {
-			drainSignals()
-			if len(s.Jobs) == 0 {
-				return nil
+			version := workflow.GetVersion(ctx, "retain-idle-admission-restrictions", workflow.DefaultVersion, 1)
+			if version == workflow.DefaultVersion || (!s.Controller.Paused && !s.Controller.Cooling) {
+				drainSignals()
+				if len(s.Jobs) == 0 && (version == workflow.DefaultVersion || (!s.Controller.Paused && !s.Controller.Cooling)) {
+					return nil
+				}
 			}
 		}
 		delay := 5 * time.Second

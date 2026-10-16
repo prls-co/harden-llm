@@ -65,7 +65,7 @@ func TestProfilesRejectInvalidResponsesWithoutFallback(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			client, calls := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodGet || r.Header.Get("Accept") != "application/json" {
-					t.Error("catalog lost its GET/content contract")
+					t.Errorf("catalog lost its GET/content contract: %s %s", r.Method, r.URL.Path)
 				}
 				w.Header().Set("Content-Type", "application/json")
 				switch name {

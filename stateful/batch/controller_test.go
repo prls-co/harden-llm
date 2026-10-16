@@ -2,13 +2,16 @@ package batch
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-474
 import (
+	"math"
 	"testing"
 	"time"
 )
 
 func TestAdmissionBurstPaceAndSingleRecoveryProbe(t *testing.T) {
 	now := time.Unix(1000, 0)
-	c := NewController(DefaultPolicy())
+	p := DefaultPolicy()
+	p.Burst, p.StartRate = 100, 50
+	c := NewController(p)
 	for i := 0; i < 100; i++ {
 		if !c.CanStart(now, 0) {
 			t.Fatalf("burst %d blocked", i)
@@ -56,7 +59,7 @@ func TestAdmissionGrowthDoesNotConfuseRateWithConcurrency(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		c.Success(now)
 	}
-	if c.Rate != 100 || c.Policy.Concurrency != 128 {
+	if c.Rate != 200 || c.Policy.Concurrency != 128 {
 		t.Fatal("independent controls lost")
 	}
 }
@@ -152,5 +155,18 @@ func TestAdmissionWindowRefundsOnlyExplicitSameWindowRefusals(t *testing.T) {
 	c.Complete(now.Add(2*time.Second), now.Add(time.Second), now.Add(time.Second), false, "rejected", time.Second)
 	if c.WindowStarts != 1 || !c.Cooling || !c.CanStart(now.Add(3*time.Second), 0) {
 		t.Fatal("explicit refusal was not refunded or recovery probe was blocked")
+	}
+}
+
+func TestLargeRetryHintCannotOverflowIntoImmediateAdmission(t *testing.T) {
+	if got := retryDelay(math.MaxInt64); got != time.Duration(math.MaxInt64) {
+		t.Fatal("large retry hint overflowed", got)
+	}
+	c := NewController(DefaultPolicy())
+	at := time.Unix(1000, 0)
+	c.Start(at)
+	c.Throttle(at, retryDelay(math.MaxInt64))
+	if c.CanStart(at.Add(time.Hour), 0) {
+		t.Fatal("large provider wait became an early probe")
 	}
 }

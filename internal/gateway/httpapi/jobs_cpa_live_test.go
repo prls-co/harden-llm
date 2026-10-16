@@ -34,12 +34,15 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	}
 	caseName := os.Getenv("HARDEN_LLM_CPA_BATCH_BENCH_CASE")
 	policy := batch.DefaultPolicy()
+	// Baseline pacing belongs to the producer; rolling cases deliberately probe.
+	policy.WindowRequests = 0
 	baseline := false
 	mixed := false
 	switch caseName {
 	case "baseline":
 		baseline = true
 	case "rolling-128-50":
+		policy.StartRate, policy.Burst = 50, 100
 	case "rolling-128-100":
 		policy.StartRate = 100
 	case "rolling-200-100":

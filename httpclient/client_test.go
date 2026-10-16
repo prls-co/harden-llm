@@ -85,7 +85,7 @@ func testClient(t *testing.T, handler http.HandlerFunc) (*Client, *atomic.Int32)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		if r.Header.Get("Authorization") != "Bearer "+testAPIKey {
-			t.Error("wrong bearer")
+			t.Errorf("wrong bearer on %s %s", r.Method, r.URL.Path)
 		}
 		for _, name := range []string{"X-PRLS-Account-ID", "X-PRLS-Service", "Idempotency-Key", "Last-Event-ID"} {
 			if r.Header.Get(name) != "" {

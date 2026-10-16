@@ -96,3 +96,34 @@ func TestDispatcherPublishesHeartbeatWithoutWritingForEverySuccess(t *testing.T)
 		t.Fatalf("success path should coalesce metadata writes: results=%d publications=%d", recorded.Load(), publications.Load())
 	}
 }
+
+func TestDispatcherRetainsAccountPauseAcrossIdleAndNewJobs(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(&a)
+	var calls atomic.Int32
+	env.OnActivity(a.Generate, mock.Anything, mock.Anything).Return(func(context.Context, Ref) (Outcome, error) {
+		calls.Add(1)
+		return Outcome{Kind: "completed", ArtifactID: "result.json"}, nil
+	})
+	env.OnActivity(a.Record, mock.Anything, mock.Anything, mock.Anything).Return(Counts{Total: 1, Succeeded: 1}, nil)
+	env.OnActivity(a.Cooldown, mock.Anything, mock.Anything).Return(nil)
+	initial := NewController(DefaultPolicy())
+	initial.Paused = true
+	job := JobRef{Scope: "fixture", JobID: "late", Count: 1, Deadline: env.Now().Add(2 * time.Hour)}
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow(enqueueSignal, job) }, 35*time.Minute)
+	env.RegisterDelayedCallback(func() {
+		if calls.Load() != 0 {
+			t.Error("an idle account restriction was bypassed")
+		}
+		env.SignalWorkflow("resume", true)
+	}, 36*time.Minute)
+	env.ExecuteWorkflow(DispatcherWorkflow, DispatcherState{Controller: initial})
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 1 {
+		t.Fatal("account pause was discarded when the dispatcher became idle")
+	}
+}

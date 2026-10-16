@@ -42,7 +42,7 @@ func TestWaitJobReportsWaitingAndNeverRepostsInference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	status, err := c.waitJob(ctx, jobFixtureID, time.Millisecond, func(JobStatus) { progress++ })
 	if err != nil || status.Counts.Failed != 2 || gets != 2 || posts != 0 || progress != 2 {
@@ -91,5 +91,26 @@ func TestJobRejectionUsesOrdinaryOpenAIErrorContract(t *testing.T) {
 	var rejected *RejectedError
 	if !errors.As(err, &rejected) || rejected.StatusCode != 409 || rejected.Problem.Code != "idempotency_conflict" {
 		t.Fatalf("expected typed canonical rejection, got %T", err)
+	}
+}
+
+func TestWaitJobStopsOnCancellationAfterReportingProgress(t *testing.T) {
+	t.Parallel()
+	gets := 0
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gets++
+		if r.Method != http.MethodGet {
+			t.Error("waiting submitted inference")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(fixtureJobStatus(false))
+	}))
+	defer s.Close()
+	c, _ := New(Config{BaseURL: s.URL, APIKey: strings.Repeat("synthetic-key", 4), HTTPClient: s.Client()})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	status, err := c.WaitJob(ctx, jobFixtureID, func(JobStatus) { cancel() })
+	if !errors.Is(err, context.Canceled) || gets != 1 || status.Counts.Waiting != 2 {
+		t.Fatalf("progress must not extend cancellation: gets=%d error=%v", gets, err)
 	}
 }

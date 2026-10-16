@@ -36,8 +36,8 @@ HARDEN_LLM_BATCH_TASK_QUEUE=harden-llm-batch-v1
 HARDEN_LLM_BATCH_POOL_ID=shared-cpa-account
 HARDEN_LLM_BATCH_UPSTREAM=cpa
 HARDEN_LLM_BATCH_CONCURRENCY=128
-HARDEN_LLM_BATCH_BURST=100
-HARDEN_LLM_BATCH_START_RATE=50
+HARDEN_LLM_BATCH_BURST=200
+HARDEN_LLM_BATCH_START_RATE=100
 HARDEN_LLM_BATCH_MAX_START_RATE=200
 HARDEN_LLM_BATCH_REFILL_ESTIMATE_MS=61000
 HARDEN_LLM_BATCH_WINDOW_REQUESTS=200
@@ -82,7 +82,7 @@ Temporal pollers and job heartbeats/deadlines. Preserve accepted manifests,
 results and workflow histories during rollback. Disable new batch submissions
 and drain accepted work before removing workers or changing workflow versions.
 
-The dispatcher initially releases 100 calls, then paces starts at 50/second,
+The dispatcher initially releases up to 200 calls, then paces starts at 100/second,
 with at most 128 active calls. Every 100 unthrottled validated completions
 doubles the launch rate, up to 200/second. These are caller controls, not a
 claim about provider entitlement. Concurrency and start rate are independent.
@@ -95,6 +95,8 @@ is occupied. Setting `WINDOW_REQUESTS=0` disables this estimate for aggressive
 probing or a differently qualified provider. This is a configurable caller
 estimate based on measurements, not a declaration of universal provider RPM.
 Queued jobs report `admission_window` and `next_attempt_at` while it is exhausted.
+Defaults select 128 active slots, a 200-start budget and 61 seconds based on
+the retained experiments. Both this estimate and the launch pace are tunable.
 
 One explicit throttle closes pool admission. Existing calls finish; one queued
 item becomes the recovery probe after `Retry-After`. Without a supplied delay,
@@ -115,6 +117,8 @@ dispatcher's `state` query in Temporal to confirm application. Updating policy
 does not grant another initial burst or override cooldown/account restrictions.
 After resolving an account restriction, an operator can send the dispatcher's
 `resume` signal with JSON `true`. This causes one recovery probe.
+Account restrictions and pending recovery survive an idle queue; completing all
+jobs or expiring their deadlines does not reset the account gate.
 
 ## 3. Submission, waiting and results
 

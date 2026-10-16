@@ -156,33 +156,10 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 		out.CachedInputTokens = &u.CacheReadTokens
 	}
 	if err != nil {
-		code := "upstream_error"
-		status := 0
-		var p *hardenllm.ProviderError
-		if errors.As(err, &p) {
-			status = p.Status
-			if safeErrorCode.MatchString(p.Code) {
-				code = p.Code
-			}
-			if p.RetryAfter > 0 {
-				out.RetryAfterMS = p.RetryAfter.Milliseconds()
-				if p.RetryAfter%time.Millisecond != 0 {
-					out.RetryAfterMS++
-				}
-			}
-			switch {
-			case status == 401 || status == 403 || code == "account_deactivated" || code == "policy_violation" || code == "insufficient_quota" || code == "billing_hard_limit_reached" || code == "billing_not_active":
-				out.Kind = "policy"
-			case status == 429 || code == "rate_limit_exceeded" || code == "model_cooldown" || code == "auth_unavailable":
-				out.Kind = "rejected"
-			}
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			code = "provider_timeout"
-		}
-		out.Error = &ItemError{Code: code, HTTPStatus: status, Message: "The provider request did not produce a validated result."}
+		out.Kind, out.Error, out.RetryAfterMS = classifyAttemptError(err)
 		return out, nil
 	}
+
 	raw, err := a.Encode(item.Item.Generation, result, time.Now().UTC())
 	if err != nil || !json.Valid(raw) {
 		out.Error = &ItemError{Code: "result_encoding_failed", Message: "The result could not be encoded."}
@@ -199,6 +176,36 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 	out.ArtifactID = id
 	return out, nil
 }
+func classifyAttemptError(err error) (kind string, problem *ItemError, delay int64) {
+	kind = "failed"
+	code := "upstream_error"
+	status := 0
+	var p *hardenllm.ProviderError
+	if errors.As(err, &p) {
+		status = p.Status
+		if safeErrorCode.MatchString(p.Code) {
+			code = p.Code
+		}
+		if p.RetryAfter > 0 {
+			delay = p.RetryAfter.Milliseconds()
+			if p.RetryAfter%time.Millisecond != 0 {
+				delay++
+			}
+		}
+		switch {
+		case status == 401 || status == 403 || code == "account_deactivated" || code == "policy_violation" || code == "insufficient_quota" || code == "billing_hard_limit_reached" || code == "billing_not_active":
+			kind = "policy"
+		case status == 429 || code == "rate_limit_exceeded" || code == "model_cooldown" || code == "auth_unavailable":
+			kind = "rejected"
+		}
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		code = "provider_timeout"
+	}
+	problem = &ItemError{Code: code, HTTPStatus: status, Message: "The provider request did not produce a validated result."}
+	return kind, problem, delay
+}
+
 func NewWorker(c client.Client, queue string, a *Activities) (worker.Worker, error) {
 	if c == nil || queue == "" || a == nil || a.Store == nil || a.Artifacts == nil || a.Execute == nil || a.Encode == nil || a.PoolID == "" {
 		return nil, ErrUnavailable
