@@ -2030,6 +2030,6 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 ### TEST-470: CPA-only simultaneous concurrency experiment
 
 - Coverage gate: `fast` for the deterministic overlap oracle; explicit `--live --cpa-only` for public measurements.
-- Location: `internal/livecapacity/concurrency_test.go`.
-- Command: `go test ./internal/livecapacity -run '^TestConcurrencyWaveActuallyOverlapsAndNeverOverflows$' -count=1`.
+- Locations: `internal/livecapacity/concurrency_test.go`, `cmd/harden-llm-loadtest/main_test.go`.
+- Command: `go test ./internal/livecapacity ./cmd/harden-llm-loadtest -count=1`.
 - Oracle: eight real local HTTP handlers must overlap before any response is released; a rejected wave receives exactly one attempt per item and never overflows to OpenAI. The local TLS loopback control preserves exact provider requests and rejection hints, with an explicit private address/certificate exception. The explicit live mode uses only CPA credentials, unpaced waves, five-second heartbeats, a two-hour maximum deadline and stops escalation at the first incomplete wave. Its experiment-only response-header budget is 60 seconds; production defaults remain unchanged. This establishes effective gateway overlap, not CPA's hidden native attempts.

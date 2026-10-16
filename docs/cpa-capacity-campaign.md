@@ -268,3 +268,10 @@ or the separate synthetic harness guard. A local HTTP regression confirms the
 control preserves the request, authorization and provider Retry-After response.
 A passing control distinguishes paths but cannot by itself identify which
 public-path component caused a reset.
+
+
+The [2026-10-16 CPA-only measurement](../plans/evidence/harden-llm/cpa-concurrency/2026-10-16/report.md)
+records 1,320 calls: fully passing 64-call bursts, native 429s under repeated
+bursts and a four-starts/second configuration, and separate unknown outcomes at
+low load even through a same-instance loopback control. It does not qualify a
+clean 1,000-result CPA-only drain or establish a universal concurrency ceiling.
