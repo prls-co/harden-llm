@@ -3035,7 +3035,8 @@ new gateway release. Neither application has been promoted at this checkpoint.
 
 This supersedes the pending-promotion checkpoint above. The prerequisite is on
 `main`, deployed and qualified for the two canonical Model Recall schemas.
-Consumer Model Recall deployment and report acceptance remain separate gates.
+Consumer Model Recall deployment and report acceptance are separately recorded
+in the consumer closeout below.
 
 | Component | Certified source/run | Deployed immutable image |
 | --- | --- | --- |
@@ -3084,3 +3085,23 @@ contract/routing evidence, not population-level model-quality certification.
 
 No H browser was selected; browser layout was not checked. No application rebuild
 or relabelling is required for this documentation closeout.
+
+
+### Model Recall consumer acceptance — October 16
+
+Consumer runtime M `196896805cc150b0f677f485e9342584a3d1e496` and Analytics
+`e779e34c282811ec3ffa4b3ce60bcb12545a19b9` passed exact-main gates and are
+now deployed. Explicit text, URL and edited-rerun journeys passed with three
+valid published observations. Original responses and Tempo readback confirm
+seven successful structured CPA Luna dispatches, one attempt each, no cache or
+repair: four preparation and three prediction. The edited run reused preparation.
+The consumer sends native `low` and 30,000 ms directly within the native API's
+60,000 ms maximum; no H adapter, mapping or timeout fallback was added.
+
+The existing [consumer release record](https://github.com/prls-co/prls-analytics/blob/main/docs/releases/2026-09-30-model-recall-public-access.md)
+and [single execution plan](https://github.com/prls-co/masked-recall/blob/main/plans/model-recall-public-access.md#17-json-schema-migration--current-execution-plan)
+record the drained deployment, scans, actual backup restore/data preservation,
+authenticated latency, outcomes and live report URLs. The final three prediction
+trials have two expected-entity and one other-entity outcomes; this is bounded
+contract/workflow acceptance, not statistical model-quality equivalence. H's
+qualified component images and credentials remain unchanged. No H browser ran.
