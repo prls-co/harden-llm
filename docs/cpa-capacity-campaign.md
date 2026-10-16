@@ -258,3 +258,13 @@ The steady mode admits at most four starts/second and 32 active calls; actual
 active overlap depends on response duration. It stops at the first incomplete
 result rather than hiding failures with retries. These settings are experiment
 controls, not guaranteed account entitlements.
+
+`--cpa-loopback-control` additionally requires `--cpa-only`. It uses an
+experiment-owned TLS proxy with an exact loopback certificate/address exception,
+forwarding to the same existing CPA instance at `http://127.0.0.1:8317`.
+This removes the public ingress/Internet path and changes the proxy-to-CPA hop
+to HTTP/1.1. It does not change production endpoint policy, shared CPA settings,
+or the separate synthetic harness guard. A local HTTP regression confirms the
+control preserves the request, authorization and provider Retry-After response.
+A passing control distinguishes paths but cannot by itself identify which
+public-path component caused a reset.

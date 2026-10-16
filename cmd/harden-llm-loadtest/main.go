@@ -6,15 +6,21 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/netip"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -38,6 +44,7 @@ func main() {
 func run(args []string) error {
 	flags := flag.NewFlagSet("harden-llm-loadtest", flag.ContinueOnError)
 	live := flags.Bool("live", false, "explicitly authorize live inference")
+	localCPA := flags.Bool("cpa-loopback-control", false, "CPA-only control through TLS loopback proxy to the same CPA at 127.0.0.1:8317")
 	cpaOnly := flags.Bool("cpa-only", false, "measure simultaneous CPA-only waves; never construct an official API route")
 	minimum := flags.Int("min-concurrency", 1, "CPA-only first wave concurrency")
 	steadyCalls := flags.Int("steady-calls", 0, "CPA-only backlog instead of waves, at most 1000")
@@ -52,6 +59,9 @@ func run(args []string) error {
 	}
 	if !*live {
 		return fmt.Errorf("live inference requires --live")
+	}
+	if *localCPA && !*cpaOnly {
+		return fmt.Errorf("loopback control requires --cpa-only")
 	}
 	if *minimum < 1 || *minimum > *maximum || *steadyCalls < 0 || *steadyCalls > 1000 || *interval < 0 || *maximum < 1 || *maximum > 128 || *waves < 1 || *waves > 5 {
 		return fmt.Errorf("require max-concurrency in [1,128] and waves in [1,5]")
@@ -85,7 +95,15 @@ func run(args []string) error {
 		// a provider rejection. The ordinary 60s total request budget still applies.
 		headerTimeout = 60 * time.Second
 	}
-	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{Connections: connections, DefaultConnection: "cpa", EndpointPolicy: hardenllm.EndpointPolicy{ResponseHeaderTimeout: headerTimeout}, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}})
+	policy := hardenllm.EndpointPolicy{ResponseHeaderTimeout: headerTimeout}
+	if *localCPA {
+		target, _ := url.Parse("http://127.0.0.1:8317")
+		control, controlPolicy := newCPAControl(target)
+		defer control.Close()
+		policy = controlPolicy
+		connections[0].BaseURL = control.URL + "/v1"
+	}
+	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{Connections: connections, DefaultConnection: "cpa", EndpointPolicy: policy, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}})
 	if err != nil {
 		return err
 	}
@@ -98,7 +116,7 @@ func run(args []string) error {
 	sha, _ := exec.Command("git", "rev-parse", "HEAD").Output()
 	diff, _ := exec.Command("git", "diff", "HEAD").Output()
 	fingerprint := sha256.Sum256(diff)
-	metadata := map[string]any{"cpaOnly": *cpaOnly, "minimumConcurrency": *minimum, "steadyCalls": *steadyCalls, "startIntervalMs": interval.Milliseconds(), "maximumConcurrency": *maximum, "wavesPerLevel": *waves, "responseHeaderTimeoutMs": headerTimeout.Milliseconds(), "sourceSHA": string(sha), "trackedDiffSHA256": hex.EncodeToString(fingerprint[:]), "model": "gpt-6-luna", "reasoning": "low", "duration": duration.String(), "apiBudgetUSD": *budget, "apiAttemptReservationUSD": livecapacity.AttemptReservation, "pricingSource": "https://developers.openai.com/api/docs/changelog#september-2026", "syntheticWorkload": true, "persistence": false, "sharedCPAConfigChanged": false}
+	metadata := map[string]any{"cpaOnly": *cpaOnly, "loopbackControl": *localCPA, "minimumConcurrency": *minimum, "steadyCalls": *steadyCalls, "startIntervalMs": interval.Milliseconds(), "maximumConcurrency": *maximum, "wavesPerLevel": *waves, "responseHeaderTimeoutMs": headerTimeout.Milliseconds(), "sourceSHA": string(sha), "trackedDiffSHA256": hex.EncodeToString(fingerprint[:]), "model": "gpt-6-luna", "reasoning": "low", "duration": duration.String(), "apiBudgetUSD": *budget, "apiAttemptReservationUSD": livecapacity.AttemptReservation, "pricingSource": "https://developers.openai.com/api/docs/changelog#september-2026", "syntheticWorkload": true, "persistence": false, "sharedCPAConfigChanged": false}
 	data, _ := json.MarshalIndent(metadata, "", "  ")
 	if err = os.WriteFile(filepath.Join(*directory, "metadata.json"), data, 0600); err != nil {
 		return err
@@ -129,4 +147,17 @@ func run(args []string) error {
 		return err
 	}
 	return runErr
+}
+
+// newCPAControl is an experiment-owned TLS boundary, with an exact private host
+// exception. The CLI target is fixed to the existing local CPA port; neither
+// production egress policy nor the synthetic harness's endpoint guard changes.
+func newCPAControl(target *url.URL) (*httptest.Server, hardenllm.EndpointPolicy) {
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.ErrorLog = log.New(io.Discard, "", 0)
+	proxy.Transport = &http.Transport{Proxy: nil, ResponseHeaderTimeout: 60 * time.Second, MaxIdleConns: 128, MaxIdleConnsPerHost: 128}
+	server := httptest.NewTLSServer(proxy)
+	roots := x509.NewCertPool()
+	roots.AddCert(server.Certificate())
+	return server, hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}, ResponseHeaderTimeout: 60 * time.Second}
 }
