@@ -1,0 +1,1566 @@
+{
+  "generatedAt": "2026-10-16T03:40:36.311757+00:00",
+  "runs": [
+    {
+      "directory": "local-window200-60p1s-952b923",
+      "metadata": {
+        "HLLMExecutionCoreUsed": false,
+        "action": "drain",
+        "callTimeoutMs": 180000,
+        "calls": 1000,
+        "concurrency": 200,
+        "durationMs": 1200000,
+        "endpoint": "http://127.0.0.1:8317",
+        "granularity": 8,
+        "intervalMs": 0,
+        "maximum": 1000,
+        "model": "gpt-6-luna",
+        "nativeCPAStreaming": true,
+        "officialAPIEnabled": false,
+        "quietMs": 90000,
+        "reasoning": "low",
+        "sharedCPAConfigurationChanged": false,
+        "sourceSHA": "952b923943bfba09b4b99097c702ba95b45439f0",
+        "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "windowBurst": 200,
+        "windowMs": 60100
+      },
+      "rawEventsSHA256": "b323a45403030b5de273cc218ba4025a088764e8d9d01912ee5b9be2e5c3428b",
+      "phases": [
+        {
+          "name": "drain",
+          "finished": true,
+          "point": {
+            "accepted": 1000,
+            "active": 0,
+            "completed": 1000,
+            "concurrency": 200,
+            "dispatched": 1000,
+            "durationMs": 253175,
+            "failed": 0,
+            "finishedAt": "2026-10-15T20:31:14.471418762-07:00",
+            "name": "drain",
+            "p50SuccessfulMs": 1385,
+            "p95SuccessfulMs": 2780,
+            "pauseUntil": "2026-10-15T20:32:01.81699982-07:00",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T20:27:01.296171336-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 3.949833209094572,
+            "unknown": 0
+          },
+          "attempts": 1000,
+          "outcomes": {
+            "completed": 1000
+          },
+          "actualHTTPOverlap": 200,
+          "identity": {
+            "completedCount": 1000,
+            "distinctCompletedIDs": 1000,
+            "distinctNonces": 1000,
+            "models": {
+              "gpt-6-luna": 1000
+            },
+            "efforts": {
+              "low": 1000
+            },
+            "terminalEvents": {
+              "response.completed": 1000
+            }
+          },
+          "successfulDuration": {
+            "n": 1000,
+            "minMs": 892,
+            "p50Ms": 1385,
+            "p95Ms": 2780,
+            "maxMs": 68461,
+            "p99Ms": 11531
+          },
+          "headersDuration": {
+            "n": 1000,
+            "minMs": 522,
+            "p50Ms": 818,
+            "p95Ms": 1848,
+            "maxMs": 11766,
+            "p99Ms": 3400
+          },
+          "firstOutputDuration": {
+            "n": 1000,
+            "minMs": 749,
+            "p50Ms": 1210,
+            "p95Ms": 2559,
+            "maxMs": 68208,
+            "p99Ms": 11380
+          },
+          "successfulCallsOver60s": 2,
+          "sumInputTokens": 57000,
+          "sumOutputTokens": 26000,
+          "milestoneSeconds": {
+            "200": 4.104,
+            "400": 121.16,
+            "600": 181.395,
+            "800": 216.7,
+            "950": 242.304,
+            "999": 252.476,
+            "1000": 253.175
+          },
+          "slowestSuccessfulSamples": [
+            {
+              "id": 252,
+              "attempt": 1,
+              "durationMs": 68461,
+              "headersMs": 749,
+              "firstOutputMs": 68208,
+              "inputTokens": 57,
+              "outputTokens": 26,
+              "startedAt": "2026-10-15T20:28:01.413482005-07:00",
+              "finishedAt": "2026-10-15T20:29:09.875427661-07:00"
+            },
+            {
+              "id": 594,
+              "attempt": 1,
+              "durationMs": 61707,
+              "headersMs": 752,
+              "firstOutputMs": 61541,
+              "inputTokens": 57,
+              "outputTokens": 26,
+              "startedAt": "2026-10-15T20:29:01.559971629-07:00",
+              "finishedAt": "2026-10-15T20:30:03.267833331-07:00"
+            },
+            {
+              "id": 623,
+              "attempt": 1,
+              "durationMs": 36374,
+              "headersMs": 1417,
+              "firstOutputMs": 36055,
+              "inputTokens": 57,
+              "outputTokens": 26,
+              "startedAt": "2026-10-15T20:30:01.621506822-07:00",
+              "finishedAt": "2026-10-15T20:30:37.995791498-07:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "directory": "probe201-6bdb21a",
+      "metadata": {
+        "HLLMExecutionCoreUsed": false,
+        "action": "wave",
+        "callTimeoutMs": 180000,
+        "calls": 1000,
+        "concurrency": 201,
+        "durationMs": 600000,
+        "endpoint": "http://127.0.0.1:8317",
+        "granularity": 8,
+        "intervalMs": 0,
+        "maximum": 1000,
+        "model": "gpt-6-luna",
+        "nativeCPAStreaming": true,
+        "officialAPIEnabled": false,
+        "quietMs": 90000,
+        "reasoning": "low",
+        "sharedCPAConfigurationChanged": false,
+        "sourceSHA": "6bdb21a02c6457dd7588041b6c02b9bec469ff58",
+        "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "windowBurst": 0,
+        "windowMs": 60000
+      },
+      "rawEventsSHA256": "61bebbf6fa7dec4ca5fd08fb88b28a72aa9712facb40c84a9da5d9379b1edf84",
+      "phases": [
+        {
+          "name": "wave",
+          "finished": true,
+          "point": {
+            "accepted": 201,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 201,
+            "dispatched": 201,
+            "durationMs": 34439,
+            "failed": 0,
+            "finishedAt": "2026-10-15T20:08:05.278306268-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1330,
+            "p95SuccessfulMs": 2799,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 201,
+            "policy": 0,
+            "rejections": 1,
+            "startedAt": "2026-10-15T20:07:30.839220842-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 5.807355146975422,
+            "unknown": 0
+          },
+          "attempts": 201,
+          "outcomes": {
+            "completed": 200,
+            "rejected": 1
+          },
+          "actualHTTPOverlap": 201,
+          "identity": {
+            "completedCount": 200,
+            "distinctCompletedIDs": 200,
+            "distinctNonces": 200,
+            "models": {
+              "gpt-6-luna": 200
+            },
+            "efforts": {
+              "low": 200
+            },
+            "terminalEvents": {
+              "response.completed": 200
+            }
+          },
+          "successfulDuration": {
+            "n": 200,
+            "minMs": 900,
+            "p50Ms": 1330,
+            "p95Ms": 2799,
+            "maxMs": 5677
+          },
+          "headersDuration": {
+            "n": 200,
+            "minMs": 533,
+            "p50Ms": 713,
+            "p95Ms": 1341,
+            "maxMs": 2692
+          },
+          "firstOutputDuration": {
+            "n": 200,
+            "minMs": 737,
+            "p50Ms": 1156,
+            "p95Ms": 2545,
+            "maxMs": 3895
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 11200,
+          "sumOutputTokens": 5000
+        }
+      ]
+    },
+    {
+      "directory": "public-window200-61s-952b923",
+      "metadata": {
+        "HLLMExecutionCoreUsed": false,
+        "action": "drain",
+        "callTimeoutMs": 180000,
+        "calls": 1000,
+        "concurrency": 200,
+        "durationMs": 1200000,
+        "endpoint": "https://cpa.prls.co",
+        "granularity": 8,
+        "intervalMs": 0,
+        "maximum": 1000,
+        "model": "gpt-6-luna",
+        "nativeCPAStreaming": true,
+        "officialAPIEnabled": false,
+        "quietMs": 90000,
+        "reasoning": "low",
+        "sharedCPAConfigurationChanged": false,
+        "sourceSHA": "952b923943bfba09b4b99097c702ba95b45439f0",
+        "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "windowBurst": 200,
+        "windowMs": 61000
+      },
+      "rawEventsSHA256": "d9fbb2bd9e002ed405b01642e3614201866cea7b774b724782a7f620cf208bdf",
+      "phases": [
+        {
+          "name": "drain",
+          "finished": true,
+          "point": {
+            "accepted": 1000,
+            "active": 0,
+            "completed": 1000,
+            "concurrency": 200,
+            "dispatched": 1000,
+            "durationMs": 360400,
+            "failed": 0,
+            "finishedAt": "2026-10-15T20:17:14.919857122-07:00",
+            "name": "drain",
+            "p50SuccessfulMs": 1576,
+            "p95SuccessfulMs": 2723,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T20:11:14.519695251-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 2.774693537332985,
+            "unknown": 0
+          },
+          "attempts": 1000,
+          "outcomes": {
+            "completed": 1000
+          },
+          "actualHTTPOverlap": 200,
+          "identity": {
+            "completedCount": 1000,
+            "distinctCompletedIDs": 1000,
+            "distinctNonces": 1000,
+            "models": {
+              "gpt-6-luna": 1000
+            },
+            "efforts": {
+              "low": 1000
+            },
+            "terminalEvents": {
+              "response.completed": 1000
+            }
+          },
+          "successfulDuration": {
+            "n": 1000,
+            "minMs": 932,
+            "p50Ms": 1576,
+            "p95Ms": 2723,
+            "maxMs": 118900,
+            "p99Ms": 4662
+          },
+          "headersDuration": {
+            "n": 1000,
+            "minMs": 519,
+            "p50Ms": 996,
+            "p95Ms": 1760,
+            "maxMs": 9891,
+            "p99Ms": 2642
+          },
+          "firstOutputDuration": {
+            "n": 1000,
+            "minMs": 774,
+            "p50Ms": 1399,
+            "p95Ms": 2472,
+            "maxMs": 118802,
+            "p99Ms": 4289
+          },
+          "successfulCallsOver60s": 2,
+          "sumInputTokens": 57000,
+          "sumOutputTokens": 26000,
+          "milestoneSeconds": {
+            "200": 62.107,
+            "400": 118.915,
+            "600": 131.776,
+            "800": 194.605,
+            "950": 245.701,
+            "999": 258.618,
+            "1000": 360.4
+          },
+          "slowestSuccessfulSamples": [
+            {
+              "id": 67,
+              "attempt": 1,
+              "durationMs": 118900,
+              "headersMs": 1340,
+              "firstOutputMs": 118802,
+              "inputTokens": 57,
+              "outputTokens": 26,
+              "startedAt": "2026-10-15T20:11:14.534653297-07:00",
+              "finishedAt": "2026-10-15T20:13:13.434840404-07:00"
+            },
+            {
+              "id": 868,
+              "attempt": 1,
+              "durationMs": 116363,
+              "headersMs": 729,
+              "firstOutputMs": 116135,
+              "inputTokens": 57,
+              "outputTokens": 26,
+              "startedAt": "2026-10-15T20:15:18.555699338-07:00",
+              "finishedAt": "2026-10-15T20:17:14.919656522-07:00"
+            },
+            {
+              "id": 185,
+              "attempt": 1,
+              "durationMs": 32400,
+              "headersMs": 1562,
+              "firstOutputMs": 32241,
+              "inputTokens": 57,
+              "outputTokens": 26,
+              "startedAt": "2026-10-15T20:11:14.626610292-07:00",
+              "finishedAt": "2026-10-15T20:11:47.026858071-07:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "directory": "public-window200-c128-61s-952b923",
+      "metadata": {
+        "HLLMExecutionCoreUsed": false,
+        "action": "drain",
+        "callTimeoutMs": 180000,
+        "calls": 1000,
+        "concurrency": 128,
+        "durationMs": 1200000,
+        "endpoint": "https://cpa.prls.co",
+        "granularity": 8,
+        "intervalMs": 0,
+        "maximum": 1000,
+        "model": "gpt-6-luna",
+        "nativeCPAStreaming": true,
+        "officialAPIEnabled": false,
+        "quietMs": 90000,
+        "reasoning": "low",
+        "sharedCPAConfigurationChanged": false,
+        "sourceSHA": "952b923943bfba09b4b99097c702ba95b45439f0",
+        "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "windowBurst": 200,
+        "windowMs": 61000
+      },
+      "rawEventsSHA256": "2d58dbde534d28d591e93f71887d67f13d8c2e6d8adc28b2ed423abb215b0f5f",
+      "phases": [
+        {
+          "name": "drain",
+          "finished": true,
+          "point": {
+            "accepted": 1000,
+            "active": 0,
+            "completed": 1000,
+            "concurrency": 128,
+            "dispatched": 1000,
+            "durationMs": 255558,
+            "failed": 0,
+            "finishedAt": "2026-10-15T20:37:00.038905473-07:00",
+            "name": "drain",
+            "p50SuccessfulMs": 1388,
+            "p95SuccessfulMs": 2812,
+            "pauseUntil": "2026-10-15T20:37:49.492127594-07:00",
+            "peak": 128,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T20:32:44.480857274-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 3.9130053115794534,
+            "unknown": 0
+          },
+          "attempts": 1000,
+          "outcomes": {
+            "completed": 1000
+          },
+          "actualHTTPOverlap": 128,
+          "identity": {
+            "completedCount": 1000,
+            "distinctCompletedIDs": 1000,
+            "distinctNonces": 1000,
+            "models": {
+              "gpt-6-luna": 1000
+            },
+            "efforts": {
+              "low": 1000
+            },
+            "terminalEvents": {
+              "response.completed": 1000
+            }
+          },
+          "successfulDuration": {
+            "n": 1000,
+            "minMs": 898,
+            "p50Ms": 1388,
+            "p95Ms": 2812,
+            "maxMs": 31645,
+            "p99Ms": 6168
+          },
+          "headersDuration": {
+            "n": 1000,
+            "minMs": 521,
+            "p50Ms": 800,
+            "p95Ms": 1604,
+            "maxMs": 5988,
+            "p99Ms": 2833
+          },
+          "firstOutputDuration": {
+            "n": 1000,
+            "minMs": 748,
+            "p50Ms": 1215,
+            "p95Ms": 2484,
+            "maxMs": 31489,
+            "p99Ms": 5983
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 57000,
+          "sumOutputTokens": 26000,
+          "milestoneSeconds": {
+            "200": 7.62,
+            "400": 78.215,
+            "600": 153.657,
+            "800": 216.013,
+            "950": 246.496,
+            "999": 248.784,
+            "1000": 255.558
+          },
+          "slowestSuccessfulSamples": [
+            {
+              "id": 401,
+              "attempt": 1,
+              "durationMs": 31645,
+              "headersMs": 701,
+              "firstOutputMs": 31489,
+              "inputTokens": 57,
+              "outputTokens": 26,
+              "startedAt": "2026-10-15T20:34:46.491943009-07:00",
+              "finishedAt": "2026-10-15T20:35:18.137694202-07:00"
+            },
+            {
+              "id": 785,
+              "attempt": 1,
+              "durationMs": 31612,
+              "headersMs": 793,
+              "firstOutputMs": 31376,
+              "inputTokens": 57,
+              "outputTokens": 26,
+              "startedAt": "2026-10-15T20:35:48.881446333-07:00",
+              "finishedAt": "2026-10-15T20:36:20.493840241-07:00"
+            },
+            {
+              "id": 642,
+              "attempt": 1,
+              "durationMs": 31357,
+              "headersMs": 717,
+              "firstOutputMs": 31193,
+              "inputTokens": 57,
+              "outputTokens": 26,
+              "startedAt": "2026-10-15T20:35:47.496119284-07:00",
+              "finishedAt": "2026-10-15T20:36:18.853911482-07:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "directory": "search-2b41ae8",
+      "metadata": {
+        "HLLMExecutionCoreUsed": false,
+        "action": "search",
+        "callTimeoutMs": 180000,
+        "calls": 1000,
+        "concurrency": 64,
+        "durationMs": 5400000,
+        "endpoint": "http://127.0.0.1:8317",
+        "granularity": 8,
+        "intervalMs": 0,
+        "maximum": 1000,
+        "model": "gpt-6-luna",
+        "nativeCPAStreaming": true,
+        "officialAPIEnabled": false,
+        "quietMs": 90000,
+        "reasoning": "low",
+        "sharedCPAConfigurationChanged": false,
+        "sourceSHA": "2b41ae8e867cbd31d6efd72ac70fdb81405e6f75",
+        "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "rawEventsSHA256": "a94189925e54183f825da15f4b820f5f893938659e6bad188670fb1c0ddbbead",
+      "phases": [
+        {
+          "name": "search-0-1",
+          "finished": true,
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 1,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 1484,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:46:10.526868836-07:00",
+            "name": "search-0-1",
+            "p50SuccessfulMs": 1482,
+            "p95SuccessfulMs": 1482,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:46:09.042699956-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0.6737777657180541,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "actualHTTPOverlap": 1,
+          "identity": {
+            "completedCount": 1,
+            "distinctCompletedIDs": 1,
+            "distinctNonces": 1,
+            "models": {
+              "gpt-6-luna": 1
+            },
+            "efforts": {
+              "low": 1
+            },
+            "terminalEvents": {
+              "response.completed": 1
+            }
+          },
+          "successfulDuration": {
+            "n": 1,
+            "minMs": 1482,
+            "p50Ms": 1482,
+            "p95Ms": 1482,
+            "maxMs": 1482
+          },
+          "headersDuration": {
+            "n": 1,
+            "minMs": 1057,
+            "p50Ms": 1057,
+            "p95Ms": 1057,
+            "maxMs": 1057
+          },
+          "firstOutputDuration": {
+            "n": 1,
+            "minMs": 1272,
+            "p50Ms": 1272,
+            "p95Ms": 1272,
+            "maxMs": 1272
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 60,
+          "sumOutputTokens": 29
+        },
+        {
+          "name": "search-1-2",
+          "finished": true,
+          "point": {
+            "accepted": 2,
+            "active": 0,
+            "completed": 2,
+            "concurrency": 2,
+            "dispatched": 2,
+            "durationMs": 1754,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:46:12.282862968-07:00",
+            "name": "search-1-2",
+            "p50SuccessfulMs": 1751,
+            "p95SuccessfulMs": 1751,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 2,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:46:10.527974448-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 1.1396735332224979,
+            "unknown": 0
+          },
+          "attempts": 2,
+          "outcomes": {
+            "completed": 2
+          },
+          "actualHTTPOverlap": 2,
+          "identity": {
+            "completedCount": 2,
+            "distinctCompletedIDs": 2,
+            "distinctNonces": 2,
+            "models": {
+              "gpt-6-luna": 2
+            },
+            "efforts": {
+              "low": 2
+            },
+            "terminalEvents": {
+              "response.completed": 2
+            }
+          },
+          "successfulDuration": {
+            "n": 2,
+            "minMs": 1102,
+            "p50Ms": 1751,
+            "p95Ms": 1751,
+            "maxMs": 1751
+          },
+          "headersDuration": {
+            "n": 2,
+            "minMs": 597,
+            "p50Ms": 652,
+            "p95Ms": 652,
+            "maxMs": 652
+          },
+          "firstOutputDuration": {
+            "n": 2,
+            "minMs": 837,
+            "p50Ms": 1103,
+            "p95Ms": 1103,
+            "maxMs": 1103
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 120,
+          "sumOutputTokens": 58
+        },
+        {
+          "name": "search-2-4",
+          "finished": true,
+          "point": {
+            "accepted": 4,
+            "active": 0,
+            "completed": 4,
+            "concurrency": 4,
+            "dispatched": 4,
+            "durationMs": 1472,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:46:13.759826766-07:00",
+            "name": "search-2-4",
+            "p50SuccessfulMs": 1254,
+            "p95SuccessfulMs": 1454,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 4,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:46:12.287620912-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 2.717011352828841,
+            "unknown": 0
+          },
+          "attempts": 4,
+          "outcomes": {
+            "completed": 4
+          },
+          "actualHTTPOverlap": 4,
+          "identity": {
+            "completedCount": 4,
+            "distinctCompletedIDs": 4,
+            "distinctNonces": 4,
+            "models": {
+              "gpt-6-luna": 4
+            },
+            "efforts": {
+              "low": 4
+            },
+            "terminalEvents": {
+              "response.completed": 4
+            }
+          },
+          "successfulDuration": {
+            "n": 4,
+            "minMs": 1058,
+            "p50Ms": 1254,
+            "p95Ms": 1454,
+            "maxMs": 1454
+          },
+          "headersDuration": {
+            "n": 4,
+            "minMs": 573,
+            "p50Ms": 744,
+            "p95Ms": 834,
+            "maxMs": 834
+          },
+          "firstOutputDuration": {
+            "n": 4,
+            "minMs": 876,
+            "p50Ms": 1092,
+            "p95Ms": 1184,
+            "maxMs": 1184
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 240,
+          "sumOutputTokens": 116
+        },
+        {
+          "name": "search-3-8",
+          "finished": true,
+          "point": {
+            "accepted": 8,
+            "active": 0,
+            "completed": 8,
+            "concurrency": 8,
+            "dispatched": 8,
+            "durationMs": 1947,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:46:15.70824786-07:00",
+            "name": "search-3-8",
+            "p50SuccessfulMs": 1463,
+            "p95SuccessfulMs": 1914,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 8,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:46:13.760863111-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 4.108073629712308,
+            "unknown": 0
+          },
+          "attempts": 8,
+          "outcomes": {
+            "completed": 8
+          },
+          "actualHTTPOverlap": 8,
+          "identity": {
+            "completedCount": 8,
+            "distinctCompletedIDs": 8,
+            "distinctNonces": 8,
+            "models": {
+              "gpt-6-luna": 8
+            },
+            "efforts": {
+              "low": 8
+            },
+            "terminalEvents": {
+              "response.completed": 8
+            }
+          },
+          "successfulDuration": {
+            "n": 8,
+            "minMs": 1053,
+            "p50Ms": 1463,
+            "p95Ms": 1914,
+            "maxMs": 1914
+          },
+          "headersDuration": {
+            "n": 8,
+            "minMs": 602,
+            "p50Ms": 718,
+            "p95Ms": 1435,
+            "maxMs": 1435
+          },
+          "firstOutputDuration": {
+            "n": 8,
+            "minMs": 871,
+            "p50Ms": 1083,
+            "p95Ms": 1763,
+            "maxMs": 1763
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 480,
+          "sumOutputTokens": 232
+        },
+        {
+          "name": "search-4-16",
+          "finished": true,
+          "point": {
+            "accepted": 16,
+            "active": 0,
+            "completed": 16,
+            "concurrency": 16,
+            "dispatched": 16,
+            "durationMs": 2462,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:46:18.171471973-07:00",
+            "name": "search-4-16",
+            "p50SuccessfulMs": 1415,
+            "p95SuccessfulMs": 2444,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 16,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:46:15.708920521-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 6.497326177692654,
+            "unknown": 0
+          },
+          "attempts": 16,
+          "outcomes": {
+            "completed": 16
+          },
+          "actualHTTPOverlap": 16,
+          "identity": {
+            "completedCount": 16,
+            "distinctCompletedIDs": 16,
+            "distinctNonces": 16,
+            "models": {
+              "gpt-6-luna": 16
+            },
+            "efforts": {
+              "low": 16
+            },
+            "terminalEvents": {
+              "response.completed": 16
+            }
+          },
+          "successfulDuration": {
+            "n": 16,
+            "minMs": 999,
+            "p50Ms": 1415,
+            "p95Ms": 2444,
+            "maxMs": 2444
+          },
+          "headersDuration": {
+            "n": 16,
+            "minMs": 599,
+            "p50Ms": 744,
+            "p95Ms": 1746,
+            "maxMs": 1746
+          },
+          "firstOutputDuration": {
+            "n": 16,
+            "minMs": 832,
+            "p50Ms": 1220,
+            "p95Ms": 2248,
+            "maxMs": 2248
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 960,
+          "sumOutputTokens": 464
+        },
+        {
+          "name": "search-5-32",
+          "finished": true,
+          "point": {
+            "accepted": 32,
+            "active": 0,
+            "completed": 32,
+            "concurrency": 32,
+            "dispatched": 32,
+            "durationMs": 2612,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:46:20.784288871-07:00",
+            "name": "search-5-32",
+            "p50SuccessfulMs": 1342,
+            "p95SuccessfulMs": 2021,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 32,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:46:18.172053618-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 12.250045243819446,
+            "unknown": 0
+          },
+          "attempts": 32,
+          "outcomes": {
+            "completed": 32
+          },
+          "actualHTTPOverlap": 32,
+          "identity": {
+            "completedCount": 32,
+            "distinctCompletedIDs": 32,
+            "distinctNonces": 32,
+            "models": {
+              "gpt-6-luna": 32
+            },
+            "efforts": {
+              "low": 32
+            },
+            "terminalEvents": {
+              "response.completed": 32
+            }
+          },
+          "successfulDuration": {
+            "n": 32,
+            "minMs": 933,
+            "p50Ms": 1342,
+            "p95Ms": 2021,
+            "maxMs": 2596
+          },
+          "headersDuration": {
+            "n": 32,
+            "minMs": 607,
+            "p50Ms": 709,
+            "p95Ms": 1064,
+            "maxMs": 1222
+          },
+          "firstOutputDuration": {
+            "n": 32,
+            "minMs": 765,
+            "p50Ms": 1206,
+            "p95Ms": 1745,
+            "maxMs": 2475
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 1920,
+          "sumOutputTokens": 928
+        },
+        {
+          "name": "search-6-64",
+          "finished": true,
+          "point": {
+            "accepted": 64,
+            "active": 0,
+            "completed": 64,
+            "concurrency": 64,
+            "dispatched": 64,
+            "durationMs": 2589,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:47:53.381523183-07:00",
+            "name": "search-6-64",
+            "p50SuccessfulMs": 1373,
+            "p95SuccessfulMs": 1926,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 64,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:47:50.792316801-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 24.717998696514105,
+            "unknown": 0
+          },
+          "attempts": 64,
+          "outcomes": {
+            "completed": 64
+          },
+          "actualHTTPOverlap": 64,
+          "identity": {
+            "completedCount": 64,
+            "distinctCompletedIDs": 64,
+            "distinctNonces": 64,
+            "models": {
+              "gpt-6-luna": 64
+            },
+            "efforts": {
+              "low": 64
+            },
+            "terminalEvents": {
+              "response.completed": 64
+            }
+          },
+          "successfulDuration": {
+            "n": 64,
+            "minMs": 975,
+            "p50Ms": 1373,
+            "p95Ms": 1926,
+            "maxMs": 2587
+          },
+          "headersDuration": {
+            "n": 64,
+            "minMs": 551,
+            "p50Ms": 743,
+            "p95Ms": 1141,
+            "maxMs": 1523
+          },
+          "firstOutputDuration": {
+            "n": 64,
+            "minMs": 808,
+            "p50Ms": 1144,
+            "p95Ms": 1605,
+            "maxMs": 2470
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 3840,
+          "sumOutputTokens": 1856
+        },
+        {
+          "name": "search-7-128",
+          "finished": true,
+          "point": {
+            "accepted": 128,
+            "active": 0,
+            "completed": 128,
+            "concurrency": 128,
+            "dispatched": 128,
+            "durationMs": 3725,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:49:27.11258382-07:00",
+            "name": "search-7-128",
+            "p50SuccessfulMs": 1350,
+            "p95SuccessfulMs": 2592,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 128,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:49:23.387362177-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 34.36037164220919,
+            "unknown": 0
+          },
+          "attempts": 128,
+          "outcomes": {
+            "completed": 128
+          },
+          "actualHTTPOverlap": 128,
+          "identity": {
+            "completedCount": 128,
+            "distinctCompletedIDs": 128,
+            "distinctNonces": 128,
+            "models": {
+              "gpt-6-luna": 128
+            },
+            "efforts": {
+              "low": 128
+            },
+            "terminalEvents": {
+              "response.completed": 128
+            }
+          },
+          "successfulDuration": {
+            "n": 128,
+            "minMs": 918,
+            "p50Ms": 1350,
+            "p95Ms": 2592,
+            "maxMs": 3666
+          },
+          "headersDuration": {
+            "n": 128,
+            "minMs": 530,
+            "p50Ms": 751,
+            "p95Ms": 1535,
+            "maxMs": 2808
+          },
+          "firstOutputDuration": {
+            "n": 128,
+            "minMs": 757,
+            "p50Ms": 1183,
+            "p95Ms": 2260,
+            "maxMs": 3434
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 7680,
+          "sumOutputTokens": 3712
+        },
+        {
+          "name": "search-8-256",
+          "finished": true,
+          "point": {
+            "accepted": 256,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 256,
+            "dispatched": 256,
+            "durationMs": 27548,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:51:24.666890217-07:00",
+            "name": "search-8-256",
+            "p50SuccessfulMs": 1378,
+            "p95SuccessfulMs": 4546,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 256,
+            "policy": 0,
+            "rejections": 56,
+            "startedAt": "2026-10-15T19:50:57.118404039-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 7.259927051409384,
+            "unknown": 0
+          },
+          "attempts": 256,
+          "outcomes": {
+            "completed": 200,
+            "rejected": 56
+          },
+          "actualHTTPOverlap": 256,
+          "identity": {
+            "completedCount": 200,
+            "distinctCompletedIDs": 200,
+            "distinctNonces": 200,
+            "models": {
+              "gpt-6-luna": 200
+            },
+            "efforts": {
+              "low": 200
+            },
+            "terminalEvents": {
+              "response.completed": 200
+            }
+          },
+          "successfulDuration": {
+            "n": 200,
+            "minMs": 996,
+            "p50Ms": 1378,
+            "p95Ms": 4546,
+            "maxMs": 8650
+          },
+          "headersDuration": {
+            "n": 200,
+            "minMs": 559,
+            "p50Ms": 797,
+            "p95Ms": 1551,
+            "maxMs": 4107
+          },
+          "firstOutputDuration": {
+            "n": 200,
+            "minMs": 788,
+            "p50Ms": 1195,
+            "p95Ms": 4540,
+            "maxMs": 5280
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 12000,
+          "sumOutputTokens": 5800
+        },
+        {
+          "name": "search-9-192",
+          "finished": true,
+          "point": {
+            "accepted": 192,
+            "active": 0,
+            "completed": 192,
+            "concurrency": 192,
+            "dispatched": 192,
+            "durationMs": 6841,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:53:01.513812242-07:00",
+            "name": "search-9-192",
+            "p50SuccessfulMs": 1321,
+            "p95SuccessfulMs": 2318,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 192,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:52:54.672361973-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 28.064225051529675,
+            "unknown": 0
+          },
+          "attempts": 192,
+          "outcomes": {
+            "completed": 192
+          },
+          "actualHTTPOverlap": 192,
+          "identity": {
+            "completedCount": 192,
+            "distinctCompletedIDs": 192,
+            "distinctNonces": 192,
+            "models": {
+              "gpt-6-luna": 192
+            },
+            "efforts": {
+              "low": 192
+            },
+            "terminalEvents": {
+              "response.completed": 192
+            }
+          },
+          "successfulDuration": {
+            "n": 192,
+            "minMs": 994,
+            "p50Ms": 1321,
+            "p95Ms": 2318,
+            "maxMs": 6759
+          },
+          "headersDuration": {
+            "n": 192,
+            "minMs": 569,
+            "p50Ms": 776,
+            "p95Ms": 1532,
+            "maxMs": 5937
+          },
+          "firstOutputDuration": {
+            "n": 192,
+            "minMs": 834,
+            "p50Ms": 1151,
+            "p95Ms": 2143,
+            "maxMs": 6622
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 11520,
+          "sumOutputTokens": 5568
+        },
+        {
+          "name": "search-10-224",
+          "finished": true,
+          "point": {
+            "accepted": 224,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 224,
+            "dispatched": 224,
+            "durationMs": 61289,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:55:32.807950954-07:00",
+            "name": "search-10-224",
+            "p50SuccessfulMs": 1357,
+            "p95SuccessfulMs": 2457,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 224,
+            "policy": 0,
+            "rejections": 24,
+            "startedAt": "2026-10-15T19:54:31.518270496-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 3.263192082344989,
+            "unknown": 0
+          },
+          "attempts": 224,
+          "outcomes": {
+            "completed": 200,
+            "rejected": 24
+          },
+          "actualHTTPOverlap": 224,
+          "identity": {
+            "completedCount": 200,
+            "distinctCompletedIDs": 200,
+            "distinctNonces": 200,
+            "models": {
+              "gpt-6-luna": 200
+            },
+            "efforts": {
+              "low": 200
+            },
+            "terminalEvents": {
+              "response.completed": 200
+            }
+          },
+          "successfulDuration": {
+            "n": 200,
+            "minMs": 927,
+            "p50Ms": 1357,
+            "p95Ms": 2457,
+            "maxMs": 61274
+          },
+          "headersDuration": {
+            "n": 200,
+            "minMs": 518,
+            "p50Ms": 768,
+            "p95Ms": 1342,
+            "maxMs": 3719
+          },
+          "firstOutputDuration": {
+            "n": 200,
+            "minMs": 777,
+            "p50Ms": 1177,
+            "p95Ms": 2139,
+            "maxMs": 61181
+          },
+          "successfulCallsOver60s": 1,
+          "sumInputTokens": 12000,
+          "sumOutputTokens": 5800
+        },
+        {
+          "name": "search-11-208",
+          "finished": true,
+          "point": {
+            "accepted": 208,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 208,
+            "dispatched": 208,
+            "durationMs": 33328,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:57:36.149620982-07:00",
+            "name": "search-11-208",
+            "p50SuccessfulMs": 1333,
+            "p95SuccessfulMs": 2537,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 208,
+            "policy": 0,
+            "rejections": 8,
+            "startedAt": "2026-10-15T19:57:02.820643612-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 6.000784176235335,
+            "unknown": 0
+          },
+          "attempts": 208,
+          "outcomes": {
+            "completed": 200,
+            "rejected": 8
+          },
+          "actualHTTPOverlap": 208,
+          "identity": {
+            "completedCount": 200,
+            "distinctCompletedIDs": 200,
+            "distinctNonces": 200,
+            "models": {
+              "gpt-6-luna": 200
+            },
+            "efforts": {
+              "low": 200
+            },
+            "terminalEvents": {
+              "response.completed": 200
+            }
+          },
+          "successfulDuration": {
+            "n": 200,
+            "minMs": 925,
+            "p50Ms": 1333,
+            "p95Ms": 2537,
+            "maxMs": 3095
+          },
+          "headersDuration": {
+            "n": 200,
+            "minMs": 553,
+            "p50Ms": 751,
+            "p95Ms": 1239,
+            "maxMs": 2377
+          },
+          "firstOutputDuration": {
+            "n": 200,
+            "minMs": 739,
+            "p50Ms": 1112,
+            "p95Ms": 2387,
+            "maxMs": 2901
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 12000,
+          "sumOutputTokens": 5800
+        },
+        {
+          "name": "search-12-200",
+          "finished": true,
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 9002,
+            "failed": 0,
+            "finishedAt": "2026-10-15T19:59:15.16138943-07:00",
+            "name": "search-12-200",
+            "p50SuccessfulMs": 1388,
+            "p95SuccessfulMs": 2476,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T19:59:06.159323035-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 22.217121181073324,
+            "unknown": 0
+          },
+          "attempts": 200,
+          "outcomes": {
+            "completed": 200
+          },
+          "actualHTTPOverlap": 200,
+          "identity": {
+            "completedCount": 200,
+            "distinctCompletedIDs": 200,
+            "distinctNonces": 200,
+            "models": {
+              "gpt-6-luna": 200
+            },
+            "efforts": {
+              "low": 200
+            },
+            "terminalEvents": {
+              "response.completed": 200
+            }
+          },
+          "successfulDuration": {
+            "n": 200,
+            "minMs": 965,
+            "p50Ms": 1388,
+            "p95Ms": 2476,
+            "maxMs": 8941
+          },
+          "headersDuration": {
+            "n": 200,
+            "minMs": 565,
+            "p50Ms": 820,
+            "p95Ms": 1711,
+            "maxMs": 8198
+          },
+          "firstOutputDuration": {
+            "n": 200,
+            "minMs": 825,
+            "p50Ms": 1216,
+            "p95Ms": 2056,
+            "maxMs": 8571
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 12000,
+          "sumOutputTokens": 5800
+        },
+        {
+          "name": "drain-1000",
+          "finished": true,
+          "point": {
+            "accepted": 1000,
+            "active": 0,
+            "completed": 1000,
+            "concurrency": 200,
+            "dispatched": 1781,
+            "durationMs": 265680,
+            "failed": 0,
+            "finishedAt": "2026-10-15T20:05:10.847878304-07:00",
+            "name": "drain-1000",
+            "p50SuccessfulMs": 1409,
+            "p95SuccessfulMs": 2730,
+            "pauseUntil": "2026-10-15T20:04:41.747043606-07:00",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 781,
+            "startedAt": "2026-10-15T20:00:45.167380221-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 3.7639194717543583,
+            "unknown": 0
+          },
+          "attempts": 1781,
+          "outcomes": {
+            "completed": 1000,
+            "rejected": 781
+          },
+          "actualHTTPOverlap": 200,
+          "identity": {
+            "completedCount": 1000,
+            "distinctCompletedIDs": 1000,
+            "distinctNonces": 1000,
+            "models": {
+              "gpt-6-luna": 1000
+            },
+            "efforts": {
+              "low": 1000
+            },
+            "terminalEvents": {
+              "response.completed": 1000
+            }
+          },
+          "successfulDuration": {
+            "n": 1000,
+            "minMs": 863,
+            "p50Ms": 1409,
+            "p95Ms": 2730,
+            "maxMs": 35107,
+            "p99Ms": 24053
+          },
+          "headersDuration": {
+            "n": 1000,
+            "minMs": 534,
+            "p50Ms": 799,
+            "p95Ms": 1649,
+            "maxMs": 34575,
+            "p99Ms": 2619
+          },
+          "firstOutputDuration": {
+            "n": 1000,
+            "minMs": 728,
+            "p50Ms": 1215,
+            "p95Ms": 2416,
+            "maxMs": 34894,
+            "p99Ms": 23867
+          },
+          "successfulCallsOver60s": 0,
+          "sumInputTokens": 60000,
+          "sumOutputTokens": 29000,
+          "milestoneSeconds": {
+            "200": 27.619,
+            "400": 99.354,
+            "600": 165.195,
+            "800": 225.241,
+            "950": 262.491,
+            "999": 264.65,
+            "1000": 265.68
+          },
+          "slowestSuccessfulSamples": [
+            {
+              "id": 11,
+              "attempt": 2,
+              "durationMs": 35107,
+              "headersMs": 34575,
+              "firstOutputMs": 34894,
+              "inputTokens": 60,
+              "outputTokens": 29,
+              "startedAt": "2026-10-15T20:01:17.627803831-07:00",
+              "finishedAt": "2026-10-15T20:01:52.734917477-07:00"
+            },
+            {
+              "id": 344,
+              "attempt": 3,
+              "durationMs": 34014,
+              "headersMs": 33348,
+              "firstOutputMs": 33878,
+              "inputTokens": 60,
+              "outputTokens": 29,
+              "startedAt": "2026-10-15T20:02:24.52180335-07:00",
+              "finishedAt": "2026-10-15T20:02:58.535878807-07:00"
+            },
+            {
+              "id": 448,
+              "attempt": 2,
+              "durationMs": 31818,
+              "headersMs": 1014,
+              "firstOutputMs": 31609,
+              "inputTokens": 60,
+              "outputTokens": 29,
+              "startedAt": "2026-10-15T20:02:58.544111579-07:00",
+              "finishedAt": "2026-10-15T20:03:30.362701629-07:00"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "totalHTTPAttempts": 6317,
+  "outcomes": {
+    "completed": 5447,
+    "rejected": 870
+  },
+  "caveat": "Native streaming benchmark. CPA internal provider attempts are not counted. Quiet intervals excluded from individual phase duration, included in raw campaign elapsed. Native request budget is 180s; HLLM 60s core unchanged."
+}

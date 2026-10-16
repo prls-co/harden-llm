@@ -275,3 +275,10 @@ records 1,320 calls: fully passing 64-call bursts, native 429s under repeated
 bursts and a four-starts/second configuration, and separate unknown outcomes at
 low load even through a same-instance loopback control. It does not qualify a
 clean 1,000-result CPA-only drain or establish a universal concurrency ceiling.
+
+
+The subsequent [native throughput search](cpa-native-throughput-search.md)
+uses doubling, bisection, and a 201-call adjacent probe. It records a 200-admission
+burst boundary and four completed native 1000-result runs; the best public run
+used 128 active slots and 200 admissions per 61 s, finishing in 255.558 s. This
+native streaming evidence does not qualify the unchanged ordinary HLLM gateway.

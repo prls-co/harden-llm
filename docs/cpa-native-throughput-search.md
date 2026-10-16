@@ -54,3 +54,15 @@ Window credits are reserved on dispatch, refunded only for explicit rejections
 from the same window, and retained for unknown outcomes. Retry cooldown and
 window eligibility are tracked separately, so a known refusal does not force a
 sixth window merely by consuming one of the original 1000 admissions.
+
+
+## 4. Measured result on 2026-10-16
+
+The [doubling/bisection report](../plans/evidence/harden-llm/cpa-throughput-search/2026-10-16/report.md)
+resolves the observed cold burst boundary at 200: 201 yielded 200 results and one
+429. Four literal 1000-result native streaming runs passed. The best public
+result was 255.558 s using 128 active slots and 200 admissions per 61 s, with no
+caller-visible or covered upstream 429s. A 60.1 s same-host run took 253.175 s but
+produced seven upstream 429 log lines hidden by CPA retries. Whole-batch times
+remain sensitive to occasional long response tails. Ordinary HLLM execution and
+its 60 s deadline are unchanged and require their own integration qualification.

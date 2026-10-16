@@ -1,0 +1,163 @@
+{
+  "capturedFirstTimestamp": "2026-10-16T02:57:04+00:00",
+  "byteLimit": 32000000,
+  "windows": {
+    "public-window200-c128-61s-952b923": {
+      "start": "2026-10-16T03:32:44.480892+00:00",
+      "end": "2026-10-16T03:37:00.038971+00:00",
+      "coversEntireWindow": true,
+      "upstream429LogLines": 0,
+      "credentialUnavailableLogLines": 0,
+      "counts": {
+        "httpStatusLogLines200": 1007
+      },
+      "slowSuccessfulLogSamples": [
+        {
+          "atUTC": "2026-10-16T03:35:18+00:00",
+          "status": 200,
+          "durationMs": 31603
+        },
+        {
+          "atUTC": "2026-10-16T03:36:18+00:00",
+          "status": 200,
+          "durationMs": 31313
+        },
+        {
+          "atUTC": "2026-10-16T03:36:20+00:00",
+          "status": 200,
+          "durationMs": 31569
+        }
+      ]
+    },
+    "probe201-6bdb21a": {
+      "start": "2026-10-16T03:07:30.839254+00:00",
+      "end": "2026-10-16T03:08:05.278317+00:00",
+      "coversEntireWindow": true,
+      "upstream429LogLines": 4,
+      "credentialUnavailableLogLines": 0,
+      "counts": {
+        "httpStatusLogLines200": 202,
+        "upstream429LogLines": 4,
+        "httpStatusLogLines429": 5
+      },
+      "slowSuccessfulLogSamples": []
+    },
+    "search-2b41ae8": {
+      "start": "2026-10-16T02:46:09.042719+00:00",
+      "end": "2026-10-16T03:05:10.848039+00:00",
+      "coversEntireWindow": false,
+      "upstream429LogLines": 1142,
+      "credentialUnavailableLogLines": 2001,
+      "counts": {
+        "httpStatusLogLines200": 1249,
+        "upstream429LogLines": 1142,
+        "httpStatusLogLines429": 1931,
+        "credentialUnavailableLogLines": 2001
+      },
+      "slowSuccessfulLogSamples": [
+        {
+          "atUTC": "2026-10-16T03:01:52+00:00",
+          "status": 200,
+          "durationMs": 35106
+        },
+        {
+          "atUTC": "2026-10-16T03:02:24+00:00",
+          "status": 200,
+          "durationMs": 31484
+        },
+        {
+          "atUTC": "2026-10-16T03:02:24+00:00",
+          "status": 200,
+          "durationMs": 31721
+        },
+        {
+          "atUTC": "2026-10-16T03:02:58+00:00",
+          "status": 200,
+          "durationMs": 34013
+        },
+        {
+          "atUTC": "2026-10-16T03:03:30+00:00",
+          "status": 200,
+          "durationMs": 31758
+        },
+        {
+          "atUTC": "2026-10-16T03:04:30+00:00",
+          "status": 200,
+          "durationMs": 31579
+        }
+      ]
+    },
+    "public-window200-61s-952b923": {
+      "start": "2026-10-16T03:11:14.519751+00:00",
+      "end": "2026-10-16T03:17:14.919915+00:00",
+      "coversEntireWindow": true,
+      "upstream429LogLines": 0,
+      "credentialUnavailableLogLines": 0,
+      "counts": {
+        "httpStatusLogLines200": 1007
+      },
+      "slowSuccessfulLogSamples": [
+        {
+          "atUTC": "2026-10-16T03:11:46+00:00",
+          "status": 200,
+          "durationMs": 31659
+        },
+        {
+          "atUTC": "2026-10-16T03:11:46+00:00",
+          "status": 200,
+          "durationMs": 31530
+        },
+        {
+          "atUTC": "2026-10-16T03:11:47+00:00",
+          "status": 200,
+          "durationMs": 31777
+        },
+        {
+          "atUTC": "2026-10-16T03:13:13+00:00",
+          "status": 200,
+          "durationMs": 118000
+        },
+        {
+          "atUTC": "2026-10-16T03:17:14+00:00",
+          "status": 200,
+          "durationMs": 116000
+        }
+      ]
+    },
+    "local-window200-60p1s-952b923": {
+      "start": "2026-10-16T03:27:01.296230+00:00",
+      "end": "2026-10-16T03:31:14.471515+00:00",
+      "coversEntireWindow": true,
+      "upstream429LogLines": 7,
+      "credentialUnavailableLogLines": 0,
+      "counts": {
+        "httpStatusLogLines200": 1007,
+        "upstream429LogLines": 7,
+        "httpStatusLogLines429": 7
+      },
+      "slowSuccessfulLogSamples": [
+        {
+          "atUTC": "2026-10-16T03:29:09+00:00",
+          "status": 200,
+          "durationMs": 68000
+        },
+        {
+          "atUTC": "2026-10-16T03:29:33+00:00",
+          "status": 200,
+          "durationMs": 31929
+        },
+        {
+          "atUTC": "2026-10-16T03:30:03+00:00",
+          "status": 200,
+          "durationMs": 61000
+        },
+        {
+          "atUTC": "2026-10-16T03:30:37+00:00",
+          "status": 200,
+          "durationMs": 36371
+        }
+      ]
+    }
+  },
+  "caveat": "Shared log timing only, not request-identity correlation. Status lines may include multiple layers. Counter completeness is explicit per window; raw log/account/credential content not retained."
+}
