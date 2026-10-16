@@ -22,8 +22,6 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     {"Anthropic Messages", "anthropic-messages"}
   ]
 
-  @reasoning_options [{"lowest", "L"}, {"middle", "M"}, {"highest", "H"}]
-
   @profile_capability_fields [
     {:supportsTemperature, "Supports temperature"},
     {:supportsContractedStructuredOutput, "Supports contracted structured output"},
@@ -1080,9 +1078,9 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
             category={@category_name}
             id_prefix={@id_prefix}
             profile_value={@selected_profile_id}
-            profile_options={profile_combobox_options(@profiles)}
+            profile_options={ProfileWidgetState.profile_options(@profiles)}
             reasoning_value={@reasoning_effort}
-            reasoning_options={reasoning_options(@profiles, @selected_profile_id)}
+            reasoning_options={ProfileWidgetState.reasoning_options(@profiles, @selected_profile_id)}
             web_search={@web_search}
             cache_mode={@cache_mode}
             model_value={@model_id}
@@ -2470,7 +2468,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
       )
 
     profile_id = display_target["profileId"] || ""
-    profile_options = profile_combobox_options(assigns.profiles)
+    profile_options = ProfileWidgetState.profile_options(assigns.profiles)
 
     target_form =
       case get_in(assigns.target_editor_state, [:forms, assigns.config_path]) do
@@ -2484,7 +2482,7 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
         leaf_target: display_target,
         inherited: inherited?,
         profile_options: profile_options,
-        reasoning_options: reasoning_options(assigns.profiles, profile_id),
+        reasoning_options: ProfileWidgetState.reasoning_options(assigns.profiles, profile_id),
         target_form: target_form,
         target_path: assigns.config_path || assigns.nested_repair_path,
         target_config_visible?: assigns.config_open
@@ -3567,30 +3565,6 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
     |> Enum.uniq_by(& &1.value)
   end
 
-  defp profile_combobox_options(profiles) do
-    Enum.map(profiles, fn profile_state ->
-      profile = profile_state["definition"] || %{}
-      id = profile_state["id"] || ""
-      models = Enum.map(profile["models"] || [], &(&1["id"] || ""))
-
-      %{
-        value: id,
-        label: profile_state["name"] || id,
-        search:
-          Enum.join(
-            [
-              id,
-              profile_state["name"],
-              profile["modelId"],
-              profile["baseUrl"],
-              profile["apiInferenceType"] | models
-            ],
-            " "
-          )
-      }
-    end)
-  end
-
   defp api_inference_combobox_options(options) do
     Enum.map(options, fn {label, value} ->
       %{value: value, label: label, search: "#{label} #{value}"}
@@ -3628,25 +3602,6 @@ defmodule HardenLlmUI.ProfileWidgetComponent do
       List.wrap(profile_models) ++ List.wrap(extra_models),
       current_id
     )
-  end
-
-  defp reasoning_options(profiles, selected_profile_id) do
-    selected_profile_id = String.trim(to_string(selected_profile_id || ""))
-
-    cond do
-      selected_profile_id == "" ->
-        @reasoning_options
-
-      true ->
-        case Enum.find(profiles, &(profile_id_from_state(&1) == selected_profile_id)) do
-          %{} = profile_state ->
-            levels = ProfileWidgetState.profile_reasoning_levels(profile_state)
-            Enum.filter(@reasoning_options, fn {value, _label} -> value in levels end)
-
-          _ ->
-            []
-        end
-    end
   end
 
   defp recovery_categories, do: @recovery_categories

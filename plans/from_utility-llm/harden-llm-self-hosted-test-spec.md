@@ -1583,11 +1583,12 @@ old assertions move to their new owner without weakening their purpose.
 ### TEST-429: Reusable component library
 
 - Type: unit; verifies: REQ-420, REQ-428.
-  - Location: `frontend/packages/harden_llm_ui/test/harden_llm_ui/components_test.exs`.
-  - Command: `cd frontend/packages/harden_llm_ui && mix test --seed 104729 test/harden_llm_ui/components_test.exs`.
+  - Location: `frontend/packages/harden_llm_ui/test/harden_llm_ui/components_test.exs`, `profile_reasoning_test.exs` in that directory; minimal host in `test/support/test_host.ex` within the package.
+  - Command: `cd frontend/packages/harden_llm_ui && MIX_DEPS_PATH=../../deps mix test --seed 104729 test/harden_llm_ui/components_test.exs test/harden_llm_ui/profile_reasoning_test.exs`.
   - Fixtures/mocks/data: WEB-TEST-119; independent test host informed by read-only Model Recall interface review, schema-valid API fixtures and two component instances with host-supplied API-key contexts.
   - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
   - Pass criteria: Picker/input/result/stats/history/pagination components render and dispatch independently; package imports no host/Portal/Ecto module, stores no incoming keys and owns no login. API-key context/instance state do not leak; explicit save/detail and baseline visual bindings work. Assets/decoders/styles have one source; Model Recall migration is not required.
+  - Selection-only refinement: the actual public `profile_row/1` in a minimal host and the full widget consume the same `ProfileWidgetState.profile_options/1` and `reasoning_options/2`. Preserve exact label/order/search projection without private fields; configured reasoning keeps lowest/middle/highest order, unknown IDs have no choices and blank IDs retain editor draft choices. Two portable rows remain independent of each other and two full widget instances; portable changes emit no full-widget message and mount no configuration editor. These HTML/event checks do not establish native browser layout/focus.
   - Expected runtime: 15–60s.
 
 ### TEST-430: Progress and client decisions
