@@ -39,6 +39,7 @@ type completion struct {
 	Ref          Ref
 	Probe        bool
 	DispatchedAt time.Time
+	ReservedAt   time.Time
 	Outcome      Outcome
 	Counts       Counts
 }
@@ -91,6 +92,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 	active := 0
 	lastWork := workflow.Now(ctx)
 	nextHeartbeat := lastWork
+	coalesceHeartbeats := workflow.GetVersion(ctx, "coalesce-status-heartbeats", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	if err := workflow.SetQueryHandler(ctx, stateQuery, func() (DispatcherState, error) { return s, nil }); err != nil {
 		return err
 	}
@@ -109,6 +111,9 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 		} else if s.Controller.Cooling {
 			reason = "provider_throttled"
 			v := s.Controller.NextEligible
+			next = &v
+		} else if v := s.Controller.WindowWait(workflow.Now(ctx)); !v.IsZero() {
+			reason = "admission_window"
 			next = &v
 		}
 		metaCtx := workflow.WithActivityOptions(ctx, durableOptions())
@@ -148,8 +153,11 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 				break
 			}
 		}
-		s.Controller.Complete(workflow.Now(ctx), done.DispatchedAt, done.Probe, done.Outcome.Kind, time.Duration(done.Outcome.RetryAfterMS)*time.Millisecond)
-		nextHeartbeat = workflow.Now(ctx)
+		wasCooling, wasPaused, wasEligible := s.Controller.Cooling, s.Controller.Paused, s.Controller.NextEligible
+		s.Controller.Complete(workflow.Now(ctx), done.DispatchedAt, done.ReservedAt, done.Probe, done.Outcome.Kind, time.Duration(done.Outcome.RetryAfterMS)*time.Millisecond)
+		if !coalesceHeartbeats || wasCooling != s.Controller.Cooling || wasPaused != s.Controller.Paused || !wasEligible.Equal(s.Controller.NextEligible) {
+			nextHeartbeat = workflow.Now(ctx)
+		}
 	}
 	drainSignals := func() {
 		var incoming JobRef
@@ -225,7 +233,11 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 			active++
 			probe := s.Controller.Cooling
 			dispatched := workflow.Now(ctx)
+			reserved := dispatched
 			s.Controller.Start(workflow.Now(ctx))
+			if !s.Controller.WindowWait(workflow.Now(ctx)).IsZero() {
+				nextHeartbeat = workflow.Now(ctx)
+			}
 			workflow.Go(ctx, func(child workflow.Context) {
 				callCtx := workflow.WithActivityOptions(child, workflow.ActivityOptions{StartToCloseTimeout: 195 * time.Second, HeartbeatTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}})
 				var outcome Outcome
@@ -241,7 +253,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 					workflow.GetLogger(child).Error("batch outcome persistence failed", "jobId", r.JobID, "item", r.Index)
 					return
 				}
-				finished.Send(child, completion{Ref: r, Probe: probe, DispatchedAt: dispatched, Outcome: outcome, Counts: c})
+				finished.Send(child, completion{Ref: r, Probe: probe, DispatchedAt: dispatched, ReservedAt: reserved, Outcome: outcome, Counts: c})
 			})
 		}
 		now = workflow.Now(ctx)
@@ -258,10 +270,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 				ready = ready || len(j.Ready) > 0
 			}
 			if ready {
-				next := s.Controller.NextStart
-				if s.Controller.Cooling {
-					next = s.Controller.NextEligible
-				}
+				next := s.Controller.NextAdmission(now)
 				delay = min(delay, max(time.Millisecond, next.Sub(now)))
 			}
 		}

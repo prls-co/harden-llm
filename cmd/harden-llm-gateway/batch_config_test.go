@@ -5,6 +5,7 @@ import (
 	hardenllm "github.com/prls-co/harden-llm"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestBatchSettingsRequireExplicitSelfHostedDependencies(t *testing.T) {
@@ -37,6 +38,21 @@ func TestBatchSettingsRequireExplicitSelfHostedDependencies(t *testing.T) {
 		t.Fatal("unbounded capacity accepted")
 	}
 	env["HARDEN_LLM_BATCH_CONCURRENCY"] = "128"
+	env["HARDEN_LLM_BATCH_WINDOW_REQUESTS"] = "200"
+	env["HARDEN_LLM_BATCH_WINDOW_MS"] = "61000"
+	s, err = loadBatchSettings(get, conns)
+	if err != nil || s.policy.WindowRequests != 200 || s.policy.WindowDuration != 61*time.Second {
+		t.Fatal("admission window not configured independently", err)
+	}
+	env["HARDEN_LLM_BATCH_WINDOW_REQUESTS"] = "1001"
+	if _, err = loadBatchSettings(get, conns); err == nil {
+		t.Fatal("unbounded admission window accepted")
+	}
+	env["HARDEN_LLM_BATCH_WINDOW_REQUESTS"] = "0"
+	s, err = loadBatchSettings(get, conns)
+	if err != nil || s.policy.WindowRequests != 0 {
+		t.Fatal("explicit probing without an admission budget rejected", err)
+	}
 	env["HARDEN_LLM_TEMPORAL_ADDRESS"] = "https://secret:credential@host"
 	if _, err = loadBatchSettings(get, conns); err == nil || strings.Contains(err.Error(), "credential@") {
 		t.Fatal("unsafe Temporal address diagnostics", err)

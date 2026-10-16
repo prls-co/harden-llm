@@ -50,6 +50,15 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 		policy.StartRate = 100
 	case "mixed-128-50":
 		mixed = true
+	case "windowed-128-100", "windowed-200-100", "mixed-windowed-128-100":
+		policy.StartRate = 100
+		policy.Burst = 200
+		policy.WindowRequests = 200
+		policy.WindowDuration = 61 * time.Second
+		if caseName == "windowed-200-100" {
+			policy.Concurrency = 200
+		}
+		mixed = caseName == "mixed-windowed-128-100"
 	default:
 		t.Fatal("unknown bounded benchmark case")
 	}

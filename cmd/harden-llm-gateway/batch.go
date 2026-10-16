@@ -66,7 +66,7 @@ func loadBatchSettings(getenv func(string) string, connections []hardenllm.Conne
 	for _, field := range []struct {
 		name string
 		dest *int
-	}{{"CONCURRENCY", &s.policy.Concurrency}, {"BURST", &s.policy.Burst}, {"START_RATE", &s.policy.StartRate}, {"MAX_START_RATE", &s.policy.MaximumRate}} {
+	}{{"CONCURRENCY", &s.policy.Concurrency}, {"BURST", &s.policy.Burst}, {"START_RATE", &s.policy.StartRate}, {"MAX_START_RATE", &s.policy.MaximumRate}, {"WINDOW_REQUESTS", &s.policy.WindowRequests}} {
 		if raw := strings.TrimSpace(getenv("HARDEN_LLM_BATCH_" + field.name)); raw != "" {
 			n, e := strconv.Atoi(raw)
 			if e != nil {
@@ -74,6 +74,13 @@ func loadBatchSettings(getenv func(string) string, connections []hardenllm.Conne
 			}
 			*field.dest = n
 		}
+	}
+	if raw := strings.TrimSpace(getenv("HARDEN_LLM_BATCH_WINDOW_MS")); raw != "" {
+		n, e := strconv.Atoi(raw)
+		if e != nil || n < 1000 || n > 3600000 {
+			return s, errors.New("configuration: invalid HARDEN_LLM_BATCH_WINDOW_MS")
+		}
+		s.policy.WindowDuration = time.Duration(n) * time.Millisecond
 	}
 	if raw := strings.TrimSpace(getenv("HARDEN_LLM_BATCH_REFILL_ESTIMATE_MS")); raw != "" {
 		n, e := strconv.Atoi(raw)

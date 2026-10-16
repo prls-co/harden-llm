@@ -67,19 +67,19 @@ func TestStragglersCannotReleaseProbeOrReapplyExpiredThrottle(t *testing.T) {
 	c.Throttle(now.Add(time.Second), 0)
 	probe := now.Add(61 * time.Second)
 	c.Start(probe)
-	c.Complete(probe.Add(time.Second), now, false, "completed", 0)
+	c.Complete(probe.Add(time.Second), now, now, false, "completed", 0)
 	if !c.Probing || c.CanStart(probe.Add(time.Second), 0) {
 		t.Fatal("straggling success reopened admission")
 	}
-	c.Complete(probe.Add(2*time.Second), now, false, "rejected", time.Second)
+	c.Complete(probe.Add(2*time.Second), now, now, false, "rejected", time.Second)
 	if !c.Probing {
 		t.Fatal("old rejection released the probe latch")
 	}
-	c.Complete(probe.Add(3*time.Second), probe, true, "completed", 0)
+	c.Complete(probe.Add(3*time.Second), probe, probe, true, "completed", 0)
 	if !c.Epoch.Equal(probe) {
 		t.Fatal("provider latency was added to the next quota episode")
 	}
-	c.Complete(probe.Add(4*time.Second), now, false, "rejected", time.Second)
+	c.Complete(probe.Add(4*time.Second), now, now, false, "rejected", time.Second)
 	if c.Cooling || c.Probing {
 		t.Fatal("old rejection invalidated successful recovery")
 	}
@@ -102,5 +102,55 @@ func TestPolicyUpdatePreservesCooldownAndDoesNotGrantAnotherBurst(t *testing.T) 
 	p.Concurrency = 0
 	if err := c.Configure(p); err == nil || c.Policy.Concurrency != 64 {
 		t.Fatal("invalid update changed active policy")
+	}
+}
+
+func TestAdmissionWindowDoesNotRefillOnFastCompletions(t *testing.T) {
+	now := time.Unix(1000, 0)
+	p := DefaultPolicy()
+	p.Burst = 200
+	p.WindowRequests = 200
+	p.WindowDuration = 61 * time.Second
+	c := NewController(p)
+	for i := range 200 {
+		at := now.Add(time.Duration(i) * time.Millisecond)
+		if !c.CanStart(at, 0) {
+			t.Fatalf("window admission %d blocked", i)
+		}
+		c.Start(at)
+		c.Complete(at.Add(time.Millisecond), at, at, false, "completed", 0)
+	}
+	if c.CanStart(now.Add(60*time.Second), 0) || !c.NextAdmission(now.Add(time.Second)).Equal(now.Add(61*time.Second)) {
+		t.Fatal("fast completions bypassed the admission window")
+	}
+	if !c.CanStart(now.Add(61*time.Second), 0) {
+		t.Fatal("next admission window did not open")
+	}
+	c.Start(now.Add(61 * time.Second))
+	if c.WindowStarts != 1 {
+		t.Fatal("next window did not reset reservations")
+	}
+	// A delayed refusal can refund only the reservation's original window.
+	c.Complete(now.Add(62*time.Second), now, now, false, "rejected", 0)
+	if c.WindowStarts != 1 {
+		t.Fatal("old refusal refunded the new window")
+	}
+}
+
+func TestAdmissionWindowRefundsOnlyExplicitSameWindowRefusals(t *testing.T) {
+	now := time.Unix(1000, 0)
+	p := DefaultPolicy()
+	p.WindowRequests = 2
+	p.WindowDuration = time.Minute
+	c := NewController(p)
+	c.Start(now)
+	c.Complete(now.Add(time.Second), now, now, false, "failed", 0)
+	if c.WindowStarts != 1 {
+		t.Fatal("ordinary error refunded an uncertain reservation")
+	}
+	c.Start(now.Add(time.Second))
+	c.Complete(now.Add(2*time.Second), now.Add(time.Second), now.Add(time.Second), false, "rejected", time.Second)
+	if c.WindowStarts != 1 || !c.Cooling || !c.CanStart(now.Add(3*time.Second), 0) {
+		t.Fatal("explicit refusal was not refunded or recovery probe was blocked")
 	}
 }

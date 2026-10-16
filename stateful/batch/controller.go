@@ -12,14 +12,19 @@ type Policy struct {
 	StartRate      int
 	MaximumRate    int
 	RefillEstimate time.Duration
+	WindowRequests int
+	WindowDuration time.Duration
 }
 
 func DefaultPolicy() Policy {
-	return Policy{Concurrency: 128, Burst: 100, StartRate: 50, MaximumRate: 200, RefillEstimate: 61 * time.Second}
+	return Policy{Concurrency: 128, Burst: 100, StartRate: 50, MaximumRate: 200, RefillEstimate: 61 * time.Second, WindowDuration: 61 * time.Second}
 }
 func (p Policy) Validate() error {
 	if p.Concurrency < 1 || p.Concurrency > 1000 || p.Burst < 1 || p.Burst > 1000 || p.StartRate < 1 || p.MaximumRate < p.StartRate || p.MaximumRate > 1000 || p.RefillEstimate < time.Second || p.RefillEstimate > time.Hour {
 		return fmt.Errorf("batch: invalid admission policy")
+	}
+	if p.WindowRequests < 0 || p.WindowRequests > 1000 || (p.WindowRequests > 0 && (p.WindowDuration < time.Second || p.WindowDuration > time.Hour)) {
+		return fmt.Errorf("batch: invalid admission window")
 	}
 	return nil
 }
@@ -37,6 +42,8 @@ type Controller struct {
 	Probing      bool
 	ProbeDelay   time.Duration
 	Paused       bool
+	WindowStart  time.Time
+	WindowStarts int
 }
 
 func NewController(p Policy) Controller {
@@ -58,9 +65,37 @@ func (c *Controller) CanStart(now time.Time, active int) bool {
 	if c.Cooling {
 		return !now.Before(c.NextEligible)
 	}
+	if !c.WindowWait(now).IsZero() {
+		return false
+	}
 	return c.BurstLeft > 0 || !now.Before(c.NextStart)
 }
+func (c *Controller) WindowWait(now time.Time) time.Time {
+	if c.Policy.WindowRequests > 0 && c.WindowStarts >= c.Policy.WindowRequests && now.Before(c.WindowStart.Add(c.Policy.WindowDuration)) {
+		return c.WindowStart.Add(c.Policy.WindowDuration)
+	}
+	return time.Time{}
+}
+func (c *Controller) NextAdmission(now time.Time) time.Time {
+	if c.Cooling {
+		return c.NextEligible
+	}
+	if next := c.WindowWait(now); !next.IsZero() {
+		return next
+	}
+	if c.BurstLeft > 0 {
+		return now
+	}
+	return c.NextStart
+}
 func (c *Controller) Start(now time.Time) {
+	if c.Policy.WindowRequests > 0 {
+		if c.WindowStart.IsZero() || !now.Before(c.WindowStart.Add(c.Policy.WindowDuration)) {
+			c.WindowStart = now
+			c.WindowStarts = 0
+		}
+		c.WindowStarts++
+	}
 	if c.Epoch.IsZero() {
 		c.Epoch = now
 	}
@@ -114,9 +149,12 @@ func (c *Controller) Throttle(now time.Time, delay time.Duration) {
 
 // Complete distinguishes the recovery probe from requests admitted before the
 // cooldown. A straggling success cannot reopen admission on the probe's behalf.
-func (c *Controller) Complete(now, dispatched time.Time, probe bool, kind string, delay time.Duration) {
+func (c *Controller) Complete(now, dispatched, reserved time.Time, probe bool, kind string, delay time.Duration) {
 	switch kind {
 	case "rejected":
+		if c.Policy.WindowRequests > 0 && !reserved.Before(c.WindowStart) && c.WindowStarts > 0 {
+			c.WindowStarts--
+		}
 		if !dispatched.Before(c.Epoch) {
 			probing := c.Probing
 			if !probe {

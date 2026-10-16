@@ -67,3 +67,32 @@ func TestDispatcherFairnessAndWorkConservingQueue(t *testing.T) {
 		t.Fatal("empty queue admitted work")
 	}
 }
+
+func TestDispatcherPublishesHeartbeatWithoutWritingForEverySuccess(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(&a)
+	var recorded, publications atomic.Int32
+	for i := range 32 {
+		env.OnActivity(a.Generate, mock.Anything, Ref{Scope: "fixture", JobID: "job", Index: i}).Return(Outcome{Kind: "completed", ArtifactID: "result.json"}, nil).After(time.Duration(i+1) * 100 * time.Millisecond)
+	}
+	env.OnActivity(a.Record, mock.Anything, mock.Anything, mock.Anything).Return(func(context.Context, Ref, Outcome) (Counts, error) {
+		return Counts{Total: 32, Succeeded: int(recorded.Add(1))}, nil
+	})
+	env.OnActivity(a.Cooldown, mock.Anything, mock.Anything).Return(func(context.Context, CooldownUpdate) error {
+		publications.Add(1)
+		return nil
+	})
+	ready := make([]int, 32)
+	for i := range ready {
+		ready[i] = i
+	}
+	env.ExecuteWorkflow(DispatcherWorkflow, DispatcherState{Controller: NewController(DefaultPolicy()), Jobs: []PendingJob{{Job: JobRef{Scope: "fixture", JobID: "job", Count: 32, Deadline: env.Now().Add(time.Hour)}, Ready: ready}}})
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	if recorded.Load() != 32 || publications.Load() > 4 {
+		t.Fatalf("success path should coalesce metadata writes: results=%d publications=%d", recorded.Load(), publications.Load())
+	}
+}

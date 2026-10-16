@@ -833,6 +833,7 @@ components:
           type: string
           enum:
           - provider_throttled
+          - admission_window
           - account_restricted
         status_url:
           type: string

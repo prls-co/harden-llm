@@ -40,6 +40,8 @@ HARDEN_LLM_BATCH_BURST=100
 HARDEN_LLM_BATCH_START_RATE=50
 HARDEN_LLM_BATCH_MAX_START_RATE=200
 HARDEN_LLM_BATCH_REFILL_ESTIMATE_MS=61000
+HARDEN_LLM_BATCH_WINDOW_REQUESTS=200
+HARDEN_LLM_BATCH_WINDOW_MS=61000
 HARDEN_LLM_BATCH_JOB_TIMEOUT_SECONDS=7200
 ```
 
@@ -65,6 +67,15 @@ The dispatcher initially releases 100 calls, then paces starts at 50/second,
 with at most 128 active calls. Every 100 unthrottled validated completions
 doubles the launch rate, up to 200/second. These are caller controls, not a
 claim about provider entitlement. Concurrency and start rate are independent.
+
+The optional admission window reserves at most `WINDOW_REQUESTS` starts per
+`WINDOW_MS` from the first dispatch. Fast completions do not refill this budget.
+Explicit same-window refusals refund their reservation; ordinary errors retain
+it. A recovery probe can run after the provider's cooldown even when the budget
+is occupied. Setting `WINDOW_REQUESTS=0` disables this estimate for aggressive
+probing or a differently qualified provider. This is a configurable caller
+estimate based on measurements, not a declaration of universal provider RPM.
+Queued jobs report `admission_window` and `next_attempt_at` while it is exhausted.
 
 One explicit throttle closes pool admission. Existing calls finish; one queued
 item becomes the recovery probe after `Retry-After`. Without a supplied delay,
@@ -160,6 +171,9 @@ Keep cooling enabled and the existing credential/account selection. The
 request-retry setting controls additional rounds, not a concurrency allowance;
 native attempts still need observation. The HLLM feature does not silently
 change shared CPA configuration or choose another provider.
+The owner implementation is
+[CPA retry controls](https://github.com/prls-co/CLIProxyAPI-setup/pull/7), with
+isolated pinned-image evidence for 0 versus 3; the shared live setting remains 3.
 
 ## 5. Verification
 
