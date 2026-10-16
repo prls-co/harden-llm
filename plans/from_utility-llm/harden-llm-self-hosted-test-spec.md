@@ -2115,3 +2115,14 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Command: `go test ./internal/schema ./internal/gateway/httpapi ./internal/providers ./internal/runtime -count=1`.
 - Oracle: every supported nullable field accepts null or its declared type, remains required and respects enum. Unsupported unions and nullable roots fail. The real Responses handler and TLS provider adapter dispatch the two exact consumer schemas once with strict JSON Schema. Successful and invalid-schema model outputs retain the exact assistant string; known invalid output carries `STRUCTURED_SCHEMA` and one provider attempt. Caller-supplied unsupported schemas fail with HTTP 400 and no dispatch; a gateway-generated invalid contract fails with HTTP 500 and no dispatch. Existing library structured results remain parsed values. No provider keys, internet or browser are needed.
 - Genuine RED: current contracts rejected nullable types; after adding nullable support, the real handler changed whitespace/key ordering of successful structured output and misclassified both schema error origins as HTTP 502. The source fixtures use the actual consumer contracts, not an invented provider shape.
+
+## 33. Shared CPA capacity qualification
+
+### TEST-483: Competing-client scheduling and bounded CPA experiments
+
+- Tier: T0/T1; `internal/livecapacity/strategy_test.go`, bounded-text native HTTP fixture in `native_test.go`.
+- Command: `go test -race ./internal/livecapacity ./stateful/batch -count=1`.
+- The native experiment uses the production batch controller with explicitly identified independent or shared client admission. Fixed/sliding windows, token refill and concurrency fixtures use supplied virtual time; all 1,200 distinct items must complete without replaying unknowns. Identical offered demand precedes and overlaps the foreground job. Retry hints, one probe, combined concurrency, fairness, active/unknown token reservations, policy stops and cancellation/draining are asserted.
+- A successful probe must not grant another initial burst (TEST-474). The original controller exhausted refusal retries under the token-bucket fixture; the complete-results oracle is unchanged. A workflow version marker preserves retained histories (TEST-476).
+- Explicit live driver: `go run -tags live ./cmd/harden-llm-cpastrategy --live --output NEW_ABSOLUTE_DIRECTORY`. Requires protected `CPA_API_KEY`; uses only CPA `gpt-6-luna` low. Defaults bound foreground to 1,000 calls, background to 200 offered items, per-call execution to 180 seconds and the whole experiment to 30 minutes. Progress every five seconds, fresh nonces, private artifacts, independent terminal/content validation, campaign token accounting and account-stop behavior remain mandatory.
+- Native controller experiments do not establish Temporal throughput; retain a separate real Temporal API qualification for the selected strategy. Plan: `plans/cpa-shared-capacity-qualification-plan.md`.

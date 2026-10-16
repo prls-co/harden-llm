@@ -188,3 +188,25 @@ func TestEachAdmissionWindowReplenishesItsBoundedBurst(t *testing.T) {
 		}
 	}
 }
+
+func TestSuccessfulRecoveryProbeDoesNotGrantAnotherInitialBurst(t *testing.T) {
+	at := time.Unix(1000, 0)
+	p := DefaultPolicy()
+	p.WindowRequests = 0
+	c := NewController(p)
+	c.Start(at)
+	c.Throttle(at.Add(time.Second), time.Second)
+	probe := at.Add(2 * time.Second)
+	c.Start(probe)
+	c.Complete(probe.Add(time.Second), probe, probe, true, "completed", 0)
+	if c.BurstLeft != 0 || !c.CanStart(probe.Add(time.Second), 0) {
+		t.Fatal("probe did not reopen at the adapted pace")
+	}
+	c.Start(probe.Add(time.Second))
+	if c.CanStart(probe.Add(time.Second), 0) {
+		t.Fatal("one successful probe released a fresh burst into partially available capacity")
+	}
+	if !c.CanStart(c.NextStart, 0) {
+		t.Fatal("paced continuation stalled")
+	}
+}

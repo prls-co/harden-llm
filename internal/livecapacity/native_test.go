@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -33,6 +34,28 @@ func TestNativeCompletionDoesNotWaitForConnectionEOF(t *testing.T) {
 	m := caller.Call(ctx, "fixture", 0, 1)
 	if m.Kind != "completed" || m.Terminal != "response.completed" || m.Nonce != "fixture-0" {
 		t.Fatalf("native completion lost: %+v", m)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-483
+func TestNativeBoundedTextRequiresIndependentExactContent(t *testing.T) {
+	for _, n := range []int{511, 512, 513} {
+		t.Run(fmt.Sprint(n), func(t *testing.T) {
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if body["stream"] != true || body["model"] != "gpt-6-luna" {
+					t.Error("wrong native body")
+				}
+				out, _ := json.Marshal(map[string]any{"nonce": "fixture-0", "payload": strings.TrimSpace(strings.Repeat("x ", n))})
+				_ = json.NewEncoder(w).Encode(map[string]any{"status": "completed", "model": "gpt-6-luna", "output_text": string(out), "usage": map[string]int{"input_tokens": 100, "output_tokens": 550}})
+			}))
+			defer s.Close()
+			m := (NativeCaller{URL: s.URL, Key: "synthetic", Client: s.Client(), Timeout: time.Second, BoundedText: true}).Call(context.Background(), "fixture", 0, 1)
+			if (m.Kind == "completed") != (n == 512) || m.ExpectedWords != 512 {
+				t.Fatalf("bounded text qualification changed: %+v", m)
+			}
+		})
 	}
 }
 func TestNativeThrottleAndMalformedResults(t *testing.T) {

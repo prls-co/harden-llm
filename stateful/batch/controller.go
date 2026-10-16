@@ -46,10 +46,11 @@ type Controller struct {
 	WindowStart       time.Time
 	WindowStarts      int
 	RefillWindowBurst bool
+	PacedRecovery     bool
 }
 
 func NewController(p Policy) Controller {
-	return Controller{Policy: p, Rate: p.StartRate, BurstLeft: p.Burst, ProbeDelay: 2 * time.Second, RefillWindowBurst: true}
+	return Controller{Policy: p, Rate: p.StartRate, BurstLeft: p.Burst, ProbeDelay: 2 * time.Second, RefillWindowBurst: true, PacedRecovery: true}
 }
 func (c *Controller) Configure(p Policy) error {
 	if err := p.Validate(); err != nil {
@@ -120,6 +121,12 @@ func (c *Controller) Success(now time.Time) {
 		c.Epoch = now
 		c.NextEligible = time.Time{}
 		c.BurstLeft = c.Policy.Burst - 1
+		// A probe establishes capacity for one request, not another entire
+		// initial burst. Reopen at the adapted pace; an independent configured
+		// admission window may still replenish its budget in a later window.
+		if c.PacedRecovery {
+			c.BurstLeft = 0
+		}
 		c.NextStart = now
 		c.ProbeDelay = 2 * time.Second
 		c.Successes = 0

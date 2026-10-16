@@ -39,6 +39,8 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	baseline := false
 	mixed := false
 	boundedText := false
+	sustained := false
+	totalLogical := 1000
 	switch caseName {
 	case "baseline":
 		baseline = true
@@ -58,6 +60,13 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 		policy.StartRate = 100
 	case "mixed-128-50":
 		mixed = true
+	case "sustained-windowed-3000", "sustained-continuous-3000", "sustained-mixed-windowed-3000", "sustained-mixed-continuous-3000":
+		sustained, totalLogical = true, 3000
+		if !strings.Contains(caseName, "continuous") {
+			policy.WindowRequests, policy.WindowDuration = 200, 61*time.Second
+		}
+		mixed = strings.Contains(caseName, "mixed")
+		boundedText = mixed
 	case "windowed-128-100", "windowed-200-100", "mixed-windowed-128-100", "mixed-bounded-text-128-100":
 		policy.StartRate = 100
 		policy.Burst = 200
@@ -95,7 +104,7 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer logFile.Close()
-	summary := map[string]any{"case": caseName, "policy": policy, "logicalRequests": 1000, "model": "gpt-6-luna", "reasoning": "low", "sharedCPAConfigurationChanged": false, "officialAPIEnabled": false, "startedAt": time.Now().UTC(), "status": "running"}
+	summary := map[string]any{"case": caseName, "policy": policy, "logicalRequests": totalLogical, "twoBearerClientsSharePool": sustained, "model": "gpt-6-luna", "reasoning": "low", "sharedCPAConfigurationChanged": false, "officialAPIEnabled": false, "startedAt": time.Now().UTC(), "status": "running"}
 	sha, _ := exec.Command("git", "rev-parse", "HEAD").Output()
 	summary["sourceSHA"] = strings.TrimSpace(string(sha))
 	patch, _ := exec.Command("git", "diff", "--binary", "HEAD").Output()
@@ -117,10 +126,17 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 		}
 	}()
 	f := newTemporalBatchFixture(t, false)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	budget := 15 * time.Minute
+	if sustained {
+		budget = 35 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 	f.ctx = ctx
 	f.jobs.JobTimeout = 12 * time.Minute
+	if sustained {
+		f.jobs.JobTimeout = 30 * time.Minute
+	}
 	f.worker.Stop()
 	f.worker = nil
 	core, err := stateful.NewClient(stateful.ClientOptions{Connections: []hardenllm.Connection{{ID: "cpa", Provider: "cpa", Protocol: "responses", BaseURL: "https://cpa.prls.co/v1", APIKey: os.Getenv("CPA_API_KEY")}}, DefaultConnection: "cpa", EndpointPolicy: hardenllm.EndpointPolicy{AllowedHosts: []string{"cpa.prls.co"}, MaxConnsPerHost: policy.Concurrency, ResponseHeaderTimeout: 180 * time.Second}})
@@ -136,6 +152,14 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	c, err := httpclient.New(httpclient.Config{BaseURL: f.server.URL, APIKey: f.key, HTTPClient: f.server.Client()})
 	if err != nil {
 		t.Fatal(err)
+	}
+	clients := []*httpclient.Client{c}
+	if sustained {
+		other, err := httpclient.New(httpclient.Config{BaseURL: f.server.URL, APIKey: strings.Repeat("other-synthetic-key-", 3), HTTPClient: f.server.Client()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		clients = append(clients, other)
 	}
 	// Qualify two requests before the load run. A separate, serially used
 	// private dispatcher keeps calibration outside the measured initial state.
@@ -203,14 +227,18 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	start := time.Now().UTC()
 	summary["firstSubmissionAt"] = start
 	var jobs []httpclient.JobStatus
+	var jobClients []*httpclient.Client
 	waves := 1
 	perWave := 1000
 	if baseline {
 		waves = 5
 		perWave = 200
 	}
+	if sustained {
+		waves, perWave = 3, 1000
+	}
 	for wave := 0; wave < waves; wave++ {
-		if wave > 0 {
+		if baseline && wave > 0 {
 			release := start.Add(time.Duration(wave) * 61 * time.Second)
 			for time.Now().Before(release) {
 				d := min(5*time.Second, time.Until(release))
@@ -228,7 +256,8 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 			nonce := fmt.Sprintf("%s-%04d", prefix, index)
 			items[i] = httpclient.JobItem{CustomID: nonce, Request: requestBody(nonce, mixed && index%10 == 0)}
 		}
-		job, err := c.SubmitJob(ctx, fmt.Sprintf("%s-%d", prefix, wave), items)
+		owner := clients[wave%len(clients)]
+		job, err := owner.SubmitJob(ctx, fmt.Sprintf("%s-%d", prefix, wave), items)
 		if err != nil {
 			summary["submissionErrorType"] = fmt.Sprintf("%T", err)
 			if rejected, ok := err.(*httpclient.RejectedError); ok {
@@ -239,10 +268,11 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 			t.Fatal("batch submission failed", err)
 		}
 		jobs = append(jobs, job)
+		jobClients = append(jobClients, owner)
 	}
 	var final []httpclient.JobStatus
-	for _, job := range jobs {
-		status, err := c.WaitJob(ctx, job.JobID, func(v httpclient.JobStatus) {
+	for i, job := range jobs {
+		status, err := jobClients[i].WaitJob(ctx, job.JobID, func(v httpclient.JobStatus) {
 			raw, _ := json.Marshal(v)
 			t.Logf("benchmark alive: %s", raw)
 			if v.WaitingReason == "account_restricted" {
@@ -280,7 +310,7 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = c.DownloadJobResult(ctx, j.JobID, file)
+		err = jobClients[i].DownloadJobResult(ctx, j.JobID, file)
 		file.Close()
 		if err != nil {
 			t.Fatal("result download failed", err)
@@ -342,7 +372,7 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	summary["inputTokens"] = inputTokens
 	summary["outputTokensIncludingReasoning"] = outputTokens
 	summary["downloadFinishedMs"] = time.Since(start).Milliseconds()
-	if len(seen) != 1000 || totalSuccess != 1000 || totalFailed != 0 {
+	if len(seen) != totalLogical || totalSuccess != totalLogical || totalFailed != 0 {
 		t.Fatalf("case incomplete: validated=%d successful=%d failed=%d", len(seen), totalSuccess, totalFailed)
 	}
 	summary["status"] = "passed"

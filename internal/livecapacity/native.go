@@ -37,6 +37,7 @@ type NativeMeasurement struct {
 	CachedInputTokens *int64    `json:"cachedInputTokens,omitempty"`
 	ReasoningTokens   *int64    `json:"reasoningTokens,omitempty"`
 	ExpectedItems     int       `json:"expectedItems,omitempty"`
+	ExpectedWords     int       `json:"expectedWords,omitempty"`
 	RetryAfterMS      int64     `json:"retryAfterMs"`
 }
 
@@ -49,6 +50,7 @@ type NativeCaller struct {
 	Client      *http.Client
 	Timeout     time.Duration
 	OutputItems int
+	BoundedText bool
 }
 
 // Call benchmarks native CPA streaming, bypassing HLLM's 60s request budget and
@@ -65,6 +67,11 @@ func (c NativeCaller) Call(parent context.Context, prefix string, id, attempt in
 	_ = json.Unmarshal(RequestBody("cpa", nonce), &body)
 	delete(body, "harden")
 	body["stream"] = true
+	if c.BoundedText {
+		_ = json.Unmarshal(BoundedTextBatchRequestBody(nonce), &body)
+		body["stream"] = true
+		m.ExpectedWords = 512
+	}
 	if c.OutputItems > 0 {
 		body["input"] = fmt.Sprintf("Return exactly a JSON object with nonce equal to %s and items an array of exactly %d strings, each equal to x. No other text.", nonce, c.OutputItems)
 		body["text"] = map[string]any{"format": map[string]any{"type": "json_schema", "name": "capacity_length", "strict": true, "schema": map[string]any{"type": "object", "properties": map[string]any{"nonce": map[string]any{"type": "string"}, "items": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "minItems": c.OutputItems, "maxItems": c.OutputItems}}, "required": []string{"nonce", "items"}, "additionalProperties": false}}}
@@ -161,6 +168,9 @@ func (c NativeCaller) Call(parent context.Context, prefix string, id, attempt in
 		}
 		_ = json.Unmarshal([]byte(text), &output)
 		validLength := c.OutputItems == 0 || len(output.Items) == c.OutputItems
+		if c.BoundedText {
+			validLength = ValidateBoundedTextBatchOutput(nonce, text) == nil
+		}
 		if c.OutputItems > 0 {
 			for _, v := range output.Items {
 				validLength = validLength && v == "x"

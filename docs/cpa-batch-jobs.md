@@ -105,7 +105,9 @@ One explicit throttle closes pool admission. Existing calls finish; one queued
 item becomes the recovery probe after `Retry-After`. Without a supplied delay,
 61 seconds from the admission episode's first start is the initial recovery
 estimate. Failed probes back off; a successful probe reopens admission. The
-launch rate halves once per throttle episode. Delayed responses from the prior
+launch rate halves once per throttle episode. A successful recovery probe
+reopens at that adapted pace without granting another initial burst; one
+accepted request does not establish that a whole burst is available. Delayed responses from the prior
 episode cannot reopen the gate or invalidate a successful recovery.
 
 Policy persists in the dispatcher. To change it, restart workers with the new

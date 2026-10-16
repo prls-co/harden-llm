@@ -96,6 +96,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 	// Old V1 histories keep their recorded pacing; fresh runs replenish the
 	// configured burst at each new admission window without exceeding its budget.
 	s.Controller.RefillWindowBurst = workflow.GetVersion(ctx, "refill-window-burst", workflow.DefaultVersion, 1) != workflow.DefaultVersion
+	s.Controller.PacedRecovery = workflow.GetVersion(ctx, "pace-recovery-after-probe", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	if err := workflow.SetQueryHandler(ctx, stateQuery, func() (DispatcherState, error) { return s, nil }); err != nil {
 		return err
 	}
