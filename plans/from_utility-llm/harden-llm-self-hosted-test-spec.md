@@ -2054,7 +2054,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 ### TEST-473: Actual output-length qualification and token diagnostics
 
 - Tier: T1; `internal/livecapacity/native_test.go` uses local HTTP fixtures.
-- Assert exact requested array length/content, nonce and model qualification; retain actual input/output, cached-input and reasoning usage even for failed content qualification. Reasoning is not added twice.
+- Assert exact requested array length/content, nonce and model qualification; retain actual input/output, cached-input and reasoning usage even for failed content qualification. Reasoning is not added twice. A distinct supported scalar-enum fixture requires exactly 512 `x` words and rejects 511/513 words, wrong content or nonce; it preserves core and OpenAPI schema compatibility without replacing the array oracle.
 - The explicit `live`-tagged `cmd/harden-llm-cpatokens` experiment is outside ordinary gates. Its 66-request/15-minute ABBA comparison and source-bound evidence do not invent a TPM limit.
 
 ### TEST-474: Shared CPA admission and transport diagnostics
@@ -2103,7 +2103,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Tier: T5, `live && integration && temporalintegration`; ordinary verification cannot invoke it.
 - Command: `node scripts/run-test-tier.mjs --task live-cpa-batch`, with explicit `HARDEN_LLM_RUN_CPA_BATCH_LIVE=1`, protected `CPA_API_KEY`, bounded case name and fresh private output directory.
 - One isolated Temporal/PostgreSQL/Garage lease; existing public CPA account and model; no account rotation, grouping, official-API fallback or shared CPA configuration change.
-- Each case submits 1000 distinct requests, records five-second status, and independently validates complete downloaded nonce results. Baseline releases five 200-item jobs at 61-second intervals; rolling cases use one 1000-item job. Caller attempts, ready/observed/download timing, usage, errors and executable/source identity remain separate evidence.
+- Each case qualifies its pilots before submitting 1000 distinct requests, records five-second status, and independently validates complete downloaded nonce results. Failed pilots stop main dispatch and remain failed evidence. The array and bounded-text mixed cases retain independent output oracles. Baseline releases five 200-item jobs at 61-second intervals; rolling cases use one 1000-item job. Caller attempts, ready/observed/download timing, usage, errors and executable/source identity remain separate evidence.
 
 
 ## 32. Model Recall output-contract qualification

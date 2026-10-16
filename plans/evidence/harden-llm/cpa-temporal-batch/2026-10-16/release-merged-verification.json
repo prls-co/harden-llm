@@ -1,0 +1,168 @@
+{
+  "scope": "local browser-free release; not deployment",
+  "sourceSHA": "fb6e4b083db1ff7839cbe836dd7cb5115e256545",
+  "sourceCleanAtStart": true,
+  "report": "tmp/test-feedback/runner-1792181982318-3316859-b38d3a19b4f897f1.json",
+  "reportSHA256": "b2bdbf1694c95ff05f84851a134cf5d62087f306930b827a264b0acc23f44377",
+  "generatedAt": "2026-10-16T20:19:42.318Z",
+  "accepted": true,
+  "taskCount": 30,
+  "manifestSHA256": "3229ecc062ad8bc31f9b9c3b0368e26183a4dd21c4b1400f96197ec522c0861e",
+  "candidateSlots": 2,
+  "gomaxprocs": 4,
+  "erlSchedulers": 4,
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "tasks": [
+    {
+      "taskId": "go-format",
+      "status": 0,
+      "wallTimeMs": 355
+    },
+    {
+      "taskId": "go-lint",
+      "status": 0,
+      "wallTimeMs": 2278
+    },
+    {
+      "taskId": "go-build",
+      "status": 0,
+      "wallTimeMs": 5721
+    },
+    {
+      "taskId": "go-static",
+      "status": 0,
+      "wallTimeMs": 3607
+    },
+    {
+      "taskId": "runner-contracts",
+      "status": 0,
+      "wallTimeMs": 144091
+    },
+    {
+      "taskId": "production-config-compose",
+      "status": 0,
+      "wallTimeMs": 1414
+    },
+    {
+      "taskId": "go-unit",
+      "status": 0,
+      "wallTimeMs": 18951
+    },
+    {
+      "taskId": "go-parity",
+      "status": 0,
+      "wallTimeMs": 12761
+    },
+    {
+      "taskId": "go-integration",
+      "status": 0,
+      "wallTimeMs": 47028
+    },
+    {
+      "taskId": "go-temporal-integration",
+      "status": 0,
+      "wallTimeMs": 105510
+    },
+    {
+      "taskId": "go-integration-race",
+      "status": 0,
+      "wallTimeMs": 73580
+    },
+    {
+      "taskId": "go-api",
+      "status": 0,
+      "wallTimeMs": 11614
+    },
+    {
+      "taskId": "go-observability",
+      "status": 0,
+      "wallTimeMs": 11917
+    },
+    {
+      "taskId": "go-compose",
+      "status": 0,
+      "wallTimeMs": 255606
+    },
+    {
+      "taskId": "go-compose-contract",
+      "status": 0,
+      "wallTimeMs": 2872
+    },
+    {
+      "taskId": "go-race",
+      "status": 0,
+      "wallTimeMs": 159526
+    },
+    {
+      "taskId": "go-vulnerability",
+      "status": 0,
+      "wallTimeMs": 5871
+    },
+    {
+      "taskId": "frontend-ui-package",
+      "status": 0,
+      "wallTimeMs": 48234
+    },
+    {
+      "taskId": "frontend-format",
+      "status": 0,
+      "wallTimeMs": 116405
+    },
+    {
+      "taskId": "frontend-compile",
+      "status": 0,
+      "wallTimeMs": 121925
+    },
+    {
+      "taskId": "frontend-deterministic",
+      "status": 0,
+      "wallTimeMs": 197601
+    },
+    {
+      "taskId": "client-core",
+      "status": 0,
+      "wallTimeMs": 469
+    },
+    {
+      "taskId": "run-progress-client",
+      "status": 0,
+      "wallTimeMs": 1058
+    },
+    {
+      "taskId": "frontend-deps-audit",
+      "status": 0,
+      "wallTimeMs": 128306
+    },
+    {
+      "taskId": "frontend-hex-audit",
+      "status": 0,
+      "wallTimeMs": 2593
+    },
+    {
+      "taskId": "frontend-assets-deploy",
+      "status": 0,
+      "wallTimeMs": 127655
+    },
+    {
+      "taskId": "frontend-pagination-asset-check",
+      "status": 0,
+      "wallTimeMs": 144584
+    },
+    {
+      "taskId": "frontend-release",
+      "status": 0,
+      "wallTimeMs": 87361
+    },
+    {
+      "taskId": "backend-verify-baseline",
+      "status": 0,
+      "wallTimeMs": 227131
+    },
+    {
+      "taskId": "frontend-gateway-workflows",
+      "status": 0,
+      "wallTimeMs": 393279
+    }
+  ]
+}

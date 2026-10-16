@@ -1,0 +1,24 @@
+{
+  "source": "container main.log; bounded request-ID suffix match",
+  "correlatedRequestIds": 1003,
+  "callerIdsInAttemptLogs": 1003,
+  "nativeTotalAttempts": null,
+  "phases": {
+    "main": {
+      "correlatedLogLines": 1007,
+      "native429LogLines": 5
+    },
+    "pilot": {
+      "correlatedLogLines": 2,
+      "native429LogLines": 0
+    }
+  },
+  "correlatedLogLines": 1009,
+  "native429LogLines": 5,
+  "authUnavailableLogLines": 0,
+  "caller200AccessLogLines": 1002,
+  "caller429AccessLogLines": 1,
+  "caller503AccessLogLines": 0,
+  "caller401AccessLogLines": 0,
+  "caller403AccessLogLines": 0
+}

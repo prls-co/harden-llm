@@ -185,6 +185,10 @@ trace prefixes, prompts, credentials and generated text are not diagnostic
 fields. `cpaInternalAttempts: null` means CPA did not expose an attempt count;
 it must not be interpreted as zero. Reasoning tokens are a subset of reported
 completion tokens, not an additional charge added to that total.
+`headers_ms` measures request start to first response byte. The existing
+`first_output_ms` starts when SSE collection begins, so it has a different
+origin and must not be compared directly with `headers_ms` as an end-to-end
+timestamp. Generation duration spans core execution and response collection.
 
 The worker sets its provider transport capacity explicitly, so changing the
 admission ceiling does not leave an undisclosed 128-connection transport cap.
@@ -221,3 +225,11 @@ The output-token study is under
 `plans/evidence/harden-llm/cpa-output-token-study/2026-10-16/`. CPA's pinned Codex
 translator strips `max_output_tokens`. The study varies actual output length;
 no token quota should be configured from a requested output cap alone.
+
+The [Temporal batch qualification report](../plans/evidence/harden-llm/cpa-temporal-batch/2026-10-16/report.md)
+records three matched 1,000-result windowed runs: 254.287–367.589 seconds,
+median 256.557 seconds. A fresh run after merging current main qualified in
+308.439 seconds. These are complete validated results; earlier network failures
+and a mixed-array pilot timeout remain failures in the same report. The final
+merged-source browser-free release passed all 30 tasks. This evidence does not
+establish a universal provider quota or guarantee completion within six minutes.
