@@ -27,10 +27,14 @@ decision.
 ## 2. Artifact and production identity
 
 Current production identity is recorded in the
-[workflow-coverage acceptance ledger](evidence/harden-llm/workflow-test-coverage/acceptance.md):
-application source `4ad4072425a0e67ad48b3c5170008a1a362004e6`, exact release run
-38575382378 attempt 1, and both immutable application image IDs. Earlier
-reference-decoupling and UI/recovery releases remain historical evidence.
+[October 16 Model Recall prerequisite release](../docs/release-certification.md#october-16-model-recall-prerequisite-production-qualification):
+gateway source `474342a2bbf7273df9b050b386447dc0d7954ea7`, exact release run
+38869145461 attempt 1, and retained frontend source
+`5f908f62d244b5b19d86c2ff9691c3deea24e11c`, exact release run 38864492320
+attempt 1. The components have separate immutable image identities; the Go-only
+dependency correction does not rebuild the unchanged frontend.
+The preceding `4ad4072` [workflow-coverage release](evidence/harden-llm/workflow-test-coverage/acceptance.md)
+and earlier reference-decoupling/UI releases remain historical evidence.
 Subsequent documentation commits are not application image identities.
 
 The historical 2026-09-22 retirement transition kept the already-running application

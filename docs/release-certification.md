@@ -3030,3 +3030,57 @@ passed the HIGH/CRITICAL scan. The frontend source is unchanged by this Go-only
 follow-up; retain its qualified immutable image rather than rebuilding an
 unaffected component. Record its actual component release separately from the
 new gateway release. Neither application has been promoted at this checkpoint.
+
+## October 16 Model Recall prerequisite production qualification
+
+This supersedes the pending-promotion checkpoint above. The prerequisite is on
+`main`, deployed and qualified for the two canonical Model Recall schemas.
+Consumer Model Recall deployment and report acceptance remain separate gates.
+
+| Component | Certified source/run | Deployed immutable image |
+| --- | --- | --- |
+| Gateway | `474342a2bbf7273df9b050b386447dc0d7954ea7`, [38869145461](https://github.com/prls-co/harden-llm/actions/runs/38869145461) attempt 1 | `harden-llm-gateway:release-474342a2bbf7273df9b050b386447dc0d7954ea7`, `sha256:3920032b73966b05f0a942de2eabb2a366c1e8615c54b92bdfb737036d7f455f` |
+| Frontend | `5f908f62d244b5b19d86c2ff9691c3deea24e11c`, [38864492320](https://github.com/prls-co/harden-llm/actions/runs/38864492320) attempt 1 | `harden-llm-web:release-5f908f62d244b5b19d86c2ff9691c3deea24e11c`, `sha256:406a42a19ca73a9cbb5135510689a9b470ebeef69ef2417c31e63aaa156872d7` |
+
+Both exact-main browser-free releases passed all 29 tasks. The corrected gateway
+image and retained frontend passed HIGH/CRITICAL scans with zero findings; the
+earlier rejected gateway remains retained and was never deployed. Gateway OCI
+revision/version and isolated `version` output match the certified source.
+Frontend source is byte-identical across the Go-only follow-up. Owned clean build
+worktrees were removed; immutable images and private evidence remain retained.
+
+The protected descriptor was checkpointed and promoted with a freshness check.
+Scoped `production-config apply` promoted frontend and gateway separately; the
+gateway's same-image schema command succeeded before startup. Both scoped
+exact-release checks and the full seven-service check are `equivalent`. Both
+applications are healthy with zero restarts. Private gateway health/readiness
+and public curl `https://harden-llm.prls.co/healthz` and `/readyz` return 200;
+anonymous `/profiles` redirects to Portal. Credentials, retained data, support
+services and the deployed reference workflow contract were preserved.
+
+Explicit provider qualification used the real configured CPA Responses route,
+`gpt-5.6-luna`, strict canonical schemas, one attempt, no cache/tools/store/repair.
+The first preparation request failed with known HTTP 400 and zero reported
+tokens: the consumer sent portable effort `lowest` through `/v1/responses`.
+CPA's retained native error names supported native levels including `low`.
+The consumer correction sends native `low` unchanged; the reference interface
+continues to own portable profile mappings. No gateway mapping or fallback was
+added. The failed request was not automatically replayed.
+
+A separately recorded qualification then passed both exact schemas:
+
+| Schema | Result | Harden trace |
+| --- | --- | --- |
+| `mr_preparation_v2` | HTTP 200; required `entity_name: null`; original text parses/validates; one provider attempt, cache off | `b363ba4d-3d31-482b-b925-b09ea0a6d7d2` |
+| `mr_entity_association_v5` | HTTP 200; successful `unknown`/null abstention; original text parses/validates; one provider attempt, cache off | `8970d107-ec50-41b5-b60d-14da66b92f28` |
+
+Canonical schema hashes and effective native payloads are verified by the
+consumer's existing adapter preparation evidence; the CPA request log also
+confirms strict schema and nullable-field transmission. Full original requests,
+responses and failed/successful qualifications remain in private consumer release
+evidence. The sample is three explicit requests: two valid successes and one
+known request rejection, no indeterminate outcome or automatic replay. It is
+contract/routing evidence, not population-level model-quality certification.
+
+No H browser was selected; browser layout was not checked. No application rebuild
+or relabelling is required for this documentation closeout.
