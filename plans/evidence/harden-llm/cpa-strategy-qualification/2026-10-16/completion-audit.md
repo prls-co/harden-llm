@@ -2,9 +2,10 @@
 
 ## 1. Scope and decision
 
-The practical scheduling decision and its implementation qualification are
-complete. Publication and final Git/PR closeout are the remaining actions at
-this checkpoint. The objective covers at least 1,000 separate CPA requests,
+The practical scheduling decision, implementation qualification and evidence
+publication are complete. The publication checkpoint and Git/PR readback are
+recorded in `publication-closeout.json`; this audit-only update preserves the
+qualified runtime and accepted source identities. The objective covers at least 1,000 separate CPA requests,
 shared consumers, measured alternatives, response length, self-hosted durable
 execution, observable waiting and uncertain-outcome handling.
 
@@ -35,10 +36,10 @@ checks or configuration.
 | Complete current-source browser-free acceptance | [Final release](release-final.json), [included fast tasks](fast-final.json), [source identities](source-identities.json) | All 30 canonical tasks passed on clean `edaea2a`, no cleanup issues. Includes all ten fast tasks. Actual provider source `1c788ac` differs only in test diagnostics; runtime remains `90e42af`. |
 | Preserve failed samples and verification attempts | Failed summaries/investigations, corrected reservation, before-fix local results, both failed release attempts and focused reports | Retained without relabeling or replay. Earlier UI/storage failures did not reproduce in focused checks; causes remain unconfirmed. Diagnostics are not claimed as behavior fixes. |
 | Keep host-resource qualification truthful | `release-host-resource-setting.json` | Final gate used one peer CPU task, Go `-p=3`, GOMAXPROCS=4, four Erlang schedulers; all cases and 600/500 ms SQL limits unchanged. This does not prove earlier causes or qualify every host setting. |
-| Publish bounded evidence and final recommendation | `report.md`, research notes, explicit publication allowlist and secret/JSON/link checks | Prepared and validated; final commit/push and PR closeout pending at this checkpoint. Raw attempts, events, results, auth records and configuration excluded. |
-| Preserve ownership and deployment boundaries | Draft HLLM PR127, CPA owner PR7, final Git/remote/worktree inspection | Source changes remain in HLLM and the existing CPA owner handoff. No merge, promotion, deployment or browser authorized/performed. Final publication closeout pending. |
+| Publish bounded evidence and final recommendation | `report.md`, research notes, explicit publication allowlist and secret/JSON/link checks | Published in checkpoint `f630cd7`; secret, JSON, local-link, whitespace and explicit staged-file allowlist checks passed. Raw attempts, events, results, auth records and configuration excluded. |
+| Preserve ownership and deployment boundaries | Draft HLLM PR127, CPA owner PR7, final Git/remote/worktree inspection | Draft PR127 updated and read back; mergeable. Both feature heads and main refs match remote, both workspaces clean, all worktrees inspected/preserved. CPA owner unchanged. No merge, promotion, deployment or browser performed; hosted checks are not claimed passed while pending. |
 
-## 3. Limits and remaining closeout
+## 3. Completed closeout and explicit limits
 
 All planned provider experiments and the final release gate have completed.
 No more paid calls are required. The account's undocumented limits may change;
@@ -52,5 +53,8 @@ also demonstrates that whole-job time is affected by provider tails. Direct CPA
 and ordinary HLLM calls remain outside batch admission, and job round-robin is
 not weighted tenant fairness.
 
-Finish publication and the current Git/PR inspection, then record that closeout
-without rerunning the accepted application gates for documentation-only changes.
+Publication and Git/PR inspection are verified at checkpoint `f630cd7`. The final
+audit-only update requires JSON/link/secret/whitespace and remote-head checks,
+not another application build or provider campaign. No required qualification
+work remains; deployment and production promotion were outside the authorized
+scope. Earlier UI/storage failure causes remain unconfirmed and recorded.
