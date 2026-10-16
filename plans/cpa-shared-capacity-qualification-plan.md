@@ -23,3 +23,15 @@ Choose continuous adaptive dispatch if it matches isolated throughput and respon
 ## 4. Spend and stopping
 
 The user authorizes at most 10 million gpt-6-luna tokens through CPA. Target much less than that; account reported input plus output (reasoning already included), reserve against active/unknown calls, keep a campaign ledger, and stop well below the allowance if hidden usage cannot be observed. Requests have hard deadlines and progress every five seconds. Stop on account restrictions, substantial unknowns, budget boundary or changed CPA runtime identity. Preserve observations before deciding whether another distinct experiment adds information.
+
+
+## 5. Qualified outcome
+
+The [qualification report](evidence/harden-llm/cpa-strategy-qualification/2026-10-16/report.md)
+and [requirement audit](evidence/harden-llm/cpa-strategy-qualification/2026-10-16/completion-audit.md)
+retain all comparisons, failures, source identities and acceptance. The selected
+strategy is continuous durable submission through one shared controller with the
+measured admission estimate and adaptive recovery. Actual CPA qualification
+validated 3,000 separate results across three jobs/two clients; the final
+browser-free release passed all 30 tasks. Exact provider quota/concurrency and
+suspension thresholds remain unestablished. No deployment is claimed.

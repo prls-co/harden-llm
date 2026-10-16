@@ -1,0 +1,38 @@
+{
+  "scope": "completed Temporal experiment; safe eight-hex suffix plus bounded case time interval; no raw logs retained",
+  "nativeInternalAttempts": null,
+  "logUTCOffset": "+0800",
+  "callerIdsInMeasurements": 3002,
+  "correlatedRequestIds": 3002,
+  "ambiguousIdsExcluded": 0,
+  "outOfIntervalMatchesSkipped": 0,
+  "missingTimestampLinesSkipped": 0,
+  "phases": {
+    "main": {
+      "correlatedLogLines": 3000,
+      "upstream429LogLines": 0,
+      "upstream500LogLines": 0,
+      "upstream502LogLines": 0,
+      "upstream503LogLines": 0,
+      "upstream504LogLines": 0,
+      "caller200AccessLogLines": 3000,
+      "caller429AccessLogLines": 0,
+      "caller503AccessLogLines": 0,
+      "caller401AccessLogLines": 0,
+      "caller403AccessLogLines": 0
+    },
+    "pilot": {
+      "correlatedLogLines": 2,
+      "upstream429LogLines": 0,
+      "upstream500LogLines": 0,
+      "upstream502LogLines": 0,
+      "upstream503LogLines": 0,
+      "upstream504LogLines": 0,
+      "caller200AccessLogLines": 2,
+      "caller429AccessLogLines": 0,
+      "caller503AccessLogLines": 0,
+      "caller401AccessLogLines": 0,
+      "caller403AccessLogLines": 0
+    }
+  }
+}

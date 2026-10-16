@@ -1,0 +1,32 @@
+{
+  "scope": "foreground native completed measurements; headers and first output both measured from request start",
+  "qualificationStatus": "failed",
+  "completed": 996,
+  "foregroundRequested": 1000,
+  "resultReadyMs": 259724,
+  "p99CompletedByMs": 256642,
+  "p999CompletedByMs": 259724,
+  "callMedianMs": 6141.5,
+  "callP95Ms": 9192,
+  "maximumCompletedCall": {
+    "durationMs": 25009,
+    "headersMs": 671,
+    "firstOutputMs": 22448,
+    "inputTokens": 619,
+    "outputTokens": 551,
+    "reasoningTokens": 0
+  },
+  "reportedEffortCounts": {
+    "low": 996
+  },
+  "outcomeCounts": {
+    "completed": 996,
+    "failed": 1,
+    "unconfirmed": 3
+  },
+  "errorCodeCounts": {
+    "qualification_mismatch": 1,
+    "internal_server_error": 3
+  },
+  "timingWarning": "Not a fully qualified complete-results timing; preserve failures separately."
+}

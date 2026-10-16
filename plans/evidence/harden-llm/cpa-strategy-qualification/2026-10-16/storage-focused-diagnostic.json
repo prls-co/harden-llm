@@ -1,0 +1,28 @@
+{
+  "scope": "focused local PostgreSQL/Garage integration; no public provider",
+  "sourceSHA": "edaea2a6c29c744e6cfec606954ae4dc090805e1",
+  "accepted": true,
+  "report": "tmp/test-feedback/runner-1792191611277-800563-a2f5cc6cfdaf0001.json",
+  "reportSHA256": "775a879c12e159d6d4bfd103bf27b84120d37a9a17535e90937ae2764214f131",
+  "task": {
+    "taskId": "go-integration",
+    "status": 0,
+    "wallTimeMs": 30443,
+    "command": [
+      "go",
+      "test",
+      "-p=3",
+      "./...",
+      "-tags=integration",
+      "-count=1"
+    ]
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "originalSQLLimitsUnchanged": {
+    "transactionMs": 600,
+    "statementMs": 500
+  },
+  "assertionsWeakened": false,
+  "finding": "The prior storage_unavailable did not reproduce. Added safe cause fields are diagnostics only; underlying cause remains unconfirmed."
+}

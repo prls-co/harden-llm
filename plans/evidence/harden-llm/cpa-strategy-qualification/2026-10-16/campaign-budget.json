@@ -1,0 +1,95 @@
+{
+  "allowance": 10000000,
+  "reportedTokens": 3235681,
+  "unknownReserve": 163840,
+  "runs": [
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/windowed-isolated-2-204106",
+      "status": "passed",
+      "reportedTokens": 208,
+      "unknownReserve": 0,
+      "exitCode": 0
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/windowed-competing-1000-204638",
+      "status": "passed",
+      "reportedTokens": 127600,
+      "unknownReserve": 0,
+      "exitCode": 0
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/continuous-competing-1000-205608",
+      "status": "passed",
+      "reportedTokens": 122800,
+      "unknownReserve": 0,
+      "exitCode": 0
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/continuous-competing-1000-210538",
+      "status": "passed",
+      "reportedTokens": 127600,
+      "unknownReserve": 0,
+      "exitCode": 0
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/windowed-competing-1000-211438",
+      "status": "failed",
+      "reportedTokens": 132290,
+      "unknownReserve": 32768,
+      "exitCode": 1
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/windowed-isolated-long-every-1-2-213114",
+      "status": "passed",
+      "reportedTokens": 2857,
+      "unknownReserve": 0,
+      "exitCode": 0
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/windowed-shared-1000-213144",
+      "status": "passed",
+      "reportedTokens": 127600,
+      "unknownReserve": 0,
+      "exitCode": 0
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/windowed-competing-1000-213914",
+      "status": "passed",
+      "reportedTokens": 120400,
+      "unknownReserve": 0,
+      "exitCode": 0
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/windowed-competing-offered-stop-1000-215014",
+      "status": "failed",
+      "reportedTokens": 129608,
+      "unknownReserve": 0,
+      "exitCode": 1
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/continuous-competing-offered-stop-1000-215923",
+      "status": "passed",
+      "reportedTokens": 123290,
+      "unknownReserve": 0,
+      "exitCode": 0
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/windowed-isolated-long-every-1-1000-220753",
+      "status": "failed",
+      "reportedTokens": 1399852,
+      "unknownReserve": 131072,
+      "exitCode": 1,
+      "measurementUnknownReserve": 98304,
+      "additionalUnknownReserve": 32768
+    },
+    {
+      "directory": "plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/temporal-sustained-mixed-windowed-3000-223016",
+      "status": "passed",
+      "reportedTokens": 821576,
+      "unknownReserve": 0,
+      "exitCode": 0,
+      "guard": null,
+      "kind": "real_temporal_api_3000"
+    }
+  ]
+}

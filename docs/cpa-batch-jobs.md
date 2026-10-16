@@ -246,3 +246,25 @@ median 256.557 seconds. A fresh run after merging current main qualified in
 and a mixed-array pilot timeout remain failures in the same report. The final
 merged-source browser-free release passed all 30 tasks. This evidence does not
 establish a universal provider quota or guarantee completion within six minutes.
+
+
+The [shared scheduling qualification](../plans/evidence/harden-llm/cpa-strategy-qualification/2026-10-16/report.md)
+compares independent and shared clients, admission-window versus unrestricted
+probing, competing traffic that stops, and sustained output length. The final
+real CPA test qualified three 1,000-item jobs from two bearer clients: all 3,000
+distinct results, 300 bounded long outputs, exactly 3,000 observed main caller
+attempts, peak overlap 128 and no observed refusal/error outcomes. Results were
+ready in 1,032.482 seconds; one short response took 167.377 seconds. CPA internal
+attempt totals remain unknown. The final local browser-free release passed all
+30 tasks on `edaea2a`, using the recorded host resource setting; earlier failed
+samples and release attempts remain in the evidence.
+
+Use continuous submission through one shared dispatcher with the measured
+200-start/61-second estimate and adaptive recovery. In ordinary dispatch, an
+unfinished response does not block later eligible work. History rollover drains
+active activities before the next run, so long responses can briefly delay
+queued work at that boundary. The measured burst boundary is not a universal
+simultaneous-generation ceiling, RPM contract or suspension-safe rate. All
+participating clients must share the configured authority; direct CPA and
+ordinary HLLM calls remain outside it. Requalify changed models, request shapes
+and account limits before retuning policy.

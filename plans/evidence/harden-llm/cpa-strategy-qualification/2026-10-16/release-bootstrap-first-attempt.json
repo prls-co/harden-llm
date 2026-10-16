@@ -1,0 +1,193 @@
+{
+  "scope": "earlier clean-worktree bootstrap failure; not later controller acceptance",
+  "sourceSHA": "826757c29b5d8b9c79b800c3650732f555a183da",
+  "accepted": false,
+  "report": "/home/kirill/p/.worktrees/harden-llm-cpa-endurance/tmp/test-feedback/runner-1792185014634-4019544-b18b8e78a2ac160d.json",
+  "reportSHA256": "60fadd6d863d58cb6170f3ab10e9eff674c5dbcf88442d70a7471d0571cbe762",
+  "firstFailureTask": "frontend-gateway-workflows",
+  "finding": "Fresh worktree lacked locked Phoenix dependencies; original lockfile installation preceded the accepted 826 release. Canceled tasks are not independent assertion failures.",
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "tasks": [
+    {
+      "taskId": "go-format",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-lint",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-build",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-static",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "runner-contracts",
+      "status": 1,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "production-config-compose",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-unit",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-parity",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-integration",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-temporal-integration",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-integration-race",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "go-api",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-observability",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-compose",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "go-compose-contract",
+      "status": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    {
+      "taskId": "go-race",
+      "status": 1,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "go-vulnerability",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-ui-package",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-format",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-compile",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-deterministic",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "client-core",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "run-progress-client",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-deps-audit",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-hex-audit",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-assets-deploy",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-pagination-asset-check",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-release",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "backend-verify-baseline",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false
+    },
+    {
+      "taskId": "frontend-gateway-workflows",
+      "status": 1,
+      "signal": null,
+      "timedOut": false
+    }
+  ]
+}

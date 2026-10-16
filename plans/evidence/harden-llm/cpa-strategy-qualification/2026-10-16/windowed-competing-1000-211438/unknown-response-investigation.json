@@ -1,0 +1,21 @@
+{
+  "scope": "all CPA main.log lines in bounded time interval, not per-request attribution",
+  "unknownResponseAt": "2026-10-16T21:16:25.927822032Z",
+  "unknownHTTPStatus": 503,
+  "unknownCode": "internal_server_error",
+  "unknownCPARequestIDSuffixAbsent": true,
+  "intervalUTC": [
+    "2026-10-16T21:16:24Z",
+    "2026-10-16T21:16:28Z"
+  ],
+  "accessStatusCounters": {
+    "200": 100,
+    "503": 1
+  },
+  "fixedCategoryCounters": {
+    "linesInInterval": 216,
+    "upstream execution failed:": 99
+  },
+  "rawLogPrintedOrStored": false,
+  "rootCause": "unconfirmed"
+}
