@@ -41,7 +41,8 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any)
 		delete(projection, "output_text")
 	}
 	ledger, accountingErr := normalizeResponseAccounting(prepared, response)
-	partial := runtime.ProviderResult{Accounting: ledger}
+	extraction := extractProviderOutputState(prepared.protocol, projection)
+	partial := runtime.ProviderResult{Accounting: ledger, AssistantText: extraction.text}
 	if accountingErr != nil {
 		return partial, accountingProviderError(accountingErr)
 	}
@@ -56,7 +57,6 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any)
 			}
 		}
 	}
-	extraction := extractProviderOutputState(prepared.protocol, projection)
 	if extraction.malformed {
 		return partial, &retry.ProviderError{Err: errors.New("provider returned a malformed output envelope"), Code: "OUTPUT_MALFORMED", Category: retry.CategoryOther}
 	}
@@ -84,7 +84,7 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any)
 	}
 	return runtime.ProviderResult{
 		Search: normalizeSearch(prepared, response),
-		Output: output, Accounting: ledger,
+		Output: output, AssistantText: text, Accounting: ledger,
 	}, nil
 }
 

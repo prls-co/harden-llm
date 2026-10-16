@@ -55,7 +55,7 @@ type chatCompletionTokenDetail struct {
 }
 
 func chatResponse(model string, result hardenllm.Result, created int64, includeUsage, diagnostics bool) (chatCompletionResponse, error) {
-	content, calls, err := outputContent(result.Output)
+	content, calls, err := outputContent(result)
 	if err != nil {
 		return chatCompletionResponse{}, err
 	}
@@ -89,7 +89,7 @@ func chatResponse(model string, result hardenllm.Result, created int64, includeU
 }
 
 func responsesResponse(model string, result hardenllm.Result, created int64, diagnostics bool, parallelToolCalls bool) (map[string]any, error) {
-	content, calls, err := outputContent(result.Output)
+	content, calls, err := outputContent(result)
 	if err != nil {
 		return nil, err
 	}
@@ -128,24 +128,34 @@ func responsesResponse(model string, result hardenllm.Result, created int64, dia
 	return response, nil
 }
 
-func outputContent(value any) (string, []hardenllm.AssistantToolCall, error) {
-	switch output := value.(type) {
+func outputContent(result hardenllm.Result) (string, []hardenllm.AssistantToolCall, error) {
+	var content string
+	var calls []hardenllm.AssistantToolCall
+	switch output := result.Output.(type) {
 	case string:
-		return output, nil, nil
+		content = output
 	case hardenllm.AssistantOutput:
-		return output.Content, output.ToolCalls, nil
+		content, calls = output.Content, output.ToolCalls
 	case *hardenllm.AssistantOutput:
 		if output == nil {
 			return "", nil, errors.New("the provider returned no output")
 		}
-		return output.Content, output.ToolCalls, nil
+		content, calls = output.Content, output.ToolCalls
 	default:
-		encoded, err := json.Marshal(value)
-		if err != nil {
-			return "", nil, errors.New("the structured result could not be encoded")
+		// Native object outputs have no original text. Text-based structured
+		// responses use their exact original string instead of reserialization.
+		if result.AssistantText == "" {
+			encoded, err := json.Marshal(result.Output)
+			if err != nil {
+				return "", nil, errors.New("the structured result could not be encoded")
+			}
+			content = string(encoded)
 		}
-		return string(encoded), nil, nil
 	}
+	if result.AssistantText != "" {
+		content = result.AssistantText
+	}
+	return content, calls, nil
 }
 
 func chatUsage(value hardenllm.Usage) *chatCompletionUsage {

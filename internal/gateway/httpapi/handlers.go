@@ -283,6 +283,7 @@ func (api *API) writeCallError(writer http.ResponseWriter, err error, result har
 	var parameter any
 	var providerError *hardenllm.ProviderError
 	var validation *hardenllm.ValidationError
+	var invalidContract *hardenllm.SchemaContractError
 	switch {
 	case errors.Is(err, context.Canceled):
 		status, code, message = http.StatusRequestTimeout, "request_canceled", "The request was canceled."
@@ -293,6 +294,8 @@ func (api *API) writeCallError(writer http.ResponseWriter, err error, result har
 		if validation.Field != "" {
 			parameter = validation.Field
 		}
+	case errors.As(err, &invalidContract):
+		status, code, message = http.StatusInternalServerError, "internal_contract_error", "The gateway generated an invalid output contract."
 	case errors.As(err, &providerError):
 		code = safeCode(providerError.Code, "upstream_error")
 		if providerError.Status == http.StatusTooManyRequests {
@@ -307,6 +310,7 @@ func (api *API) writeCallError(writer http.ResponseWriter, err error, result har
 	response := errorResponse{Error: openAIError{Message: message, Type: typeName, Code: code, Param: parameter}}
 	if diagnostics {
 		response.Harden = hardenExtension(result)
+		response.OutputText = result.AssistantText
 	}
 	writeJSON(writer, status, response, maximumResponseBytes)
 }
@@ -414,10 +418,23 @@ func chatOutputContract(encoded json.RawMessage) (hardenllm.CallType, json.RawMe
 		if err := strictDecoder.Decode(&schema); err != nil || schema.Name == "" || len(schema.Schema) == 0 {
 			return "", nil, errors.New("json_schema requires name and schema")
 		}
-		return hardenllm.CallTypeStructured, schema.Schema, nil
+		return explicitOutputContract(schema.Name, schema.Schema)
 	default:
 		return "", nil, errors.New("response_format type must be json_schema or json_object")
 	}
+}
+
+// Caller-provided schemas are validated at the HTTP boundary. Contract errors
+// arising later from internally generated schemas remain server errors.
+func explicitOutputContract(name string, raw json.RawMessage) (hardenllm.CallType, json.RawMessage, error) {
+	if name == "" || len(raw) == 0 {
+		return "", nil, errors.New("json_schema requires name and schema")
+	}
+	normalized, err := hardenllm.NormalizeSchema(raw)
+	if err != nil {
+		return "", nil, err
+	}
+	return hardenllm.CallTypeStructured, normalized, nil
 }
 
 func responsesOutputContract(encoded json.RawMessage) (hardenllm.CallType, json.RawMessage, error) {
@@ -440,10 +457,7 @@ func responsesOutputContract(encoded json.RawMessage) (hardenllm.CallType, json.
 	case "json_object":
 		return hardenllm.CallTypeStructured, json.RawMessage(`{"type":"object"}`), nil
 	case "json_schema":
-		if format.Name == "" || len(format.Schema) == 0 {
-			return "", nil, errors.New("json_schema requires name and schema")
-		}
-		return hardenllm.CallTypeStructured, format.Schema, nil
+		return explicitOutputContract(format.Name, format.Schema)
 	default:
 		return "", nil, errors.New("text.format type must be json_schema or json_object")
 	}

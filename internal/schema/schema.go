@@ -154,22 +154,50 @@ func ValidateContract(raw json.RawMessage) error {
 	return validateNode(node, "", true)
 }
 
+// contractType handles one supported type, optionally united with null.
+// Contract and value validation share this interpretation.
+func contractType(raw any, path string) (string, bool, error) {
+	var name string
+	nullable := false
+	switch value := raw.(type) {
+	case string:
+		name = value
+	case []any:
+		if len(value) != 2 {
+			return "", false, contractError(joinPath(path, "type"), "type", "type union must contain one supported type and null")
+		}
+		first, firstOK := value[0].(string)
+		second, secondOK := value[1].(string)
+		if !firstOK || !secondOK || first == second || (first != "null" && second != "null") {
+			return "", false, contractError(joinPath(path, "type"), "type", "type union must contain one supported type and null")
+		}
+		name = first
+		if first == "null" {
+			name = second
+		}
+		nullable = true
+	default:
+		return "", false, contractError(joinPath(path, "type"), "type", "type must be a supported type or its nullable union")
+	}
+	switch name {
+	case "object", "array", "string", "number", "integer", "boolean":
+		return name, nullable, nil
+	default:
+		return "", false, contractError(joinPath(path, "type"), "type", fmt.Sprintf("%s is not a contracted schema type", name))
+	}
+}
+
 func validateNode(node map[string]any, path string, root bool) error {
 	for key := range node {
 		if _, ok := contractedKeywords[key]; !ok {
 			return contractError(joinPath(path, key), key, fmt.Sprintf("%s is not part of the contracted schema subset", key))
 		}
 	}
-	typeName, ok := node["type"].(string)
-	if !ok {
-		return contractError(joinPath(path, "type"), "type", "type must be a contracted string type")
+	typeName, nullable, err := contractType(node["type"], path)
+	if err != nil {
+		return err
 	}
-	switch typeName {
-	case "object", "array", "string", "number", "integer", "boolean":
-	default:
-		return contractError(joinPath(path, "type"), "type", fmt.Sprintf("%s is not a contracted schema type", typeName))
-	}
-	if root && typeName != "object" {
+	if root && (typeName != "object" || nullable) {
 		return contractError(joinPath(path, "type"), "type", "root schema must be an object")
 	}
 	if description, exists := node["description"]; exists {
@@ -294,7 +322,10 @@ func ValidateValue(contract json.RawMessage, value any) error {
 }
 
 func validateValueNode(node map[string]any, value any, path string) error {
-	typeName, _ := node["type"].(string)
+	typeName, nullable, err := contractType(node["type"], path)
+	if err != nil {
+		return err
+	}
 	if enum, ok := node["enum"].([]any); ok {
 		matched := false
 		for _, candidate := range enum {
@@ -307,6 +338,10 @@ func validateValueNode(node map[string]any, value any, path string) error {
 			return fmt.Errorf("%s is not an allowed enum value", path)
 		}
 	}
+	if nullable && value == nil {
+		return nil
+	}
+
 	switch typeName {
 	case "object":
 		object, ok := value.(map[string]any)
