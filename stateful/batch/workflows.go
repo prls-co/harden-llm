@@ -93,6 +93,9 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 	lastWork := workflow.Now(ctx)
 	nextHeartbeat := lastWork
 	coalesceHeartbeats := workflow.GetVersion(ctx, "coalesce-status-heartbeats", workflow.DefaultVersion, 1) != workflow.DefaultVersion
+	// Old V1 histories keep their recorded pacing; fresh runs replenish the
+	// configured burst at each new admission window without exceeding its budget.
+	s.Controller.RefillWindowBurst = workflow.GetVersion(ctx, "refill-window-burst", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	if err := workflow.SetQueryHandler(ctx, stateQuery, func() (DispatcherState, error) { return s, nil }); err != nil {
 		return err
 	}

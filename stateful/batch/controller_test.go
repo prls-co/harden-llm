@@ -170,3 +170,21 @@ func TestLargeRetryHintCannotOverflowIntoImmediateAdmission(t *testing.T) {
 		t.Fatal("large provider wait became an early probe")
 	}
 }
+
+func TestEachAdmissionWindowReplenishesItsBoundedBurst(t *testing.T) {
+	p := DefaultPolicy()
+	c := NewController(p)
+	at := time.Unix(1000, 0)
+	for window := range 3 {
+		now := at.Add(time.Duration(window) * p.WindowDuration)
+		for item := range p.WindowRequests {
+			if !c.CanStart(now, 0) {
+				t.Fatalf("window %d item %d lost its burst credits", window, item)
+			}
+			c.Start(now)
+		}
+		if c.CanStart(now, 0) || c.CanStart(now.Add(p.WindowDuration-time.Millisecond), 0) {
+			t.Fatal("refilling the burst bypassed the admission budget")
+		}
+	}
+}

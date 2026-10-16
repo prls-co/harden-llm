@@ -32,23 +32,24 @@ func (p Policy) Validate() error {
 
 // Controller contains only deterministic values; workflows supply their clock.
 type Controller struct {
-	Policy       Policy
-	Rate         int
-	BurstLeft    int
-	Successes    int
-	Epoch        time.Time
-	NextStart    time.Time
-	NextEligible time.Time
-	Cooling      bool
-	Probing      bool
-	ProbeDelay   time.Duration
-	Paused       bool
-	WindowStart  time.Time
-	WindowStarts int
+	Policy            Policy
+	Rate              int
+	BurstLeft         int
+	Successes         int
+	Epoch             time.Time
+	NextStart         time.Time
+	NextEligible      time.Time
+	Cooling           bool
+	Probing           bool
+	ProbeDelay        time.Duration
+	Paused            bool
+	WindowStart       time.Time
+	WindowStarts      int
+	RefillWindowBurst bool
 }
 
 func NewController(p Policy) Controller {
-	return Controller{Policy: p, Rate: p.StartRate, BurstLeft: p.Burst, ProbeDelay: 2 * time.Second}
+	return Controller{Policy: p, Rate: p.StartRate, BurstLeft: p.Burst, ProbeDelay: 2 * time.Second, RefillWindowBurst: true}
 }
 func (c *Controller) Configure(p Policy) error {
 	if err := p.Validate(); err != nil {
@@ -92,6 +93,9 @@ func (c *Controller) NextAdmission(now time.Time) time.Time {
 func (c *Controller) Start(now time.Time) {
 	if c.Policy.WindowRequests > 0 {
 		if c.WindowStart.IsZero() || !now.Before(c.WindowStart.Add(c.Policy.WindowDuration)) {
+			if !c.WindowStart.IsZero() && c.RefillWindowBurst {
+				c.BurstLeft = c.Policy.Burst
+			}
 			c.WindowStart = now
 			c.WindowStarts = 0
 		}

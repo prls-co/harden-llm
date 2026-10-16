@@ -2059,8 +2059,8 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 
 ### TEST-474: Shared CPA admission and transport diagnostics
 
-- Tier: T0/T1; `stateful/batch/controller_test.go` and `internal/providers/timing_test.go`.
-- Assert independent start rate/concurrency, burst pacing, longest cooldown, one recovery probe, one rate decrease per episode, straggler isolation and policy-update invariants using supplied clocks.
+- Tier: T0/T1; `stateful/batch/controller_test.go`, `stateful/batch/activities_test.go` and `internal/providers/timing_test.go`.
+- Assert independent start rate/concurrency, burst pacing, longest cooldown, one recovery probe, one rate decrease per episode, straggler isolation and policy-update invariants using supplied clocks. Window credits replenish independently of completion speed, every window restores its bounded burst, and oversized retry hints cannot overflow into early admission. Account/billing restrictions pause the pool; quota selection failures retry; ordinary network/outage errors remain item failures.
 - Actual local TLS/SSE execution must retain bounded CPA correlation/header timing and configured transport capacity; TLS and host policy remain enforced.
 
 ### TEST-475: Durable batch HTTP contract
@@ -2072,8 +2072,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 ### TEST-476: Temporal scheduling and durable deadlines
 
 - Tier: T1; `stateful/batch/workflows_test.go` uses the Temporal SDK virtual-time environment.
-- Assert a rejected item returns through the dispatcher, successful items are not retried, cooldown metadata is published and the overall job deadline expires queued work. No public network or provider credentials.
-
+- Assert a rejected item returns through the dispatcher, successful items are not retried, cooldown metadata is published and the overall job deadline expires queued work. No public network or provider credentials. A new job after 35 idle minutes cannot bypass an account pause; explicit resume performs one recovery probe. Successful completions coalesce metadata writes without losing the five-second heartbeat.
 - Retained synthetic Temporal history replays offline after a real throttle/cooldown/worker restart; workflow changes must preserve V1 replay compatibility.
 
 ### TEST-477: PostgreSQL batch durability and isolation
@@ -2089,7 +2088,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 ### TEST-479: Self-hosted batch composition configuration
 
 - Tier: T0; `cmd/harden-llm-gateway/batch_config_test.go`.
-- Default disabled. Enabled mode requires an explicit self-hosted Temporal endpoint, namespace, trusted CPA pool/upstream and bounded independent controls. Invalid settings produce safe diagnostics. SDK imports are restricted by TEST-003 and ADR-HLLM-035.
+- Default disabled. Enabled mode requires an explicit self-hosted Temporal endpoint, namespace, trusted CPA pool/upstream and bounded independent controls. Invalid settings produce safe diagnostics. SDK imports are restricted by TEST-003 and ADR-HLLM-035. Native Compose resolution proves the opt-in worker shares the backend image, protected effects and private Temporal network without introducing another database or Temporal service.
 
 ### TEST-480: Real Temporal batch execution and restart recovery
 

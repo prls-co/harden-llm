@@ -97,6 +97,9 @@ estimate based on measurements, not a declaration of universal provider RPM.
 Queued jobs report `admission_window` and `next_attempt_at` while it is exhausted.
 Defaults select 128 active slots, a 200-start budget and 61 seconds based on
 the retained experiments. Both this estimate and the launch pace are tunable.
+Each new admission window replenishes its configured burst, still bounded by
+the window budget and active-call ceiling. This avoids turning a 10 ms pacing
+timer into one expensive workflow task for every start when budget is available.
 
 One explicit throttle closes pool admission. Existing calls finish; one queued
 item becomes the recovery probe after `Retry-After`. Without a supplied delay,
