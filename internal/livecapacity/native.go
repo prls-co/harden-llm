@@ -9,11 +9,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"regexp"
 	"strings"
 	"time"
 )
 
 type NativeMeasurement struct {
+	CPARequestID   string    `json:"cpaRequestId,omitempty"`
 	Model          string    `json:"responseModel,omitempty"`
 	ReportedEffort string    `json:"reportedEffort,omitempty"`
 	ResponseStatus string    `json:"responseStatus,omitempty"`
@@ -34,6 +36,10 @@ type NativeMeasurement struct {
 	OutputTokens   int64     `json:"outputTokens"`
 	RetryAfterMS   int64     `json:"retryAfterMs"`
 }
+
+// Only retain the gateway's bounded correlation suffix, never the trace header
+// prefix or arbitrary upstream response headers.
+var nativeCPACorrelationID = regexp.MustCompile(`(?i)-([a-f0-9]{8})$`)
 
 type NativeCaller struct {
 	URL, Key string
@@ -70,6 +76,9 @@ func (c NativeCaller) Call(parent context.Context, prefix string, id, attempt in
 	}
 	defer resp.Body.Close()
 	m.Status = resp.StatusCode
+	if match := nativeCPACorrelationID.FindStringSubmatch(resp.Header.Get("X-Cpa-Trace-Id")); match != nil {
+		m.CPARequestID = strings.ToLower(match[1])
+	}
 	m.RetryAfterMS = RetryAfter(resp.Header.Get("Retry-After"), time.Now()).Milliseconds()
 	consume := func(raw []byte, terminal string) {
 		var wire struct {

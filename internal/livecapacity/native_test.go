@@ -54,3 +54,24 @@ func TestNativeThrottleAndMalformedResults(t *testing.T) {
 		})
 	}
 }
+
+func TestNativeCapturesOnlyBoundedCPACorrelationID(t *testing.T) {
+	for _, tc := range []struct{ header, want string }{
+		{"synthetic-private-prefix-0123abcd", "0123abcd"},
+		{"synthetic-private-prefix-not-an-id", ""},
+		{"synthetic-private-prefix-0123abcd-extra", ""},
+	} {
+		t.Run(tc.header, func(t *testing.T) {
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("X-Cpa-Trace-Id", tc.header)
+				w.WriteHeader(http.StatusTooManyRequests)
+				fmt.Fprint(w, `{"error":{"code":"rate_limit_exceeded"}}`)
+			}))
+			defer s.Close()
+			m := (NativeCaller{URL: s.URL, Key: "synthetic", Client: s.Client(), Timeout: time.Second}).Call(context.Background(), "fixture", 0, 1)
+			if m.CPARequestID != tc.want || m.Kind != "rejected" {
+				t.Fatalf("unsafe or missing correlation ID: %+v", m)
+			}
+		})
+	}
+}

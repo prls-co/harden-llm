@@ -33,7 +33,10 @@ benchmark timings do not qualify HLLM's unchanged ordinary request deadline.
 
 Five-second heartbeat events and atomic `status.json` report accepted, dispatched,
 completed, unknown, rejected, active, peak, cooldown and phase timing. Raw output
-and credentials are not logged. Report useful completions/second and whole-batch
+and credentials are not logged. Native measurements retain only the eight-hex
+CPA request-ID suffix from `X-Cpa-Trace-Id` for exact origin-log correlation;
+the full trace header can contain credential metadata and is never retained.
+Report useful completions/second and whole-batch
 wall time, including cooldowns and tails. Separate cold burst performance from
 sustained throughput; bisection can be noisy because other clients share quota.
 
