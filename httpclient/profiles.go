@@ -26,6 +26,36 @@ func (client *Client) GetProfile(ctx context.Context, id string) (ProfileDraft, 
 	return result, err
 }
 
+// ResolveReasoningEffort projects a validated profile's portable capabilities.
+// An explicit choice must be configured. An omitted choice uses preferred
+// when supported, then configured portable order; no map means no override.
+// Callers own their preference and freezing this result with an accepted job.
+// This function performs no HTTP, provider work or mutation of the definition.
+func ResolveReasoningEffort(definition ProfileDefinition, requested, preferred string) (string, error) {
+	for _, value := range []string{requested, preferred} {
+		switch value {
+		case "", "lowest", "middle", "highest":
+		default:
+			return "", errors.New("Harden reasoning effort must use a portable level")
+		}
+	}
+	if requested != "" {
+		if _, configured := definition.ReasoningEffortMap[requested]; !configured {
+			return "", errors.New("the selected Harden profile does not configure the requested reasoning effort")
+		}
+		return requested, nil
+	}
+	if _, configured := definition.ReasoningEffortMap[preferred]; preferred != "" && configured {
+		return preferred, nil
+	}
+	for _, value := range []string{"lowest", "middle", "highest"} {
+		if _, configured := definition.ReasoningEffortMap[value]; configured {
+			return value, nil
+		}
+	}
+	return "", nil
+}
+
 func (client *Client) get(ctx context.Context, path, schemaName string, result any) error {
 	response, err := client.request(ctx, http.MethodGet, path, "application/json", nil)
 	if err != nil {

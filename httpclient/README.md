@@ -33,6 +33,15 @@ timeout and correlation origin. `ReasoningEffort` uses `lowest`, `middle` or
 `json.Marshal(hardenllm.DefaultStructuredRecoveryPolicy())` when the product
 selects that owner default; no repair algorithm is copied into this package.
 
+`ResolveReasoningEffort(definition, requested, preferred)` uses the profile's
+configured portable levels without fetching or mutating it. Explicit
+unsupported choices reject; omission selects the supported preference, then
+lowest/middle/highest configured order. A profile without configured levels
+returns empty, meaning no reasoning override. The caller owns its role
+preference and must freeze the result with the accepted job, preserving the
+original request/digest for retries. Do not re-resolve a saved result against a
+later catalog or infer that this helper relaxes Run's strict wire validation.
+
 For a structured call provide a JSON-object schema. The package validates the
 request before dispatch and validates terminal output against that schema.
 Request/schema/options bounds are 256/64/32 KiB. `timeoutMs` cannot exceed the

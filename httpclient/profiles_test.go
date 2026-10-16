@@ -14,6 +14,51 @@ import (
 	"time"
 )
 
+func TestResolveReasoningEffortUsesOnlyConfiguredPortableLevels(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, requested, preferred, want string
+		levels                           []string
+		wantError                        bool
+	}{
+		{name: "query preference", levels: []string{"highest", "middle", "lowest"}, preferred: "lowest", want: "lowest"},
+		{name: "utility preference", levels: []string{"lowest", "highest"}, preferred: "highest", want: "highest"},
+		{name: "explicit choice wins", levels: []string{"middle", "highest"}, requested: "middle", preferred: "highest", want: "middle"},
+		{name: "missing preference uses configured order", levels: []string{"highest", "middle"}, preferred: "lowest", want: "middle"},
+		{name: "only middle", levels: []string{"middle"}, preferred: "highest", want: "middle"},
+		{name: "no preference", levels: []string{"highest", "lowest"}, want: "lowest"},
+		{name: "absent map", preferred: "highest"},
+		{name: "empty map", levels: []string{}, preferred: "lowest"},
+		{name: "explicit unconfigured", levels: []string{"middle"}, requested: "highest", preferred: "middle", wantError: true},
+		{name: "explicit without map", requested: "lowest", preferred: "highest", wantError: true},
+		{name: "no provider spelling", levels: []string{"lowest"}, requested: "low", preferred: "lowest", wantError: true},
+		{name: "invalid preferred", levels: []string{"lowest"}, preferred: "provider-high", wantError: true},
+		{name: "invalid whitespace", levels: []string{"lowest"}, requested: " lowest ", preferred: "lowest", wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			definition := ProfileDefinition{}
+			if test.levels != nil {
+				definition.ReasoningEffortMap = map[string]json.RawMessage{}
+				for _, level := range test.levels {
+					definition.ReasoningEffortMap[level] = json.RawMessage(`{"fixture":"unchanged"}`)
+				}
+			}
+			before, err := json.Marshal(definition)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := ResolveReasoningEffort(definition, test.requested, test.preferred)
+			if (err != nil) != test.wantError || got != test.want {
+				t.Fatalf("got effort %q, error %v; want effort %q, error=%t", got, err, test.want, test.wantError)
+			}
+			after, marshalErr := json.Marshal(definition)
+			if marshalErr != nil || string(before) != string(after) {
+				t.Fatal("reasoning projection mutated the owner definition")
+			}
+		})
+	}
+}
+
 func TestProfilesRejectInvalidResponsesWithoutFallback(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"denied", "malformed", "unknown_field", "content_type", "oversized"} {
