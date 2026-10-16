@@ -1,0 +1,44 @@
+# Explicit opt-in overlay for the root Compose deployment. Reuse existing
+# PostgreSQL, Garage, telemetry and a provisioned self-hosted Temporal namespace.
+x-batch-environment: &batch-environment
+  HARDEN_LLM_BATCH_ENABLED: 'true'
+  HARDEN_LLM_TEMPORAL_ADDRESS: ${HARDEN_LLM_TEMPORAL_ADDRESS:?set the private self-hosted Temporal endpoint}
+  HARDEN_LLM_TEMPORAL_NAMESPACE: ${HARDEN_LLM_TEMPORAL_NAMESPACE:?set the provisioned HLLM namespace}
+  HARDEN_LLM_BATCH_TASK_QUEUE: ${HARDEN_LLM_BATCH_TASK_QUEUE:-harden-llm-batch-v1}
+  HARDEN_LLM_BATCH_POOL_ID: ${HARDEN_LLM_BATCH_POOL_ID:?set the trusted CPA account pool ID}
+  HARDEN_LLM_BATCH_UPSTREAM: ${HARDEN_LLM_BATCH_UPSTREAM:?select the configured CPA Responses connection}
+  HARDEN_LLM_BATCH_CONCURRENCY: ${HARDEN_LLM_BATCH_CONCURRENCY:-128}
+  HARDEN_LLM_BATCH_BURST: ${HARDEN_LLM_BATCH_BURST:-100}
+  HARDEN_LLM_BATCH_START_RATE: ${HARDEN_LLM_BATCH_START_RATE:-50}
+  HARDEN_LLM_BATCH_MAX_START_RATE: ${HARDEN_LLM_BATCH_MAX_START_RATE:-200}
+  HARDEN_LLM_BATCH_REFILL_ESTIMATE_MS: ${HARDEN_LLM_BATCH_REFILL_ESTIMATE_MS:-61000}
+  HARDEN_LLM_BATCH_WINDOW_REQUESTS: ${HARDEN_LLM_BATCH_WINDOW_REQUESTS:-200}
+  HARDEN_LLM_BATCH_WINDOW_MS: ${HARDEN_LLM_BATCH_WINDOW_MS:-61000}
+  HARDEN_LLM_BATCH_JOB_TIMEOUT_SECONDS: ${HARDEN_LLM_BATCH_JOB_TIMEOUT_SECONDS:-7200}
+
+services:
+  harden-llm-gateway:
+    environment: *batch-environment
+    networks: [batch-temporal]
+
+  harden-llm-batch-worker:
+    extends:
+      file: docker-compose.yml
+      service: harden-llm-gateway
+    command: [worker]
+    environment:
+      <<: *batch-environment
+      HARDEN_LLM_SERVICE_NAME: harden-llm-batch-worker
+      GOMEMLIMIT: 384MiB
+    networks: [harden-private, prls-observability, shared-postgres, batch-temporal]
+    mem_limit: 512m
+    # The worker does not serve HTTP. Startup verifies namespace/storage; monitor
+    # Temporal task-queue pollers and the job heartbeat/deadline, not /healthz.
+    healthcheck:
+      disable: true
+    stop_grace_period: 30s
+
+networks:
+  batch-temporal:
+    external: true
+    name: ${HARDEN_LLM_TEMPORAL_NETWORK:?set the existing Temporal service network}

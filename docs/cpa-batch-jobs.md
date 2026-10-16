@@ -63,6 +63,25 @@ harden-llm-gateway worker
 Serving does not apply DDL. `serve` exposes HTTP; `worker` processes Temporal
 tasks. Workers use the same HLLM pool configuration and Garage credential path.
 
+For the root Compose deployment, explicitly add `deploy/batch/compose.yml`.
+This overlay runs `harden-llm-batch-worker` from the gateway image, inherits
+the protected database/Garage/provider configuration and connects both API and
+worker to `HARDEN_LLM_TEMPORAL_NETWORK`, an existing private service network.
+It starts no additional database or Temporal service. It is not part of the
+default production or preview deployment. The current preview template needs
+its approved Garage and Temporal settings provisioned before jobs can be enabled.
+
+Rollout gates are: provision the environment's namespace/network access and
+HLLM-scoped Garage access; build the verified gateway SHA; run explicit additive
+`schema`; enable the overlay for API and worker together; confirm namespace
+task-queue pollers, authorized status reads and image identities. Then perform
+an explicitly opted-in provider canary. An HTTP health check alone does not
+prove provider acceptance. Worker startup verifies storage/namespace, and its
+process exit triggers restart; it serves no HTTP health endpoint. Monitor its
+Temporal pollers and job heartbeats/deadlines. Preserve accepted manifests,
+results and workflow histories during rollback. Disable new batch submissions
+and drain accepted work before removing workers or changing workflow versions.
+
 The dispatcher initially releases 100 calls, then paces starts at 50/second,
 with at most 128 active calls. Every 100 unthrottled validated completions
 doubles the launch rate, up to 200/second. These are caller controls, not a

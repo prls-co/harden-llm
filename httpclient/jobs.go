@@ -67,6 +67,29 @@ func decodeJobStatus(response *http.Response) (JobStatus, error) {
 	}
 	return v, nil
 }
+
+func jobRejection(response *http.Response) error {
+	if mediaType(response) != "application/json" {
+		return &ProtocolError{}
+	}
+	raw, err := readBounded(response.Body, maximumErrorBytes)
+	if err != nil {
+		return err
+	}
+	if err = api.Validate("Error", raw); err != nil {
+		return &ProtocolError{}
+	}
+	var envelope struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err = json.Unmarshal(raw, &envelope); err != nil {
+		return &ProtocolError{}
+	}
+	return &RejectedError{StatusCode: response.StatusCode, Problem: RunError{Code: envelope.Error.Code, Message: envelope.Error.Message}}
+}
 func (c *Client) SubmitJob(ctx context.Context, key string, items []JobItem) (JobStatus, error) {
 	var v JobStatus
 	if len(key) < 1 || len(key) > 128 {
@@ -92,7 +115,7 @@ func (c *Client) SubmitJob(ctx context.Context, key string, items []JobItem) (Jo
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusAccepted {
-		return v, rejection(response)
+		return v, jobRejection(response)
 	}
 	return decodeJobStatus(response)
 }
@@ -107,7 +130,7 @@ func (c *Client) JobStatus(ctx context.Context, id string) (JobStatus, error) {
 	}
 	defer response.Body.Close()
 	if response.StatusCode != 200 {
-		return v, rejection(response)
+		return v, jobRejection(response)
 	}
 	v, err = decodeJobStatus(response)
 	if err == nil && v.JobID != id {
@@ -172,13 +195,13 @@ func (c *Client) DownloadJobResult(ctx context.Context, id string, w io.Writer) 
 	}
 	defer response.Body.Close()
 	if response.StatusCode != 200 {
-		return rejection(response)
+		return jobRejection(response)
 	}
 	if mediaType(response) != "application/x-ndjson" {
 		return &ProtocolError{}
 	}
 	scan := bufio.NewScanner(response.Body)
-	scan.Buffer(make([]byte, 4096), maximumResponseBytes)
+	scan.Buffer(make([]byte, 4096), maximumStreamBytes)
 	seen := map[string]bool{}
 	success, failed := 0, 0
 	for scan.Scan() {

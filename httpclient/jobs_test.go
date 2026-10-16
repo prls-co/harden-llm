@@ -4,6 +4,7 @@ package httpclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -74,5 +75,21 @@ func TestJobDownloadRejectsDuplicateOrMissingItemRecords(t *testing.T) {
 				t.Fatal("incomplete/duplicate download accepted")
 			}
 		})
+	}
+}
+
+func TestJobRejectionUsesOrdinaryOpenAIErrorContract(t *testing.T) {
+	t.Parallel()
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		io.WriteString(w, `{"error":{"message":"The durable job operation could not be completed.","type":"server_error","param":null,"code":"idempotency_conflict"}}`)
+	}))
+	defer s.Close()
+	c, _ := New(Config{BaseURL: s.URL, APIKey: strings.Repeat("synthetic-key", 4), HTTPClient: s.Client()})
+	_, err := c.SubmitJob(context.Background(), "same-key", []JobItem{{CustomID: "one", Request: json.RawMessage(`{"model":"gpt-6-luna","input":"return ok"}`)}})
+	var rejected *RejectedError
+	if !errors.As(err, &rejected) || rejected.StatusCode != 409 || rejected.Problem.Code != "idempotency_conflict" {
+		t.Fatalf("expected typed canonical rejection, got %T", err)
 	}
 }

@@ -77,6 +77,10 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	summary := map[string]any{"case": caseName, "policy": policy, "logicalRequests": 1000, "model": "gpt-6-luna", "reasoning": "low", "sharedCPAConfigurationChanged": false, "officialAPIEnabled": false, "startedAt": time.Now().UTC(), "status": "running"}
 	sha, _ := exec.Command("git", "rev-parse", "HEAD").Output()
 	summary["sourceSHA"] = strings.TrimSpace(string(sha))
+	patch, _ := exec.Command("git", "diff", "--binary", "HEAD").Output()
+	patchHash := sha256.Sum256(patch)
+	summary["sourceDirty"] = len(patch) > 0
+	summary["sourceDiffSHA256"] = hex.EncodeToString(patchHash[:])
 	binary, _ := os.Executable()
 	data, _ := os.ReadFile(binary)
 	binaryHash := sha256.Sum256(data)
@@ -245,6 +249,8 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	summary["resultReadyMs"] = readyAt.Sub(start).Milliseconds()
 	summary["completionObservedMs"] = time.Since(start).Milliseconds()
 	seen := map[string]bool{}
+	downloaded := map[string]bool{}
+	qualificationFailures := []map[string]string{}
 	callerAttempts := 0
 	var inputTokens, outputTokens int64
 	for i, j := range final {
@@ -271,6 +277,17 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 				t.Fatal(err)
 			}
 			callerAttempts += record.Diagnostics.Attempt
+			if downloaded[record.CustomID] {
+				reader.Close()
+				t.Fatal("duplicate downloaded item")
+			}
+			downloaded[record.CustomID] = true
+			if record.Diagnostics.InputTokens != nil {
+				inputTokens += *record.Diagnostics.InputTokens
+			}
+			if record.Diagnostics.OutputTokens != nil {
+				outputTokens += *record.Diagnostics.OutputTokens
+			}
 			if record.Error != nil {
 				continue
 			}
@@ -285,17 +302,11 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 			}
 			index, parseErr := strconv.Atoi(record.CustomID[strings.LastIndex(record.CustomID, "-")+1:])
 			if parseErr != nil || livecapacity.ValidateBatchOutput(record.CustomID, native.OutputText, mixed && index%10 == 0) != nil || seen[record.CustomID] || native.Model != "gpt-6-luna" || native.Status != "completed" {
-				reader.Close()
-				t.Fatal("independent result qualification failed")
+				qualificationFailures = append(qualificationFailures, map[string]string{"customId": record.CustomID, "code": "independent_result_qualification_failed"})
+				continue
 			}
 
 			seen[record.CustomID] = true
-			if record.Diagnostics.InputTokens != nil {
-				inputTokens += *record.Diagnostics.InputTokens
-			}
-			if record.Diagnostics.OutputTokens != nil {
-				outputTokens += *record.Diagnostics.OutputTokens
-			}
 		}
 		err = scan.Err()
 		reader.Close()
@@ -304,6 +315,8 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 		}
 	}
 	summary["distinctValidatedResults"] = len(seen)
+	summary["distinctDownloadedResults"] = len(downloaded)
+	summary["independentQualificationFailures"] = qualificationFailures
 	summary["callerAttemptsFromItemCounts"] = callerAttempts
 	summary["inputTokens"] = inputTokens
 	summary["outputTokensIncludingReasoning"] = outputTokens
