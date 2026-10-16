@@ -3007,3 +3007,26 @@ cleanup details. The corrected exact candidate must pass the explicit
 `test-hierarchy.yml` browser-free release job in CI, and the accepted main SHA
 must pass that job before any production image build. No browser or paid
 provider call was selected, and production application images remain unchanged.
+
+## October 16 gateway image audit follow-up
+
+The strict-schema change merged as `5f908f6`; its exact-main browser-free
+release run [38864492320](https://github.com/prls-co/harden-llm/actions/runs/38864492320)
+passed. Qualified source images were built with immutable tags. A separate
+image scan rejected the gateway for four HIGH `kin-openapi` findings in
+v0.144.0 (CVE-2026-100351 through CVE-2026-100354). Reachability-aware source
+analysis and image dependency scanning have different scopes; the passing
+source gate does not override this image rejection.
+
+Normal Go module resolution selects `kin-openapi` v0.151.0, including the
+published fixes and its JSON Schema dependency patch to v6.0.3. The four focused
+schema/gateway/provider/runtime packages and ten-task fast gate pass. Required
+new-source CI, exact-main release certification and a rebuilt/scanned gateway
+remain pending. No advisory ignore, replacement module, test threshold or
+provider policy change was added.
+
+The frontend `5f908f6` image and Model Recall's clean product image separately
+passed the HIGH/CRITICAL scan. The frontend source is unchanged by this Go-only
+follow-up; retain its qualified immutable image rather than rebuilding an
+unaffected component. Record its actual component release separately from the
+new gateway release. Neither application has been promoted at this checkpoint.
