@@ -3,6 +3,7 @@ package livecapacity
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // BatchRequestBody uses HLLM's supported schema subset. A single-value enum
@@ -41,6 +42,41 @@ func ValidateBatchOutput(nonce, text string, long bool) error {
 			if x != "x" {
 				return fmt.Errorf("array value mismatch")
 			}
+		}
+	}
+	return nil
+}
+
+// BoundedTextBatchRequestBody is a distinct token-load experiment. A scalar
+// enum bounds the output without requiring the model to count array elements.
+func BoundedTextBatchRequestBody(nonce string) json.RawMessage {
+	payload := strings.TrimSpace(strings.Repeat("x ", 512))
+	properties := map[string]any{
+		"nonce":   map[string]any{"type": "string", "enum": []string{nonce}},
+		"payload": map[string]any{"type": "string", "enum": []string{payload}},
+	}
+	raw, _ := json.Marshal(map[string]any{"model": "gpt-6-luna", "input": "Return the nonce " + nonce + " and the exact payload required by the schema. No other text.", "reasoning": map[string]any{"effort": "low"}, "text": map[string]any{"format": map[string]any{"type": "json_schema", "name": "bench_text", "strict": true, "schema": map[string]any{"type": "object", "properties": properties, "required": []string{"nonce", "payload"}, "additionalProperties": false}}}})
+	return raw
+}
+
+func ValidateBoundedTextBatchOutput(nonce, text string) error {
+	var v struct {
+		Nonce   string `json:"nonce"`
+		Payload string `json:"payload"`
+	}
+	if err := json.Unmarshal([]byte(text), &v); err != nil {
+		return err
+	}
+	if v.Nonce != nonce {
+		return fmt.Errorf("nonce mismatch")
+	}
+	words := strings.Fields(v.Payload)
+	if len(words) != 512 {
+		return fmt.Errorf("word count mismatch")
+	}
+	for _, word := range words {
+		if word != "x" {
+			return fmt.Errorf("word value mismatch")
 		}
 	}
 	return nil

@@ -38,6 +38,7 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	policy.WindowRequests = 0
 	baseline := false
 	mixed := false
+	boundedText := false
 	switch caseName {
 	case "baseline":
 		baseline = true
@@ -57,7 +58,7 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 		policy.StartRate = 100
 	case "mixed-128-50":
 		mixed = true
-	case "windowed-128-100", "windowed-200-100", "mixed-windowed-128-100":
+	case "windowed-128-100", "windowed-200-100", "mixed-windowed-128-100", "mixed-bounded-text-128-100":
 		policy.StartRate = 100
 		policy.Burst = 200
 		policy.WindowRequests = 200
@@ -65,9 +66,22 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 		if caseName == "windowed-200-100" {
 			policy.Concurrency = 200
 		}
-		mixed = caseName == "mixed-windowed-128-100"
+		mixed = caseName == "mixed-windowed-128-100" || caseName == "mixed-bounded-text-128-100"
+		boundedText = caseName == "mixed-bounded-text-128-100"
 	default:
 		t.Fatal("unknown bounded benchmark case")
+	}
+	requestBody := func(nonce string, long bool) json.RawMessage {
+		if boundedText && long {
+			return livecapacity.BoundedTextBatchRequestBody(nonce)
+		}
+		return livecapacity.BatchRequestBody(nonce, long)
+	}
+	validateOutput := func(nonce, text string, long bool) error {
+		if boundedText && long {
+			return livecapacity.ValidateBoundedTextBatchOutput(nonce, text)
+		}
+		return livecapacity.ValidateBatchOutput(nonce, text, long)
 	}
 	dir := os.Getenv("HARDEN_LLM_CPA_BATCH_BENCH_OUTPUT")
 	if dir == "" || !filepath.IsAbs(dir) {
@@ -126,7 +140,7 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 	// Qualify two requests before the load run. A separate, serially used
 	// private dispatcher keeps calibration outside the measured initial state.
 	pilotPrefix := "pilot-" + uuid.NewString()
-	pilotItems := []httpclient.JobItem{{CustomID: pilotPrefix + "-0", Request: livecapacity.BatchRequestBody(pilotPrefix+"-0", false)}, {CustomID: pilotPrefix + "-1", Request: livecapacity.BatchRequestBody(pilotPrefix+"-1", mixed)}}
+	pilotItems := []httpclient.JobItem{{CustomID: pilotPrefix + "-0", Request: requestBody(pilotPrefix+"-0", false)}, {CustomID: pilotPrefix + "-1", Request: requestBody(pilotPrefix+"-1", mixed)}}
 	pilot, err := c.SubmitJob(ctx, pilotPrefix, pilotItems)
 	if err != nil {
 		summary["pilotSubmissionErrorType"] = fmt.Sprintf("%T", err)
@@ -160,7 +174,7 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 			OutputText string `json:"output_text"`
 		}
 		json.Unmarshal(row.Response, &response)
-		if err = livecapacity.ValidateBatchOutput(row.CustomID, response.OutputText, mixed && strings.HasSuffix(row.CustomID, "-1")); err != nil {
+		if err = validateOutput(row.CustomID, response.OutputText, mixed && strings.HasSuffix(row.CustomID, "-1")); err != nil {
 			pilotFile.Close()
 			t.Fatal("pilot content qualification failed", err)
 		}
@@ -212,7 +226,7 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 		for i := range items {
 			index := wave*perWave + i
 			nonce := fmt.Sprintf("%s-%04d", prefix, index)
-			items[i] = httpclient.JobItem{CustomID: nonce, Request: livecapacity.BatchRequestBody(nonce, mixed && index%10 == 0)}
+			items[i] = httpclient.JobItem{CustomID: nonce, Request: requestBody(nonce, mixed && index%10 == 0)}
 		}
 		job, err := c.SubmitJob(ctx, fmt.Sprintf("%s-%d", prefix, wave), items)
 		if err != nil {
@@ -308,7 +322,7 @@ func TestCPATemporalThousandBenchmark(t *testing.T) {
 				t.Fatal("invalid Responses result")
 			}
 			index, parseErr := strconv.Atoi(record.CustomID[strings.LastIndex(record.CustomID, "-")+1:])
-			if parseErr != nil || livecapacity.ValidateBatchOutput(record.CustomID, native.OutputText, mixed && index%10 == 0) != nil || seen[record.CustomID] || native.Model != "gpt-6-luna" || native.Status != "completed" {
+			if parseErr != nil || validateOutput(record.CustomID, native.OutputText, mixed && index%10 == 0) != nil || seen[record.CustomID] || native.Model != "gpt-6-luna" || native.Status != "completed" {
 				qualificationFailures = append(qualificationFailures, map[string]string{"customId": record.CustomID, "code": "independent_result_qualification_failed"})
 				continue
 			}
