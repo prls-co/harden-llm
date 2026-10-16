@@ -1,0 +1,3328 @@
+{
+  "generatedAt": "2026-10-16T05:14:30.738006+00:00",
+  "studies": [
+    {
+      "study": "public-clean-59",
+      "metadata": {
+        "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921",
+        "startedAt": "2026-10-16T05:12:24.785332+00:00",
+        "schedule": [
+          [
+            0.0,
+            200
+          ],
+          [
+            59.0,
+            1
+          ]
+        ],
+        "endpoint": "public",
+        "observeForSeconds": 75.0,
+        "callerRetries": false,
+        "callTimeoutSeconds": 180,
+        "officialAPIEnabled": false,
+        "sharedConfigurationChanged": false,
+        "runnerSHA256": "374fcee774c23f5452a1a666acc51decb7a595e99829a07713e37ab1f49f3ba5"
+      },
+      "finished": true,
+      "runnerSummary": {
+        "elapsedSeconds": 75.02741835499182,
+        "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921",
+        "startedAt": "2026-10-16T05:12:24.785332+00:00",
+        "plannedRequests": 201,
+        "wavesLaunched": 2,
+        "outcomes": {
+          "completed": 201
+        },
+        "waves": [
+          {
+            "wave": 1,
+            "plannedOffsetSeconds": 0.0,
+            "launchOffsetSeconds": 0.0032204766757786274,
+            "count": 200,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 200
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:12:24.800313-07:00",
+            "lastRequestAt": "2026-10-15T22:12:24.839529-07:00",
+            "lastResultAt": "2026-10-15T22:12:56.611995-07:00",
+            "maxCallSeconds": 31.797,
+            "maxHeadersSeconds": 5.394,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 2,
+            "plannedOffsetSeconds": 59.0,
+            "launchOffsetSeconds": 59.000693341717124,
+            "count": 1,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:13:23.798224-07:00",
+            "lastRequestAt": "2026-10-15T22:13:23.798224-07:00",
+            "lastResultAt": "2026-10-15T22:13:35.915601-07:00",
+            "maxCallSeconds": 12.117,
+            "maxHeadersSeconds": 11.4,
+            "retryAfterMs": [
+              0
+            ]
+          }
+        ],
+        "nthCompletionSeconds": {
+          "200": 31.826663
+        },
+        "allWorkersFinished": true
+      },
+      "outcomes": {
+        "completed": 201
+      },
+      "waves": [
+        {
+          "wave": "wave-01",
+          "rawEventsSHA256": "a23d5a5b4bbb57b7864775a161a834dab9512c11bf83897cf0fc06247f38590e",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "2f0e850d9e707d812090c39571aef2c09d4302abda20ed388e64043c35e7d92b",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 31812,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:12:56.612407086-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1521,
+            "p95SuccessfulMs": 2241,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:12:24.799412946-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 6.286739284344943,
+            "unknown": 0
+          },
+          "attempts": 200,
+          "outcomes": {
+            "completed": 200
+          },
+          "statusCounts": {
+            "200": 200
+          },
+          "distinctCompletedNonces": 200,
+          "correlationCount": 200,
+          "startedAt": "2026-10-15T22:12:24.799412946-07:00",
+          "firstRequestOffsetSeconds": 0.014981,
+          "lastResultOffsetSeconds": 31.826663,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 198,
+            "10": 199,
+            "15": 199,
+            "20": 199,
+            "25": 199,
+            "30": 199,
+            "35": 200,
+            "45": 200,
+            "60": 200
+          },
+          "duration": {
+            "n": 200,
+            "minMs": 1061,
+            "p50Ms": 1521,
+            "p95Ms": 2241,
+            "maxMs": 31797
+          },
+          "headers": {
+            "n": 200,
+            "minMs": 715,
+            "p50Ms": 1006,
+            "p95Ms": 1668,
+            "maxMs": 5394
+          },
+          "firstOutput": {
+            "n": 200,
+            "minMs": 906,
+            "p50Ms": 1373,
+            "p95Ms": 2029,
+            "maxMs": 31653
+          },
+          "sumInputTokens": 11200,
+          "sumOutputTokens": 5000,
+          "details": []
+        },
+        {
+          "wave": "wave-02",
+          "rawEventsSHA256": "c5123d8f7e63358249285e22f812a576729410668271d437a4ca7b0df68276a9",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "2f0e850d9e707d812090c39571aef2c09d4302abda20ed388e64043c35e7d92b",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 1,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 12118,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:13:35.916190325-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 12117,
+            "p95SuccessfulMs": 12117,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:13:23.797288809-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0.08251572951431728,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "statusCounts": {
+            "200": 1
+          },
+          "distinctCompletedNonces": 1,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:13:23.797288809-07:00",
+          "firstRequestOffsetSeconds": 59.012892,
+          "lastResultOffsetSeconds": 71.130269,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 1,
+            "20": 1,
+            "25": 1,
+            "30": 1,
+            "35": 1,
+            "45": 1,
+            "60": 1
+          },
+          "duration": {
+            "n": 1,
+            "minMs": 12117,
+            "p50Ms": 12117,
+            "p95Ms": 12117,
+            "maxMs": 12117
+          },
+          "headers": {
+            "n": 1,
+            "minMs": 11400,
+            "p50Ms": 11400,
+            "p95Ms": 11400,
+            "maxMs": 11400
+          },
+          "firstOutput": {
+            "n": 1,
+            "minMs": 11958,
+            "p50Ms": 11958,
+            "p95Ms": 11958,
+            "maxMs": 11958
+          },
+          "sumInputTokens": 56,
+          "sumOutputTokens": 25,
+          "details": [
+            {
+              "id": 0,
+              "kind": "completed",
+              "httpStatus": 200,
+              "errorCode": null,
+              "cpaRequestId": "fb083343",
+              "durationMs": 12117,
+              "headersMs": 11400,
+              "firstOutputMs": 11958,
+              "startedAt": "2026-10-15T22:13:23.798224922-07:00",
+              "finishedAt": "2026-10-15T22:13:35.915601613-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "study": "public-clean-reset",
+      "metadata": {
+        "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921",
+        "startedAt": "2026-10-16T05:09:49.549308+00:00",
+        "schedule": [
+          [
+            0.0,
+            200
+          ],
+          [
+            61.0,
+            1
+          ],
+          [
+            62.0,
+            199
+          ]
+        ],
+        "endpoint": "public",
+        "observeForSeconds": 75.0,
+        "callerRetries": false,
+        "callTimeoutSeconds": 180,
+        "officialAPIEnabled": false,
+        "sharedConfigurationChanged": false,
+        "runnerSHA256": "374fcee774c23f5452a1a666acc51decb7a595e99829a07713e37ab1f49f3ba5"
+      },
+      "finished": true,
+      "runnerSummary": {
+        "elapsedSeconds": 75.02620452828705,
+        "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921",
+        "startedAt": "2026-10-16T05:09:49.549308+00:00",
+        "plannedRequests": 400,
+        "wavesLaunched": 3,
+        "outcomes": {
+          "completed": 400
+        },
+        "waves": [
+          {
+            "wave": 1,
+            "plannedOffsetSeconds": 0.0,
+            "launchOffsetSeconds": 0.0025802631862461567,
+            "count": 200,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 200
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:09:49.560892-07:00",
+            "lastRequestAt": "2026-10-15T22:09:49.605011-07:00",
+            "lastResultAt": "2026-10-15T22:09:54.616827-07:00",
+            "maxCallSeconds": 5.028,
+            "maxHeadersSeconds": 4.901,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 2,
+            "plannedOffsetSeconds": 61.0,
+            "launchOffsetSeconds": 61.000591532327235,
+            "count": 1,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:10:50.558990-07:00",
+            "lastRequestAt": "2026-10-15T22:10:50.558990-07:00",
+            "lastResultAt": "2026-10-15T22:10:51.674962-07:00",
+            "maxCallSeconds": 1.115,
+            "maxHeadersSeconds": 0.602,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 3,
+            "plannedOffsetSeconds": 62.0,
+            "launchOffsetSeconds": 62.00054713198915,
+            "count": 199,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 199
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:10:51.560231-07:00",
+            "lastRequestAt": "2026-10-15T22:10:51.620763-07:00",
+            "lastResultAt": "2026-10-15T22:10:54.720879-07:00",
+            "maxCallSeconds": 3.159,
+            "maxHeadersSeconds": 2.362,
+            "retryAfterMs": [
+              0
+            ]
+          }
+        ],
+        "nthCompletionSeconds": {
+          "200": 5.067519,
+          "400": 65.171571
+        },
+        "allWorkersFinished": true
+      },
+      "outcomes": {
+        "completed": 400
+      },
+      "waves": [
+        {
+          "wave": "wave-01",
+          "rawEventsSHA256": "6bb7317423673360e4f9fc70561f030f3fd9ae71ce0a55dd276791eab7dec1c3",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 5056,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:09:54.617035597-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1468,
+            "p95SuccessfulMs": 2311,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:09:49.560154175-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 39.55006718763436,
+            "unknown": 0
+          },
+          "attempts": 200,
+          "outcomes": {
+            "completed": 200
+          },
+          "statusCounts": {
+            "200": 200
+          },
+          "distinctCompletedNonces": 200,
+          "correlationCount": 200,
+          "startedAt": "2026-10-15T22:09:49.560154175-07:00",
+          "firstRequestOffsetSeconds": 0.011584,
+          "lastResultOffsetSeconds": 5.067519,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 199,
+            "10": 200,
+            "15": 200,
+            "20": 200,
+            "25": 200,
+            "30": 200,
+            "35": 200,
+            "45": 200,
+            "60": 200
+          },
+          "duration": {
+            "n": 200,
+            "minMs": 1064,
+            "p50Ms": 1468,
+            "p95Ms": 2311,
+            "maxMs": 5028
+          },
+          "headers": {
+            "n": 200,
+            "minMs": 662,
+            "p50Ms": 913,
+            "p95Ms": 1483,
+            "maxMs": 4901
+          },
+          "firstOutput": {
+            "n": 200,
+            "minMs": 893,
+            "p50Ms": 1301,
+            "p95Ms": 2033,
+            "maxMs": 4932
+          },
+          "sumInputTokens": 11200,
+          "sumOutputTokens": 5000,
+          "details": []
+        },
+        {
+          "wave": "wave-02",
+          "rawEventsSHA256": "ffefece5117a58b2e5baf01c741100311ba63e9ac8d95745a290a17749fe13ec",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 1,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 1119,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:10:51.677607368-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1115,
+            "p95SuccessfulMs": 1115,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:10:50.558462783-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0.8935395924967475,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "statusCounts": {
+            "200": 1
+          },
+          "distinctCompletedNonces": 1,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:10:50.558462783-07:00",
+          "firstRequestOffsetSeconds": 61.009682,
+          "lastResultOffsetSeconds": 62.125654,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 1,
+            "10": 1,
+            "15": 1,
+            "20": 1,
+            "25": 1,
+            "30": 1,
+            "35": 1,
+            "45": 1,
+            "60": 1
+          },
+          "duration": {
+            "n": 1,
+            "minMs": 1115,
+            "p50Ms": 1115,
+            "p95Ms": 1115,
+            "maxMs": 1115
+          },
+          "headers": {
+            "n": 1,
+            "minMs": 602,
+            "p50Ms": 602,
+            "p95Ms": 602,
+            "maxMs": 602
+          },
+          "firstOutput": {
+            "n": 1,
+            "minMs": 980,
+            "p50Ms": 980,
+            "p95Ms": 980,
+            "maxMs": 980
+          },
+          "sumInputTokens": 56,
+          "sumOutputTokens": 25,
+          "details": [
+            {
+              "id": 0,
+              "kind": "completed",
+              "httpStatus": 200,
+              "errorCode": null,
+              "cpaRequestId": "32a429aa",
+              "durationMs": 1115,
+              "headersMs": 602,
+              "firstOutputMs": 980,
+              "startedAt": "2026-10-15T22:10:50.558990865-07:00",
+              "finishedAt": "2026-10-15T22:10:51.674962673-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-03",
+          "rawEventsSHA256": "0d8f8874f8554628bd04fa2b03f4b44b25e5199f5d5bc3ceac6e3a2023112b78",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 199,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 199,
+            "active": 0,
+            "completed": 199,
+            "concurrency": 199,
+            "dispatched": 199,
+            "durationMs": 3161,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:10:54.721086918-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1453,
+            "p95SuccessfulMs": 2328,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 199,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:10:51.559369427-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 62.940474818621595,
+            "unknown": 0
+          },
+          "attempts": 199,
+          "outcomes": {
+            "completed": 199
+          },
+          "statusCounts": {
+            "200": 199
+          },
+          "distinctCompletedNonces": 199,
+          "correlationCount": 199,
+          "startedAt": "2026-10-15T22:10:51.559369427-07:00",
+          "firstRequestOffsetSeconds": 62.010923,
+          "lastResultOffsetSeconds": 65.171571,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 199,
+            "10": 199,
+            "15": 199,
+            "20": 199,
+            "25": 199,
+            "30": 199,
+            "35": 199,
+            "45": 199,
+            "60": 199
+          },
+          "duration": {
+            "n": 199,
+            "minMs": 1041,
+            "p50Ms": 1453,
+            "p95Ms": 2328,
+            "maxMs": 3159
+          },
+          "headers": {
+            "n": 199,
+            "minMs": 669,
+            "p50Ms": 946,
+            "p95Ms": 1685,
+            "maxMs": 2362
+          },
+          "firstOutput": {
+            "n": 199,
+            "minMs": 912,
+            "p50Ms": 1289,
+            "p95Ms": 2084,
+            "maxMs": 2686
+          },
+          "sumInputTokens": 11144,
+          "sumOutputTokens": 4975,
+          "details": []
+        }
+      ]
+    },
+    {
+      "study": "public-reset-probes",
+      "metadata": {
+        "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921",
+        "startedAt": "2026-10-16T05:02:20.067110+00:00",
+        "schedule": [
+          [
+            0.0,
+            200
+          ],
+          [
+            10.0,
+            1
+          ],
+          [
+            25.0,
+            1
+          ],
+          [
+            35.0,
+            1
+          ],
+          [
+            45.0,
+            1
+          ],
+          [
+            55.0,
+            1
+          ],
+          [
+            59.0,
+            1
+          ],
+          [
+            61.0,
+            1
+          ],
+          [
+            65.0,
+            1
+          ],
+          [
+            75.0,
+            1
+          ]
+        ],
+        "endpoint": "public",
+        "observeForSeconds": 90.0,
+        "callerRetries": false,
+        "callTimeoutSeconds": 180,
+        "officialAPIEnabled": false,
+        "sharedConfigurationChanged": false,
+        "runnerSHA256": "374fcee774c23f5452a1a666acc51decb7a595e99829a07713e37ab1f49f3ba5"
+      },
+      "finished": true,
+      "runnerSummary": {
+        "elapsedSeconds": 180.11807454982772,
+        "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921",
+        "startedAt": "2026-10-16T05:02:20.067110+00:00",
+        "plannedRequests": 209,
+        "wavesLaunched": 10,
+        "outcomes": {
+          "completed": 203,
+          "unconfirmed": 1,
+          "rejected": 5
+        },
+        "waves": [
+          {
+            "wave": 1,
+            "plannedOffsetSeconds": 0.0,
+            "launchOffsetSeconds": 0.0027335239574313164,
+            "count": 200,
+            "exitCode": 1,
+            "outcomes": {
+              "completed": 199,
+              "unconfirmed": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:02:20.079176-07:00",
+            "lastRequestAt": "2026-10-15T22:02:20.127692-07:00",
+            "lastResultAt": "2026-10-15T22:05:20.089345-07:00",
+            "maxCallSeconds": 180.0,
+            "maxHeadersSeconds": 2.643,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 2,
+            "plannedOffsetSeconds": 10.0,
+            "launchOffsetSeconds": 10.00069301109761,
+            "count": 1,
+            "exitCode": 1,
+            "outcomes": {
+              "rejected": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:02:30.076232-07:00",
+            "lastRequestAt": "2026-10-15T22:02:30.076232-07:00",
+            "lastResultAt": "2026-10-15T22:03:02.343175-07:00",
+            "maxCallSeconds": 32.266,
+            "maxHeadersSeconds": 32.266,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 3,
+            "plannedOffsetSeconds": 25.0,
+            "launchOffsetSeconds": 25.000710668042302,
+            "count": 1,
+            "exitCode": 1,
+            "outcomes": {
+              "rejected": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:02:45.076713-07:00",
+            "lastRequestAt": "2026-10-15T22:02:45.076713-07:00",
+            "lastResultAt": "2026-10-15T22:03:17.986146-07:00",
+            "maxCallSeconds": 32.909,
+            "maxHeadersSeconds": 32.909,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 4,
+            "plannedOffsetSeconds": 35.0,
+            "launchOffsetSeconds": 35.000610678922385,
+            "count": 1,
+            "exitCode": 1,
+            "outcomes": {
+              "rejected": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:02:55.076868-07:00",
+            "lastRequestAt": "2026-10-15T22:02:55.076868-07:00",
+            "lastResultAt": "2026-10-15T22:03:16.780458-07:00",
+            "maxCallSeconds": 21.703,
+            "maxHeadersSeconds": 21.703,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 5,
+            "plannedOffsetSeconds": 45.0,
+            "launchOffsetSeconds": 45.000618290156126,
+            "count": 1,
+            "exitCode": 1,
+            "outcomes": {
+              "rejected": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:03:05.077437-07:00",
+            "lastRequestAt": "2026-10-15T22:03:05.077437-07:00",
+            "lastResultAt": "2026-10-15T22:03:17.475802-07:00",
+            "maxCallSeconds": 12.398,
+            "maxHeadersSeconds": 12.398,
+            "retryAfterMs": [
+              32000
+            ]
+          },
+          {
+            "wave": 6,
+            "plannedOffsetSeconds": 55.0,
+            "launchOffsetSeconds": 55.00060168001801,
+            "count": 1,
+            "exitCode": 1,
+            "outcomes": {
+              "rejected": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:03:15.076663-07:00",
+            "lastRequestAt": "2026-10-15T22:03:15.076663-07:00",
+            "lastResultAt": "2026-10-15T22:03:16.822385-07:00",
+            "maxCallSeconds": 1.745,
+            "maxHeadersSeconds": 1.745,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 7,
+            "plannedOffsetSeconds": 59.0,
+            "launchOffsetSeconds": 59.00062727788463,
+            "count": 1,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:03:19.077395-07:00",
+            "lastRequestAt": "2026-10-15T22:03:19.077395-07:00",
+            "lastResultAt": "2026-10-15T22:03:50.212907-07:00",
+            "maxCallSeconds": 31.135,
+            "maxHeadersSeconds": 30.782,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 8,
+            "plannedOffsetSeconds": 61.0,
+            "launchOffsetSeconds": 61.00066707795486,
+            "count": 1,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:03:21.076461-07:00",
+            "lastRequestAt": "2026-10-15T22:03:21.076461-07:00",
+            "lastResultAt": "2026-10-15T22:03:50.766196-07:00",
+            "maxCallSeconds": 29.689,
+            "maxHeadersSeconds": 29.273,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 9,
+            "plannedOffsetSeconds": 65.0,
+            "launchOffsetSeconds": 65.00059319008142,
+            "count": 1,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:03:25.076615-07:00",
+            "lastRequestAt": "2026-10-15T22:03:25.076615-07:00",
+            "lastResultAt": "2026-10-15T22:03:50.634901-07:00",
+            "maxCallSeconds": 25.558,
+            "maxHeadersSeconds": 25.106,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 10,
+            "plannedOffsetSeconds": 75.0,
+            "launchOffsetSeconds": 75.00069063017145,
+            "count": 1,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 1
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:03:35.076969-07:00",
+            "lastRequestAt": "2026-10-15T22:03:35.076969-07:00",
+            "lastResultAt": "2026-10-15T22:03:50.293336-07:00",
+            "maxCallSeconds": 15.216,
+            "maxHeadersSeconds": 14.82,
+            "retryAfterMs": [
+              0
+            ]
+          }
+        ],
+        "nthCompletionSeconds": {
+          "200": 90.145797
+        },
+        "allWorkersFinished": true
+      },
+      "outcomes": {
+        "completed": 203,
+        "unconfirmed": 1,
+        "rejected": 5
+      },
+      "waves": [
+        {
+          "wave": "wave-01",
+          "rawEventsSHA256": "517ec3285c312e34bf7bfabe83244b8dcc27e57edf91d7fcf7fac8a198ed3088",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 199,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 180011,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:05:20.089504611-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1478,
+            "p95SuccessfulMs": 2197,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:02:20.078500491-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 1.1054879726845415,
+            "unknown": 1
+          },
+          "attempts": 200,
+          "outcomes": {
+            "completed": 199,
+            "unconfirmed": 1
+          },
+          "statusCounts": {
+            "200": 200
+          },
+          "distinctCompletedNonces": 199,
+          "correlationCount": 200,
+          "startedAt": "2026-10-15T22:02:20.078500491-07:00",
+          "firstRequestOffsetSeconds": 0.012066,
+          "lastResultOffsetSeconds": 180.022235,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 199,
+            "10": 199,
+            "15": 199,
+            "20": 199,
+            "25": 199,
+            "30": 199,
+            "35": 199,
+            "45": 199,
+            "60": 199
+          },
+          "duration": {
+            "n": 199,
+            "minMs": 1089,
+            "p50Ms": 1478,
+            "p95Ms": 2197,
+            "maxMs": 3539
+          },
+          "headers": {
+            "n": 199,
+            "minMs": 767,
+            "p50Ms": 973,
+            "p95Ms": 1536,
+            "maxMs": 2643
+          },
+          "firstOutput": {
+            "n": 199,
+            "minMs": 926,
+            "p50Ms": 1314,
+            "p95Ms": 2025,
+            "maxMs": 3361
+          },
+          "sumInputTokens": 11144,
+          "sumOutputTokens": 4975,
+          "details": [
+            {
+              "id": 61,
+              "kind": "unconfirmed",
+              "httpStatus": 200,
+              "errorCode": null,
+              "cpaRequestId": "269eb69b",
+              "durationMs": 180000,
+              "headersMs": 816,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:02:20.088605074-07:00",
+              "finishedAt": "2026-10-15T22:05:20.089345418-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-02",
+          "rawEventsSHA256": "37fb8b48f7d27a204d24a6fd4eccd3edfb6676a7e9cd2f42a54fa666a34c7800",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 0,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 32267,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:03:02.343382388-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 0,
+            "p95SuccessfulMs": 0,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 1,
+            "startedAt": "2026-10-15T22:02:30.075677512-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "rejected": 1
+          },
+          "statusCounts": {
+            "429": 1
+          },
+          "distinctCompletedNonces": 0,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:02:30.075677512-07:00",
+          "firstRequestOffsetSeconds": 10.009122,
+          "lastResultOffsetSeconds": 42.276065,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 0,
+            "20": 0,
+            "25": 0,
+            "30": 0,
+            "35": 0,
+            "45": 0,
+            "60": 0
+          },
+          "duration": null,
+          "headers": null,
+          "firstOutput": null,
+          "sumInputTokens": 0,
+          "sumOutputTokens": 0,
+          "details": [
+            {
+              "id": 0,
+              "kind": "rejected",
+              "httpStatus": 429,
+              "errorCode": null,
+              "cpaRequestId": "b4683ace",
+              "durationMs": 32266,
+              "headersMs": 32266,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:02:30.076232746-07:00",
+              "finishedAt": "2026-10-15T22:03:02.343175579-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-03",
+          "rawEventsSHA256": "42994fccf36dcc146073e18642c5722f23edf6c7c50223cf97d651ef4ef3e6a0",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 0,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 32910,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:03:17.98636359-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 0,
+            "p95SuccessfulMs": 0,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 1,
+            "startedAt": "2026-10-15T22:02:45.076132781-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "rejected": 1
+          },
+          "statusCounts": {
+            "429": 1
+          },
+          "distinctCompletedNonces": 0,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:02:45.076132781-07:00",
+          "firstRequestOffsetSeconds": 25.009603,
+          "lastResultOffsetSeconds": 57.919036,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 0,
+            "20": 0,
+            "25": 0,
+            "30": 0,
+            "35": 0,
+            "45": 0,
+            "60": 0
+          },
+          "duration": null,
+          "headers": null,
+          "firstOutput": null,
+          "sumInputTokens": 0,
+          "sumOutputTokens": 0,
+          "details": [
+            {
+              "id": 0,
+              "kind": "rejected",
+              "httpStatus": 429,
+              "errorCode": null,
+              "cpaRequestId": "f57e8885",
+              "durationMs": 32909,
+              "headersMs": 32909,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:02:45.076713121-07:00",
+              "finishedAt": "2026-10-15T22:03:17.986146215-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-04",
+          "rawEventsSHA256": "ce181e78573e49f6233cddbf9a84b269b478d6755253786b22304a6c6a244a2d",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 0,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 21704,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:03:16.780790959-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 0,
+            "p95SuccessfulMs": 0,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 1,
+            "startedAt": "2026-10-15T22:02:55.076242207-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "rejected": 1
+          },
+          "statusCounts": {
+            "429": 1
+          },
+          "distinctCompletedNonces": 0,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:02:55.076242207-07:00",
+          "firstRequestOffsetSeconds": 35.009758,
+          "lastResultOffsetSeconds": 56.713348,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 0,
+            "20": 0,
+            "25": 0,
+            "30": 0,
+            "35": 0,
+            "45": 0,
+            "60": 0
+          },
+          "duration": null,
+          "headers": null,
+          "firstOutput": null,
+          "sumInputTokens": 0,
+          "sumOutputTokens": 0,
+          "details": [
+            {
+              "id": 0,
+              "kind": "rejected",
+              "httpStatus": 429,
+              "errorCode": null,
+              "cpaRequestId": "d54b5635",
+              "durationMs": 21703,
+              "headersMs": 21703,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:02:55.076868693-07:00",
+              "finishedAt": "2026-10-15T22:03:16.780458386-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-05",
+          "rawEventsSHA256": "c82409a64a3f3290709c7c35720eb19cfeeadca88556bc8753a8a34fdbc7ac81",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 0,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 12399,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:03:17.47653236-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 0,
+            "p95SuccessfulMs": 0,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 1,
+            "startedAt": "2026-10-15T22:03:05.076704431-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "rejected": 1
+          },
+          "statusCounts": {
+            "429": 1
+          },
+          "distinctCompletedNonces": 0,
+          "correlationCount": 0,
+          "startedAt": "2026-10-15T22:03:05.076704431-07:00",
+          "firstRequestOffsetSeconds": 45.010327,
+          "lastResultOffsetSeconds": 57.408692,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 0,
+            "20": 0,
+            "25": 0,
+            "30": 0,
+            "35": 0,
+            "45": 0,
+            "60": 0
+          },
+          "duration": null,
+          "headers": null,
+          "firstOutput": null,
+          "sumInputTokens": 0,
+          "sumOutputTokens": 0,
+          "details": [
+            {
+              "id": 0,
+              "kind": "rejected",
+              "httpStatus": 429,
+              "errorCode": "model_cooldown",
+              "cpaRequestId": null,
+              "durationMs": 12398,
+              "headersMs": 12398,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:03:05.077437219-07:00",
+              "finishedAt": "2026-10-15T22:03:17.47580231-07:00",
+              "retryAfterMs": 32000
+            }
+          ]
+        },
+        {
+          "wave": "wave-06",
+          "rawEventsSHA256": "300fe0e1fa8939b15534016f7070d747e5d4b405440a0810dd23752b90b81260",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 0,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 1746,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:03:16.822731718-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 0,
+            "p95SuccessfulMs": 0,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 1,
+            "startedAt": "2026-10-15T22:03:15.075930786-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "rejected": 1
+          },
+          "statusCounts": {
+            "429": 1
+          },
+          "distinctCompletedNonces": 0,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:03:15.075930786-07:00",
+          "firstRequestOffsetSeconds": 55.009553,
+          "lastResultOffsetSeconds": 56.755275,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 0,
+            "20": 0,
+            "25": 0,
+            "30": 0,
+            "35": 0,
+            "45": 0,
+            "60": 0
+          },
+          "duration": null,
+          "headers": null,
+          "firstOutput": null,
+          "sumInputTokens": 0,
+          "sumOutputTokens": 0,
+          "details": [
+            {
+              "id": 0,
+              "kind": "rejected",
+              "httpStatus": 429,
+              "errorCode": null,
+              "cpaRequestId": "5e9a60b3",
+              "durationMs": 1745,
+              "headersMs": 1745,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:03:15.076663242-07:00",
+              "finishedAt": "2026-10-15T22:03:16.822385751-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-07",
+          "rawEventsSHA256": "9c0246ea99fe97ba8198fee4e1d08551b1fd49e443cda26f2ea34e0544b5aa73",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 1,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 31136,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:03:50.213401577-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 31135,
+            "p95SuccessfulMs": 31135,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:03:19.076725179-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0.032116465717599275,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "statusCounts": {
+            "200": 1
+          },
+          "distinctCompletedNonces": 1,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:03:19.076725179-07:00",
+          "firstRequestOffsetSeconds": 59.010285,
+          "lastResultOffsetSeconds": 90.145797,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 0,
+            "20": 0,
+            "25": 0,
+            "30": 0,
+            "35": 1,
+            "45": 1,
+            "60": 1
+          },
+          "duration": {
+            "n": 1,
+            "minMs": 31135,
+            "p50Ms": 31135,
+            "p95Ms": 31135,
+            "maxMs": 31135
+          },
+          "headers": {
+            "n": 1,
+            "minMs": 30782,
+            "p50Ms": 30782,
+            "p95Ms": 30782,
+            "maxMs": 30782
+          },
+          "firstOutput": {
+            "n": 1,
+            "minMs": 30932,
+            "p50Ms": 30932,
+            "p95Ms": 30932,
+            "maxMs": 30932
+          },
+          "sumInputTokens": 56,
+          "sumOutputTokens": 25,
+          "details": [
+            {
+              "id": 0,
+              "kind": "completed",
+              "httpStatus": 200,
+              "errorCode": null,
+              "cpaRequestId": "1d595dd0",
+              "durationMs": 31135,
+              "headersMs": 30782,
+              "firstOutputMs": 30932,
+              "startedAt": "2026-10-15T22:03:19.077395668-07:00",
+              "finishedAt": "2026-10-15T22:03:50.212907173-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-08",
+          "rawEventsSHA256": "0838d97ae2c92ea5624810947bf4890af08b5a1bac05f594c3dc99913927448a",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 1,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 29690,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:03:50.766541245-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 29689,
+            "p95SuccessfulMs": 29689,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:03:21.075893068-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0.03368063890146577,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "statusCounts": {
+            "200": 1
+          },
+          "distinctCompletedNonces": 1,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:03:21.075893068-07:00",
+          "firstRequestOffsetSeconds": 61.009351,
+          "lastResultOffsetSeconds": 90.699086,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 0,
+            "20": 0,
+            "25": 0,
+            "30": 1,
+            "35": 1,
+            "45": 1,
+            "60": 1
+          },
+          "duration": {
+            "n": 1,
+            "minMs": 29689,
+            "p50Ms": 29689,
+            "p95Ms": 29689,
+            "maxMs": 29689
+          },
+          "headers": {
+            "n": 1,
+            "minMs": 29273,
+            "p50Ms": 29273,
+            "p95Ms": 29273,
+            "maxMs": 29273
+          },
+          "firstOutput": {
+            "n": 1,
+            "minMs": 29638,
+            "p50Ms": 29638,
+            "p95Ms": 29638,
+            "maxMs": 29638
+          },
+          "sumInputTokens": 56,
+          "sumOutputTokens": 25,
+          "details": [
+            {
+              "id": 0,
+              "kind": "completed",
+              "httpStatus": 200,
+              "errorCode": null,
+              "cpaRequestId": "d1785b8d",
+              "durationMs": 29689,
+              "headersMs": 29273,
+              "firstOutputMs": 29638,
+              "startedAt": "2026-10-15T22:03:21.076461261-07:00",
+              "finishedAt": "2026-10-15T22:03:50.766196448-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-09",
+          "rawEventsSHA256": "e86d7e7c771e7886a2c9981203847d84ace14340c521b78f0c6df712a1a81aed",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 1,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 25559,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:03:50.635135797-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 25558,
+            "p95SuccessfulMs": 25558,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:03:25.076068295-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0.039125058065562254,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "statusCounts": {
+            "200": 1
+          },
+          "distinctCompletedNonces": 1,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:03:25.076068295-07:00",
+          "firstRequestOffsetSeconds": 65.009505,
+          "lastResultOffsetSeconds": 90.567791,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 0,
+            "20": 0,
+            "25": 0,
+            "30": 1,
+            "35": 1,
+            "45": 1,
+            "60": 1
+          },
+          "duration": {
+            "n": 1,
+            "minMs": 25558,
+            "p50Ms": 25558,
+            "p95Ms": 25558,
+            "maxMs": 25558
+          },
+          "headers": {
+            "n": 1,
+            "minMs": 25106,
+            "p50Ms": 25106,
+            "p95Ms": 25106,
+            "maxMs": 25106
+          },
+          "firstOutput": {
+            "n": 1,
+            "minMs": 25402,
+            "p50Ms": 25402,
+            "p95Ms": 25402,
+            "maxMs": 25402
+          },
+          "sumInputTokens": 56,
+          "sumOutputTokens": 25,
+          "details": [
+            {
+              "id": 0,
+              "kind": "completed",
+              "httpStatus": 200,
+              "errorCode": null,
+              "cpaRequestId": "c4b0ee2b",
+              "durationMs": 25558,
+              "headersMs": 25106,
+              "firstOutputMs": 25402,
+              "startedAt": "2026-10-15T22:03:25.076615229-07:00",
+              "finishedAt": "2026-10-15T22:03:50.634901943-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-10",
+          "rawEventsSHA256": "7fc7eb43f82923f4301b1bcc1cb6615bafebfd25ec729882a38c9b47869c3483",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 1,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 1,
+            "active": 0,
+            "completed": 1,
+            "concurrency": 1,
+            "dispatched": 1,
+            "durationMs": 15217,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:03:50.29371901-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 15216,
+            "p95SuccessfulMs": 15216,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 1,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:03:35.076346032-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 0.0657143648110993,
+            "unknown": 0
+          },
+          "attempts": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "statusCounts": {
+            "200": 1
+          },
+          "distinctCompletedNonces": 1,
+          "correlationCount": 1,
+          "startedAt": "2026-10-15T22:03:35.076346032-07:00",
+          "firstRequestOffsetSeconds": 75.009859,
+          "lastResultOffsetSeconds": 90.226226,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 0,
+            "10": 0,
+            "15": 0,
+            "20": 1,
+            "25": 1,
+            "30": 1,
+            "35": 1,
+            "45": 1,
+            "60": 1
+          },
+          "duration": {
+            "n": 1,
+            "minMs": 15216,
+            "p50Ms": 15216,
+            "p95Ms": 15216,
+            "maxMs": 15216
+          },
+          "headers": {
+            "n": 1,
+            "minMs": 14820,
+            "p50Ms": 14820,
+            "p95Ms": 14820,
+            "maxMs": 14820
+          },
+          "firstOutput": {
+            "n": 1,
+            "minMs": 15035,
+            "p50Ms": 15035,
+            "p95Ms": 15035,
+            "maxMs": 15035
+          },
+          "sumInputTokens": 56,
+          "sumOutputTokens": 25,
+          "details": [
+            {
+              "id": 0,
+              "kind": "completed",
+              "httpStatus": 200,
+              "errorCode": null,
+              "cpaRequestId": "e5d21b31",
+              "durationMs": 15216,
+              "headersMs": 14820,
+              "firstOutputMs": 15035,
+              "startedAt": "2026-10-15T22:03:35.076969361-07:00",
+              "finishedAt": "2026-10-15T22:03:50.293336496-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "study": "public-six-waves-60s",
+      "metadata": {
+        "sourceSHA": "cde3754d213e4d84116f9e9aa9067020bc6af85f",
+        "startedAt": "2026-10-16T04:55:04.630061+00:00",
+        "schedule": [
+          [
+            0.0,
+            200
+          ],
+          [
+            60.0,
+            200
+          ],
+          [
+            120.0,
+            200
+          ],
+          [
+            180.0,
+            200
+          ],
+          [
+            240.0,
+            200
+          ],
+          [
+            300.0,
+            200
+          ]
+        ],
+        "endpoint": "public",
+        "observeForSeconds": 360.0,
+        "callerRetries": false,
+        "callTimeoutSeconds": 180,
+        "officialAPIEnabled": false,
+        "sharedConfigurationChanged": false,
+        "runnerSHA256": "beafc217f20593e33c2aaab0e056b1d359c320e545441e27aaecf975cceec8c5"
+      },
+      "finished": true,
+      "runnerSummary": {
+        "elapsedSeconds": 361.1047155489214,
+        "sourceSHA": "cde3754d213e4d84116f9e9aa9067020bc6af85f",
+        "startedAt": "2026-10-16T04:55:04.630061+00:00",
+        "plannedRequests": 1200,
+        "wavesLaunched": 6,
+        "outcomes": {
+          "completed": 1183,
+          "unconfirmed": 17
+        },
+        "waves": [
+          {
+            "wave": 1,
+            "plannedOffsetSeconds": 0.0,
+            "launchOffsetSeconds": 0.0026870309375226498,
+            "count": 200,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 200
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T21:55:04.641396-07:00",
+            "lastRequestAt": "2026-10-15T21:55:04.661026-07:00",
+            "lastResultAt": "2026-10-15T21:55:12.183882-07:00",
+            "maxCallSeconds": 7.542,
+            "maxHeadersSeconds": 3.743,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 2,
+            "plannedOffsetSeconds": 60.0,
+            "launchOffsetSeconds": 60.000584261957556,
+            "count": 200,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 200
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T21:56:04.640121-07:00",
+            "lastRequestAt": "2026-10-15T21:56:04.690274-07:00",
+            "lastResultAt": "2026-10-15T21:56:21.936433-07:00",
+            "maxCallSeconds": 17.279,
+            "maxHeadersSeconds": 14.778,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 3,
+            "plannedOffsetSeconds": 120.0,
+            "launchOffsetSeconds": 120.00088182510808,
+            "count": 200,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 200
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T21:57:04.639914-07:00",
+            "lastRequestAt": "2026-10-15T21:57:04.687980-07:00",
+            "lastResultAt": "2026-10-15T21:57:24.282996-07:00",
+            "maxCallSeconds": 19.636,
+            "maxHeadersSeconds": 17.417,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 4,
+            "plannedOffsetSeconds": 180.0,
+            "launchOffsetSeconds": 180.00102486321703,
+            "count": 200,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 200
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T21:58:04.642759-07:00",
+            "lastRequestAt": "2026-10-15T21:58:04.771651-07:00",
+            "lastResultAt": "2026-10-15T21:58:19.141333-07:00",
+            "maxCallSeconds": 14.498,
+            "maxHeadersSeconds": 13.689,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 5,
+            "plannedOffsetSeconds": 240.0,
+            "launchOffsetSeconds": 240.00088882585987,
+            "count": 200,
+            "exitCode": 1,
+            "outcomes": {
+              "unconfirmed": 3,
+              "completed": 197
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T21:59:04.643754-07:00",
+            "lastRequestAt": "2026-10-15T21:59:04.730115-07:00",
+            "lastResultAt": "2026-10-15T21:59:48.281127-07:00",
+            "maxCallSeconds": 43.631,
+            "maxHeadersSeconds": 14.225,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 6,
+            "plannedOffsetSeconds": 300.0,
+            "launchOffsetSeconds": 300.00078079104424,
+            "count": 200,
+            "exitCode": 1,
+            "outcomes": {
+              "unconfirmed": 14,
+              "completed": 186
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:00:04.642456-07:00",
+            "lastRequestAt": "2026-10-15T22:00:04.703277-07:00",
+            "lastResultAt": "2026-10-15T22:00:18.963477-07:00",
+            "maxCallSeconds": 14.319,
+            "maxHeadersSeconds": 13.522,
+            "retryAfterMs": [
+              0
+            ]
+          }
+        ],
+        "nthCompletionSeconds": {
+          "200": 7.553821,
+          "400": 77.306372,
+          "600": 139.652935,
+          "800": 194.511272,
+          "1000": 301.44847
+        },
+        "allWorkersFinished": true
+      },
+      "outcomes": {
+        "completed": 1183,
+        "unconfirmed": 17
+      },
+      "waves": [
+        {
+          "wave": "wave-01",
+          "rawEventsSHA256": "ede260ae4afedb787380500e20b6f751e309d424388c23c4caf62dc989200c0a",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "cde3754d213e4d84116f9e9aa9067020bc6af85f\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 7543,
+            "failed": 0,
+            "finishedAt": "2026-10-15T21:55:12.184254108-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1661,
+            "p95SuccessfulMs": 2615,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T21:55:04.64072774-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 26.512799208719038,
+            "unknown": 0
+          },
+          "attempts": 200,
+          "outcomes": {
+            "completed": 200
+          },
+          "statusCounts": {
+            "200": 200
+          },
+          "distinctCompletedNonces": 200,
+          "correlationCount": 0,
+          "startedAt": "2026-10-15T21:55:04.64072774-07:00",
+          "firstRequestOffsetSeconds": 0.011335,
+          "lastResultOffsetSeconds": 7.553821,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 199,
+            "10": 200,
+            "15": 200,
+            "20": 200,
+            "25": 200,
+            "30": 200,
+            "35": 200,
+            "45": 200,
+            "60": 200
+          },
+          "duration": {
+            "n": 200,
+            "minMs": 1362,
+            "p50Ms": 1661,
+            "p95Ms": 2615,
+            "maxMs": 7542
+          },
+          "headers": {
+            "n": 200,
+            "minMs": 996,
+            "p50Ms": 1141,
+            "p95Ms": 1924,
+            "maxMs": 3743
+          },
+          "firstOutput": {
+            "n": 200,
+            "minMs": 1196,
+            "p50Ms": 1503,
+            "p95Ms": 2359,
+            "maxMs": 6988
+          },
+          "sumInputTokens": 11200,
+          "sumOutputTokens": 5000,
+          "details": []
+        },
+        {
+          "wave": "wave-02",
+          "rawEventsSHA256": "9c1f4b49a30d66fe3a25f9e19f0c2a621aed72799c08cc6a62a656c693594c2f",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "cde3754d213e4d84116f9e9aa9067020bc6af85f\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 17297,
+            "failed": 0,
+            "finishedAt": "2026-10-15T21:56:21.936773791-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 12701,
+            "p95SuccessfulMs": 14592,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T21:56:04.639285421-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 11.562372279524597,
+            "unknown": 0
+          },
+          "attempts": 200,
+          "outcomes": {
+            "completed": 200
+          },
+          "statusCounts": {
+            "200": 200
+          },
+          "distinctCompletedNonces": 200,
+          "correlationCount": 0,
+          "startedAt": "2026-10-15T21:56:04.639285421-07:00",
+          "firstRequestOffsetSeconds": 60.01006,
+          "lastResultOffsetSeconds": 77.306372,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 19,
+            "10": 20,
+            "15": 191,
+            "20": 200,
+            "25": 200,
+            "30": 200,
+            "35": 200,
+            "45": 200,
+            "60": 200
+          },
+          "duration": {
+            "n": 200,
+            "minMs": 1357,
+            "p50Ms": 12701,
+            "p95Ms": 14592,
+            "maxMs": 17279
+          },
+          "headers": {
+            "n": 200,
+            "minMs": 972,
+            "p50Ms": 12130,
+            "p95Ms": 13273,
+            "maxMs": 14778
+          },
+          "firstOutput": {
+            "n": 200,
+            "minMs": 1209,
+            "p50Ms": 12514,
+            "p95Ms": 14451,
+            "maxMs": 17109
+          },
+          "sumInputTokens": 11200,
+          "sumOutputTokens": 5000,
+          "details": []
+        },
+        {
+          "wave": "wave-03",
+          "rawEventsSHA256": "0612e48b88e823c16c553c9e0262bab56530bed727f1d23a05e68ef8e3d7ffb4",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "cde3754d213e4d84116f9e9aa9067020bc6af85f\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 19644,
+            "failed": 0,
+            "finishedAt": "2026-10-15T21:57:24.283532567-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 12747,
+            "p95SuccessfulMs": 13908,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T21:57:04.639209939-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 10.181058605392888,
+            "unknown": 0
+          },
+          "attempts": 200,
+          "outcomes": {
+            "completed": 200
+          },
+          "statusCounts": {
+            "200": 200
+          },
+          "distinctCompletedNonces": 200,
+          "correlationCount": 0,
+          "startedAt": "2026-10-15T21:57:04.639209939-07:00",
+          "firstRequestOffsetSeconds": 120.009853,
+          "lastResultOffsetSeconds": 139.652935,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 5,
+            "10": 5,
+            "15": 198,
+            "20": 200,
+            "25": 200,
+            "30": 200,
+            "35": 200,
+            "45": 200,
+            "60": 200
+          },
+          "duration": {
+            "n": 200,
+            "minMs": 1503,
+            "p50Ms": 12747,
+            "p95Ms": 13908,
+            "maxMs": 19636
+          },
+          "headers": {
+            "n": 200,
+            "minMs": 1033,
+            "p50Ms": 12261,
+            "p95Ms": 13197,
+            "maxMs": 17417
+          },
+          "firstOutput": {
+            "n": 200,
+            "minMs": 1377,
+            "p50Ms": 12598,
+            "p95Ms": 13788,
+            "maxMs": 18976
+          },
+          "sumInputTokens": 11200,
+          "sumOutputTokens": 5000,
+          "details": []
+        },
+        {
+          "wave": "wave-04",
+          "rawEventsSHA256": "3208afa17b8d2c3eb478d544770564ad2aace78058240b89a70a943024c35132",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "cde3754d213e4d84116f9e9aa9067020bc6af85f\n",
+            "trackedDiffSHA256": "9b20fe6d60857f8ba33b924f1dfec7b5e747b1ba721cb85381d7fe74be21aac8",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 14499,
+            "failed": 0,
+            "finishedAt": "2026-10-15T21:58:19.141736839-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 2890,
+            "p95SuccessfulMs": 13530,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T21:58:04.642014969-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 13.793368018392188,
+            "unknown": 0
+          },
+          "attempts": 200,
+          "outcomes": {
+            "completed": 200
+          },
+          "statusCounts": {
+            "200": 200
+          },
+          "distinctCompletedNonces": 200,
+          "correlationCount": 0,
+          "startedAt": "2026-10-15T21:58:04.642014969-07:00",
+          "firstRequestOffsetSeconds": 180.012698,
+          "lastResultOffsetSeconds": 194.511272,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 120,
+            "10": 121,
+            "15": 200,
+            "20": 200,
+            "25": 200,
+            "30": 200,
+            "35": 200,
+            "45": 200,
+            "60": 200
+          },
+          "duration": {
+            "n": 200,
+            "minMs": 1345,
+            "p50Ms": 2890,
+            "p95Ms": 13530,
+            "maxMs": 14498
+          },
+          "headers": {
+            "n": 200,
+            "minMs": 867,
+            "p50Ms": 2258,
+            "p95Ms": 12910,
+            "maxMs": 13689
+          },
+          "firstOutput": {
+            "n": 200,
+            "minMs": 1227,
+            "p50Ms": 2693,
+            "p95Ms": 13283,
+            "maxMs": 14200
+          },
+          "sumInputTokens": 11200,
+          "sumOutputTokens": 5000,
+          "details": []
+        },
+        {
+          "wave": "wave-05",
+          "rawEventsSHA256": "801d67c06278609eaa53e882a084e5dffede5eb1af9840c38028dd7b87c955d2",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "cde3754d213e4d84116f9e9aa9067020bc6af85f\n",
+            "trackedDiffSHA256": "9b20fe6d60857f8ba33b924f1dfec7b5e747b1ba721cb85381d7fe74be21aac8",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 197,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 43639,
+            "failed": 0,
+            "finishedAt": "2026-10-15T21:59:48.281893694-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 2944,
+            "p95SuccessfulMs": 13720,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T21:59:04.642660314-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 4.514286451472947,
+            "unknown": 3
+          },
+          "attempts": 200,
+          "outcomes": {
+            "unconfirmed": 3,
+            "completed": 197
+          },
+          "statusCounts": {
+            "503": 3,
+            "200": 197
+          },
+          "distinctCompletedNonces": 197,
+          "correlationCount": 0,
+          "startedAt": "2026-10-15T21:59:04.642660314-07:00",
+          "firstRequestOffsetSeconds": 240.013693,
+          "lastResultOffsetSeconds": 283.651066,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 111,
+            "10": 111,
+            "15": 194,
+            "20": 196,
+            "25": 196,
+            "30": 196,
+            "35": 196,
+            "45": 197,
+            "60": 197
+          },
+          "duration": {
+            "n": 197,
+            "minMs": 1306,
+            "p50Ms": 2944,
+            "p95Ms": 13720,
+            "maxMs": 43631
+          },
+          "headers": {
+            "n": 197,
+            "minMs": 910,
+            "p50Ms": 2289,
+            "p95Ms": 13034,
+            "maxMs": 14225
+          },
+          "firstOutput": {
+            "n": 197,
+            "minMs": 1200,
+            "p50Ms": 2769,
+            "p95Ms": 13583,
+            "maxMs": 43523
+          },
+          "sumInputTokens": 11032,
+          "sumOutputTokens": 4925,
+          "details": [
+            {
+              "id": 69,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 467,
+              "headersMs": 465,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T21:59:04.673035626-07:00",
+              "finishedAt": "2026-10-15T21:59:05.140393429-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 177,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 443,
+              "headersMs": 443,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T21:59:04.725995384-07:00",
+              "finishedAt": "2026-10-15T21:59:05.169526695-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 195,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 444,
+              "headersMs": 444,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T21:59:04.727654116-07:00",
+              "finishedAt": "2026-10-15T21:59:05.172045643-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        },
+        {
+          "wave": "wave-06",
+          "rawEventsSHA256": "ac707fac919d5e3b37b7ad244668409a456062b9bbefe53752b8baee585dcfbe",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "cde3754d213e4d84116f9e9aa9067020bc6af85f\n",
+            "trackedDiffSHA256": "9b20fe6d60857f8ba33b924f1dfec7b5e747b1ba721cb85381d7fe74be21aac8",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 186,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 14343,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:00:18.984865048-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 3793,
+            "p95SuccessfulMs": 13673,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:00:04.641720355-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 12.967867497083565,
+            "unknown": 14
+          },
+          "attempts": 200,
+          "outcomes": {
+            "unconfirmed": 14,
+            "completed": 186
+          },
+          "statusCounts": {
+            "503": 14,
+            "200": 186
+          },
+          "distinctCompletedNonces": 186,
+          "correlationCount": 0,
+          "startedAt": "2026-10-15T22:00:04.641720355-07:00",
+          "firstRequestOffsetSeconds": 300.012395,
+          "lastResultOffsetSeconds": 314.333416,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 96,
+            "10": 96,
+            "15": 186,
+            "20": 186,
+            "25": 186,
+            "30": 186,
+            "35": 186,
+            "45": 186,
+            "60": 186
+          },
+          "duration": {
+            "n": 186,
+            "minMs": 1247,
+            "p50Ms": 3793,
+            "p95Ms": 13673,
+            "maxMs": 14319
+          },
+          "headers": {
+            "n": 186,
+            "minMs": 718,
+            "p50Ms": 2991,
+            "p95Ms": 13131,
+            "maxMs": 13522
+          },
+          "firstOutput": {
+            "n": 186,
+            "minMs": 1098,
+            "p50Ms": 3683,
+            "p95Ms": 13522,
+            "maxMs": 14268
+          },
+          "sumInputTokens": 10416,
+          "sumOutputTokens": 4650,
+          "details": [
+            {
+              "id": 172,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 420,
+              "headersMs": 419,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.697249097-07:00",
+              "finishedAt": "2026-10-15T22:00:05.117298488-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 136,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 434,
+              "headersMs": 434,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.682654892-07:00",
+              "finishedAt": "2026-10-15T22:00:05.117298842-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 157,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 421,
+              "headersMs": 421,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.695770324-07:00",
+              "finishedAt": "2026-10-15T22:00:05.117307037-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 165,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 421,
+              "headersMs": 421,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.696618599-07:00",
+              "finishedAt": "2026-10-15T22:00:05.11793782-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 171,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 420,
+              "headersMs": 420,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.697209654-07:00",
+              "finishedAt": "2026-10-15T22:00:05.117949711-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 156,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 423,
+              "headersMs": 423,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.695696578-07:00",
+              "finishedAt": "2026-10-15T22:00:05.118903512-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 108,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 446,
+              "headersMs": 446,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.675353253-07:00",
+              "finishedAt": "2026-10-15T22:00:05.121720531-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 145,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 435,
+              "headersMs": 435,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.68887165-07:00",
+              "finishedAt": "2026-10-15T22:00:05.124149826-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 42,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 478,
+              "headersMs": 478,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.650667243-07:00",
+              "finishedAt": "2026-10-15T22:00:05.129363767-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 138,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 447,
+              "headersMs": 446,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.683563058-07:00",
+              "finishedAt": "2026-10-15T22:00:05.130565296-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 134,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 451,
+              "headersMs": 451,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.681368127-07:00",
+              "finishedAt": "2026-10-15T22:00:05.132730881-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 139,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 452,
+              "headersMs": 452,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.683747113-07:00",
+              "finishedAt": "2026-10-15T22:00:05.136292239-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 158,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 440,
+              "headersMs": 440,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.695892569-07:00",
+              "finishedAt": "2026-10-15T22:00:05.136289481-07:00",
+              "retryAfterMs": 0
+            },
+            {
+              "id": 114,
+              "kind": "unconfirmed",
+              "httpStatus": 503,
+              "errorCode": "internal_server_error",
+              "cpaRequestId": null,
+              "durationMs": 460,
+              "headersMs": 460,
+              "firstOutputMs": null,
+              "startedAt": "2026-10-15T22:00:04.676467516-07:00",
+              "finishedAt": "2026-10-15T22:00:05.137467008-07:00",
+              "retryAfterMs": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "study": "public-split-bursts",
+      "metadata": {
+        "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921",
+        "startedAt": "2026-10-16T05:06:50.145283+00:00",
+        "schedule": [
+          [
+            0.0,
+            100
+          ],
+          [
+            30.0,
+            100
+          ],
+          [
+            61.0,
+            200
+          ]
+        ],
+        "endpoint": "public",
+        "observeForSeconds": 100.0,
+        "callerRetries": false,
+        "callTimeoutSeconds": 180,
+        "officialAPIEnabled": false,
+        "sharedConfigurationChanged": false,
+        "runnerSHA256": "374fcee774c23f5452a1a666acc51decb7a595e99829a07713e37ab1f49f3ba5"
+      },
+      "finished": true,
+      "runnerSummary": {
+        "elapsedSeconds": 100.06673838291317,
+        "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921",
+        "startedAt": "2026-10-16T05:06:50.145283+00:00",
+        "plannedRequests": 400,
+        "wavesLaunched": 3,
+        "outcomes": {
+          "completed": 400
+        },
+        "waves": [
+          {
+            "wave": 1,
+            "plannedOffsetSeconds": 0.0,
+            "launchOffsetSeconds": 0.002540151122957468,
+            "count": 100,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 100
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:06:50.156591-07:00",
+            "lastRequestAt": "2026-10-15T22:06:50.164883-07:00",
+            "lastResultAt": "2026-10-15T22:06:53.578366-07:00",
+            "maxCallSeconds": 3.417,
+            "maxHeadersSeconds": 2.678,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 2,
+            "plannedOffsetSeconds": 30.0,
+            "launchOffsetSeconds": 30.00054799299687,
+            "count": 100,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 100
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:07:20.154448-07:00",
+            "lastRequestAt": "2026-10-15T22:07:20.186640-07:00",
+            "lastResultAt": "2026-10-15T22:07:23.309147-07:00",
+            "maxCallSeconds": 3.127,
+            "maxHeadersSeconds": 2.346,
+            "retryAfterMs": [
+              0
+            ]
+          },
+          {
+            "wave": 3,
+            "plannedOffsetSeconds": 61.0,
+            "launchOffsetSeconds": 61.000588870141655,
+            "count": 200,
+            "exitCode": 0,
+            "outcomes": {
+              "completed": 200
+            },
+            "activeOrPending": 0,
+            "firstRequestAt": "2026-10-15T22:07:51.154907-07:00",
+            "lastRequestAt": "2026-10-15T22:07:51.214902-07:00",
+            "lastResultAt": "2026-10-15T22:07:55.777362-07:00",
+            "maxCallSeconds": 4.62,
+            "maxHeadersSeconds": 4.004,
+            "retryAfterMs": [
+              0
+            ]
+          }
+        ],
+        "nthCompletionSeconds": {
+          "200": 33.163864,
+          "400": 65.632079
+        },
+        "allWorkersFinished": true
+      },
+      "outcomes": {
+        "completed": 400
+      },
+      "waves": [
+        {
+          "wave": "wave-01",
+          "rawEventsSHA256": "b54e5c4559af827660aaddb5c0e876c71360cf3e8639a2758b64db48367c611a",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 100,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 100,
+            "active": 0,
+            "completed": 100,
+            "concurrency": 100,
+            "dispatched": 100,
+            "durationMs": 3422,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:06:53.57856517-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1376,
+            "p95SuccessfulMs": 2482,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 100,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:06:50.15590378-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 29.21702987617221,
+            "unknown": 0
+          },
+          "attempts": 100,
+          "outcomes": {
+            "completed": 100
+          },
+          "statusCounts": {
+            "200": 100
+          },
+          "distinctCompletedNonces": 100,
+          "correlationCount": 100,
+          "startedAt": "2026-10-15T22:06:50.15590378-07:00",
+          "firstRequestOffsetSeconds": 0.011308,
+          "lastResultOffsetSeconds": 3.433083,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 100,
+            "10": 100,
+            "15": 100,
+            "20": 100,
+            "25": 100,
+            "30": 100,
+            "35": 100,
+            "45": 100,
+            "60": 100
+          },
+          "duration": {
+            "n": 100,
+            "minMs": 1080,
+            "p50Ms": 1376,
+            "p95Ms": 2482,
+            "maxMs": 3417
+          },
+          "headers": {
+            "n": 100,
+            "minMs": 663,
+            "p50Ms": 834,
+            "p95Ms": 1403,
+            "maxMs": 2678
+          },
+          "firstOutput": {
+            "n": 100,
+            "minMs": 939,
+            "p50Ms": 1233,
+            "p95Ms": 2309,
+            "maxMs": 3273
+          },
+          "sumInputTokens": 5600,
+          "sumOutputTokens": 2500,
+          "details": []
+        },
+        {
+          "wave": "wave-02",
+          "rawEventsSHA256": "6765ab7c9de80253b961c46d927ab1c94f6153eb4bfac2bd51645dd19f0527c5",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 100,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 100,
+            "active": 0,
+            "completed": 100,
+            "concurrency": 100,
+            "dispatched": 100,
+            "durationMs": 3155,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:07:23.309460609-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1338,
+            "p95SuccessfulMs": 2208,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 100,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:07:20.153770969-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 31.688794349145432,
+            "unknown": 0
+          },
+          "attempts": 100,
+          "outcomes": {
+            "completed": 100
+          },
+          "statusCounts": {
+            "200": 100
+          },
+          "distinctCompletedNonces": 100,
+          "correlationCount": 100,
+          "startedAt": "2026-10-15T22:07:20.153770969-07:00",
+          "firstRequestOffsetSeconds": 30.009165,
+          "lastResultOffsetSeconds": 33.163864,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 100,
+            "10": 100,
+            "15": 100,
+            "20": 100,
+            "25": 100,
+            "30": 100,
+            "35": 100,
+            "45": 100,
+            "60": 100
+          },
+          "duration": {
+            "n": 100,
+            "minMs": 1021,
+            "p50Ms": 1338,
+            "p95Ms": 2208,
+            "maxMs": 3127
+          },
+          "headers": {
+            "n": 100,
+            "minMs": 636,
+            "p50Ms": 814,
+            "p95Ms": 1196,
+            "maxMs": 2346
+          },
+          "firstOutput": {
+            "n": 100,
+            "minMs": 854,
+            "p50Ms": 1183,
+            "p95Ms": 2017,
+            "maxMs": 2696
+          },
+          "sumInputTokens": 5600,
+          "sumOutputTokens": 2500,
+          "details": []
+        },
+        {
+          "wave": "wave-03",
+          "rawEventsSHA256": "a2b0c0ae075b5a06c37b3a833ebd9b335a36a6169e515b540a1434df5b649e78",
+          "metadata": {
+            "HLLMExecutionCoreUsed": false,
+            "action": "wave",
+            "callTimeoutMs": 180000,
+            "calls": 1000,
+            "concurrency": 200,
+            "durationMs": 190000,
+            "endpoint": "https://cpa.prls.co",
+            "granularity": 8,
+            "intervalMs": 0,
+            "maximum": 1000,
+            "model": "gpt-6-luna",
+            "nativeCPAStreaming": true,
+            "officialAPIEnabled": false,
+            "quietMs": 90000,
+            "reasoning": "low",
+            "sharedCPAConfigurationChanged": false,
+            "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921\n",
+            "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "windowBurst": 0,
+            "windowMs": 60000
+          },
+          "point": {
+            "accepted": 200,
+            "active": 0,
+            "completed": 200,
+            "concurrency": 200,
+            "dispatched": 200,
+            "durationMs": 4623,
+            "failed": 0,
+            "finishedAt": "2026-10-15T22:07:55.777580204-07:00",
+            "name": "wave",
+            "p50SuccessfulMs": 1459,
+            "p95SuccessfulMs": 2289,
+            "pauseUntil": "0001-01-01T00:00:00Z",
+            "peak": 200,
+            "policy": 0,
+            "rejections": 0,
+            "startedAt": "2026-10-15T22:07:51.154125369-07:00",
+            "state": "finished",
+            "successfulCallsPerSecond": 43.25769520429579,
+            "unknown": 0
+          },
+          "attempts": 200,
+          "outcomes": {
+            "completed": 200
+          },
+          "statusCounts": {
+            "200": 200
+          },
+          "distinctCompletedNonces": 200,
+          "correlationCount": 200,
+          "startedAt": "2026-10-15T22:07:51.154125369-07:00",
+          "firstRequestOffsetSeconds": 61.009624,
+          "lastResultOffsetSeconds": 65.632079,
+          "completedWithinSecondsOfWaveStart": {
+            "5": 200,
+            "10": 200,
+            "15": 200,
+            "20": 200,
+            "25": 200,
+            "30": 200,
+            "35": 200,
+            "45": 200,
+            "60": 200
+          },
+          "duration": {
+            "n": 200,
+            "minMs": 1028,
+            "p50Ms": 1459,
+            "p95Ms": 2289,
+            "maxMs": 4620
+          },
+          "headers": {
+            "n": 200,
+            "minMs": 702,
+            "p50Ms": 964,
+            "p95Ms": 1421,
+            "maxMs": 4004
+          },
+          "firstOutput": {
+            "n": 200,
+            "minMs": 885,
+            "p50Ms": 1292,
+            "p95Ms": 2013,
+            "maxMs": 4431
+          },
+          "sumInputTokens": 11200,
+          "sumOutputTokens": 5000,
+          "details": []
+        }
+      ]
+    }
+  ],
+  "callerRetries": false,
+  "unknownsReplayed": false,
+  "officialAPIUsed": false,
+  "productionHLLMQualified": false
+}

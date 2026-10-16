@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-16T05:15:20.847412+00:00",
+  "image": "ghcr.io/prls-co/cli-proxy-api-patched@sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "imageId": "sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "restartCount": 0,
+  "running": true,
+  "oomKilled": false,
+  "configSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8",
+  "configurationChanged": false,
+  "officialAPIUsed": false
+}

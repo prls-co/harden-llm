@@ -282,3 +282,11 @@ uses doubling, bisection, and a 201-call adjacent probe. It records a 200-admiss
 burst boundary and four completed native 1000-result runs; the best public run
 used 128 active slots and 200 admissions per 61 s, finishing in 255.558 s. This
 native streaming evidence does not qualify the unchanged ordinary HLLM gateway.
+
+
+The [reset-timing follow-up](../plans/evidence/harden-llm/cpa-minute-study/2026-10-16/report.md)
+qualifies the inferred minute rule: exact 200/60s admission produced 17 unconfirmed
+HTTP 503s across 1200 requests, while the isolated 100/100/200 split completed all
+400 without native throttles. A strict rolling 200-in-any-60s provider model is
+contradicted. Existing 61-second clean measurements remain retained; exact reset
+phase and CPA cooldown are separate diagnostics, not a universal quota guarantee.

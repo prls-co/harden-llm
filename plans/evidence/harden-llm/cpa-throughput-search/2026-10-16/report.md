@@ -1,5 +1,11 @@
 # CPA throughput search and fastest 1000-call strategy
 
+> Follow-up interpretation: the [reset-timing study](../../cpa-minute-study/2026-10-16/report.md)
+> contradicts a strict rolling 200-in-any-60s route limit and finds 17 HTTP 503s
+> in six exact-60s waves. The measurements below remain retained; the rolling
+> ledger recommendation is an application-budget proposal, not an identified
+> provider algorithm. The clean public 61s result is a measured run, not a guarantee.
+
 ## 1. Decision
 
 For 1000 separate `gpt-6-luna` requests at native reasoning `low`, the best

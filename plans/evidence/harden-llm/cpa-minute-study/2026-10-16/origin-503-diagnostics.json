@@ -1,0 +1,160 @@
+{
+  "requestIDsFromOrigin503AccessLogs": 17,
+  "requestsWithMatchingAuthUnavailable": 0,
+  "details": [
+    {
+      "cpaRequestId": "35257bfd",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "5e9c0fd0",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "5eba08e9",
+      "access503Offsets": [
+        240.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "75d8245b",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "7edc663d",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "910bcec2",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "9b411481",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "a8a158b7",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "ad3d31d6",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "c8326052",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "cd088f69",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "ea18bf5c",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "f4dcae9d",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "f5eab3e8",
+      "access503Offsets": [
+        240.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "f77319f1",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "f99f0fcc",
+      "access503Offsets": [
+        240.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    },
+    {
+      "cpaRequestId": "fce3083c",
+      "access503Offsets": [
+        300.37
+      ],
+      "authUnavailableLogLines": 0,
+      "upstreamFailureLogLines": 0,
+      "cooldownRemainingDurations": []
+    }
+  ],
+  "caveat": "Origin-internal request correlation. The first six-wave caller did not yet capture trace IDs, so caller-to-origin mapping is by exact time/status/count cohort, not direct caller IDs. No inference replay is authorized by these log counters."
+}
