@@ -111,6 +111,7 @@ func (b *NativeBench) Point(ctx context.Context, name string, concurrency, n int
 	type item struct {
 		state   string
 		attempt int
+		epoch   int
 	}
 	items := make([]item, n)
 	for i := range items {
@@ -122,6 +123,8 @@ func (b *NativeBench) Point(ctx context.Context, name string, concurrency, n int
 	heartbeat := time.NewTicker(5 * time.Second)
 	defer heartbeat.Stop()
 	var next time.Time
+	var retryPause time.Time
+	windowEpoch := 0
 	var windowStart time.Time
 	windowUsed := 0
 	windowEnabled := retry && b.WindowBurst > 0 && b.WindowDuration > 0
@@ -164,10 +167,12 @@ func (b *NativeBench) Point(ctx context.Context, name string, concurrency, n int
 			if windowStart.IsZero() || !now.Before(windowStart.Add(b.WindowDuration)) {
 				windowStart = now
 				windowUsed = 0
+				windowEpoch++
 			}
-			if windowUsed >= b.WindowBurst {
-				p.PauseUntil = maxTime(p.PauseUntil, windowStart.Add(b.WindowDuration))
-			}
+		}
+		p.PauseUntil = retryPause
+		if windowEnabled && windowUsed >= b.WindowBurst {
+			p.PauseUntil = maxTime(retryPause, windowStart.Add(b.WindowDuration))
 		}
 		for !stopped && p.Active < concurrency && !time.Now().Before(next) && !time.Now().Before(p.PauseUntil) && (!probing || !probeActive) {
 			id := -1
@@ -181,6 +186,7 @@ func (b *NativeBench) Point(ctx context.Context, name string, concurrency, n int
 				break
 			}
 			items[id].state = "active"
+			items[id].epoch = windowEpoch
 			items[id].attempt++
 			attempt := items[id].attempt
 			p.Dispatched++
@@ -233,6 +239,9 @@ func (b *NativeBench) Point(ctx context.Context, name string, concurrency, n int
 				}
 			case "rejected":
 				p.Rejections++
+				if windowEnabled && items[m.ID].epoch == windowEpoch {
+					windowUsed = max(0, windowUsed-1)
+				}
 				if retry && items[m.ID].attempt < 12 {
 					items[m.ID].state = "queued"
 					firstThrottle := !probing
@@ -244,7 +253,8 @@ func (b *NativeBench) Point(ctx context.Context, name string, concurrency, n int
 							backoff = min(30*time.Second, backoff*2)
 						}
 					}
-					p.PauseUntil = maxTime(p.PauseUntil, time.Now().Add(wait))
+					retryPause = maxTime(retryPause, time.Now().Add(wait))
+					p.PauseUntil = retryPause
 				}
 			case "policy":
 				p.Policy++

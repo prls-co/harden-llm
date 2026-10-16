@@ -126,3 +126,35 @@ func TestNativeRecoveryProbeDoesNotWaitForAnIndependentSlowCall(t *testing.T) {
 		t.Fatalf("recovery blocked on unrelated call: %+v %v", p, err)
 	}
 }
+
+func TestNativeWindowRefundsOnlyKnownRejections(t *testing.T) {
+	for _, kind := range []string{"rejected", "unconfirmed"} {
+		t.Run(kind, func(t *testing.T) {
+			var count atomic.Int32
+			b := NativeBench{Directory: t.TempDir(), Events: io.Discard, Started: time.Now(), WindowBurst: 2, WindowDuration: time.Hour, FallbackPause: time.Millisecond, Call: func(ctx context.Context, prefix string, id, attempt int) NativeMeasurement {
+				count.Add(1)
+				result := "completed"
+				if id == 0 && attempt == 1 {
+					result = kind
+				}
+				return NativeMeasurement{ID: id, Attempt: attempt, Kind: result, Started: time.Now(), Finished: time.Now()}
+			}}
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			defer cancel()
+			n := 2
+			if kind == "unconfirmed" {
+				n = 3
+			}
+			p, err := b.Point(ctx, "refund", 2, n, 0, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if kind == "rejected" && (p.Completed != 2 || count.Load() != 3 || ctx.Err() != nil) {
+				t.Fatalf("known refusal lost quota credit: %+v calls=%d", p, count.Load())
+			}
+			if kind == "unconfirmed" && (p.Completed != 1 || p.Unknown != 1 || count.Load() != 2) {
+				t.Fatalf("unknown quota credit incorrectly refunded: %+v calls=%d", p, count.Load())
+			}
+		})
+	}
+}

@@ -49,3 +49,8 @@ credits. This supports a direct comparison of an immediately refilled pool with
 full bursts separated by the measured reset interval; it is disabled by default.
 A native timeout does not block an unrelated recovery probe. Window parameters
 must come from measurements, not an assumed provider quota.
+
+Window credits are reserved on dispatch, refunded only for explicit rejections
+from the same window, and retained for unknown outcomes. Retry cooldown and
+window eligibility are tracked separately, so a known refusal does not force a
+sixth window merely by consuming one of the original 1000 admissions.
