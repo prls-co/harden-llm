@@ -2075,6 +2075,8 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 
 ### TEST-476: Temporal scheduling and durable deadlines
 
+- `rollover_research_test.go` characterizes history-length and server-suggested continuation: a 120-second in-flight generation blocks one queued item despite a spare slot for 119 seconds. Continuation retains the queued item and the following run executes it exactly once. This is a local characterization of a throughput limitation, not uninterrupted admission or provider evidence.
+
 - Coverage gate: `fast`.
 - Tier: T1; `stateful/batch/workflows_test.go` uses the Temporal SDK virtual-time environment.
 - Assert a rejected item returns through the dispatcher, successful items are not retried, cooldown metadata is published and the overall job deadline expires queued work. No public network or provider credentials. A new job after 35 idle minutes cannot bypass an account pause; explicit resume performs one recovery probe. Successful completions coalesce metadata writes without losing the five-second heartbeat.
@@ -2130,6 +2132,8 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 ## 33. Shared CPA capacity qualification
 
 ### TEST-483: Competing-client scheduling and bounded CPA experiments
+
+- Final input-load research adds `--context-words 0..2048` to the explicit live command. `context_test.go` verifies deterministic synthetic context without weakening the model/reasoning/nonce/content oracle. Actual input and cached-token usage, not synthetic word count, determines workload size. Context is research-only and never changes ordinary HLLM requests.
 
 - Coverage gate: `fast`.
 - Tier: T0/T1; `internal/livecapacity/strategy_test.go`, bounded-text native HTTP fixture in `native_test.go`.
