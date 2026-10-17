@@ -1,0 +1,9 @@
+{
+  "homeConfigured": false,
+  "pluginsEnabled": false,
+  "credentialConcurrencyConfigured": false,
+  "requestRetry": 3,
+  "maxRetryCredentials": 1,
+  "maxRetryInterval": 30,
+  "coolingDisabled": false
+}
