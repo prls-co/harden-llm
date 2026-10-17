@@ -39,6 +39,7 @@ func run() error {
 	shared := flag.Bool("shared", false, "coordinate both clients through one controller")
 	mixed := flag.Bool("mixed", false, "10 percent of foreground requests require bounded 512-word output")
 	longEvery := flag.Int("long-every", 0, "bounded 512-word output every N foreground items; 1 means all, 0 disables")
+	contextWords := flag.Int("context-words", 0, "distinct synthetic input words per request, 0..2048; measured tokens remain authoritative")
 	trafficStop := flag.Bool("traffic-stop", false, "distinct bounded offered-background experiment; quota refusals are terminal background outcomes")
 	budget := flag.Int64("token-budget", 8000000, "reported input+output allowance including active/unknown reserves, at most 10M")
 	quiet := flag.Duration("quiet", 90*time.Second, "pre-run quiet observation, not an assertion that account quota reset")
@@ -51,7 +52,7 @@ func run() error {
 	if !filepath.IsAbs(*out) || *calls < 1 || *calls > 10000 || *budget < 1 || *budget > 10000000 || *quiet < 0 || *quiet > 5*time.Minute || *deadline < time.Second || *deadline > 2*time.Hour || (*shared && !*competing) {
 		return fmt.Errorf("invalid bounded experiment settings")
 	}
-	if *longEvery < 0 || *longEvery > 1000 || (*mixed && *longEvery != 0) || (*trafficStop && (!*competing || *shared)) {
+	if *contextWords < 0 || *contextWords > 2048 || *longEvery < 0 || *longEvery > 1000 || (*mixed && *longEvery != 0) || (*trafficStop && (!*competing || *shared)) {
 		return fmt.Errorf("invalid output-load or offered-traffic settings")
 	}
 	if *mixed {
@@ -96,6 +97,7 @@ func run() error {
 	binaryHash := sha256.Sum256(binaryData)
 	metadata := map[string]any{"sourceSHA": strings.TrimSpace(string(sha)), "sourceDirty": len(diff) > 0, "sourceDiffSHA256": hex.EncodeToString(hash[:]), "binarySHA256": hex.EncodeToString(binaryHash[:]), "model": "gpt-6-luna", "reasoning": "low", "endpoint": url, "policy": *mode, "foregroundCalls": *calls, "competing": *competing, "sharedController": *shared, "mixedBoundedText": *mixed, "tokenBudget": *budget, "nativeInternalAttempts": nil, "officialAPIUsed": false, "sharedCPAConfigurationChanged": false, "TemporalUsed": false, "startedAt": time.Now().UTC()}
 	metadata["longEvery"] = *longEvery
+	metadata["contextWords"] = *contextWords
 	metadata["offeredBackgroundTrafficStops"] = *trafficStop
 	if *trafficStop {
 		metadata["minimumForegroundItemsAdmittedAfterBackgroundFinished"] = min(100, *calls)
@@ -128,7 +130,7 @@ func run() error {
 	transport := &http.Transport{Proxy: nil, MaxIdleConns: 1000, MaxIdleConnsPerHost: 1000, MaxConnsPerHost: 1000, IdleConnTimeout: 2 * time.Minute, ResponseHeaderTimeout: 180 * time.Second, ForceAttemptHTTP2: true}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport}
-	caller := livecapacity.NativeCaller{URL: url, Key: os.Getenv("CPA_API_KEY"), Client: client, Timeout: 180 * time.Second}
+	caller := livecapacity.NativeCaller{URL: url, Key: os.Getenv("CPA_API_KEY"), Client: client, Timeout: 180 * time.Second, ContextWords: *contextWords}
 	call := func(ctx context.Context, prefix string, id, attempt int) livecapacity.NativeMeasurement {
 		c := caller
 		c.BoundedText = *longEvery > 0 && id < *calls && id%*longEvery == 0

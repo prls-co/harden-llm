@@ -1,0 +1,8 @@
+{
+  "image": "ghcr.io/prls-co/cli-proxy-api-patched@sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "imageID": "sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "startedAt": "2026-10-04T07:59:51.607040867Z",
+  "restarts": 0,
+  "running": true,
+  "configSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8"
+}

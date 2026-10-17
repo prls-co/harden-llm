@@ -1,0 +1,86 @@
+{
+  "providerInference": false,
+  "groups": [
+    {
+      "model": "fixed_window",
+      "shared": false,
+      "jitter": false,
+      "seeds": 8,
+      "foregroundMedianMs": 297130.0,
+      "refusalsMedian": 285.0,
+      "refusalsMin": 285,
+      "refusalsMax": 285
+    },
+    {
+      "model": "fixed_window",
+      "shared": false,
+      "jitter": true,
+      "seeds": 8,
+      "foregroundMedianMs": 298625.0,
+      "refusalsMedian": 282.5,
+      "refusalsMin": 278,
+      "refusalsMax": 284
+    },
+    {
+      "model": "fixed_window",
+      "shared": true,
+      "jitter": false,
+      "seeds": 8,
+      "foregroundMedianMs": 294000.0,
+      "refusalsMedian": 0.0,
+      "refusalsMin": 0,
+      "refusalsMax": 0
+    },
+    {
+      "model": "fixed_window",
+      "shared": true,
+      "jitter": true,
+      "seeds": 8,
+      "foregroundMedianMs": 294000.0,
+      "refusalsMedian": 0.0,
+      "refusalsMin": 0,
+      "refusalsMax": 0
+    },
+    {
+      "model": "token_bucket",
+      "shared": false,
+      "jitter": false,
+      "seeds": 8,
+      "foregroundMedianMs": 307230.0,
+      "refusalsMedian": 243.0,
+      "refusalsMin": 243,
+      "refusalsMax": 243
+    },
+    {
+      "model": "token_bucket",
+      "shared": false,
+      "jitter": true,
+      "seeds": 8,
+      "foregroundMedianMs": 308275.0,
+      "refusalsMedian": 248.0,
+      "refusalsMin": 243,
+      "refusalsMax": 250
+    },
+    {
+      "model": "token_bucket",
+      "shared": true,
+      "jitter": false,
+      "seeds": 8,
+      "foregroundMedianMs": 294000.0,
+      "refusalsMedian": 0.0,
+      "refusalsMin": 0,
+      "refusalsMax": 0
+    },
+    {
+      "model": "token_bucket",
+      "shared": true,
+      "jitter": true,
+      "seeds": 8,
+      "foregroundMedianMs": 294000.0,
+      "refusalsMedian": 0.0,
+      "refusalsMin": 0,
+      "refusalsMax": 0
+    }
+  ],
+  "statisticalIndependenceClaimed": false
+}

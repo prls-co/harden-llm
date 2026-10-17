@@ -1,0 +1,11 @@
+{
+  "measurementIds": 256,
+  "matchedIds": 256,
+  "accessCodes": {
+    "200": 256
+  },
+  "nativeStatusLogLines": {},
+  "matchedLogLines": 256,
+  "nativeInternalAttempts": null,
+  "correlationTimeZone": "Asia/Shanghai; verified against container TZ; within measured attempt interval plus 10 seconds"
+}

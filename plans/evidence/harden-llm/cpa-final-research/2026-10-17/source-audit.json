@@ -1,0 +1,57 @@
+[
+  {
+    "url": "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/c93978c4ea2e908255a2a06c37599fda3651554a/internal/runtime/executor/codex_executor.go",
+    "sha256": "5f337caaab5f96c25f7151bd716855035fdacaf649a1b35cab5f4610aab47278",
+    "matches": [],
+    "containsExecCommand": false
+  },
+  {
+    "url": "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/c93978c4ea2e908255a2a06c37599fda3651554a/sdk/cliproxy/auth/conductor_cooldown.go",
+    "sha256": "cbcebc79369ab9f98d5ebbe5c880b364847941c1e5e56ab85a561d71310dda96",
+    "matches": [
+      {
+        "line": 35,
+        "code": "// SetTransientErrorCooldownSeconds configures cooldowns for 408/500/502/503/504."
+      },
+      {
+        "line": 37,
+        "code": "func SetTransientErrorCooldownSeconds(seconds int) {"
+      },
+      {
+        "line": 114,
+        "code": "if seconds < 0 {"
+      }
+    ],
+    "containsExecCommand": false
+  },
+  {
+    "url": "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/c93978c4ea2e908255a2a06c37599fda3651554a/internal/runtime/executor/codex_executor_stream.go",
+    "sha256": "dc571fe368cc77e780f29e35dab70c6699d84cd05b6b308e0815748d060b9017",
+    "matches": [
+      {
+        "line": 36,
+        "code": "baseURL = \"https://chatgpt.com/backend-api/codex\""
+      },
+      {
+        "line": 116,
+        "code": "httpResp, err := httpClient.Do(httpReq)"
+      }
+    ],
+    "containsExecCommand": false
+  },
+  {
+    "url": "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/c93978c4ea2e908255a2a06c37599fda3651554a/internal/runtime/executor/codex_executor_request.go",
+    "sha256": "ad4a539149f903c98df5581e04ff7785d5744e99bce69f01ef1733e9d6fd69d0",
+    "matches": [
+      {
+        "line": 83,
+        "code": "return httpClient.Do(httpReq)"
+      },
+      {
+        "line": 148,
+        "code": "httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(rawJSON))"
+      }
+    ],
+    "containsExecCommand": false
+  }
+]

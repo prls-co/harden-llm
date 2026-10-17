@@ -1,0 +1,89 @@
+{
+  "coverageFailure": "",
+  "finishedAt": "2026-10-17T14:41:56.923752285Z",
+  "measurement": {
+    "at": "2026-10-17T07:41:56.923749809-07:00",
+    "elapsedMs": 71011,
+    "Active": 0,
+    "Peak": 128,
+    "ReportedTokens": 1791700,
+    "UnknownTokenReserve": 0,
+    "ActiveTokenReserve": 0,
+    "TokenBudget": 6599523,
+    "Actors": [
+      {
+        "name": "foreground",
+        "Offered": 256,
+        "Dispatched": 256,
+        "Completed": 256,
+        "Rejected": 0,
+        "Unknown": 0,
+        "Failed": 0,
+        "Policy": 0,
+        "Active": 0,
+        "Peak": 128,
+        "TerminalRefusals": 0,
+        "InputTokens": 1607592,
+        "OutputTokens": 184108,
+        "FirstStart": "2026-10-17T07:40:45.912516605-07:00",
+        "LastFinish": "2026-10-17T07:41:56.923504915-07:00",
+        "ReadyMs": 71011
+      }
+    ],
+    "Controllers": [
+      {
+        "Policy": {
+          "Concurrency": 128,
+          "Burst": 200,
+          "StartRate": 100,
+          "MaximumRate": 200,
+          "RefillEstimate": 61000000000,
+          "WindowRequests": 200,
+          "WindowDuration": 61000000000
+        },
+        "Rate": 200,
+        "BurstLeft": 144,
+        "Successes": 56,
+        "Epoch": "2026-10-17T07:40:45.912516605-07:00",
+        "NextStart": "2026-10-17T07:41:46.91864918-07:00",
+        "NextEligible": "0001-01-01T00:00:00Z",
+        "Cooling": false,
+        "Probing": false,
+        "ProbeDelay": 2000000000,
+        "Paused": false,
+        "WindowStart": "2026-10-17T07:41:46.912849621-07:00",
+        "WindowStarts": 56,
+        "RefillWindowBurst": true,
+        "PacedRecovery": true,
+        "AccumulatePace": true,
+        "HonorFailureHints": true
+      }
+    ],
+    "ForegroundAdmittedAfterBackgroundFinished": 0
+  },
+  "metadata": {
+    "TemporalUsed": false,
+    "binarySHA256": "16afdebcdcecef6d5d769571d08c7c65e6d0378b8cc24c90766bbd0cf6392673",
+    "competing": false,
+    "contextWords": 1024,
+    "endpoint": "https://cpa.prls.co",
+    "foregroundCalls": 256,
+    "longEvery": 1,
+    "mixedBoundedText": false,
+    "model": "gpt-6-luna",
+    "nativeInternalAttempts": null,
+    "offeredBackgroundTrafficStops": false,
+    "officialAPIUsed": false,
+    "policy": "windowed",
+    "reasoning": "low",
+    "sharedCPAConfigurationChanged": false,
+    "sharedController": false,
+    "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sourceDirty": false,
+    "sourceSHA": "b38048e336d84f4d29920063d407dbbf7987c4fd",
+    "startedAt": "2026-10-17T14:39:15.907550116Z",
+    "tokenBudget": 6599523
+  },
+  "reportedUsageIsNotNativeInternalUsage": true,
+  "status": "passed"
+}

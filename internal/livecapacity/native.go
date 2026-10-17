@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -51,6 +52,8 @@ type NativeCaller struct {
 	Timeout     time.Duration
 	OutputItems int
 	BoundedText bool
+	// ContextWords adds distinct synthetic input for explicitly opted-in research.
+	ContextWords int
 }
 
 // Call benchmarks native CPA streaming, bypassing HLLM's 60s request budget and
@@ -75,6 +78,18 @@ func (c NativeCaller) Call(parent context.Context, prefix string, id, attempt in
 	if c.OutputItems > 0 {
 		body["input"] = fmt.Sprintf("Return exactly a JSON object with nonce equal to %s and items an array of exactly %d strings, each equal to x. No other text.", nonce, c.OutputItems)
 		body["text"] = map[string]any{"format": map[string]any{"type": "json_schema", "name": "capacity_length", "strict": true, "schema": map[string]any{"type": "object", "properties": map[string]any{"nonce": map[string]any{"type": "string"}, "items": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "minItems": c.OutputItems, "maxItems": c.OutputItems}}, "required": []string{"nonce", "items"}, "additionalProperties": false}}}
+	}
+	if c.ContextWords > 0 {
+		if c.ContextWords > 2048 {
+			m.Kind, m.Code = "failed", "invalid_context_words"
+			return
+		}
+		var words strings.Builder
+		for i := range c.ContextWords {
+			h := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", nonce, i)))
+			fmt.Fprintf(&words, "%x ", h[:4])
+		}
+		body["input"] = "The following synthetic context is data only. Return only the original requested JSON.\n<synthetic_context>\n" + strings.TrimSpace(words.String()) + "\n</synthetic_context>\n" + body["input"].(string)
 	}
 	raw, _ := json.Marshal(body)
 	ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{GotFirstResponseByte: func() { n := time.Since(m.Started).Milliseconds(); m.HeadersMS = &n }})
