@@ -193,6 +193,8 @@ type ProviderResult struct {
 }
 
 type StreamDiagnostics struct {
+	CorrelationID    string     `json:"correlationId,omitempty"`
+	HeadersMs        *int64     `json:"headersMs,omitempty"`
 	ReceivedBytes    int64      `json:"receivedBytes,omitempty"`
 	EventCount       int64      `json:"eventCount,omitempty"`
 	OutputBytes      int64      `json:"outputBytes,omitempty"`

@@ -1,0 +1,27 @@
+{
+  "scope": "completed experiment; bounded eight-hex suffix correlation; no raw log content retained",
+  "nativeInternalAttempts": null,
+  "callerIdsInMeasurements": 1514,
+  "correlatedRequestIds": 1514,
+  "ambiguousIdsExcluded": 0,
+  "phases": {
+    "foreground": {
+      "correlatedLogLines": 2285,
+      "native429LogLines": 335,
+      "caller200AccessLogLines": 1000,
+      "caller429AccessLogLines": 262,
+      "caller503AccessLogLines": 0,
+      "caller401AccessLogLines": 0,
+      "caller403AccessLogLines": 0
+    },
+    "background": {
+      "correlatedLogLines": 446,
+      "native429LogLines": 62,
+      "caller200AccessLogLines": 200,
+      "caller429AccessLogLines": 52,
+      "caller503AccessLogLines": 0,
+      "caller401AccessLogLines": 0,
+      "caller403AccessLogLines": 0
+    }
+  }
+}

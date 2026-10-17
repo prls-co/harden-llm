@@ -1,0 +1,103 @@
+{
+  "verifiedAt": "2026-10-16T23:31:13.669095+00:00",
+  "scope": "verified evidence-publication checkpoint; later audit-only commits do not change runtime or acceptance",
+  "publicationSourceSHA": "f630cd7d0c468a40f117ea40a919335cfe2a87b7",
+  "repositories": [
+    {
+      "repository": "/home/kirill/p/harden-llm",
+      "branch": "feat/cpa-capacity-campaign",
+      "HEAD": "f630cd7d0c468a40f117ea40a919335cfe2a87b7",
+      "originMain": "190c00263353e635d5bc5804b6cdb14a61f4448c",
+      "remoteMain": "190c00263353e635d5bc5804b6cdb14a61f4448c",
+      "remoteFeature": "f630cd7d0c468a40f117ea40a919335cfe2a87b7",
+      "status": "",
+      "worktreesInspected": 40,
+      "unrelatedWorktreesModified": false
+    },
+    {
+      "repository": "/home/kirill/p/CLIProxyAPI-setup",
+      "branch": "feat/temporal-retry-controls",
+      "HEAD": "96e65def8a43b2df7ec0327c2bd89ffa578cbc8a",
+      "originMain": "1e04487e79dc3d59463f01803b4a670051a4e12c",
+      "remoteMain": "1e04487e79dc3d59463f01803b4a670051a4e12c",
+      "remoteFeature": "96e65def8a43b2df7ec0327c2bd89ffa578cbc8a",
+      "status": "",
+      "worktreesInspected": 1,
+      "unrelatedWorktreesModified": false
+    }
+  ],
+  "ownedEnduranceWorktree": {
+    "sourceSHA": "826757c29b5d8b9c79b800c3650732f555a183da",
+    "clean": true,
+    "retainedForOriginalVerificationReports": true
+  },
+  "pullRequest": {
+    "url": "https://github.com/prls-co/harden-llm/pull/127",
+    "title": "Add durable CPA batch jobs with shared admission and diagnostics",
+    "isDraft": true,
+    "headRefOid": "f630cd7d0c468a40f117ea40a919335cfe2a87b7",
+    "baseRefOid": "190c00263353e635d5bc5804b6cdb14a61f4448c",
+    "mergeable": "MERGEABLE",
+    "state": "OPEN"
+  },
+  "PRBodyReadbackMatches": true,
+  "hostedChecksAtReadback": [
+    {
+      "name": "Analyze (actions)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "mode",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "Analyze (go)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "Analyze (javascript-typescript)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "fast T0-T2",
+      "status": "IN_PROGRESS",
+      "conclusion": ""
+    },
+    {
+      "name": "pooled T3 integration",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED"
+    },
+    {
+      "name": "explicit Docker lifecycle fault suite",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED"
+    },
+    {
+      "name": "explicitly requested browser checks",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED"
+    },
+    {
+      "name": "browser-free release",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED"
+    },
+    {
+      "name": "CodeQL",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    }
+  ],
+  "hostedPendingIsNotClaimedAsPassed": true,
+  "localFullReleaseAccepted": true,
+  "sourcePromotionPerformed": false,
+  "deploymentPerformed": false,
+  "browserPerformed": false,
+  "paidCampaignFinished": true,
+  "scopeOfUnknownInferenceGuarantee": "HLLM does not replay uncertain inference; CPA native retries remain3 and hidden total attempts unknown"
+}

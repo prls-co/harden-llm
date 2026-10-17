@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Harden LLM OpenAI-compatible API
-  version: 3.0.0
+  version: 3.1.0
   description: >-
     Ordinary OpenAI-compatible inference and reusable reference operations use
     one HLLM bearer and one stateless hardening engine. Only reference runs enter
@@ -25,8 +25,93 @@ tags:
   - name: Models
   - name: Chat Completions
   - name: Responses
+  - name: Jobs
   - name: Health
 paths:
+  /v1/jobs:
+    post:
+      operationId: createBatchJob
+      tags: [Jobs]
+      summary: Queue up to 1000 separate CPA generations
+      description: >-
+        Opt-in self-hosted Temporal execution. Each item is one generation using
+        the configured CPA upstream, gpt-6-luna and low reasoning. Caching,
+        multi-step recovery and web search are disabled. The manifest is at most
+        32 MiB; each request is at most 256 KiB. Acceptance requires a durable
+        workflow-start acknowledgement. The idempotency key is scoped to the bearer.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 128}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BatchJobRequest'}
+      responses:
+        '202':
+          description: Accepted. Poll Location; Retry-After is in seconds.
+          headers:
+            Location: {schema: {type: string}}
+            Retry-After: {schema: {type: integer, minimum: 1}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BatchJobStatus'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/jobs/{jobID}:
+    parameters:
+      - name: jobID
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getBatchJob
+      tags: [Jobs]
+      summary: Read key-scoped durable progress
+      responses:
+        '200':
+          description: Counts, worker heartbeat, actual progress and quota waiting state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BatchJobStatus'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/jobs/{jobID}/result:
+    parameters:
+      - name: jobID
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getBatchJobResult
+      tags: [Jobs]
+      summary: Download one terminal NDJSON record per item
+      description: >-
+        Verify the distinct custom_id count against status.counts.total. An
+        interrupted download is incomplete and may be downloaded again without
+        repeating inference. Results are available through this authenticated
+        endpoint; Garage object locations and credentials are never returned.
+      responses:
+        '202':
+          description: Still pending. Poll after Retry-After seconds.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BatchJobStatus'}
+        '200':
+          description: One BatchItemResult JSON object per line, including item errors.
+          content:
+            application/x-ndjson:
+              schema: {type: string}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /v1/models:
     get:
       operationId: listModels
@@ -546,7 +631,11 @@ components:
       bearerFormat: HARDEN_LLM_TOKEN
   responses:
     Error:
-      description: Standard OpenAI error object.
+      description: Standard OpenAI error object. Provider Retry-After hints are preserved as an upward-rounded minimum wait in seconds.
+      headers:
+        Retry-After:
+          description: Minimum seconds to wait before another attempt, when the upstream supplied a positive retry hint.
+          schema: {type: string, pattern: '^[0-9]+$'}
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
@@ -556,6 +645,293 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ReferenceErrorEnvelope'}
   schemas:
+    BatchGenerationRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - model
+      - input
+      properties:
+        input:
+          $ref: '#/components/schemas/ResponseRequest/properties/input'
+        instructions:
+          $ref: '#/components/schemas/ResponseRequest/properties/instructions'
+        tool_choice:
+          $ref: '#/components/schemas/ResponseRequest/properties/tool_choice'
+        text:
+          $ref: '#/components/schemas/ResponseRequest/properties/text'
+        store:
+          $ref: '#/components/schemas/ResponseRequest/properties/store'
+        background:
+          $ref: '#/components/schemas/ResponseRequest/properties/background'
+        service_tier:
+          $ref: '#/components/schemas/ResponseRequest/properties/service_tier'
+        max_output_tokens:
+          type: integer
+          minimum: 1
+          description: CPA Codex translation strips this field; it is not an enforceable output budget.
+        temperature:
+          $ref: '#/components/schemas/ResponseRequest/properties/temperature'
+        top_p:
+          $ref: '#/components/schemas/ResponseRequest/properties/top_p'
+        truncation:
+          $ref: '#/components/schemas/ResponseRequest/properties/truncation'
+        parallel_tool_calls:
+          $ref: '#/components/schemas/ResponseRequest/properties/parallel_tool_calls'
+        n:
+          $ref: '#/components/schemas/ResponseRequest/properties/n'
+        model:
+          type: string
+          const: gpt-6-luna
+        tools:
+          type: array
+          maxItems: 128
+          items:
+            $ref: '#/components/schemas/ResponseFunctionTool'
+        stream:
+          type: boolean
+          description: Native streaming is used by the worker; results are final JSON.
+        reasoning:
+          type: object
+          additionalProperties: false
+          required:
+          - effort
+          properties:
+            effort:
+              type: string
+              const: low
+        harden:
+          type: object
+          additionalProperties: false
+          required: []
+          properties:
+            upstream:
+              type: string
+              description: Must match the configured CPA batch upstream.
+            cache:
+              type: string
+              enum:
+              - 'off'
+            timeout_ms:
+              type: integer
+              minimum: 0
+              maximum: 180000
+              description: Zero or omission selects 180 seconds; queue waits are separate.
+            recovery:
+              allOf:
+              - $ref: '#/components/schemas/RecoveryPolicy'
+              - properties:
+                  maxAttempts:
+                    const: 1
+                  jsonRepair:
+                    type: 'null'
+                  rerun:
+                    type: 'null'
+            diagnostics:
+              type: boolean
+    BatchJobRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - custom_id
+            - request
+            properties:
+              custom_id:
+                type: string
+                minLength: 1
+                maxLength: 128
+              request:
+                $ref: '#/components/schemas/BatchGenerationRequest'
+    BatchJobCounts:
+      type: object
+      additionalProperties: false
+      required:
+      - total
+      - queued
+      - active
+      - waiting
+      - succeeded
+      - failed
+      properties:
+        total:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        queued:
+          type: integer
+          minimum: 0
+        active:
+          type: integer
+          minimum: 0
+        waiting:
+          type: integer
+          minimum: 0
+        succeeded:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0
+    BatchJobStatus:
+      type: object
+      additionalProperties: false
+      required:
+      - job_id
+      - status
+      - counts
+      - created_at
+      - deadline
+      - observed_at
+      - last_worker_heartbeat_at
+      - last_progress_at
+      - next_attempt_at
+      - status_url
+      - result_url
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - waiting
+          - completed
+          - completed_with_errors
+        counts:
+          $ref: '#/components/schemas/BatchJobCounts'
+        created_at:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+        observed_at:
+          type: string
+          format: date-time
+        last_worker_heartbeat_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_progress_at:
+          type: string
+          format: date-time
+          nullable: true
+        next_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        waiting_reason:
+          type: string
+          enum:
+          - provider_throttled
+          - admission_window
+          - account_restricted
+        status_url:
+          type: string
+          pattern: ^/v1/jobs/[0-9a-f-]+$
+        result_url:
+          type: string
+          pattern: ^/v1/jobs/[0-9a-f-]+/result$
+    BatchItemError:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        http_status:
+          type: integer
+    BatchAttemptDiagnostics:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - attempt
+      - queueMs
+      - durationMs
+      - cpaInternalAttempts
+      properties:
+        retryWaitMs: {type: integer, minimum: 0}
+        startedAt: {type: string, format: date-time}
+        finishedAt: {type: string, format: date-time}
+        attempt:
+          type: integer
+          minimum: 0
+        queueMs:
+          type: integer
+          minimum: 0
+        durationMs:
+          type: integer
+          minimum: 0
+        headersMs:
+          type: integer
+          minimum: 0
+        firstOutputMs:
+          type: integer
+          minimum: 0
+        inputTokens:
+          type: integer
+          minimum: 0
+        outputTokens:
+          type: integer
+          minimum: 0
+        reasoningTokens:
+          type: integer
+          minimum: 0
+        cachedInputTokens:
+          type: integer
+          minimum: 0
+        retryAfterMs:
+          type: integer
+          minimum: 0
+        kind:
+          type: string
+          enum:
+          - completed
+          - failed
+          - rejected
+          - policy
+        error:
+          $ref: '#/components/schemas/BatchItemError'
+        artifactId:
+          type: string
+        providerRequestId:
+          type: string
+        cpaInternalAttempts:
+          type: integer
+          nullable: true
+          description: Null when native CPA attempts are not observable.
+    BatchItemResult:
+      type: object
+      additionalProperties: false
+      required:
+      - custom_id
+      - diagnostics
+      properties:
+        custom_id:
+          type: string
+        response:
+          $ref: '#/components/schemas/Response'
+        error:
+          $ref: '#/components/schemas/BatchItemError'
+        diagnostics:
+          $ref: '#/components/schemas/BatchAttemptDiagnostics'
     HistoryWindow:
       type: object
       additionalProperties: false
@@ -921,6 +1297,8 @@ components:
       additionalProperties: false
       required: [receivedBytes, eventCount, outputBytes, outputCodePoints]
       properties:
+        headersMs: {type: integer, minimum: 0, nullable: true}
+        correlationId: {type: string, maxLength: 128}
         receivedBytes: {type: integer, minimum: 0}
         eventCount: {type: integer, minimum: 0}
         outputBytes: {type: integer, minimum: 0}
@@ -1784,6 +2162,7 @@ components:
         stream: {type: boolean, default: false}
         store: {type: boolean, const: false}
         background: {type: boolean, const: false}
+        service_tier: {type: string, enum: [default], description: Explicitly select standard pricing and performance.}
         max_output_tokens: {type: integer, minimum: 1}
         temperature: {type: number, minimum: 0, maximum: 2}
         top_p: {type: number, minimum: 0, maximum: 1}

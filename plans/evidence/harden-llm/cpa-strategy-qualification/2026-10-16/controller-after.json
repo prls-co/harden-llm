@@ -1,0 +1,102 @@
+{
+  "scope": "deterministic quota simulation; not live provider limits",
+  "all1200DistinctItemsComplete": true,
+  "rows": [
+    {
+      "case": "fixed_window/shared=false/window=false",
+      "foregroundMs": 299130,
+      "backgroundMs": 378050,
+      "callerRefusals": 37
+    },
+    {
+      "case": "fixed_window/shared=false/window=true",
+      "foregroundMs": 297130,
+      "backgroundMs": 351050,
+      "callerRefusals": 285
+    },
+    {
+      "case": "fixed_window/shared=true/window=false",
+      "foregroundMs": 298010,
+      "backgroundMs": 187650,
+      "callerRefusals": 5
+    },
+    {
+      "case": "fixed_window/shared=true/window=true",
+      "foregroundMs": 294000,
+      "backgroundMs": 185000,
+      "callerRefusals": 0
+    },
+    {
+      "case": "sliding_window/shared=false/window=false",
+      "foregroundMs": 345390,
+      "backgroundMs": 267040,
+      "callerRefusals": 40
+    },
+    {
+      "case": "sliding_window/shared=false/window=true",
+      "foregroundMs": 369050,
+      "backgroundMs": 253030,
+      "callerRefusals": 209
+    },
+    {
+      "case": "sliding_window/shared=true/window=false",
+      "foregroundMs": 320670,
+      "backgroundMs": 146060,
+      "callerRefusals": 7
+    },
+    {
+      "case": "sliding_window/shared=true/window=true",
+      "foregroundMs": 310030,
+      "backgroundMs": 185000,
+      "callerRefusals": 140
+    },
+    {
+      "case": "token_bucket/shared=false/window=false",
+      "foregroundMs": 314210,
+      "backgroundMs": 148010,
+      "callerRefusals": 56
+    },
+    {
+      "case": "token_bucket/shared=false/window=true",
+      "foregroundMs": 307020,
+      "backgroundMs": 155050,
+      "callerRefusals": 184
+    },
+    {
+      "case": "token_bucket/shared=true/window=false",
+      "foregroundMs": 296710,
+      "backgroundMs": 146110,
+      "callerRefusals": 11
+    },
+    {
+      "case": "token_bucket/shared=true/window=true",
+      "foregroundMs": 294000,
+      "backgroundMs": 185000,
+      "callerRefusals": 0
+    },
+    {
+      "case": "concurrency/shared=false/window=false",
+      "foregroundMs": 53030,
+      "backgroundMs": 146000,
+      "callerRefusals": 62
+    },
+    {
+      "case": "concurrency/shared=false/window=true",
+      "foregroundMs": 261160,
+      "backgroundMs": 146000,
+      "callerRefusals": 290
+    },
+    {
+      "case": "concurrency/shared=true/window=false",
+      "foregroundMs": 52150,
+      "backgroundMs": 146000,
+      "callerRefusals": 34
+    },
+    {
+      "case": "concurrency/shared=true/window=true",
+      "foregroundMs": 307160,
+      "backgroundMs": 185000,
+      "callerRefusals": 315
+    }
+  ]
+}

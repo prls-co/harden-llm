@@ -1,0 +1,18 @@
+{
+  "scope": "local self-hosted Temporal/PostgreSQL/Garage and synthetic provider; no public inference",
+  "sourceSHA": "826757c29b5d8b9c79b800c3650732f555a183da",
+  "sourceCleanAtStart": true,
+  "report": "/home/kirill/p/.worktrees/harden-llm-cpa-endurance/tmp/test-feedback/runner-1792184806767-3956330-fd58972159a9c330.json",
+  "accepted": true,
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "taskWallTimeMs": 322620,
+  "requiredDistinctResults": 10000,
+  "requiredProviderCalls": 10000,
+  "requiredBearerClients": 2,
+  "requiredMaximumCombinedOverlap": 128,
+  "naturalRunContinuationRequired": true,
+  "eightMinuteJobDeadlineUnchanged": true,
+  "actualPeakNotRetained": true,
+  "verificationBasis": "The selected test has no skip and requires exact counts, attempt=1, scope isolation, overlap<=128, and a changed run ID before returning successfully. The canonical runner accepted it; its stdout preview truncated SDK debug output."
+}

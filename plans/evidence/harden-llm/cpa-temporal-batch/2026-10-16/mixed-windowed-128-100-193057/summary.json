@@ -1,0 +1,44 @@
+{
+  "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+  "case": "mixed-windowed-128-100",
+  "finishedAt": "2026-10-16T19:34:11.615773716Z",
+  "logicalRequests": 1000,
+  "model": "gpt-6-luna",
+  "officialAPIEnabled": false,
+  "pilot": {
+    "job_id": "e81a75d6-f146-56c9-9f24-05ce74c45da5",
+    "status": "completed_with_errors",
+    "counts": {
+      "total": 2,
+      "queued": 0,
+      "active": 0,
+      "waiting": 0,
+      "succeeded": 1,
+      "failed": 1
+    },
+    "created_at": "2026-10-16T12:31:06.502515-07:00",
+    "deadline": "2026-10-16T12:43:06.502515-07:00",
+    "observed_at": "2026-10-16T19:34:11.615513771Z",
+    "last_worker_heartbeat_at": "2026-10-16T12:34:07.47486-07:00",
+    "last_progress_at": "2026-10-16T12:34:07.47486-07:00",
+    "next_attempt_at": null,
+    "status_url": "/v1/jobs/e81a75d6-f146-56c9-9f24-05ce74c45da5",
+    "result_url": "/v1/jobs/e81a75d6-f146-56c9-9f24-05ce74c45da5/result"
+  },
+  "policy": {
+    "Concurrency": 128,
+    "Burst": 200,
+    "StartRate": 100,
+    "MaximumRate": 200,
+    "RefillEstimate": 61000000000,
+    "WindowRequests": 200,
+    "WindowDuration": 61000000000
+  },
+  "reasoning": "low",
+  "sharedCPAConfigurationChanged": false,
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceDirty": false,
+  "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+  "startedAt": "2026-10-16T19:31:06.116930344Z",
+  "status": "failed"
+}

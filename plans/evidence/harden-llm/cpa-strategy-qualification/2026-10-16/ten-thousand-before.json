@@ -1,0 +1,20 @@
+{
+  "scope": "local self-hosted Temporal/PostgreSQL/Garage with synthetic provider; no live inference",
+  "sourceBaseSHA": "2e909c706ecca3416d1cb4b89e67790929b28a8f",
+  "report": "/home/kirill/p/.worktrees/harden-llm-cpa-endurance/tmp/test-feedback/runner-1792184443029-3851939-26f0c561c458e5ae.json",
+  "accepted": false,
+  "taskCount": 1,
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "taskWallTimeMs": 525707,
+  "failure": "jobs exceeded unchanged eight-minute deadline with legacy non-accumulating pacing",
+  "lastFirstJobCounts": {
+    "total": 1000,
+    "queued": 0,
+    "active": 0,
+    "waiting": 0,
+    "succeeded": 593,
+    "failed": 407
+  },
+  "cheapRegression": "100 ms elapsed at 100 starts/second admitted 1 instead of 10"
+}

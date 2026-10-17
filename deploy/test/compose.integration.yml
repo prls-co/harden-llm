@@ -35,6 +35,28 @@ services:
       - garage-metadata:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
 
+  temporal:
+    image: temporalio/auto-setup:1.28.4@sha256:d4cdc015d667ab5ccc3c6d1221a8792f4603c62378313db9391e47f0cb367305
+    depends_on:
+      harden-postgres: {condition: service_healthy}
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_SEEDS: harden-postgres
+      POSTGRES_USER: harden_test
+      POSTGRES_PWD: harden_test_password
+      DBNAME: harden_temporal_test
+      VISIBILITY_DBNAME: harden_temporal_visibility_test
+      SKIP_DEFAULT_NAMESPACE_CREATION: 'true'
+      BIND_ON_IP: 0.0.0.0
+    ports:
+      - '127.0.0.1::7233'
+    healthcheck:
+      test: [CMD-SHELL, "bash -c '</dev/tcp/127.0.0.1/7233'"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+
 volumes:
   harden-postgres-data:
   garage-metadata:

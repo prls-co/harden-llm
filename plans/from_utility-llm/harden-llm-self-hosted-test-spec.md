@@ -1583,11 +1583,12 @@ old assertions move to their new owner without weakening their purpose.
 ### TEST-429: Reusable component library
 
 - Type: unit; verifies: REQ-420, REQ-428.
-  - Location: `frontend/packages/harden_llm_ui/test/harden_llm_ui/components_test.exs`.
-  - Command: `cd frontend/packages/harden_llm_ui && mix test --seed 104729 test/harden_llm_ui/components_test.exs`.
+  - Location: `frontend/packages/harden_llm_ui/test/harden_llm_ui/components_test.exs`, `profile_reasoning_test.exs` in that directory; minimal host in `test/support/test_host.ex` within the package.
+  - Command: `cd frontend/packages/harden_llm_ui && MIX_DEPS_PATH=../../deps mix test --seed 104729 test/harden_llm_ui/components_test.exs test/harden_llm_ui/profile_reasoning_test.exs`.
   - Fixtures/mocks/data: WEB-TEST-119; independent test host informed by read-only Model Recall interface review, schema-valid API fixtures and two component instances with host-supplied API-key contexts.
   - Deterministic controls: section 7.3 defaults; use the stated isolated real service for integration and exact release identity for deployed checks.
   - Pass criteria: Picker/input/result/stats/history/pagination components render and dispatch independently; package imports no host/Portal/Ecto module, stores no incoming keys and owns no login. API-key context/instance state do not leak; explicit save/detail and baseline visual bindings work. Assets/decoders/styles have one source; Model Recall migration is not required.
+  - Selection-only refinement: the actual public `profile_row/1` in a minimal host and the full widget consume the same `ProfileWidgetState.profile_options/1` and `reasoning_options/2`. Preserve exact label/order/search projection without private fields; configured reasoning keeps lowest/middle/highest order, unknown IDs have no choices and blank IDs retain editor draft choices. Two portable rows remain independent of each other and two full widget instances; portable changes emit no full-widget message and mount no configuration editor. Nil row change events inherit the host form's event without emitting a field-level phx-change. These HTML/event checks do not establish native browser layout/focus.
   - Expected runtime: 15–60s.
 
 ### TEST-430: Progress and client decisions
@@ -2006,6 +2007,115 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Command: `go test ./stateful -run '^TestSchemaAcquisitionBudget$' -count=1`.
 - Oracle: the actual pool acquisition context uses 30 s for administrative schema initialization and 600 ms for request storage; an earlier caller deadline wins for both. A private pgx acquisition tracer captures the deadline and cancels before network I/O. No clock sleep, fake SQL success or database is involved. TEST-424 retains actual DDL, transaction-local SQL timeout, rollback and schema-version boundaries.
 
+### TEST-467: Gateway preserves provider admission hints
+
+- Coverage gate: `fast`.
+- Location: `internal/gateway/httpapi/retry_after_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestRetryAfterSurvivesGateway$' -count=1`.
+- Oracle: 429 and 503 provider errors preserve Retry-After rounded upward, including when HLLM retries are disabled.
+
+### TEST-468: Live campaign admission and accounting invariants
+
+- Coverage gate: `fast`.
+- Locations: `internal/livecapacity/scheduler_test.go`, `internal/livecapacity/transport_test.go`, `cmd/harden-llm-loadtest/main_test.go`.
+- Command: `go test ./internal/livecapacity -count=1`.
+- Oracle: concurrency and start pacing, shared cooldown, baseline pause, pinned known-rejection retries, undispatched overflow, reservations including unknown outcomes, cancellation checkpoints, hard stop, overdue/stalled detection, a real local response-header timeout remaining unconfirmed, concurrent old failures not inventing a failed single-slot baseline, actionable billing-quota failures stopping admission without retry, and nonce/model/effort/usage qualification through real gateway handlers with a local TLS provider. These deterministic cases establish no public provider capacity.
+
+### TEST-469: Explicit CPA capacity campaign
+
+- Coverage gate: `cpa-capacity`.
+- Location: `cmd/harden-llm-loadtest/live_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task live-cpa-capacity`.
+- Oracle: three CPA and one official API qualifications, bounded increasing-load ramp, then 1000 validated nonce results with route attribution, one HLLM attempt each, exact counters and reserved spend. Five-second heartbeats show liveness without extending the two-hour inference deadline. Any incomplete/unconfirmed work fails the case and remains in status.json. Explicit paid credentials and a new output directory are required; this task is outside fast, verify, release and ordinary live canaries.
+
+### TEST-470: CPA-only simultaneous concurrency experiment
+
+- Coverage gate: `fast` for the deterministic overlap oracle; explicit `--live --cpa-only` for public measurements.
+- Locations: `internal/livecapacity/concurrency_test.go`, `cmd/harden-llm-loadtest/main_test.go`.
+- Command: `go test ./internal/livecapacity ./cmd/harden-llm-loadtest -count=1`.
+- Oracle: eight real local HTTP handlers must overlap before any response is released; a rejected wave receives exactly one attempt per item and never overflows to OpenAI. The local TLS loopback control preserves exact provider requests and rejection hints, with an explicit private address/certificate exception. The explicit live mode uses only CPA credentials, unpaced waves, five-second heartbeats, a two-hour maximum deadline and stops escalation at the first incomplete wave. Its experiment-only response-header budget is 60 seconds; production defaults remain unchanged. This establishes effective gateway overlap, not CPA's hidden native attempts.
+
+### TEST-471: Native CPA throughput search and terminal stream collection
+
+- Coverage gate: `fast`; live native measurements require `go run -tags=live ./cmd/harden-llm-cpabench --live` and a new private output directory.
+- Locations: `internal/livecapacity/native_test.go`, `internal/livecapacity/nativebench_test.go`.
+- Command: `go test -race ./internal/livecapacity -run '^TestNative' -count=1`.
+- Oracle: a validated native `response.completed` returns without connection EOF; exact nonce/model/usage qualify results; explicit 429/Retry-After and policy stops remain distinct from malformed/unknown outcomes. Correlation retains only the validated eight-hex CPA request-ID suffix, excluding the sensitive trace-header prefix and malformed suffixes. The pool continues independent items after an unknown without replaying it, overlaps its configured slots, retries only known rejections, doubles then bisects a deterministic throttle boundary, prevents fast completion from refilling a configured window budget, refunds only explicit same-window refusals while retaining unknown reservations, and permits a recovery probe while an unrelated old call remains active. Native experiments use one existing CPA credential, no official API, unbounded client connection slots up to 1000, five-second progress, and a separate bounded native request deadline. Neither HLLM's 60 s core deadline nor production egress policy changes. Only explicit rejections define the throttle bracket; unknown outliers remain separate and malformed results invalidate calibration; a 1000-result drain still requires exactly 1000 validated results.
+
+### TEST-482: Reference HTTP client, complete outcomes and no inference replay
+
+- Coverage gate: `fast`.
+- Locations: `httpclient/client_test.go`, `httpclient/evidence_test.go`, `httpclient/stream_test.go`, `httpclient/profiles_test.go`, `internal/gateway/httpapi/httpclient_contract_test.go`.
+- Command: `go test -race ./httpclient ./api ./internal/gateway/httpapi -count=1`.
+- Profile-capability projection: `TestResolveReasoningEffortUsesOnlyConfiguredPortableLevels` covers explicit supported/unsupported choices, both caller preferences, full/partial/empty/absent maps, deterministic portable order, invalid provider spellings/whitespace and immutable input. No-map omission stays empty; this pure helper neither fetches nor stores a profile and does not weaken actual gateway validation. Consumers must separately prove original retry identity and frozen effective choices across admission/recovery.
+- Oracle: current OpenAPI request/profile/ordered SSE conformance; same bearer scope; optional model/origin; exact JSON number bytes; byte-fragmented UTF-8, LF/CRLF, comments, multiline data and frames above 64 KiB; bounded frame/aggregate/error/catalog reads; cancellation reaches the actual HTTP handler without losing unknown classification; redirects/rejections/lost replies produce one POST, never a reconnect/retry. Complete success/failure survives an absent/invalid/lost history tail; pre-target failure stays definitive without fabricated evidence. Provider counts use observed dispatches, including pre-dispatch attempts, plain cache hits and cached recovery after earlier provider work; contradictory identities/targets/accounting/flags/output are rejected. Configuration formatting/JSON omits the machine key and supplied clients are not mutated. Actual gateway/stateful composition with a local TLS provider performs one Run POST across two real engine generation/repair attempts, preserves the resolved model and disabled history, and rejects an unknown profile without provider work. No database server, browser or public provider is started; SQL/history-storage and production acceptance remain distinct tracks.
+
+
+### TEST-473: Actual output-length qualification and token diagnostics
+
+- Coverage gate: `fast`.
+- Tier: T1; `internal/livecapacity/native_test.go` uses local HTTP fixtures.
+- Assert exact requested array length/content, nonce and model qualification; retain actual input/output, cached-input and reasoning usage even for failed content qualification. Reasoning is not added twice. A distinct supported scalar-enum fixture requires exactly 512 `x` words and rejects 511/513 words, wrong content or nonce; it preserves core and OpenAPI schema compatibility without replacing the array oracle.
+- The explicit `live`-tagged `cmd/harden-llm-cpatokens` experiment is outside ordinary gates. Its 66-request/15-minute ABBA comparison and source-bound evidence do not invent a TPM limit.
+
+### TEST-474: Shared CPA admission and transport diagnostics
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `stateful/batch/controller_test.go`, `stateful/batch/activities_test.go` and `internal/providers/timing_test.go`.
+- Assert independent start rate/concurrency, burst pacing, longest cooldown, one recovery probe, one rate decrease per episode, straggler isolation and policy-update invariants using supplied clocks. Window credits replenish independently of completion speed, every window restores its bounded burst, and oversized retry hints cannot overflow into early admission. Account/billing restrictions pause the pool; quota selection failures retry; ordinary network/outage errors remain item failures.
+- Actual local TLS/SSE execution must retain bounded CPA correlation/header timing and configured transport capacity; TLS and host policy remain enforced.
+- A positive retry hint on a failed/uncertain outcome pauses new admission, preserves the failed item and its window reservation, allows one recovery probe and cannot let a stale failure invalidate recovery. TEST-476 requires the next independent item to wait at least the hint while the failed item is recorded once; workflow versioning preserves old histories.
+
+### TEST-475: Durable batch HTTP contract
+
+- Coverage gate: `fast`.
+- Tier: T1; `internal/gateway/httpapi/jobs_test.go`.
+- Validate all items before admission, require scoped idempotency, one generation, CPA model/effort, response-cache off and native streaming. Pending result reads return observable 202; terminal reads deliver NDJSON.
+- TEST-480 crosses the actual bearer validator, PostgreSQL and provider boundaries for isolation and idempotency.
+
+### TEST-476: Temporal scheduling and durable deadlines
+
+- Coverage gate: `fast`.
+- Tier: T1; `stateful/batch/workflows_test.go` uses the Temporal SDK virtual-time environment.
+- Assert a rejected item returns through the dispatcher, successful items are not retried, cooldown metadata is published and the overall job deadline expires queued work. No public network or provider credentials. A new job after 35 idle minutes cannot bypass an account pause; explicit resume performs one recovery probe. Successful completions coalesce metadata writes without losing the five-second heartbeat.
+- Retained synthetic Temporal history replays offline after a real throttle/cooldown/worker restart; workflow changes must preserve V1 replay compatibility.
+
+### TEST-477: PostgreSQL batch durability and isolation
+
+- Coverage gate: `release`.
+- Tier: T3; `stateful/batch/store_integration_test.go`, existing `go-integration` task.
+- Use a process-owned PostgreSQL lease. Assert additive/idempotent schema setup, independent bearer scopes, immutable manifests/results, conflicting idempotency keys, no duplicate active generation, known-refusal retry and truthful terminal counts.
+
+### TEST-478: Batch client waiting and verified downloads
+
+- Coverage gate: `fast`.
+- Tier: T1; `httpclient/jobs_test.go`.
+- Exercise real local HTTP responses against canonical OpenAPI. Waiting reports quota state without an inference POST and requires an overall deadline. Missing/duplicate result records are rejected; validated success/error totals must match terminal status.
+
+### TEST-479: Self-hosted batch composition configuration
+
+- Coverage gate: `fast`.
+- Tier: T0; `cmd/harden-llm-gateway/batch_config_test.go`.
+- Default disabled. Enabled mode requires an explicit self-hosted Temporal endpoint, namespace, trusted CPA pool/upstream and bounded independent controls. Invalid settings produce safe diagnostics. SDK imports are restricted by TEST-003 and ADR-HLLM-035. Native Compose resolution proves the opt-in worker shares the backend image, protected effects and private Temporal network without introducing another database or Temporal service.
+
+### TEST-480: Real Temporal batch execution and restart recovery
+
+- Coverage gate: `release`.
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- The existing runner owns pinned self-hosted Temporal/PostgreSQL/Garage containers. Each case leases its own database, namespace and artifact scope, with bounded cleanup. No browser or public provider.
+- Assert 1000 separate native SSE generations and 1000 distinct schema/nonce-validated result records, bounded HTTP overlap, complete timing/usage, idempotent submission and cross-key rejection. Stop/restart the worker during a known cooldown; 24 items must finish with exactly 25 provider attempts including the one explicit refusal.
+
+
+### TEST-481: Explicit live CPA through durable batch API
+
+- Coverage gate: `live-cpa-batch`.
+- Tier: T5, `live && integration && temporalintegration`; ordinary verification cannot invoke it.
+- Location: `internal/gateway/httpapi/jobs_cpa_live_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task live-cpa-batch`, with explicit `HARDEN_LLM_RUN_CPA_BATCH_LIVE=1`, protected `CPA_API_KEY`, bounded case name and fresh private output directory.
+- One isolated Temporal/PostgreSQL/Garage lease; existing public CPA account and model; no account rotation, grouping, official-API fallback or shared CPA configuration change.
+- Each case qualifies its pilots before submitting 1000 distinct requests, records five-second status, and independently validates complete downloaded nonce results. Failed pilots stop main dispatch and remain failed evidence. The array and bounded-text mixed cases retain independent output oracles. Baseline releases five 200-item jobs at 61-second intervals; rolling cases use one 1000-item job. Caller attempts, ready/observed/download timing, usage, errors and executable/source identity remain separate evidence.
+
 
 ## 32. Model Recall output-contract qualification
 
@@ -2016,3 +2126,28 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Command: `go test ./internal/schema ./internal/gateway/httpapi ./internal/providers ./internal/runtime -count=1`.
 - Oracle: every supported nullable field accepts null or its declared type, remains required and respects enum. Unsupported unions and nullable roots fail. The real Responses handler and TLS provider adapter dispatch the two exact consumer schemas once with strict JSON Schema. Successful and invalid-schema model outputs retain the exact assistant string; known invalid output carries `STRUCTURED_SCHEMA` and one provider attempt. Caller-supplied unsupported schemas fail with HTTP 400 and no dispatch; a gateway-generated invalid contract fails with HTTP 500 and no dispatch. Existing library structured results remain parsed values. No provider keys, internet or browser are needed.
 - Genuine RED: current contracts rejected nullable types; after adding nullable support, the real handler changed whitespace/key ordering of successful structured output and misclassified both schema error origins as HTTP 502. The source fixtures use the actual consumer contracts, not an invented provider shape.
+
+## 33. Shared CPA capacity qualification
+
+### TEST-483: Competing-client scheduling and bounded CPA experiments
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `internal/livecapacity/strategy_test.go`, bounded-text native HTTP fixture in `native_test.go`.
+- Command: `go test -race ./internal/livecapacity ./stateful/batch -count=1`.
+- The native experiment uses the production batch controller with explicitly identified independent or shared client admission. Fixed/sliding windows, token refill and concurrency fixtures use supplied virtual time; all 1,200 distinct items must complete without replaying unknowns. Identical offered demand precedes and overlaps the foreground job. Retry hints, one probe, combined concurrency, fairness, active/unknown token reservations, policy stops and cancellation/draining are asserted.
+- A successful probe must not grant another initial burst (TEST-474). The original controller exhausted refusal retries under the token-bucket fixture; the complete-results oracle is unchanged. A workflow version marker preserves retained histories (TEST-476).
+- Explicit live driver: `go run -tags live ./cmd/harden-llm-cpastrategy --live --output NEW_ABSOLUTE_DIRECTORY`. Requires protected `CPA_API_KEY`; uses only CPA `gpt-6-luna` low. Defaults bound foreground to 1,000 calls, background to 200 offered items, per-call execution to 180 seconds and the whole experiment to 30 minutes. Progress every five seconds, fresh nonces, private artifacts, independent terminal/content validation, campaign token accounting and account-stop behavior remain mandatory.
+- Native controller experiments do not establish Temporal throughput; retain a separate real Temporal API qualification for the selected strategy. Plan: `plans/cpa-shared-capacity-qualification-plan.md`.
+
+- TEST-483 distinct offered-traffic mode keeps foreground quota retries and the original queued-client oracle unchanged. A background load generator retains explicit quota refusals as terminal offered-load outcomes, with 100 initial offers and 25 each at 67/128/189 seconds; new offers then stop. Qualifying the traffic-stop question additionally requires at least 100 distinct foreground items admitted after the background has actually finished. Background ordinary/unknown/policy failures still fail the experiment. CLI `--long-every 1` separately qualifies all foreground requests with bounded 512-word responses; `--mixed` remains 10 percent.
+- Native error, failed and incomplete stream terminals without usage remain unconfirmed, preserving conservative token reservations and prohibiting inference replay. A completed response missing usage also remains unconfirmed; none may be mislabeled as an independently checked content mismatch.
+
+### TEST-484: Ten thousand durable requests across bearer clients and workflow runs
+
+- Coverage gate: `temporal-endurance`.
+- Tier: T3; explicit `node scripts/run-test-tier.mjs --task go-temporal-endurance`, excluded from ordinary fast/release selection.
+- Location: `internal/gateway/httpapi/jobs_endurance_integration_test.go` (`integration && temporalintegration && endurance`).
+- Ten 1,000-item jobs, two authenticated bearer clients, one production dispatcher and real self-hosted Temporal/PostgreSQL/Garage. Require 10,000 independently validated globally distinct nonces, exactly 10,000 local native-SSE provider calls, one attempt per item, combined overlap <=128, cross-key status rejection and a naturally changed dispatcher run ID proving continue-as-new without lost queued work.
+- No public provider or paid credentials. Hard 10-minute operation deadline, five-second progress and canonical runner-owned resource cleanup. This proves local orchestration scale, not CPA throughput.
+
+- The original non-accumulating pacer admitted one call per workflow decision and failed the unchanged eight-minute job deadline (first job: 593 successes, 407 deadline failures). TEST-474 now requires ten elapsed credits after 100 ms at 100 starts/second, bounds idle catch-up by the configured burst and prevents repeated same-time admission. A version marker preserves old histories; the full 10,000-result oracle and deadline remain unchanged.

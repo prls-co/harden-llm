@@ -109,7 +109,8 @@
     },
     {
       "id": "go-unit",
-      "testIds": ["TEST-005", "TEST-236", "TEST-238", "TEST-239", "TEST-240", "TEST-241", "TEST-242", "TEST-243", "TEST-244", "TEST-245", "TEST-246", "TEST-247", "TEST-248", "TEST-249", "TEST-250", "TEST-258", "TEST-259", "TEST-276", "TEST-278", "TEST-284", "TEST-289", "TEST-401", "TEST-402", "TEST-403", "TEST-404", "TEST-410", "TEST-421", "TEST-422", "TEST-437", "TEST-445", "TEST-423", "TEST-444", "TEST-425", "TEST-449", "TEST-451", "TEST-432", "TEST-457", "TEST-458", "TEST-461", "TEST-462", "TEST-465", "TEST-466", "TEST-472"],
+      "testIds": ["TEST-005", "TEST-236", "TEST-238", "TEST-239", "TEST-240", "TEST-241", "TEST-242", "TEST-243", "TEST-244", "TEST-245", "TEST-246", "TEST-247", "TEST-248", "TEST-249", "TEST-250", "TEST-258", "TEST-259", "TEST-276", "TEST-278", "TEST-284", "TEST-289", "TEST-401", "TEST-402", "TEST-403", "TEST-404", "TEST-410", "TEST-421", "TEST-422", "TEST-437", "TEST-445", "TEST-423", "TEST-444", "TEST-425", "TEST-449", "TEST-451", "TEST-432", "TEST-457", "TEST-458", "TEST-461", "TEST-462", "TEST-465", "TEST-466", "TEST-467", "TEST-468", "TEST-470", "TEST-471", "TEST-472", "TEST-482", "TEST-473", "TEST-474", "TEST-475", "TEST-476", "TEST-478", "TEST-479", "TEST-483"],
+
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["make", "test-unit"],
@@ -161,7 +162,7 @@
     },
     {
       "id": "go-integration",
-      "testIds": ["TEST-007", "TEST-053", "TEST-060", "TEST-230", "TEST-232", "TEST-251", "TEST-252", "TEST-253", "TEST-254", "TEST-255", "TEST-267", "TEST-424", "TEST-438", "TEST-439", "TEST-440", "TEST-442", "TEST-443", "TEST-427", "TEST-426", "TEST-441", "TEST-463"],
+      "testIds": ["TEST-007", "TEST-053", "TEST-060", "TEST-230", "TEST-232", "TEST-251", "TEST-252", "TEST-253", "TEST-254", "TEST-255", "TEST-267", "TEST-424", "TEST-438", "TEST-439", "TEST-440", "TEST-442", "TEST-443", "TEST-427", "TEST-426", "TEST-441", "TEST-463", "TEST-477"],
       "tier": "T3",
       "resourceClass": "service",
       "command": ["go", "test", "-p=${HARDEN_LLM_TEST_PACKAGE_SLOTS}", "./...", "-tags=integration", "-count=1"],
@@ -181,6 +182,179 @@
         ]
       },
       "pathSelectors": ["api/**", "internal/**", "stateful/**", "deploy/test/**", "go.mod", "go.sum"]
+    },
+    {
+      "id": "go-temporal-integration",
+      "testIds": [
+        "TEST-480"
+      ],
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-tags=integration,temporalintegration",
+        "./internal/gateway/httpapi",
+        "-run",
+        "TestTemporalBatch",
+        "-count=1",
+        "-timeout=5m"
+      ],
+      "dependsOn": [],
+      "timeoutMs": 600000,
+      "cleanupOwner": "integration-pool",
+      "network": "local-only",
+      "credentialKeys": [],
+      "requiredFor": [
+        "integration",
+        "release"
+      ],
+      "benchmarkLanes": [
+        "integration"
+      ],
+      "servicePool": {
+        "composeFile": "deploy/test/compose.integration.yml",
+        "services": [
+          {
+            "name": "harden-postgres",
+            "port": 5432
+          },
+          {
+            "name": "garage",
+            "port": 3900
+          },
+          {
+            "name": "temporal",
+            "port": 7233
+          }
+        ]
+      },
+      "pathSelectors": [
+        "stateful/batch/**",
+        "internal/gateway/httpapi/**",
+        "internal/integrationtest/temporal.go",
+        "cmd/harden-llm-gateway/**",
+        "api/**",
+        "deploy/test/**",
+        "go.mod",
+        "go.sum"
+      ]
+    },
+    {
+      "id": "go-temporal-endurance",
+      "testIds": [
+        "TEST-484"
+      ],
+      "tier": "T3",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-v",
+        "-tags=integration,temporalintegration,endurance",
+        "./internal/gateway/httpapi",
+        "-run",
+        "^TestTemporalBatchTenThousandAcrossClientsAndRunContinuations$",
+        "-count=1",
+        "-timeout=12m"
+      ],
+      "dependsOn": [],
+      "timeoutMs": 900000,
+      "cleanupOwner": "integration-pool",
+      "network": "local-only",
+      "credentialKeys": [],
+      "requiredFor": [
+        "temporal-endurance"
+      ],
+      "benchmarkLanes": [
+        "integration"
+      ],
+      "servicePool": {
+        "composeFile": "deploy/test/compose.integration.yml",
+        "services": [
+          {
+            "name": "harden-postgres",
+            "port": 5432
+          },
+          {
+            "name": "garage",
+            "port": 3900
+          },
+          {
+            "name": "temporal",
+            "port": 7233
+          }
+        ]
+      },
+      "pathSelectors": [
+        "stateful/batch/**",
+        "internal/gateway/httpapi/**",
+        "internal/integrationtest/temporal.go",
+        "cmd/harden-llm-gateway/**",
+        "api/**",
+        "deploy/test/**",
+        "go.mod",
+        "go.sum"
+      ]
+    },
+    {
+      "id": "live-cpa-batch",
+      "testIds": [
+        "TEST-481"
+      ],
+      "tier": "T5",
+      "resourceClass": "service",
+      "command": [
+        "go",
+        "test",
+        "-v",
+        "-tags=integration,temporalintegration,live",
+        "./internal/gateway/httpapi",
+        "-run",
+        "^TestCPATemporalThousandBenchmark$",
+        "-count=1",
+        "-timeout=40m"
+      ],
+      "dependsOn": [],
+      "timeoutMs": 2400000,
+      "cleanupOwner": "integration-pool",
+      "network": "public-provider",
+      "credentialKeys": [
+        "CPA_API_KEY"
+      ],
+      "requiredFor": [
+        "live-cpa-batch"
+      ],
+      "benchmarkLanes": [
+        "full-system"
+      ],
+      "servicePool": {
+        "composeFile": "deploy/test/compose.integration.yml",
+        "services": [
+          {
+            "name": "harden-postgres",
+            "port": 5432
+          },
+          {
+            "name": "garage",
+            "port": 3900
+          },
+          {
+            "name": "temporal",
+            "port": 7233
+          }
+        ]
+      },
+      "pathSelectors": [
+        "stateful/batch/**",
+        "internal/gateway/httpapi/**",
+        "internal/integrationtest/temporal.go",
+        "cmd/harden-llm-gateway/**",
+        "api/**",
+        "deploy/test/**",
+        "go.mod",
+        "go.sum"
+      ]
     },
     {
       "id": "go-integration-race",
@@ -708,6 +882,41 @@
         "stateful/**",
         "internal/gateway/httpapi/**",
         "api/**"
+      ]
+    },
+    {
+      "id": "live-cpa-capacity",
+      "testIds": [
+        "TEST-469"
+      ],
+      "tier": "T5",
+      "resourceClass": "live",
+      "command": [
+        "go",
+        "test",
+        "-tags=live",
+        "./cmd/harden-llm-loadtest",
+        "-run",
+        "^TestLiveCampaign$",
+        "-count=1",
+        "-timeout=121m",
+        "-v"
+      ],
+      "dependsOn": [],
+      "timeoutMs": 7320000,
+      "cleanupOwner": "live-capacity-campaign",
+      "network": "public",
+      "credentialKeys": [
+        "CPA_API_KEY",
+        "OPENAI_API_KEY",
+        "HARDEN_LLM_CAPACITY_OUTPUT"
+      ],
+      "requiredFor": [
+        "cpa-capacity"
+      ],
+      "pathSelectors": [
+        "cmd/harden-llm-loadtest/**",
+        "internal/livecapacity/**"
       ]
     }
   ]

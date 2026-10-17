@@ -1,0 +1,27 @@
+{
+  "observedAt": "2026-10-16T03:39:28.964980+00:00",
+  "cpaImage": "ghcr.io/prls-co/cli-proxy-api-patched@sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "cpaImageId": "sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "restartCount": 0,
+  "oomKilled": false,
+  "running": true,
+  "configSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8",
+  "unchangedBaselineConfigSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8",
+  "requestRetry": 3,
+  "maxRetryCredentials": 1,
+  "maxRetryIntervalSeconds": 30,
+  "sharedCPAConfigurationChanged": false,
+  "officialAPIUsed": false,
+  "nativeEndpointLoopback": "http://127.0.0.1:8317",
+  "nativeEndpointPublic": "https://cpa.prls.co",
+  "HLLMCoreUsedByBenchmark": false,
+  "ordinaryHLLMTimeoutChanged": false,
+  "after": {
+    "at": "2026-10-16T03:46:05.739890+00:00",
+    "imageId": "sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+    "restartCount": 0,
+    "running": true,
+    "oomKilled": false,
+    "configSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8"
+  }
+}

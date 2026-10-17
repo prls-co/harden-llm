@@ -1,0 +1,1423 @@
+{
+  "status": "completed_with_qualification_failures",
+  "generatedAt": "2026-10-16T20:15:37.636622+00:00",
+  "sourceHEAD": "fb6e4b083db1ff7839cbe836dd7cb5115e256545",
+  "productionCodeCheckpoint": "21e0990",
+  "matchedLiveHarnessCheckpoint": "426dc90",
+  "boundedTextHarnessCheckpoint": "0a10c9a",
+  "mergedAcceptanceCheckpoint": "fb6e4b083db1ff7839cbe836dd7cb5115e256545",
+  "postMergeSamples": [
+    "windowed-128-100-194829"
+  ],
+  "model": "gpt-6-luna",
+  "reasoning": "low",
+  "sharedCPAConfigurationChanged": false,
+  "officialAPIUsed": false,
+  "browserUsed": false,
+  "deploymentPerformed": false,
+  "nativeTotalAttempts": null,
+  "formalGroups": {
+    "baseline": {
+      "samples": 3,
+      "fullyQualifiedSamples": 2,
+      "qualifiedReadyMs": [
+        257582,
+        286592
+      ],
+      "medianReadyMs": 272087.0,
+      "rangeReadyMs": [
+        257582,
+        286592
+      ]
+    },
+    "windowed-128-100": {
+      "samples": 3,
+      "fullyQualifiedSamples": 3,
+      "qualifiedReadyMs": [
+        256557,
+        254287,
+        367589
+      ],
+      "medianReadyMs": 256557,
+      "rangeReadyMs": [
+        254287,
+        367589
+      ]
+    },
+    "mixed-windowed-128-100": {
+      "samples": 1,
+      "fullyQualifiedSamples": 0,
+      "qualifiedReadyMs": [],
+      "medianReadyMs": null,
+      "rangeReadyMs": null
+    },
+    "mixed-bounded-text-128-100": {
+      "samples": 1,
+      "fullyQualifiedSamples": 1,
+      "qualifiedReadyMs": [
+        261019
+      ],
+      "medianReadyMs": 261019,
+      "rangeReadyMs": [
+        261019,
+        261019
+      ]
+    }
+  },
+  "samples": [
+    {
+      "directory": "baseline-171538",
+      "case": "baseline",
+      "sourceSHA": "b2ebaa5f1c8727364bed2ad3c729cbbc6964aa0c",
+      "sourceDirty": null,
+      "sourceDiffSHA256": null,
+      "binarySHA256": "1d2f213c6be61102481b9299da7d1a4418920e1d63ec6fd0fc554ed78d47492d",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 100,
+        "StartRate": 50,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": null,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1000,
+      "resultReadyMs": 328443,
+      "completionObservedMs": 329100,
+      "downloadFinishedMs": 331855,
+      "inputTokens": 95000,
+      "outputTokensIncludingReasoning": 37000,
+      "independentQualificationFailures": null,
+      "firstSubmissionAt": "2026-10-16T17:17:24.287445636Z",
+      "pilot": {
+        "job_id": "b5baceec-1360-5619-9f5c-46e919166b70",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T10:15:49.235744-07:00",
+        "deadline": "2026-10-16T10:27:49.235744-07:00",
+        "observed_at": "2026-10-16T17:15:54.256887425Z",
+        "last_worker_heartbeat_at": "2026-10-16T10:15:52.090818-07:00",
+        "last_progress_at": "2026-10-16T10:15:52.090818-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/b5baceec-1360-5619-9f5c-46e919166b70",
+        "result_url": "/v1/jobs/b5baceec-1360-5619-9f5c-46e919166b70/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1002,
+        "callerIdsInAttemptLogs": 1002,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1000,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 2,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 1002,
+        "native429LogLines": 0,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 98,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 0,
+        "attemptKindCounts": {
+          "completed": 1000
+        },
+        "generationMedianMs": 1545.0,
+        "generationP95Ms": 3314,
+        "generationMaximumMs": 107506
+      }
+    },
+    {
+      "directory": "baseline-184722",
+      "case": "baseline",
+      "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 1000,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 0,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": 1000,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1000,
+      "resultReadyMs": 257582,
+      "completionObservedMs": 260188,
+      "downloadFinishedMs": 265320,
+      "inputTokens": 107000,
+      "outputTokensIncludingReasoning": 43000,
+      "independentQualificationFailures": [],
+      "firstSubmissionAt": "2026-10-16T18:49:12.140447336Z",
+      "pilot": {
+        "job_id": "bb17756f-ea06-5baf-ab9e-a6371da2b1a3",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T11:47:36.039917-07:00",
+        "deadline": "2026-10-16T11:59:36.039917-07:00",
+        "observed_at": "2026-10-16T18:47:41.061832345Z",
+        "last_worker_heartbeat_at": "2026-10-16T11:47:38.840942-07:00",
+        "last_progress_at": "2026-10-16T11:47:38.840942-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/bb17756f-ea06-5baf-ab9e-a6371da2b1a3",
+        "result_url": "/v1/jobs/bb17756f-ea06-5baf-ab9e-a6371da2b1a3/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1002,
+        "callerIdsInAttemptLogs": 1002,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1000,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 2,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 1002,
+        "native429LogLines": 0,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 126,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 0,
+        "attemptKindCounts": {
+          "completed": 1000
+        },
+        "generationMedianMs": 1401.0,
+        "generationP95Ms": 2308,
+        "generationMaximumMs": 61353
+      }
+    },
+    {
+      "directory": "baseline-190052",
+      "case": "baseline",
+      "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 1000,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 0,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": 1000,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1000,
+      "resultReadyMs": 286592,
+      "completionObservedMs": 289079,
+      "downloadFinishedMs": 291325,
+      "inputTokens": 95000,
+      "outputTokensIncludingReasoning": 37000,
+      "independentQualificationFailures": [],
+      "firstSubmissionAt": "2026-10-16T19:02:48.791595733Z",
+      "pilot": {
+        "job_id": "42162378-fdc0-5ea1-bfc7-b69193722d48",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T12:01:03.725824-07:00",
+        "deadline": "2026-10-16T12:13:03.725824-07:00",
+        "observed_at": "2026-10-16T19:01:18.758638915Z",
+        "last_worker_heartbeat_at": "2026-10-16T12:01:17.181284-07:00",
+        "last_progress_at": "2026-10-16T12:01:17.181284-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/42162378-fdc0-5ea1-bfc7-b69193722d48",
+        "result_url": "/v1/jobs/42162378-fdc0-5ea1-bfc7-b69193722d48/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1002,
+        "callerIdsInAttemptLogs": 1002,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1000,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 4,
+            "native429LogLines": 2
+          }
+        },
+        "correlatedLogLines": 1004,
+        "native429LogLines": 2,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 123,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 0,
+        "attemptKindCounts": {
+          "completed": 1000
+        },
+        "generationMedianMs": 1533.5,
+        "generationP95Ms": 2889,
+        "generationMaximumMs": 37076
+      }
+    },
+    {
+      "directory": "baseline-191423",
+      "case": "baseline",
+      "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+      "status": "failed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 1000,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 0,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 948,
+      "distinctDownloadedResults": 1000,
+      "failedItems": 52,
+      "callerAttemptsFromItemCounts": 1000,
+      "resultReadyMs": 254879,
+      "completionObservedMs": 259092,
+      "downloadFinishedMs": 262557,
+      "inputTokens": 95748,
+      "outputTokensIncludingReasoning": 37920,
+      "independentQualificationFailures": [],
+      "firstSubmissionAt": "2026-10-16T19:16:18.60550701Z",
+      "pilot": {
+        "job_id": "1d8dc566-52e1-5cac-96a7-f5fad5ec1d74",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T12:14:33.54165-07:00",
+        "deadline": "2026-10-16T12:26:33.54165-07:00",
+        "observed_at": "2026-10-16T19:14:48.576677299Z",
+        "last_worker_heartbeat_at": "2026-10-16T12:14:47.04322-07:00",
+        "last_progress_at": "2026-10-16T12:14:47.04322-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/1d8dc566-52e1-5cac-96a7-f5fad5ec1d74",
+        "result_url": "/v1/jobs/1d8dc566-52e1-5cac-96a7-f5fad5ec1d74/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 995,
+        "callerIdsInAttemptLogs": 995,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 993,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 4,
+            "native429LogLines": 2
+          }
+        },
+        "correlatedLogLines": 997,
+        "native429LogLines": 2,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 995,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 126,
+        "coreCompleted": 948,
+        "ordinaryErrors": 52,
+        "explicitRefusals": 0,
+        "attemptKindCounts": {
+          "completed": 948,
+          "failed": 52
+        },
+        "generationMedianMs": 1319.0,
+        "generationP95Ms": 2312,
+        "generationMaximumMs": 23151
+      }
+    },
+    {
+      "directory": "mixed-bounded-text-128-100-193813",
+      "case": "mixed-bounded-text-128-100",
+      "sourceSHA": "0a10c9a7bcf9365c9ec80b10a6da83c24e9dc45a",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "d915a7ddbbe22b37a26dc6d0754d48961f9eaf506daf4b587f29f324b312e8a7",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 200,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 200,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": 1000,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1000,
+      "resultReadyMs": 261019,
+      "completionObservedMs": 265672,
+      "downloadFinishedMs": 268594,
+      "inputTokens": 157500,
+      "outputTokensIncludingReasoning": 113417,
+      "independentQualificationFailures": [],
+      "firstSubmissionAt": "2026-10-16T19:40:14.18400059Z",
+      "pilot": {
+        "job_id": "78666499-bf15-5803-b763-d08be75d56c0",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T12:38:39.071032-07:00",
+        "deadline": "2026-10-16T12:50:39.071032-07:00",
+        "observed_at": "2026-10-16T19:38:44.124693912Z",
+        "last_worker_heartbeat_at": "2026-10-16T12:38:43.02842-07:00",
+        "last_progress_at": "2026-10-16T12:38:43.02842-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/78666499-bf15-5803-b763-d08be75d56c0",
+        "result_url": "/v1/jobs/78666499-bf15-5803-b763-d08be75d56c0/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1002,
+        "callerIdsInAttemptLogs": 1002,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1000,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 2,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 1002,
+        "native429LogLines": 0,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 122,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 0,
+        "attemptKindCounts": {
+          "completed": 1000
+        },
+        "generationMedianMs": 1381.0,
+        "generationP95Ms": 6378,
+        "generationMaximumMs": 29221
+      }
+    },
+    {
+      "directory": "mixed-windowed-128-100-193057",
+      "case": "mixed-windowed-128-100",
+      "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+      "status": "failed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 200,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 200,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": null,
+      "distinctDownloadedResults": null,
+      "failedItems": null,
+      "callerAttemptsFromItemCounts": null,
+      "resultReadyMs": null,
+      "completionObservedMs": null,
+      "downloadFinishedMs": null,
+      "inputTokens": null,
+      "outputTokensIncludingReasoning": null,
+      "independentQualificationFailures": null,
+      "firstSubmissionAt": null,
+      "pilot": {
+        "job_id": "e81a75d6-f146-56c9-9f24-05ce74c45da5",
+        "status": "completed_with_errors",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 1,
+          "failed": 1
+        },
+        "created_at": "2026-10-16T12:31:06.502515-07:00",
+        "deadline": "2026-10-16T12:43:06.502515-07:00",
+        "observed_at": "2026-10-16T19:34:11.615513771Z",
+        "last_worker_heartbeat_at": "2026-10-16T12:34:07.47486-07:00",
+        "last_progress_at": "2026-10-16T12:34:07.47486-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/e81a75d6-f146-56c9-9f24-05ce74c45da5",
+        "result_url": "/v1/jobs/e81a75d6-f146-56c9-9f24-05ce74c45da5/result"
+      },
+      "pilotRequests": null,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 2,
+        "callerIdsInAttemptLogs": 2,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 0,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 3,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 3,
+        "native429LogLines": 0,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 2,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      }
+    },
+    {
+      "directory": "rolling-128-50-165128",
+      "case": "rolling-128-50",
+      "sourceSHA": "b2ebaa5f1c8727364bed2ad3c729cbbc6964aa0c",
+      "sourceDirty": null,
+      "sourceDiffSHA256": null,
+      "binarySHA256": "53a11d9bb1a34624c4a4db04b000b30e1a46d72b129df840234e21da03d5a234",
+      "status": "failed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 100,
+        "StartRate": 50,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": null,
+      "distinctDownloadedResults": null,
+      "failedItems": null,
+      "callerAttemptsFromItemCounts": null,
+      "resultReadyMs": null,
+      "completionObservedMs": null,
+      "downloadFinishedMs": null,
+      "inputTokens": null,
+      "outputTokensIncludingReasoning": null,
+      "independentQualificationFailures": null,
+      "firstSubmissionAt": "2026-10-16T16:53:09.337390809Z",
+      "pilot": null,
+      "pilotRequests": null,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 0,
+        "callerIdsInAttemptLogs": 0,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 0,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 0,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 0,
+        "native429LogLines": 0,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 0,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      }
+    },
+    {
+      "directory": "rolling-128-50-170418",
+      "case": "rolling-128-50",
+      "sourceSHA": "b2ebaa5f1c8727364bed2ad3c729cbbc6964aa0c",
+      "sourceDirty": null,
+      "sourceDiffSHA256": null,
+      "binarySHA256": "7ac621c82d55d11cd1ecfea0c83721cbd8275632f1fd03ef71d2db6cfcf8b12a",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 100,
+        "StartRate": 50,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": null,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1141,
+      "resultReadyMs": 356480,
+      "completionObservedMs": 360452,
+      "downloadFinishedMs": 367737,
+      "inputTokens": 101000,
+      "outputTokensIncludingReasoning": 40000,
+      "independentQualificationFailures": null,
+      "firstSubmissionAt": "2026-10-16T17:06:03.637514706Z",
+      "pilot": {
+        "job_id": "13e888f6-933a-5c58-b178-e46ee3c8cc7d",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T10:04:28.579392-07:00",
+        "deadline": "2026-10-16T10:16:28.579392-07:00",
+        "observed_at": "2026-10-16T17:04:33.601573506Z",
+        "last_worker_heartbeat_at": "2026-10-16T10:04:30.869628-07:00",
+        "last_progress_at": "2026-10-16T10:04:30.869628-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/13e888f6-933a-5c58-b178-e46ee3c8cc7d",
+        "result_url": "/v1/jobs/13e888f6-933a-5c58-b178-e46ee3c8cc7d/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1127,
+        "callerIdsInAttemptLogs": 1127,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1720,
+            "native429LogLines": 180
+          },
+          "pilot": {
+            "correlatedLogLines": 2,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 1722,
+        "native429LogLines": 180,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 125,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 101,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 141,
+        "attemptKindCounts": {
+          "completed": 1000,
+          "rejected": 141
+        },
+        "generationMedianMs": 1799,
+        "generationP95Ms": 28084,
+        "generationMaximumMs": 83861
+      }
+    },
+    {
+      "directory": "windowed-128-100-172322",
+      "case": "windowed-128-100",
+      "sourceSHA": "b6876a715421253d39dab3909ada11782cd66831",
+      "sourceDirty": null,
+      "sourceDiffSHA256": null,
+      "binarySHA256": "ff474ade3db3fb5939aec767d6b19042b7126d12087b3b2f22842bf8d70732a9",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 200,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 200,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": null,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1001,
+      "resultReadyMs": 312132,
+      "completionObservedMs": 315364,
+      "downloadFinishedMs": 317978,
+      "inputTokens": 101000,
+      "outputTokensIncludingReasoning": 40000,
+      "independentQualificationFailures": null,
+      "firstSubmissionAt": "2026-10-16T17:25:07.92962746Z",
+      "pilot": {
+        "job_id": "06e158a8-651e-5cb5-8bda-21c8fdbea6fe",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T10:23:32.866319-07:00",
+        "deadline": "2026-10-16T10:35:32.866319-07:00",
+        "observed_at": "2026-10-16T17:23:37.887068571Z",
+        "last_worker_heartbeat_at": "2026-10-16T10:23:35.499306-07:00",
+        "last_progress_at": "2026-10-16T10:23:35.499306-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/06e158a8-651e-5cb5-8bda-21c8fdbea6fe",
+        "result_url": "/v1/jobs/06e158a8-651e-5cb5-8bda-21c8fdbea6fe/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1003,
+        "callerIdsInAttemptLogs": 1003,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1007,
+            "native429LogLines": 5
+          },
+          "pilot": {
+            "correlatedLogLines": 2,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 1009,
+        "native429LogLines": 5,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 1,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 119,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 1,
+        "attemptKindCounts": {
+          "completed": 1000,
+          "rejected": 1
+        },
+        "generationMedianMs": 1608,
+        "generationP95Ms": 3347,
+        "generationMaximumMs": 32395
+      }
+    },
+    {
+      "directory": "windowed-128-100-185352",
+      "case": "windowed-128-100",
+      "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 200,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 200,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": 1000,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1000,
+      "resultReadyMs": 256557,
+      "completionObservedMs": 260368,
+      "downloadFinishedMs": 265773,
+      "inputTokens": 107000,
+      "outputTokensIncludingReasoning": 43000,
+      "independentQualificationFailures": [],
+      "firstSubmissionAt": "2026-10-16T18:56:02.738274111Z",
+      "pilot": {
+        "job_id": "2c88d604-aa4d-500a-a69e-e8fb138e16ec",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T11:54:02.64196-07:00",
+        "deadline": "2026-10-16T12:06:02.64196-07:00",
+        "observed_at": "2026-10-16T18:54:32.685982094Z",
+        "last_worker_heartbeat_at": "2026-10-16T11:54:29.277516-07:00",
+        "last_progress_at": "2026-10-16T11:54:29.277516-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/2c88d604-aa4d-500a-a69e-e8fb138e16ec",
+        "result_url": "/v1/jobs/2c88d604-aa4d-500a-a69e-e8fb138e16ec/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1002,
+        "callerIdsInAttemptLogs": 1002,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1000,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 7,
+            "native429LogLines": 4
+          }
+        },
+        "correlatedLogLines": 1007,
+        "native429LogLines": 4,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 127,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 0,
+        "attemptKindCounts": {
+          "completed": 1000
+        },
+        "generationMedianMs": 1375.0,
+        "generationP95Ms": 2302,
+        "generationMaximumMs": 24135
+      }
+    },
+    {
+      "directory": "windowed-128-100-190752",
+      "case": "windowed-128-100",
+      "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 200,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 200,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": 1000,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1000,
+      "resultReadyMs": 254287,
+      "completionObservedMs": 255388,
+      "downloadFinishedMs": 258421,
+      "inputTokens": 105000,
+      "outputTokensIncludingReasoning": 42000,
+      "independentQualificationFailures": [],
+      "firstSubmissionAt": "2026-10-16T19:09:37.384784707Z",
+      "pilot": {
+        "job_id": "61aa1f5d-ce4f-5731-b30d-b6d20262cafa",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T12:08:02.337373-07:00",
+        "deadline": "2026-10-16T12:20:02.337373-07:00",
+        "observed_at": "2026-10-16T19:08:07.355929029Z",
+        "last_worker_heartbeat_at": "2026-10-16T12:08:05.569921-07:00",
+        "last_progress_at": "2026-10-16T12:08:05.569921-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/61aa1f5d-ce4f-5731-b30d-b6d20262cafa",
+        "result_url": "/v1/jobs/61aa1f5d-ce4f-5731-b30d-b6d20262cafa/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1002,
+        "callerIdsInAttemptLogs": 1002,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1000,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 2,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 1002,
+        "native429LogLines": 0,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 127,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 0,
+        "attemptKindCounts": {
+          "completed": 1000
+        },
+        "generationMedianMs": 1381.5,
+        "generationP95Ms": 2698,
+        "generationMaximumMs": 24063
+      }
+    },
+    {
+      "directory": "windowed-128-100-192227",
+      "case": "windowed-128-100",
+      "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 200,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 200,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": 1000,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1000,
+      "resultReadyMs": 367589,
+      "completionObservedMs": 370865,
+      "downloadFinishedMs": 373762,
+      "inputTokens": 105000,
+      "outputTokensIncludingReasoning": 42000,
+      "independentQualificationFailures": [],
+      "firstSubmissionAt": "2026-10-16T19:24:12.069500078Z",
+      "pilot": {
+        "job_id": "a05c9829-4550-5db0-b5ef-1fb51aee46f3",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T12:22:37.018809-07:00",
+        "deadline": "2026-10-16T12:34:37.018809-07:00",
+        "observed_at": "2026-10-16T19:22:42.038656935Z",
+        "last_worker_heartbeat_at": "2026-10-16T12:22:39.514222-07:00",
+        "last_progress_at": "2026-10-16T12:22:39.514222-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/a05c9829-4550-5db0-b5ef-1fb51aee46f3",
+        "result_url": "/v1/jobs/a05c9829-4550-5db0-b5ef-1fb51aee46f3/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1002,
+        "callerIdsInAttemptLogs": 1002,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1000,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 2,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 1002,
+        "native429LogLines": 0,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 119,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 0,
+        "attemptKindCounts": {
+          "completed": 1000
+        },
+        "generationMedianMs": 1348.0,
+        "generationP95Ms": 2286,
+        "generationMaximumMs": 122203
+      }
+    },
+    {
+      "directory": "windowed-128-100-194829",
+      "case": "windowed-128-100",
+      "sourceSHA": "fb6e4b083db1ff7839cbe836dd7cb5115e256545",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "23d851defd24c535097f74f13fa3cea9c2402a086c2f57e59e584189bb1d6677",
+      "status": "passed",
+      "policy": {
+        "Concurrency": 128,
+        "Burst": 200,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 200,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 1000,
+      "distinctDownloadedResults": 1000,
+      "failedItems": 0,
+      "callerAttemptsFromItemCounts": 1000,
+      "resultReadyMs": 308439,
+      "completionObservedMs": 310660,
+      "downloadFinishedMs": 312687,
+      "inputTokens": 97000,
+      "outputTokensIncludingReasoning": 38000,
+      "independentQualificationFailures": [],
+      "firstSubmissionAt": "2026-10-16T19:50:29.761147093Z",
+      "pilot": {
+        "job_id": "c734ec94-81d3-58e5-bef0-15e18053417b",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T12:48:54.701535-07:00",
+        "deadline": "2026-10-16T13:00:54.701535-07:00",
+        "observed_at": "2026-10-16T19:48:59.728573455Z",
+        "last_worker_heartbeat_at": "2026-10-16T12:48:58.217145-07:00",
+        "last_progress_at": "2026-10-16T12:48:58.217145-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/c734ec94-81d3-58e5-bef0-15e18053417b",
+        "result_url": "/v1/jobs/c734ec94-81d3-58e5-bef0-15e18053417b/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1002,
+        "callerIdsInAttemptLogs": 1002,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1000,
+            "native429LogLines": 0
+          },
+          "pilot": {
+            "correlatedLogLines": 2,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 1002,
+        "native429LogLines": 0,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1002,
+        "caller429AccessLogLines": 0,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 121,
+        "coreCompleted": 1000,
+        "ordinaryErrors": 0,
+        "explicitRefusals": 0,
+        "attemptKindCounts": {
+          "completed": 1000
+        },
+        "generationMedianMs": 1308.0,
+        "generationP95Ms": 2128,
+        "generationMaximumMs": 61639
+      }
+    },
+    {
+      "directory": "windowed-200-100-173207",
+      "case": "windowed-200-100",
+      "sourceSHA": "f61f3630ecde40cfd37c6511cc592e402f453a1a",
+      "sourceDirty": false,
+      "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binarySHA256": "0e81fb9ce85727e288cad7bf828d4d572984d92f9b30fc20dae3c15801e30909",
+      "status": "failed",
+      "policy": {
+        "Concurrency": 200,
+        "Burst": 200,
+        "StartRate": 100,
+        "MaximumRate": 200,
+        "RefillEstimate": 61000000000,
+        "WindowRequests": 200,
+        "WindowDuration": 61000000000
+      },
+      "logicalRequests": 1000,
+      "distinctValidatedResults": 999,
+      "distinctDownloadedResults": 1000,
+      "failedItems": 1,
+      "callerAttemptsFromItemCounts": 1001,
+      "resultReadyMs": 307678,
+      "completionObservedMs": 310543,
+      "downloadFinishedMs": 313005,
+      "inputTokens": 100899,
+      "outputTokensIncludingReasoning": 39960,
+      "independentQualificationFailures": [],
+      "firstSubmissionAt": "2026-10-16T17:34:05.680951561Z",
+      "pilot": {
+        "job_id": "7bcf5faf-43ee-5d1d-9028-ef0e407e2841",
+        "status": "completed",
+        "counts": {
+          "total": 2,
+          "queued": 0,
+          "active": 0,
+          "waiting": 0,
+          "succeeded": 2,
+          "failed": 0
+        },
+        "created_at": "2026-10-16T10:32:30.574371-07:00",
+        "deadline": "2026-10-16T10:44:30.574371-07:00",
+        "observed_at": "2026-10-16T17:32:35.633200783Z",
+        "last_worker_heartbeat_at": "2026-10-16T10:32:33.236902-07:00",
+        "last_progress_at": "2026-10-16T10:32:33.236902-07:00",
+        "next_attempt_at": null,
+        "status_url": "/v1/jobs/7bcf5faf-43ee-5d1d-9028-ef0e407e2841",
+        "result_url": "/v1/jobs/7bcf5faf-43ee-5d1d-9028-ef0e407e2841/result"
+      },
+      "pilotRequests": 2,
+      "correlatedCPALogs": {
+        "source": "container main.log; bounded request-ID suffix match",
+        "correlatedRequestIds": 1002,
+        "callerIdsInAttemptLogs": 1002,
+        "nativeTotalAttempts": null,
+        "phases": {
+          "main": {
+            "correlatedLogLines": 1018,
+            "native429LogLines": 15
+          },
+          "pilot": {
+            "correlatedLogLines": 2,
+            "native429LogLines": 0
+          }
+        },
+        "correlatedLogLines": 1020,
+        "native429LogLines": 15,
+        "authUnavailableLogLines": 0,
+        "caller200AccessLogLines": 1001,
+        "caller429AccessLogLines": 1,
+        "caller503AccessLogLines": 0,
+        "caller401AccessLogLines": 0,
+        "caller403AccessLogLines": 0
+      },
+      "timing": {
+        "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+        "executorOverlapPeak": 192,
+        "coreCompleted": 999,
+        "ordinaryErrors": 1,
+        "explicitRefusals": 1,
+        "attemptKindCounts": {
+          "completed": 999,
+          "failed": 1,
+          "rejected": 1
+        },
+        "generationMedianMs": 1718,
+        "generationP95Ms": 3480,
+        "generationMaximumMs": 33414
+      }
+    }
+  ],
+  "finalVerification": {
+    "scope": "local browser-free release; not deployment",
+    "sourceSHA": "fb6e4b083db1ff7839cbe836dd7cb5115e256545",
+    "sourceCleanAtStart": true,
+    "report": "tmp/test-feedback/runner-1792181982318-3316859-b38d3a19b4f897f1.json",
+    "reportSHA256": "b2bdbf1694c95ff05f84851a134cf5d62087f306930b827a264b0acc23f44377",
+    "generatedAt": "2026-10-16T20:19:42.318Z",
+    "accepted": true,
+    "taskCount": 30,
+    "manifestSHA256": "3229ecc062ad8bc31f9b9c3b0368e26183a4dd21c4b1400f96197ec522c0861e",
+    "candidateSlots": 2,
+    "gomaxprocs": 4,
+    "erlSchedulers": 4,
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "tasks": [
+      {
+        "taskId": "go-format",
+        "status": 0,
+        "wallTimeMs": 355
+      },
+      {
+        "taskId": "go-lint",
+        "status": 0,
+        "wallTimeMs": 2278
+      },
+      {
+        "taskId": "go-build",
+        "status": 0,
+        "wallTimeMs": 5721
+      },
+      {
+        "taskId": "go-static",
+        "status": 0,
+        "wallTimeMs": 3607
+      },
+      {
+        "taskId": "runner-contracts",
+        "status": 0,
+        "wallTimeMs": 144091
+      },
+      {
+        "taskId": "production-config-compose",
+        "status": 0,
+        "wallTimeMs": 1414
+      },
+      {
+        "taskId": "go-unit",
+        "status": 0,
+        "wallTimeMs": 18951
+      },
+      {
+        "taskId": "go-parity",
+        "status": 0,
+        "wallTimeMs": 12761
+      },
+      {
+        "taskId": "go-integration",
+        "status": 0,
+        "wallTimeMs": 47028
+      },
+      {
+        "taskId": "go-temporal-integration",
+        "status": 0,
+        "wallTimeMs": 105510
+      },
+      {
+        "taskId": "go-integration-race",
+        "status": 0,
+        "wallTimeMs": 73580
+      },
+      {
+        "taskId": "go-api",
+        "status": 0,
+        "wallTimeMs": 11614
+      },
+      {
+        "taskId": "go-observability",
+        "status": 0,
+        "wallTimeMs": 11917
+      },
+      {
+        "taskId": "go-compose",
+        "status": 0,
+        "wallTimeMs": 255606
+      },
+      {
+        "taskId": "go-compose-contract",
+        "status": 0,
+        "wallTimeMs": 2872
+      },
+      {
+        "taskId": "go-race",
+        "status": 0,
+        "wallTimeMs": 159526
+      },
+      {
+        "taskId": "go-vulnerability",
+        "status": 0,
+        "wallTimeMs": 5871
+      },
+      {
+        "taskId": "frontend-ui-package",
+        "status": 0,
+        "wallTimeMs": 48234
+      },
+      {
+        "taskId": "frontend-format",
+        "status": 0,
+        "wallTimeMs": 116405
+      },
+      {
+        "taskId": "frontend-compile",
+        "status": 0,
+        "wallTimeMs": 121925
+      },
+      {
+        "taskId": "frontend-deterministic",
+        "status": 0,
+        "wallTimeMs": 197601
+      },
+      {
+        "taskId": "client-core",
+        "status": 0,
+        "wallTimeMs": 469
+      },
+      {
+        "taskId": "run-progress-client",
+        "status": 0,
+        "wallTimeMs": 1058
+      },
+      {
+        "taskId": "frontend-deps-audit",
+        "status": 0,
+        "wallTimeMs": 128306
+      },
+      {
+        "taskId": "frontend-hex-audit",
+        "status": 0,
+        "wallTimeMs": 2593
+      },
+      {
+        "taskId": "frontend-assets-deploy",
+        "status": 0,
+        "wallTimeMs": 127655
+      },
+      {
+        "taskId": "frontend-pagination-asset-check",
+        "status": 0,
+        "wallTimeMs": 144584
+      },
+      {
+        "taskId": "frontend-release",
+        "status": 0,
+        "wallTimeMs": 87361
+      },
+      {
+        "taskId": "backend-verify-baseline",
+        "status": 0,
+        "wallTimeMs": 227131
+      },
+      {
+        "taskId": "frontend-gateway-workflows",
+        "status": 0,
+        "wallTimeMs": 393279
+      }
+    ]
+  }
+}

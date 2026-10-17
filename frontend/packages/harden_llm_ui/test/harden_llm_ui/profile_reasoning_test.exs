@@ -12,6 +12,63 @@ defmodule HardenLlmUI.ProfileReasoningTest do
     ~w(rerun jsonRepair escalation)
   ]
 
+  # TEST-429 / WEB-TEST-119: portable row projections share the full widget owner.
+  test "portable profile options preserve labels order searchable metadata and no private fields" do
+    profiles = [
+      %{
+        "id" => "query",
+        "name" => "Query preset",
+        "private" => "must-remain-server-held",
+        "definition" => %{
+          "modelId" => "query-model",
+          "baseUrl" => "https://query.example/v1",
+          "apiInferenceType" => "responses",
+          "models" => [%{"id" => "listed-one"}, %{"id" => "listed-two"}]
+        }
+      },
+      %{"id" => "utility", "definition" => %{}}
+    ]
+
+    assert ProfileWidgetState.profile_options(profiles) == [
+             %{
+               value: "query",
+               label: "Query preset",
+               search:
+                 "query Query preset query-model https://query.example/v1 responses listed-one listed-two"
+             },
+             %{value: "utility", label: "utility", search: "utility    "}
+           ]
+
+    assert ProfileWidgetState.profile_options([]) == []
+
+    refute Jason.encode!(ProfileWidgetState.profile_options(profiles)) =~
+             "must-remain-server-held"
+  end
+
+  test "portable reasoning options keep configured order and never substitute unknown profiles" do
+    profiles = [
+      %{
+        "id" => "query",
+        "definition" => %{"reasoningEffortMap" => %{"highest" => %{}, "lowest" => %{}}}
+      },
+      %{"id" => "utility", "definition" => %{}}
+    ]
+
+    assert ProfileWidgetState.reasoning_options(profiles, " query ") == [
+             {"lowest", "L"},
+             {"highest", "H"}
+           ]
+
+    assert ProfileWidgetState.reasoning_options(profiles, "utility") == []
+    assert ProfileWidgetState.reasoning_options(profiles, "unknown-profile") == []
+
+    assert ProfileWidgetState.reasoning_options(profiles, nil) == [
+             {"lowest", "L"},
+             {"middle", "M"},
+             {"highest", "H"}
+           ]
+  end
+
   defp policy do
     %{
       "maxAttempts" => 6,

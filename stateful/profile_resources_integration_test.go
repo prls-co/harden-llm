@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
 	hardenllm "github.com/prls-co/harden-llm"
 	"io"
 	"net/http"
@@ -285,7 +286,17 @@ func TestProfileResources(t *testing.T) {
 		s, input := serviceFixture(t, p, nil)
 		input = enteredSnapshot(t, input, "entered")
 		if _, err := s.SaveProfile(context.Background(), keyHashA, input); err != nil {
-			t.Fatal(err)
+			var operation *OperationError
+			var database *pgconn.PgError
+			var cause error
+			if errors.As(err, &operation) {
+				cause = operation.cause
+			}
+			state := ""
+			if errors.As(err, &database) {
+				state = database.SQLState()
+			}
+			t.Fatalf("%v; cause_type=%T deadline=%t canceled=%t sqlstate=%s", err, cause, errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled), state)
 		}
 		data, err := s.ExportBundle(context.Background(), keyHashA)
 		if err != nil {

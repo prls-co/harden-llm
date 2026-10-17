@@ -38,6 +38,7 @@ migration path.
 | [ADR-HLLM-032](ADR-HLLM-032-openai-inference-contract.md) | Accepted for implementation | Use OpenAI Chat Completions and Responses over one hardening engine. |
 | [ADR-HLLM-033](ADR-HLLM-033-stateless-core-stateful-reference.md) | Accepted; implemented and deployed 2026-10-13 | One stateless engine, key-scoped stateful wrapper, complete snapshots and reusable Phoenix UI. |
 | [ADR-HLLM-034](ADR-HLLM-034-reference-history-owner.md) | Accepted; implemented and deployed 2026-10-13 | PostgreSQL reference history, Garage path scope, truthful recording and manual orphan cleanup. |
+| [ADR-HLLM-035](ADR-HLLM-035-self-hosted-cpa-batch-jobs.md) | Accepted; qualification recorded separately | Self-hosted Temporal batch jobs, shared CPA admission and durable progress outside the stateless core. |
 
 The remaining planned deviation triggers are ADR-HLLM-003 through ADR-HLLM-007
 in the canonical implementation plan. Create one of those records only when its

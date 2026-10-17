@@ -1,0 +1,98 @@
+{
+  "scope": "bounded time interval plus safe stream-error correlation; fixed counters only, not per-request attribution",
+  "errorMeasurements": [
+    {
+      "cpaRequestId": "52dd7c7c",
+      "id": 960,
+      "attempt": 1,
+      "startedAt": "2026-10-16T15:13:31.229045435-07:00",
+      "finishedAt": "2026-10-16T15:13:31.996039836-07:00",
+      "durationMs": 766,
+      "headersMs": 589,
+      "httpStatus": 200,
+      "kind": "failed",
+      "errorCode": "qualification_mismatch",
+      "terminal": "error",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "expectedWords": 512,
+      "retryAfterMs": 0
+    },
+    {
+      "id": 968,
+      "attempt": 1,
+      "startedAt": "2026-10-16T15:13:31.996114692-07:00",
+      "finishedAt": "2026-10-16T15:13:32.032198178-07:00",
+      "durationMs": 36,
+      "headersMs": 35,
+      "httpStatus": 503,
+      "kind": "unconfirmed",
+      "errorCode": "internal_server_error",
+      "terminal": "json",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "expectedWords": 512,
+      "retryAfterMs": 60000
+    },
+    {
+      "id": 969,
+      "attempt": 1,
+      "startedAt": "2026-10-16T15:13:32.032350667-07:00",
+      "finishedAt": "2026-10-16T15:13:32.068456033-07:00",
+      "durationMs": 36,
+      "headersMs": 35,
+      "httpStatus": 503,
+      "kind": "unconfirmed",
+      "errorCode": "internal_server_error",
+      "terminal": "json",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "expectedWords": 512,
+      "retryAfterMs": 60000
+    },
+    {
+      "id": 970,
+      "attempt": 1,
+      "startedAt": "2026-10-16T15:13:32.068532859-07:00",
+      "finishedAt": "2026-10-16T15:13:32.110099323-07:00",
+      "durationMs": 41,
+      "headersMs": 41,
+      "httpStatus": 503,
+      "kind": "unconfirmed",
+      "errorCode": "internal_server_error",
+      "terminal": "json",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "expectedWords": 512,
+      "retryAfterMs": 60000
+    }
+  ],
+  "accessStatusCounters": {
+    "200": 191,
+    "503": 3
+  },
+  "categoryCounters": {
+    "boundedIntervalLines": 195
+  },
+  "matchedCounters": {
+    "errorStreamCorrelationLines": 2
+  },
+  "knownSignalSubstringCounters": {
+    "upstream execution failed:": 1,
+    "server_error": 1,
+    "retry": 1
+  },
+  "rawLogPrintedOrStored": false,
+  "rootCause": "unconfirmed; do not infer TPM or retry inference",
+  "qualificationStatus": "failed; 996 valid plus four usage-uncertain error outcomes; original diagnostic classification preserved in measurements",
+  "streamErrorUpstreamStatusCounters": {
+    "502": 1
+  },
+  "additionalBudgetReservation": 32768,
+  "runtimeNumericRetrySettings": {
+    "request-retry": 3,
+    "max-retry-credentials": 1,
+    "max-retry-interval": 30
+  },
+  "interpretation": "The stream-error correlation has one upstream 502, followed temporally by three fast 503 responses carrying a 60-second Retry-After. This does not establish a token quota or exact causal attribution for the uncorrelated 503s."
+}

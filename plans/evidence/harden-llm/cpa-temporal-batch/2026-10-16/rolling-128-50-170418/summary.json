@@ -1,0 +1,74 @@
+{
+  "binarySHA256": "7ac621c82d55d11cd1ecfea0c83721cbd8275632f1fd03ef71d2db6cfcf8b12a",
+  "callerAttemptsFromItemCounts": 1141,
+  "case": "rolling-128-50",
+  "completionObservedMs": 360452,
+  "distinctValidatedResults": 1000,
+  "downloadFinishedMs": 367737,
+  "failedItems": 0,
+  "finishedAt": "2026-10-16T17:12:11.375073895Z",
+  "firstSubmissionAt": "2026-10-16T17:06:03.637514706Z",
+  "inputTokens": 101000,
+  "jobs": [
+    {
+      "job_id": "a3b0d709-03ee-5cc7-8f97-57762f7ca3bc",
+      "status": "completed",
+      "counts": {
+        "total": 1000,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 1000,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T10:06:03.775867-07:00",
+      "deadline": "2026-10-16T10:18:03.775867-07:00",
+      "observed_at": "2026-10-16T17:12:04.088149647Z",
+      "last_worker_heartbeat_at": "2026-10-16T10:12:00.117998-07:00",
+      "last_progress_at": "2026-10-16T10:12:00.117998-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/a3b0d709-03ee-5cc7-8f97-57762f7ca3bc",
+      "result_url": "/v1/jobs/a3b0d709-03ee-5cc7-8f97-57762f7ca3bc/result"
+    }
+  ],
+  "logicalRequests": 1000,
+  "model": "gpt-6-luna",
+  "officialAPIEnabled": false,
+  "outputTokensIncludingReasoning": 40000,
+  "pilot": {
+    "job_id": "13e888f6-933a-5c58-b178-e46ee3c8cc7d",
+    "status": "completed",
+    "counts": {
+      "total": 2,
+      "queued": 0,
+      "active": 0,
+      "waiting": 0,
+      "succeeded": 2,
+      "failed": 0
+    },
+    "created_at": "2026-10-16T10:04:28.579392-07:00",
+    "deadline": "2026-10-16T10:16:28.579392-07:00",
+    "observed_at": "2026-10-16T17:04:33.601573506Z",
+    "last_worker_heartbeat_at": "2026-10-16T10:04:30.869628-07:00",
+    "last_progress_at": "2026-10-16T10:04:30.869628-07:00",
+    "next_attempt_at": null,
+    "status_url": "/v1/jobs/13e888f6-933a-5c58-b178-e46ee3c8cc7d",
+    "result_url": "/v1/jobs/13e888f6-933a-5c58-b178-e46ee3c8cc7d/result"
+  },
+  "pilotRequests": 2,
+  "policy": {
+    "Concurrency": 128,
+    "Burst": 100,
+    "StartRate": 50,
+    "MaximumRate": 200,
+    "RefillEstimate": 61000000000
+  },
+  "reasoning": "low",
+  "resultReadyAt": "2026-10-16T10:12:00.117998-07:00",
+  "resultReadyMs": 356480,
+  "sharedCPAConfigurationChanged": false,
+  "sourceSHA": "b2ebaa5f1c8727364bed2ad3c729cbbc6964aa0c",
+  "startedAt": "2026-10-16T17:04:28.207562193Z",
+  "status": "passed",
+  "validatedByCore": 1000
+}

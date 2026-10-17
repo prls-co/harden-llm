@@ -47,6 +47,7 @@ type streamOptions struct {
 }
 
 type responsesRequest struct {
+	ServiceTier        string            `json:"service_tier,omitempty"`
 	Model              string            `json:"model"`
 	Input              json.RawMessage   `json:"input"`
 	Instructions       string            `json:"instructions,omitempty"`

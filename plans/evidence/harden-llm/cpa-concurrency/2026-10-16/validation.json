@@ -1,0 +1,49 @@
+{
+  "fast": [
+    {
+      "report": "runner-1792113544061-3390441-43b64f8ab19f3a9e.json",
+      "accepted": true,
+      "taskCount": 10,
+      "firstFailure": null,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    {
+      "report": "runner-1792113922127-3436818-deeb59f80970447f.json",
+      "accepted": true,
+      "taskCount": 10,
+      "firstFailure": null,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    {
+      "report": "runner-1792114664012-3517750-4f9a2df955038637.json",
+      "accepted": true,
+      "taskCount": 10,
+      "firstFailure": null,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    }
+  ],
+  "targetedRace": "passed: go test -race ./cmd/harden-llm-loadtest ./internal/livecapacity -count=1",
+  "vet": "passed: go vet ./internal/livecapacity ./cmd/harden-llm-loadtest",
+  "hostedSourceSHA": "f1387fe4e53aa204b25d727564c1f85fa6e1474d",
+  "hostedRuns": [
+    38835956885,
+    38835951864
+  ],
+  "browserRun": false,
+  "productionDeployment": false,
+  "sharedCPAConfigChanged": false,
+  "experimentTotals": {
+    "dispatched": 1320,
+    "completed": 1279,
+    "outcomes": {
+      "completed": 1279,
+      "unconfirmed": 4,
+      "rejected": 37
+    }
+  },
+  "cpaOnly1000CompletionQualified": false,
+  "ownedInferenceProcessesRemaining": 0
+}

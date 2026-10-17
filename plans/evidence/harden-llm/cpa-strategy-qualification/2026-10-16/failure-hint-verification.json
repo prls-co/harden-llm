@@ -1,0 +1,62 @@
+{
+  "sourceSHA": "90e42af9862db03bfa6d227fb6268371d5be71bb",
+  "scope": "deterministic failed-attempt retry-hint and native missing-usage regressions; no paid inference",
+  "checks": [
+    {
+      "command": "go test ./stateful/batch -run ^TestFailedAttemptRetryHintPausesNewAdmissionsWithoutRefund$ -count=1",
+      "exit": 1,
+      "retainedPrivateLog": "tmp/cpa-failed-hint-red.log",
+      "privateLogSHA256": "e5edd2d94fae0dba362696ab20fc8c1421ca7c034011d00a5bf9387a520e5302"
+    },
+    {
+      "command": "go test -race ./stateful/batch ./internal/livecapacity -count=1",
+      "exit": 0,
+      "retainedPrivateLog": "tmp/cpa-failure-hint-race.log",
+      "privateLogSHA256": "61ca901d314f9bc1bbb38120d456bac955ec38981a95154e6c97ed738d71c92f"
+    },
+    {
+      "command": "go test ./internal/testkit -run ^(TestTraceability|TestTestFeedbackTraceability)$ -count=1",
+      "exit": 0,
+      "retainedPrivateLog": "tmp/cpa-native-error-terminal-traceability.log",
+      "privateLogSHA256": "16bd0766d8ad0be9e2d1dddd6ffb81ffbae05411d2901ad512ad6d4470cc814e"
+    },
+    {
+      "command": "node scripts/verify-test-tiers.mjs (before missing coverage-gate metadata was corrected)",
+      "exit": null,
+      "retainedPrivateLog": "tmp/cpa-native-error-terminal-tiers.log",
+      "privateLogSHA256": "b358088eba194b92768b7c22786c68c2f3f1c4794cba2bc6b3b256fe88bb1580",
+      "observedError": "TEST-473 has no coverage gate; failure output inspected despite compound shell command ending with a later successful check"
+    },
+    {
+      "command": "node scripts/verify-test-tiers.mjs",
+      "exit": 0,
+      "retainedPrivateLog": "tmp/cpa-native-error-terminal-tiers-fixed.log",
+      "privateLogSHA256": "762c6543c5cb1bd7811eca827e3036dac80ceaa08665badedd55af379b265901"
+    }
+  ],
+  "invariants": [
+    "positive retry hints defer new independent admission without retrying failed inference",
+    "no window refund for failed/uncertain inference",
+    "single recovery probe and stale-response isolation",
+    "retained history version behavior and actual offline replay",
+    "missing-usage native error terminals remain unconfirmed for budget reservation"
+  ],
+  "releaseOnThisSource": "runtime90e42af accepted by full release on test-diagnostic-only successor edaea2a",
+  "missingCatalogGates": {
+    "ids": [
+      "TEST-473",
+      "TEST-474",
+      "TEST-475",
+      "TEST-476",
+      "TEST-477",
+      "TEST-478",
+      "TEST-479",
+      "TEST-480",
+      "TEST-481",
+      "TEST-483",
+      "TEST-484"
+    ],
+    "change": "Added metadata for existing task registrations; assertions and task selections unchanged."
+  },
+  "acceptedReleaseSourceSHA": "edaea2a6c29c744e6cfec606954ae4dc090805e1"
+}

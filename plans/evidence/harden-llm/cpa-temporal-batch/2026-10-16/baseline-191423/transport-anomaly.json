@@ -1,0 +1,16 @@
+{
+  "scope": "failed formal baseline retained without inference replay",
+  "errors": {
+    "NETWORK_ERROR": 52
+  },
+  "nearSimultaneousFirstWaveErrors": 51,
+  "failedItemsWithCPACorrelationAtInspection": 45,
+  "correlatedCPAAccessHTTP200": 45,
+  "originContainerRestarted": false,
+  "originImageOrConfigChanged": false,
+  "loopbackHealthHTTP": 200,
+  "publicHealthHTTP": 200,
+  "tunnelErrorLinesInInspectedInterval": 0,
+  "rootCause": "unconfirmed response/transport interruption; HTTP 200 does not establish completed inference",
+  "inspectionIntervalUTC": "2026-10-16T19:15:30Z/2026-10-16T19:17:00Z"
+}
