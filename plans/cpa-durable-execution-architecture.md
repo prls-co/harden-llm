@@ -5,6 +5,7 @@
 - Status: implementation design; proposed changes and acceptance gates below are not implemented or deployed by this document.
 - Owner: Harden-LLM for orchestration, persistence, API and client behavior; CLIProxyAPI-setup for CPA configuration and upstream instrumentation; Agent Platform for existing shared-service provisioning.
 - Tracking: [implementation issue #134](https://github.com/prls-co/harden-llm/issues/134).
+- Compatibility requirement: preserve existing OpenAI-compatible endpoints and wire contracts; `/v1/jobs` is an optional durable extension, not a mandatory client migration.
 - Scope: 1,000 separate CPA `gpt-6-luna` low-reasoning generations per job; multiple jobs support 10,000 or more queued items. Waiting is acceptable; silent inference replay is not.
 - Existing work: [batch implementation PR #127](https://github.com/prls-co/harden-llm/pull/127), [research PR #133](https://github.com/prls-co/harden-llm/pull/133).
 - Evidence: [frozen research report](https://github.com/prls-co/harden-llm/blob/75909d998b470d55232bf4e7dc7c2741bd899a9c/plans/evidence/harden-llm/cpa-final-research/2026-10-17/report.md).
@@ -49,6 +50,11 @@ versions of the changes below. Neither draft PR establishes deployment.
 ```mermaid
 flowchart LR
     Clients[Pipeline clients] --> API[Existing HLLM jobs API]
+    Clients --> Sync[Existing OpenAI-compatible endpoints]
+    Sync --> Gate[Request-bound admission adapter]
+    Gate --> Pool
+    Gate --> SyncExec[Existing request execution]
+    SyncExec --> Core
     API --> DB[(HLLM PostgreSQL)]
     API --> Jobs[Job lifecycle workflows]
     Jobs --> Pool[One pool admission workflow]
@@ -68,7 +74,8 @@ flowchart LR
 
 | Component | Responsibility |
 | --- | --- |
-| Gateway / OpenAPI | Existing bearer validation, key-derived scope, immutable input validation, durable submission and status/result contracts |
+| Gateway / OpenAPI | Existing bearer validation, key-derived scope, preserved OpenAI-compatible contracts, durable submission and status/result contracts |
+| Request-bound admission adapter | Acquire/claim/settle permits from the same pool for ordinary CPA provider dispatches; preserve existing request lifecycle and wire format |
 | Job lifecycle workflow | Registration, overall job deadline and lifecycle; no provider retries |
 | Pool workflow | Fair ready queues, permit allocation, admission budget, pacing, cooldown, one recovery probe, policy state and rollover |
 | Attempt workflow | One permit's execution lifecycle, safe result recording and durable notification; no workflow retry that repeats inference |
@@ -155,6 +162,63 @@ with diagnostics `kind=unconfirmed`; any new `counts.unconfirmed` field is a
 documented subset of `failed`, not an additional item category in the total.
 
 ## 4. Submission, fairness and permit execution
+
+### 4.0. Existing OpenAI-compatible calls
+
+Preserve `/v1/models`, `/v1/chat/completions` and `/v1/responses`, their existing
+bearer authentication, supported request fields, response/error shapes and
+streaming contract. Existing `stream: true` behavior emits the completed hardened
+result in the endpoint's existing SSE format; this design does not introduce
+provisional tokens, custom progress events or new required request fields.
+Compatibility means preserving HLLM's documented supported subset, not claiming
+support for every OpenAI capability. `/v1/jobs` remains an explicit opt-in
+extension. Never replace an ordinary completion/response with `202`, a job URL,
+a polling requirement or NDJSON.
+
+Add a request-bound admission adapter in stateful gateway/provider composition.
+Every outbound CPA generation on this path must acquire and claim a permit from
+the same stable pool as durable jobs. Wrap the concrete provider dispatch effect
+so any existing core repair/recovery/retry dispatch also obtains its own permit;
+a whole incoming HTTP request is not necessarily one provider request. Keep the
+root core's existing behavior and injected-effect boundary. Cache hits and model
+listing do not consume generation permits. Preserve the caller's selected model,
+settings and hardening behavior: do not send ordinary calls through the batch
+path's fixed model/settings contract.
+
+These permits have `owner_kind=request`, a server-generated request/execution ID,
+key scope, dispatch ordinal and invocation claim ID, instead of a required batch
+job/item foreign key. Generalize the permit/claim ledger with checked disjoint
+owner variants (batch attempt or request-bound dispatch); request rows contain
+bounded scheduling/settlement metadata only, never prompts, output or reference
+history. Do not fabricate batch jobs or retain results for direct `/v1` calls.
+Request-bound executions settle metadata directly rather than using the batch
+artifact requirement. They share the pool's monotonic IDs, quota, cooldown,
+probe, fairness and positive-local-stop rules. Their metadata and live-waiter
+expiry require explicit bounded retention. Independent attempt workflows remain
+the execution owner for durable jobs; the live request owns ordinary execution.
+
+Queue wait counts against the existing ordinary request's total deadline;
+the proposed longer batch-generation budget does not silently extend it. Wait
+for admission while the HTTP request context remains live. Check cancellation
+and the original deadline atomically with dispatch claim, then immediately
+before provider I/O; a cancellation racing I/O is classified by actual transport
+evidence. If the waiter disconnects/expires before dispatch, remove its queue
+entry or settle its provably never-sent reservation. After dispatch, cancel the
+transport under existing semantics and retain uncertain outcomes without replay
+or unsafe permit release. A lost caller/pool message must not leave a durable
+queue item that later starts abandoned inference. Include bounded metadata-only
+waiter liveness and never-sent expiry checks; neither proves an active transport
+has stopped. Existing documented OpenAI-shaped 429/504 errors and positive retry
+hints apply when waiting cannot complete within the request deadline. Do not
+invent JSON progress messages, fabricate SSE completion or reset client timers.
+
+Ordinary SDK requests therefore keep the same calls and result parsing, but may
+wait longer within their existing deadline. They cannot transparently survive
+client/proxy timeouts or provide resumable progress. Callers needing those
+properties explicitly select `/v1/jobs` and its status/result contract. Closing
+the ordinary CPA admission bypass is an implementation acceptance requirement,
+not evidence of current deployment or a promise that external direct CPA clients
+are governed by HLLM.
 
 ### 4.1. Durable submission
 
@@ -472,7 +536,7 @@ not replace preserved Temporal capacity state or permit a second admission owner
 | P2 | Attempt ledger, claims, settlement fencing and idempotent starter | T1 stubs plus T3 real SQL transaction/unknown-COMMIT boundaries; duplicate starts cannot duplicate dispatch; persistence retries reuse one artifact/outcome |
 | P3 | Independent attempt workflows and fair pool scheduler | SDK tests/replay: one probe, scope/job fairness, 128 combined permits across replicas, restart/cooldown/policy continuity, stale events and safe never-sent expiry |
 | P4 | Rollover and lifecycle fault acceptance | Real Temporal/PostgreSQL/Garage: a slow call remains active while another job starts eligible work across rollover; no duplicate/missing results, leaked permits or reset budget |
-| P5 | Scale and caller integration | 1,000 then 10,000 distinct local native-SSE calls; two keys/many jobs, complete ID/count checks, bounded snapshot/history/resources and scheduler lag; actual HTTP starts/overlap measured |
+| P5 | OpenAI-compatible admission adapter, scale and caller integration | Unchanged ordinary request/JSON/SSE/error fixtures; mixed jobs/ordinary calls share one cap/cooldown; each repair dispatch acquires a permit; cache hits bypass generation admission; queued cancellation and deadline races cannot start abandoned inference; no direct-call history/artifacts; then 1,000/10,000 local calls with complete ID/count checks, bounded resources and actual HTTP starts/overlap measured |
 | P6 | Environment rollout and representative CPA acceptance | Provisioned private namespace/network and HLLM-scoped artifacts, schema command, verified API/worker images, HTTP auth/status checks, then explicitly opted-in bounded real-provider case |
 
 Add deterministic regressions before implementation. Extend the canonical
@@ -505,9 +569,12 @@ earlier episodes need not all finish before another eligible request starts.
 
 Ten 1,000-item jobs share that same budget/cap; they do not each receive 128
 slots or 200 starts. Fair scheduling apportions future grants as clients arrive
-and finish. Direct CPA calls, another namespace or an ordinary `/v1/responses`
-client remain outside this authority. Route participating pipelines through
-`/v1/jobs`; a shared-account guarantee cannot cover bypassing clients.
+and finish. In the current baseline, ordinary HLLM generation endpoints bypass
+batch admission. The required request-bound adapter closes that bypass while
+preserving OpenAI-compatible wire contracts; `/v1/jobs` is optional for durable
+waiting/progress. Direct CPA calls and independently configured pool authorities
+remain outside HLLM control. A shared-account guarantee cannot cover bypassing
+clients; their owners must route generation through the shared authority.
 
 Do not add a numerical TPM gate without usable signals or a qualified workload
 policy. Longer prompts, outputs and reasoning affect usage and latency, but the
