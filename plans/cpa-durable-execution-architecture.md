@@ -118,7 +118,8 @@ same lifecycle already exists, not permission to start another generation.
 
 The pool's durable state contains its controller, fair-queue cursors, ready
 references, monotonic sequence and outstanding permit map. The map contains
-bounded references, not requests, output text or credentials. Archive completed
+bounded references and start-pending/running/awaiting-local-stop state, not
+requests, output text or credentials. Archive completed
 job references after their outstanding permits settle so snapshots do not grow
 with historical throughput. Persisted queued items remain queryable by scope/job.
 Cap a continuation snapshot below 256 KiB; spill excess queued references into
@@ -421,10 +422,11 @@ not part of enabling this controller and not a quota increase.
 
 Independent attempt workflows are started through the Temporal client with
 stable IDs, not attached as cancel-on-parent-close children of the pool. Their
-execution survives the pool's Continue-As-New. A pool continuation waits only
-for its own short metadata commands/handlers to finish, drains notifications,
-and carries outstanding permit IDs, queues/cursors, window state, cooldown,
-probe identity and policy revision. It never clears capacity or reissues permits.
+execution survives the pool's Continue-As-New. A pool continuation finishes its
+short handlers/reads, completes or cancels repeat-safe metadata starters, drains
+notifications, and carries outstanding permit IDs, unacknowledged start intents,
+queues/cursors, window state, cooldown, probe identity and policy revision.
+It never clears capacity or reissues permits.
 Periodic ledger readback catches a settlement notification crossing the boundary.
 
 This follows the documented [fresh-run/state handoff](https://docs.temporal.io/develop/go/workflows/continue-as-new)
