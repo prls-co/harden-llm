@@ -13,6 +13,14 @@
 
 ## 1. Decision and implementation boundary
 
+The immediate agreed delivery is the smaller
+[request status lookup plan](request-status-lookup-implementation-plan.md),
+tracked in [issue #136](https://github.com/prls-co/harden-llm/issues/136).
+Implement its optional tracking header and metadata lookup independently of
+the broader scheduling changes below. Background Responses and OpenAI Batch
+adapters are not part of that delivery. This document remains the separate
+CPA orchestration proposal, not a prerequisite checklist for status lookup.
+
 Use a durable queue with a single admission authority per configured CPA account
 pool. Separate that authority from generation ownership: the pool workflow grants
 bounded permits; independent attempt workflows own the long-running provider
