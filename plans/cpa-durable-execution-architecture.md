@@ -236,6 +236,17 @@ attempt workflow. The activity never calls the provider. A lost start RPC is
 retried with the same permit/workflow IDs. Failed or uncertain start acknowledgement
 does not free the reservation or grant a replacement ID.
 
+Batch up to 16 permit starts per metadata activity and launch starter batches
+asynchronously, bounded by outstanding permits and the control-worker limit.
+Each activity inserts its rows idempotently and issues bounded parallel start
+RPCs. Do not synchronously wait for one start acknowledgement before reserving
+the next eligible permit; that would turn workflow/RPC latency into a hidden
+launch-rate cap. This groups control-plane work only: every item still has a
+separate provider request. Starter invocations have a bounded 15-second total
+budget; failed/uncertain IDs remain start intents and are rescheduled with
+metadata backoff. A continuation can cancel/recreate a starter from those same
+intents, while independent attempts and their invocation claims remain intact.
+
 The attempt workflow invokes one provider activity with `MaximumAttempts=1` and
 no workflow-level inference retry. The activity atomically claims the attempt
 with a fresh invocation claim ID, checks deadlines, and executes the existing
