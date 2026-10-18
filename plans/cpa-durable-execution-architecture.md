@@ -4,6 +4,7 @@
 - Date: 2026-10-18.
 - Status: implementation design; proposed changes and acceptance gates below are not implemented or deployed by this document.
 - Owner: Harden-LLM for orchestration, persistence, API and client behavior; CLIProxyAPI-setup for CPA configuration and upstream instrumentation; Agent Platform for existing shared-service provisioning.
+- Tracking: [implementation issue #134](https://github.com/prls-co/harden-llm/issues/134).
 - Scope: 1,000 separate CPA `gpt-6-luna` low-reasoning generations per job; multiple jobs support 10,000 or more queued items. Waiting is acceptable; silent inference replay is not.
 - Existing work: [batch implementation PR #127](https://github.com/prls-co/harden-llm/pull/127), [research PR #133](https://github.com/prls-co/harden-llm/pull/133).
 - Evidence: [frozen research report](https://github.com/prls-co/harden-llm/blob/75909d998b470d55232bf4e7dc7c2741bd899a9c/plans/evidence/harden-llm/cpa-final-research/2026-10-17/report.md).
@@ -240,6 +241,16 @@ no workflow-level inference retry. The activity atomically claims the attempt
 with a fresh invocation claim ID, checks deadlines, and executes the existing
 single-attempt core policy. A competing/redelivered invocation cannot dispatch
 after observing an existing claim. Requests still disable repair, rerun and cache.
+
+An invocation that loses the claim returns `claim_owned_elsewhere`, not a
+terminal inference failure. Its workflow waits for the original claim owner's
+bounded observation/settlement or performs metadata-only artifact readback.
+Losing a claim must not overwrite that owner's eventual result. The claimed
+invocation durably stages its bounded terminal observation (artifact reference,
+diagnostics and local-stop evidence) before returning when possible; only the
+idempotent settlement transaction finalizes the item. If observation persistence
+fails, the workflow can retry that metadata with the same bounded return, or
+recover a positively validated artifact. Missing evidence remains unconfirmed.
 
 Use an initial proposed five-second dispatch-reservation lifetime. Expiry before
 claim is settled by `reserved -> settled(never_dispatched)` CAS and safely returns
