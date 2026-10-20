@@ -8,6 +8,7 @@
 - Inspected source baseline: `f1ace14f9b0252ce8a49f7def5b776fbf524864a` (`origin/main` when planned); design branch was `e05ce9ee90c96bb5757948061950a45368e59def` before this document.
 - Canonical contract: `api/openapi.yaml`.
 - Canonical test catalog: `plans/from_utility-llm/harden-llm-self-hosted-test-spec.md`, `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`.
+- Ownership audit: [current CPA capabilities and placement decision, 2026-10-19](evidence/harden-llm/cpa-feature-audit/2026-10-19/report.md). Keep status in HLLM; supported CPA plugins/Home are separate diagnostic/admission options, not implementation dependencies.
 
 ## 1. Deliverable and scope boundary
 
