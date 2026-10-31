@@ -93,12 +93,13 @@ func (api *API) createJob(w http.ResponseWriter, r *http.Request) {
 			writeRequestError(w, errors.New("Batch items support one generation without repair or recovery."), "harden.recovery")
 			return
 		}
+		defaultedTimeout := native.Harden.TimeoutMS == 0
 		timeout := native.Harden.TimeoutMS
 		if timeout == 0 {
-			timeout = 180000
+			timeout = batch.DefaultGenerationBudget.Milliseconds()
 		}
-		if timeout < 1 || timeout > 180000 {
-			writeRequestError(w, errors.New("Batch timeout_ms must be from 1 through 180000."), "harden.timeout_ms")
+		if timeout < 1 || timeout > batch.MaximumGenerationBudget.Milliseconds() {
+			writeRequestError(w, errors.New("Batch timeout_ms must be from 1 through 900000."), "harden.timeout_ms")
 			return
 		}
 		native.Harden.TimeoutMS = 0
@@ -129,7 +130,7 @@ func (api *API) createJob(w http.ResponseWriter, r *http.Request) {
 		if native.ParallelToolCalls != nil {
 			parallel = *native.ParallelToolCalls
 		}
-		items = append(items, batch.Item{CustomID: v.CustomID, Generation: batch.Generation{ConnectionID: api.jobs.UpstreamID(), ModelID: call.ModelID, Messages: call.Messages, CallType: call.CallType, Schema: call.Schema, Tools: call.Tools, ToolChoice: call.ToolChoice, ReasoningEffort: call.ReasoningEffort, ProviderOptions: call.ProviderOptions, ParallelToolCalls: parallel, TimeoutMS: timeout}})
+		items = append(items, batch.Item{CustomID: v.CustomID, Generation: batch.Generation{ConnectionID: api.jobs.UpstreamID(), ModelID: call.ModelID, Messages: call.Messages, CallType: call.CallType, Schema: call.Schema, Tools: call.Tools, ToolChoice: call.ToolChoice, ReasoningEffort: call.ReasoningEffort, ProviderOptions: call.ProviderOptions, ParallelToolCalls: parallel, TimeoutMS: timeout, TimeoutDefaulted: defaultedTimeout}})
 	}
 	status, err := api.jobs.Submit(r.Context(), scopeFromContext(r.Context()).hash, key[0], items)
 	if err != nil {

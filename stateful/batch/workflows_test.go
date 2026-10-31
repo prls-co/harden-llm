@@ -162,3 +162,32 @@ func TestDispatcherRetainsAccountPauseAcrossIdleAndNewJobs(t *testing.T) {
 		t.Fatal("account pause was discarded when the dispatcher became idle")
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-496
+func TestDispatcherAllowsLongGenerationOnceWithinBudget(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(&a)
+	start := env.Now()
+	generated := 0
+	var settled time.Time
+	env.OnActivity(a.Generate, mock.Anything, mock.Anything).Return(func(context.Context, Ref) (Outcome, error) {
+		generated++
+		return Outcome{Kind: "completed", ArtifactID: "one.json"}, nil
+	}).After(190 * time.Second).Once()
+	env.OnActivity(a.Record, mock.Anything, mock.Anything, mock.Anything).Return(func(context.Context, Ref, Outcome) (Counts, error) {
+		settled = env.Now()
+		return Counts{Total: 1, Succeeded: 1}, nil
+	}).Once()
+	env.OnActivity(a.Cooldown, mock.Anything, mock.Anything).Return(nil)
+	state := DispatcherState{Controller: NewController(DefaultPolicy()), Jobs: []PendingJob{{Job: JobRef{Scope: "fixture", JobID: "long", Count: 1, Deadline: start.Add(time.Hour)}, Ready: []int{0}}}}
+	env.ExecuteWorkflow(DispatcherWorkflow, state)
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	if generated != 1 || settled.Before(start.Add(190*time.Second)) || settled.After(start.Add(300*time.Second)) {
+		t.Fatal("long generation failed or was replayed", generated, settled.Sub(start))
+	}
+	env.AssertExpectations(t)
+}

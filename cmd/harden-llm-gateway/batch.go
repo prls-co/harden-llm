@@ -128,7 +128,7 @@ func configureBatch(ctx context.Context, c serverConfig, pool *pgxpool.Pool, art
 			connection = v
 		}
 	}
-	core, err := stateful.NewClient(stateful.ClientOptions{Connections: []hardenllm.Connection{connection}, DefaultConnection: connection.ID, Logger: logger, TracerProvider: telemetry.TracerProvider(), MeterProvider: telemetry.MeterProvider(), EndpointPolicy: hardenllm.EndpointPolicy{AllowedHosts: c.allowedHosts, PrivateAllowedHosts: c.privateAllowedHosts, PrivateAllowlist: c.privateAllowlist, MaxConnsPerHost: c.batch.policy.Concurrency, ResponseHeaderTimeout: 180 * time.Second}})
+	core, err := stateful.NewClient(stateful.ClientOptions{Connections: []hardenllm.Connection{connection}, DefaultConnection: connection.ID, Logger: logger, TracerProvider: telemetry.TracerProvider(), MeterProvider: telemetry.MeterProvider(), EndpointPolicy: hardenllm.EndpointPolicy{AllowedHosts: c.allowedHosts, PrivateAllowedHosts: c.privateAllowedHosts, PrivateAllowlist: c.privateAllowlist, MaxConnsPerHost: c.batch.policy.Concurrency, ResponseHeaderTimeout: batch.MaximumGenerationBudget}})
 	if err != nil {
 		temporalClient.Close()
 		return nil, nil, nil, err

@@ -68,3 +68,60 @@ ledger and exact settlement, independent workflow rollover, key/job fairness,
 request-bound dispatch adapter, actual SQL/Temporal/Garage faults, 1,000/10,000
 synthetic calls, retained-history replay, environment adoption and bounded CPA
 acceptance. Neither this contract nor the baseline reconciliation implements them.
+
+## 6. P1 checkpoint evidence (implementation in progress)
+
+TEST-496 first failed on the legacy 180-second clamp, rejection of 300/900-second
+new requests, and authorization to requeue a partial-output 429. Targeted GREEN
+now covers immutable old budgets, 300/900-second new snapshots, exact parent/job
+context deadlines, and terminal unknown partial-output outcomes. The retained
+V1 replay still passes using a workflow version marker for longer activity
+budgets. A virtual 190-second generation succeeds once within 300 seconds.
+
+TEST-497 first failed when a new default invalidated an accepted idempotency
+key. Real PostgreSQL GREEN now resumes the accepted job without rewriting its
+snapshot, rejects explicit different budgets/custom IDs, handles JSONB schema
+key order, and compares large JSON integers without float rounding.
+
+The defaulted-timeout marker is internal manifest metadata, not a new HTTP
+request field. Ordinary request maximum remains 60 seconds. Batch native header
+budget follows the configured maximum while each generation has its own shorter
+snapshot/job/parent deadline.
+
+A parallel fast run exposed the fixed frontend HTTP port 4002. TEST-049 gained a
+cheap configuration regression; browser-free frontend tasks now request port 0
+from the existing runtime configuration. Browser/Compose opt-ins are unchanged.
+The first policy test title violated the existing backend dependency-name guard;
+rename the shared-runner test generically, keep that guard unchanged. A full fast
+rerun with both corrections is recorded separately; prior failures are not passes.
+
+Remaining P1/P3 boundary: item outcome and pool admission action must be separate.
+In particular, partial-output throttling cannot replay/refund the item, but must
+still cool future admission, including without a server delay hint. Add this to
+the V2 controller/settlement tests rather than treating terminal uncertainty as
+absence of a quota signal. Longer-job finalization grace, ledger claims, local-stop
+proof, independent workflows and the ordinary adapter are still outstanding.
+
+## 7. Continuation checkpoint
+
+- Status PR #140 has a further qualified lifecycle/retention checkpoint at
+  `0ef61e3` on its independent source branch; integrate that branch into this
+  stacked branch after the current P1 source gate finishes.
+- This branch's P1 edits are not yet committed. The current full fast process
+  is unified-exec session 44869, with output redirected to
+  `tmp/cpa-budget-port-policy-fixed-fast.log`. Poll that exact handle; do not
+  replace a running gate on the basis of quiet output.
+- `tmp/cpa-budget-adoption-exact-numbers.json` is accepted against real PG.
+  `tmp/cpa-budget-owners.log` passes batch/API/startup checks including retained
+  V1 replay, a virtual 190-second success and exact context-deadline tests.
+- Preserve the original worktree's unrelated dirty files. Current original
+  CPA feature worktree and status worktree are separate from this branch.
+- Before claiming P1 complete, reconcile the remaining outcome/admission-action
+  separation above, generation deadline diagnostics and later finalization-grace
+  contract. P2-P6 are still required. Keep the overall thread goal active.
+
+P1 checkpoint gate: `tmp/cpa-budget-port-policy-fixed-fast.log` records all ten
+fast tasks accepted with no cleanup errors/warnings. This includes process-owned
+frontend HTTP ports and the unchanged dependency-boundary guard. Focused real SQL
+exact-number adoption and batch/API/startup/replay checks above also passed.
+The remaining P1/P3 boundary and P2-P6 work are not marked complete.

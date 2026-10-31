@@ -34,6 +34,7 @@ type Generation struct {
 	ProviderOptions   map[string]any            `json:"providerOptions,omitempty"`
 	ParallelToolCalls bool                      `json:"parallel_tool_calls"`
 	TimeoutMS         int64                     `json:"timeout_ms"`
+	TimeoutDefaulted  bool                      `json:"timeout_defaulted,omitempty"`
 }
 
 func SingleAttemptPolicy() hardenllm.RecoveryPolicy {
@@ -167,12 +168,21 @@ func (s *Service) Submit(ctx context.Context, scope, key string, items []Item) (
 	if !validScope(scope) || len(key) < 1 || len(key) > 128 || len(items) < 1 || len(items) > MaximumItems {
 		return Status{}, errors.New("batch: invalid submission")
 	}
+	items = append([]Item(nil), items...)
 	seen := map[string]bool{}
-	for _, item := range items {
+	for i, item := range items {
 		if len(item.CustomID) < 1 || len(item.CustomID) > 128 || seen[item.CustomID] || item.Generation.ConnectionID != s.Upstream || item.Generation.ModelID != "gpt-6-luna" || item.Generation.ReasoningEffort != "low" {
 			return Status{}, errors.New("batch: invalid item")
 		}
 		seen[item.CustomID] = true
+		resolved, err := resolveNewGenerationBudget(item.Generation.TimeoutMS)
+		if err != nil {
+			return Status{}, err
+		}
+		if item.Generation.TimeoutMS == 0 {
+			items[i].Generation.TimeoutDefaulted = true
+		}
+		items[i].Generation.TimeoutMS = resolved
 	}
 	d := s.JobTimeout
 	if d == 0 {

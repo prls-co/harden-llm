@@ -2216,3 +2216,19 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - No public provider or paid credentials. Hard 10-minute operation deadline, five-second progress and canonical runner-owned resource cleanup. This proves local orchestration scale, not CPA throughput.
 
 - The original non-accumulating pacer admitted one call per workflow decision and failed the unchanged eight-minute job deadline (first job: 593 successes, 407 deadline failures). TEST-474 now requires ten elapsed credits after 100 ms at 100 starts/second, bounds idle catch-up by the configured burst and prevents repeated same-time admission. A version marker preserves old histories; the full 10,000-result oracle and deadline remain unchanged.
+
+### TEST-496: CPA generation snapshots and pre-output refusal safety
+
+- Type / verifies: unit; issue #134 phase P1.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/budget_test.go`, `internal/gateway/httpapi/jobs_test.go`.
+- Command: `go test ./stateful/batch ./internal/gateway/httpapi -run 'TestGenerationBudget|TestGenerationRefusal|TestJobGenerationDeadline' -count=1`.
+- Oracle: Old zero/180-second snapshots retain their budget; new jobs resolve to 300 seconds with explicit 900-second maximum; ordinary calls keep 60 seconds. Partial output plus 429 never authorizes requeue; absent credentials without a trusted recovery indication pauses admission.
+
+### TEST-497: Accepted CPA defaults survive policy evolution
+
+- Type / verifies: integration; issue #134 phases P0/P1.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/budget_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Real PostgreSQL retains accepted timeout snapshots and job identity across a new default; explicit different budgets or changed custom IDs conflict. JSONB key reordering cannot invalidate an otherwise unchanged accepted schema, and comparison never rounds JSON numbers through floating point.

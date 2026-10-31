@@ -1,6 +1,7 @@
 package batch
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	_ "embed"
@@ -93,7 +94,16 @@ func (s *PostgresStore) Create(ctx context.Context, scope, key string, items []I
 				return e
 			}
 			if priorDigest != hex.EncodeToString(digest[:]) {
-				return ErrConflict
+				if ref.Count != len(items) {
+					return ErrConflict
+				}
+				same, err := sameAcceptedSubmission(ctx, tx, scope, ref.JobID, items)
+				if err != nil {
+					return err
+				}
+				if !same {
+					return ErrConflict
+				}
 			}
 			return nil
 		}
@@ -255,4 +265,68 @@ func (s *PostgresStore) Expire(ctx context.Context, j JobRef) error {
 		_, e = tx.Exec(ctx, `UPDATE batch_jobs SET last_progress=now(),waiting_reason='',next_attempt_at=NULL WHERE api_key_hash=$1 AND id=$2`, j.Scope, j.JobID)
 		return e
 	})
+}
+
+// A default is resolved once at acceptance. Resubmission under the same key
+// adopts that stored budget; an explicit different budget still conflicts.
+// Compare exact JSON numbers and semantic object order, because jsonb may
+// reorder nested schemas while serializing an accepted request.
+func sameAcceptedSubmission(ctx context.Context, tx pgx.Tx, scope, id string, items []Item) (bool, error) {
+	rows, err := tx.Query(ctx, `SELECT item_index,custom_id,request FROM batch_items WHERE api_key_hash=$1 AND job_id=$2 ORDER BY item_index`, scope, id)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	decode := func(raw []byte) (map[string]any, error) {
+		var object map[string]any
+		d := json.NewDecoder(bytes.NewReader(raw))
+		d.UseNumber()
+		err := d.Decode(&object)
+		return object, err
+	}
+	n := 0
+	for rows.Next() {
+		var index int
+		var custom string
+		var stored []byte
+		if err := rows.Scan(&index, &custom, &stored); err != nil {
+			return false, err
+		}
+		if n >= len(items) || index != n || custom != items[n].CustomID {
+			return false, nil
+		}
+		incoming, err := json.Marshal(items[n].Generation)
+		if err != nil {
+			return false, err
+		}
+		accepted, err := decode(stored)
+		if err != nil {
+			return false, err
+		}
+		requested, err := decode(incoming)
+		if err != nil {
+			return false, err
+		}
+		if items[n].Generation.TimeoutDefaulted {
+			requested["timeout_ms"] = accepted["timeout_ms"]
+		}
+		delete(accepted, "timeout_defaulted")
+		delete(requested, "timeout_defaulted")
+		a, err := json.Marshal(accepted)
+		if err != nil {
+			return false, err
+		}
+		b, err := json.Marshal(requested)
+		if err != nil {
+			return false, err
+		}
+		if !bytes.Equal(a, b) {
+			return false, nil
+		}
+		n++
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return n == len(items), nil
 }

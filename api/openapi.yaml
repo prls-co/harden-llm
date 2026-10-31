@@ -796,8 +796,8 @@ components:
             timeout_ms:
               type: integer
               minimum: 0
-              maximum: 180000
-              description: Zero or omission selects 180 seconds; queue waits are separate.
+              maximum: 900000
+              description: Zero or omission selects 300 seconds for new jobs; accepted snapshots retain their budget. Queue waits are separate.
             recovery:
               allOf:
               - $ref: '#/components/schemas/RecoveryPolicy'
@@ -988,6 +988,7 @@ components:
           - failed
           - rejected
           - policy
+          - unconfirmed
         error:
           $ref: '#/components/schemas/BatchItemError'
         artifactId:

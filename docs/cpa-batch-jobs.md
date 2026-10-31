@@ -186,8 +186,8 @@ harden-llm-gateway wait-job \
 The waiter emits status every five seconds and preserves the overall deadline.
 It publishes a new mode-0600 result file only after validating the download.
 It exits unsuccessfully for item errors. A job's default two-hour deadline is
-separate from the provider's default 180-second generation budget. An item may
-lower that budget through `harden.timeout_ms`; queue/cooldown waits do not use it.
+separate from the provider's default 300-second generation budget for new jobs. An item may
+select 1 through 900 seconds through `harden.timeout_ms`; queue/cooldown waits do not use it. Existing accepted snapshots keep their prior budget, including the legacy 180-second interpretation of old zero snapshots.
 
 ## 4. Diagnostics and CPA ownership
 

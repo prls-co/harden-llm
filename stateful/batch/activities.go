@@ -96,11 +96,12 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 		out.Error = &ItemError{Code: "job_deadline_exceeded", Message: "The job deadline expired."}
 		return out, nil
 	}
-	providerTimeout := 180 * time.Second
-	if item.Item.Generation.TimeoutMS > 0 {
-		providerTimeout = min(providerTimeout, time.Duration(item.Item.Generation.TimeoutMS)*time.Millisecond)
+	providerTimeout := generationBudget(item.Item.Generation)
+	if providerTimeout <= 0 {
+		out.Error = &ItemError{Code: "invalid_generation_budget", Message: "The stored generation budget is invalid."}
+		return out, nil
 	}
-	callCtx, cancel := context.WithTimeout(ctx, min(providerTimeout, time.Until(item.Deadline)))
+	callCtx, cancel := generationContext(ctx, item.Item.Generation, item.Deadline)
 	defer cancel()
 	progress := make(chan hardenllm.ProgressEvent, 8)
 	request := item.Item.Generation.Request()
@@ -156,7 +157,7 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 		out.CachedInputTokens = &u.CacheReadTokens
 	}
 	if err != nil {
-		out.Kind, out.Error, out.RetryAfterMS = classifyAttemptError(err)
+		out.Kind, out.Error, out.RetryAfterMS = classifyGenerationError(err, result)
 		return out, nil
 	}
 
@@ -195,6 +196,8 @@ func classifyAttemptError(err error) (kind string, problem *ItemError, delay int
 		switch {
 		case status == 401 || status == 403 || code == "account_deactivated" || code == "policy_violation" || code == "insufficient_quota" || code == "billing_hard_limit_reached" || code == "billing_not_active":
 			kind = "policy"
+		case code == "auth_unavailable" && p.RetryAfter <= 0:
+			kind = "policy"
 		case status == 429 || code == "rate_limit_exceeded" || code == "model_cooldown" || code == "auth_unavailable":
 			kind = "rejected"
 		}
@@ -218,4 +221,18 @@ func NewWorker(c client.Client, queue string, a *Activities) (worker.Worker, err
 	w.RegisterWorkflowWithOptions(DispatcherWorkflow, workflow.RegisterOptions{Name: DispatcherWorkflowName})
 	w.RegisterActivity(a)
 	return w, nil
+}
+
+func classifyGenerationError(err error, result hardenllm.Result) (string, *ItemError, int64) {
+	kind, problem, delay := classifyAttemptError(err)
+	partial := result.AssistantText != "" || result.Diagnostics.OutputBytes > 0 || result.Diagnostics.OutputCodePoints > 0
+	for _, attempt := range result.Attempts {
+		if attempt.Stream != nil && (attempt.Stream.OutputBytes > 0 || attempt.Stream.OutputCodePoints > 0) {
+			partial = true
+		}
+	}
+	if kind == "rejected" && partial {
+		kind = "unconfirmed"
+	}
+	return kind, problem, delay
 }

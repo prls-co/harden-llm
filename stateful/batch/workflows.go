@@ -92,6 +92,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 	active := 0
 	lastWork := workflow.Now(ctx)
 	nextHeartbeat := lastWork
+	longGenerationBudgets := workflow.GetVersion(ctx, "long-generation-budgets", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	coalesceHeartbeats := workflow.GetVersion(ctx, "coalesce-status-heartbeats", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	// Old V1 histories keep their recorded pacing; fresh runs replenish the
 	// configured burst at each new admission window without exceeding its budget.
@@ -245,7 +246,11 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 				nextHeartbeat = workflow.Now(ctx)
 			}
 			workflow.Go(ctx, func(child workflow.Context) {
-				callCtx := workflow.WithActivityOptions(child, workflow.ActivityOptions{StartToCloseTimeout: 210 * time.Second, HeartbeatTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}})
+				activityBudget := 210 * time.Second
+				if longGenerationBudgets {
+					activityBudget = MaximumGenerationBudget + 30*time.Second
+				}
+				callCtx := workflow.WithActivityOptions(child, workflow.ActivityOptions{StartToCloseTimeout: activityBudget, HeartbeatTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}})
 				var outcome Outcome
 				if err := workflow.ExecuteActivity(callCtx, a.Generate, r).Get(callCtx, &outcome); err != nil {
 					outcome = Outcome{Kind: "failed", Error: &ItemError{Code: "activity_failed", Message: "The provider activity failed; inspect correlated diagnostics."}}
