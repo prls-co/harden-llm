@@ -184,6 +184,8 @@ func (c *Controller) Complete(now, dispatched, reserved time.Time, probe bool, k
 			c.WindowStarts--
 		}
 		c.completeThrottle(now, dispatched, probe, delay)
+	case "terminal_throttle":
+		c.completeThrottle(now, dispatched, probe, delay)
 	case "failed", "unconfirmed":
 		// A retry hint controls future admission even when this inference's
 		// outcome cannot safely be replayed or its window credit refunded.
@@ -225,4 +227,15 @@ func retryDelay(ms int64) time.Duration {
 		return time.Duration(math.MaxInt64)
 	}
 	return time.Duration(max(0, ms)) * time.Millisecond
+}
+
+// CompleteOutcome keeps item replay eligibility separate from future admission.
+func (c *Controller) CompleteOutcome(now, dispatched, reserved time.Time, probe bool, out Outcome) {
+	kind := out.Kind
+	if out.Admission == "restricted" {
+		kind = "policy"
+	} else if out.Admission == "throttled" && kind != "rejected" {
+		kind = "terminal_throttle"
+	}
+	c.Complete(now, dispatched, reserved, probe, kind, retryDelay(out.RetryAfterMS))
 }

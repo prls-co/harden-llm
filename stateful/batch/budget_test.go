@@ -68,3 +68,46 @@ func TestGenerationContextSeparatesJobAndCallDeadlines(t *testing.T) {
 		t.Fatal("generation replaced an earlier parent deadline")
 	}
 }
+
+func TestTerminalThrottleCoolsWithoutRefundOrReplay(t *testing.T) {
+	t.Parallel()
+	at := time.Unix(1000, 0)
+	controller := NewController(DefaultPolicy())
+	controller.Start(at)
+	before := controller.WindowStarts
+	controller.CompleteOutcome(at, at, at, false, Outcome{Kind: "unconfirmed", Admission: "throttled"})
+	if !controller.Cooling || controller.WindowStarts != before || controller.Rate != 50 {
+		t.Fatal("terminal throttle reopened/refunded work", controller)
+	}
+	controller.CompleteOutcome(at, at, at, false, Outcome{Kind: "unconfirmed", Admission: "throttled"})
+	if controller.Rate != 50 {
+		t.Fatal("same cooling episode repeatedly halved pace")
+	}
+}
+
+func TestReservationPreservesAcceptedSnapshot(t *testing.T) {
+	t.Parallel()
+	deadline := time.Unix(1000, 0)
+	for _, tc := range []struct {
+		name       string
+		generation Generation
+		budget     int64
+		deadline   time.Time
+		want       bool
+	}{
+		{"explicit", Generation{TimeoutMS: 300000}, 300000, deadline, true},
+		{"shorter_job", Generation{TimeoutMS: 300000}, 300000, deadline.Add(-time.Second), true},
+		{"legacy_zero", Generation{}, 180000, deadline, true},
+		{"rewritten_budget", Generation{TimeoutMS: 300000}, 900000, deadline, false},
+		{"rewritten_legacy", Generation{}, 300000, deadline, false},
+		{"extended_job", Generation{TimeoutMS: 300000}, 300000, deadline.Add(time.Microsecond), false},
+		{"missing_deadline", Generation{TimeoutMS: 300000}, 300000, time.Time{}, false},
+		{"invalid_snapshot", Generation{TimeoutMS: -1}, 300000, deadline, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := reservationMatchesSnapshot(Reservation{BudgetMS: tc.budget, Deadline: tc.deadline}, tc.generation, deadline); got != tc.want {
+				t.Fatalf("snapshot check = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

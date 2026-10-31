@@ -76,7 +76,7 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 			if out.Kind == "policy" {
 				level = slog.LevelError
 			}
-			a.Logger.Log(ctx, level, "batch provider attempt completed", "job_id", r.JobID, "item", r.Index, "attempt", out.Attempt, "kind", out.Kind, "code", code, "http_status", status, "cpa_request_id", out.ProviderRequestID, "retry_after_ms", out.RetryAfterMS, "started_at", out.StartedAt, "finished_at", out.FinishedAt, "retry_wait_ms", out.RetryWaitMS, "queue_ms", out.QueueMS, "generation_ms", out.DurationMS, "headers_ms", out.HeadersMS, "first_output_ms", out.FirstOutputMS, "input_tokens", out.InputTokens, "output_tokens", out.OutputTokens, "reasoning_tokens", out.ReasoningTokens, "cpa_internal_attempts", out.CPAInternalAttempts)
+			a.Logger.Log(ctx, level, "batch provider attempt completed", "job_id", r.JobID, "item", r.Index, "attempt", out.Attempt, "kind", out.Kind, "code", code, "http_status", status, "cpa_request_id", out.ProviderRequestID, "retry_after_ms", out.RetryAfterMS, "started_at", out.StartedAt, "finished_at", out.FinishedAt, "retry_wait_ms", out.RetryWaitMS, "queue_ms", out.QueueMS, "generation_ms", out.DurationMS, "generation_budget_ms", out.GenerationBudgetMS, "generation_deadline_at", out.GenerationDeadline, "admission", out.Admission, "headers_ms", out.HeadersMS, "first_output_ms", out.FirstOutputMS, "input_tokens", out.InputTokens, "output_tokens", out.OutputTokens, "reasoning_tokens", out.ReasoningTokens, "cpa_internal_attempts", out.CPAInternalAttempts)
 		}
 	}()
 	item, err := a.Store.Begin(ctx, r)
@@ -103,6 +103,9 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 	}
 	callCtx, cancel := generationContext(ctx, item.Item.Generation, item.Deadline)
 	defer cancel()
+	out.GenerationBudgetMS = providerTimeout.Milliseconds()
+	deadline, _ := callCtx.Deadline()
+	out.GenerationDeadline = &deadline
 	progress := make(chan hardenllm.ProgressEvent, 8)
 	request := item.Item.Generation.Request()
 	request.Origin = hardenllm.Origin{Client: "harden-llm-batch", JobID: r.JobID}
@@ -158,6 +161,12 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 	}
 	if err != nil {
 		out.Kind, out.Error, out.RetryAfterMS = classifyGenerationError(err, result)
+		base, _, _ := classifyAttemptError(err)
+		if base == "rejected" {
+			out.Admission = "throttled"
+		} else if base == "policy" {
+			out.Admission = "restricted"
+		}
 		return out, nil
 	}
 

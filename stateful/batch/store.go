@@ -48,6 +48,9 @@ func ApplySchema(ctx context.Context, p *pgxpool.Pool) error {
 			return err
 		}
 	}
+	if err := applyLedgerSchema(ctx, tx); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 func (s *PostgresStore) transaction(ctx context.Context, fn func(context.Context, pgx.Tx) error) error {

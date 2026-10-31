@@ -161,7 +161,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 			}
 		}
 		wasCooling, wasPaused, wasEligible := s.Controller.Cooling, s.Controller.Paused, s.Controller.NextEligible
-		s.Controller.Complete(workflow.Now(ctx), done.DispatchedAt, done.ReservedAt, done.Probe, done.Outcome.Kind, retryDelay(done.Outcome.RetryAfterMS))
+		s.Controller.CompleteOutcome(workflow.Now(ctx), done.DispatchedAt, done.ReservedAt, done.Probe, done.Outcome)
 		if !coalesceHeartbeats || wasCooling != s.Controller.Cooling || wasPaused != s.Controller.Paused || !wasEligible.Equal(s.Controller.NextEligible) {
 			nextHeartbeat = workflow.Now(ctx)
 		}

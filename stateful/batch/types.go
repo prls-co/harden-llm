@@ -98,6 +98,9 @@ type ItemError struct {
 }
 type Outcome struct {
 	Kind                string     `json:"kind"`
+	Admission           string     `json:"admission,omitempty"`
+	GenerationBudgetMS  int64      `json:"generationBudgetMs,omitempty"`
+	GenerationDeadline  *time.Time `json:"generationDeadlineAt,omitempty"`
 	Error               *ItemError `json:"error,omitempty"`
 	RetryAfterMS        int64      `json:"retryAfterMs,omitempty"`
 	ArtifactID          string     `json:"artifactId,omitempty"`

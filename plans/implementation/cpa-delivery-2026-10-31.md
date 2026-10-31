@@ -189,3 +189,35 @@ The implementation has no remaining known runtime defect from the recorded
 status acceptance cases; final checklist reconciliation/publication and separate
 rollout identity remain explicit. Issue #134's ledger/workflow/admission work is
 not covered or completed by these results.
+
+## 10. Shared-admission ledger checkpoint
+
+The separate `feat/cpa-shared-admission-v2` branch integrates status at `0ef61e3`
+and the retained V1 batch baseline without changing the original dirty checkout.
+P1 adds separate outcome/admission diagnostics: a partial-output throttle remains
+terminal/unconfirmed while cooling future work without refunding its start.
+Generation budget and actual deadline are optional diagnostic fields in OpenAPI.
+
+P2 now has additive PostgreSQL pool generations, immutable reservations, fresh
+invocation claims, staged observations, idempotent settlement and local-stop
+revision fencing. Unknown claim COMMIT requires positive exact-owner readback;
+metadata uncertainty cannot authorize another invocation. Safe automatic expiry
+only settles an unclaimed reservation. Ordinary reservations hold metadata only.
+
+- `tmp/cpa-ledger-concurrent-reserve-red.json` caught a same-permit reservation
+  race; the item-lock readback now acknowledges that same reservation.
+- `tmp/cpa-ledger-budget-fence-red.json` caught a reservation rewriting an accepted
+  300-second generation budget. The real manifest is now checked under the item
+  lock; a reservation cannot change that budget or extend the accepted job deadline.
+  TEST-496 includes the cheap pure regression for this invariant.
+- `tmp/cpa-ledger-adoption-final-race.json`: accepted real PostgreSQL/race tests,
+  including fresh schema, repeated legacy adoption, immutable request/sentinel
+  preservation, unknown claim/settlement COMMIT, incompatible index rejection,
+  concurrent claims and reservations, claimed-expiry protection, and generation
+  handoff blocked until positive local stop. Cleanup errors/warnings were empty.
+- `tmp/cpa-ledger-owner-race.log`: batch/API owner packages passed with race detection.
+- The broad `make test-fast` is still running as session 86082; its result is
+  recorded separately, not inferred from focused acceptance.
+
+The ledger is not yet connected to independent provider workflows or the shared
+ordinary-request adapter. P3-P6 remain open. There is no deployment/provider call.

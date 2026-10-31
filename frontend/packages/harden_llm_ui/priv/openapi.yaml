@@ -948,6 +948,9 @@ components:
       - durationMs
       - cpaInternalAttempts
       properties:
+        admission: {type: string, enum: [throttled, restricted]}
+        generationBudgetMs: {type: integer, minimum: 1, maximum: 900000}
+        generationDeadlineAt: {type: string, format: date-time}
         retryWaitMs: {type: integer, minimum: 0}
         startedAt: {type: string, format: date-time}
         finishedAt: {type: string, format: date-time}

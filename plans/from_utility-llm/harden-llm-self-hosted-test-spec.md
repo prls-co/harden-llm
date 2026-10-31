@@ -2232,3 +2232,11 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/batch/budget_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-integration`.
 - Oracle: Real PostgreSQL retains accepted timeout snapshots and job identity across a new default; explicit different budgets or changed custom IDs conflict. JSONB key reordering cannot invalidate an otherwise unchanged accepted schema, and comparison never rounds JSON numbers through floating point.
+
+### TEST-498: CPA invocation claims and settlement ledger
+
+- Type / verifies: integration; issue #134 phase P2.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/ledger_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Real PostgreSQL enforces one invocation owner, same-permit reservation acknowledgement under a forced race, exact-owner unknown COMMIT readback, immutable and repeat-safe settlement, safe never-claimed expiry, local-stop generation fencing, additive schema/index compatibility and ordinary metadata without request manifests. Metadata failures cannot create replacement inference permission.
