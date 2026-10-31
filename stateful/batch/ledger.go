@@ -49,10 +49,18 @@ type Attempt struct {
 	ClaimID            string
 	ClaimedAt          *time.Time
 	DispatchedAt       *time.Time
+	GenerationDeadline *time.Time
 	StoppedAt          *time.Time
 	SettlementRevision int64
 	Observation        *AttemptObservation
 	Counts             Counts
+}
+
+func (a Attempt) executionDeadline() time.Time {
+	if a.GenerationDeadline != nil {
+		return *a.GenerationDeadline
+	}
+	return a.Deadline
 }
 
 // ExecutionStore is the additive claim ledger. Only a workflow-owned reservation

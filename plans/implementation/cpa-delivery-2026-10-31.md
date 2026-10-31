@@ -221,3 +221,69 @@ only settles an unclaimed reservation. Ordinary reservations hold metadata only.
 
 The ledger is not yet connected to independent provider workflows or the shared
 ordinary-request adapter. P3-P6 remain open. There is no deployment/provider call.
+
+## 11. Independent attempt lifecycle checkpoint
+
+P2 source `f6987867a68c992e509392ef26c19e6fb982d71f` is pushed in draft PR #141,
+stacked on status PR #140. Its broad fast gate completed successfully in
+`tmp/cpa-ledger-fast.log` (all ten tasks, clean cleanup).
+
+P3 now has independent-attempt workflow/activity code, a metadata-only starter,
+and identity-bound artifact recovery. The provider activity uses a fresh claim
+per invocation, one native core attempt, no repair/rerun/cache, and a generation
+deadline resolved once at claim. Provider activity failure or redelivery only
+enters ledger/artifact readback. Known observations survive metadata retries;
+unknown execution never becomes a replacement inference. Completion notification
+uses the stable pool ID with no Run ID and only permit/revision references.
+
+Starter batches contain at most 16 intents, use one 15-second total budget, and
+issue starts concurrently with stable IDs and completed-ID reuse rejected. The
+starter does not execute inference. Uncertain start acknowledgement remains an
+unresolved intent rather than releasing/replacing its reservation.
+
+Artifact envelopes bind pool/permit/claim/scoped item identity and validated
+completion timing. Response bodies remain in the artifact, outside Temporal
+activity returns. The result reader verifies the authoritative ledger and emits
+the original response body; legacy plain V1 result artifacts remain supported.
+Worker loss without local-stop proof settles unconfirmed and blocks generation
+handoff. Later stop evidence advances the ledger revision without changing the
+terminal result. Finalization shares one bounded allowance across storage/cleanup.
+
+Recorded failures before fixes:
+
+- `tmp/cpa-independent-invocation-red.log`, `tmp/cpa-independent-workflow-red.log`
+  and `tmp/cpa-independent-starter-red.log`: executable invocation/workflow/start
+  contract assertions failed before implementation; no compile/setup substitute.
+- `tmp/cpa-independent-result-envelope-red.json`: real SQL/local HTTP recovery
+  succeeded, but result delivery exposed the internal envelope; the reader was
+  corrected while preserving the response oracle.
+- `tmp/cpa-claim-generation-deadline-red.json`: a claim did not persist its own
+  generation deadline. Claim now resolves the accepted budget once; dispatch
+  cannot reset it. Reservation/job deadlines remain distinct.
+- `tmp/cpa-independent-dispatch-cleanup-red.log`: a failed dispatch acknowledgement
+  discarded the retained claim's deadline, preventing bounded positive never-sent
+  cleanup. The original claim is now retained on that error.
+- `tmp/cpa-independent-metadata-bound-red.log`: oversized/control-bearing upstream
+  correlation metadata violated the bounded observation contract; it is omitted.
+
+Acceptance after fixes:
+
+- `tmp/cpa-independent-final-fast.log`: all ten fast tasks accepted, clean cleanup.
+- `tmp/cpa-independent-final-owner-race.log`: batch/API owner race tests passed.
+- `tmp/cpa-independent-full-integration-race.log`: canonical real-service
+  integration/race gate accepted, with no cleanup errors/warnings.
+- `tmp/cpa-independent-final-sql-race.json`: final focused real SQL/local HTTP/race
+  acceptance, including lost activity result, dropped observation acknowledgement,
+  one actual provider HTTP request, unconfirmed/local-stop fencing and unchanged
+  result projection; clean cleanup.
+- Canonical ownership policy and whitespace checks pass. TEST-499 owns cheap
+  invocation cases; TEST-500 workflow recovery; TEST-501 starter/notice behavior;
+  TEST-502 the distinct SQL/HTTP recovery boundary.
+
+This is not P3 completion: these lifecycles are not yet selected by the running
+V1 pool/worker path. Fair paged selection, pool continuation with outstanding
+attempts, first-claim window anchoring, provider/control worker queues, bounded
+mailbox polling, generation adoption, the ordinary adapter, and real-stack
+rollover/fault/scale/environment acceptance remain open. New invocation artifact
+fault cases use an owned artifact double; real Garage/Temporal fault acceptance
+remains a separate P4 gate. No provider inference/deployment/browser was run.

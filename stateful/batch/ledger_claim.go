@@ -39,7 +39,8 @@ func (s *PostgresStore) claimAttempt(ctx context.Context, id, nonce string, opts
 		if !now.Before(a.StartBy) || !now.Before(a.Deadline) {
 			return ErrClaimOwned
 		}
-		if _, err := tx.Exec(ctx, `UPDATE batch_attempts SET state='dispatching',claim_id=$2,claimed_at=$3 WHERE permit_id=$1 AND state='reserved'`, id, nonce, now); err != nil {
+		deadline := minTime(a.Deadline, now.Add(time.Duration(a.BudgetMS)*time.Millisecond))
+		if _, err := tx.Exec(ctx, `UPDATE batch_attempts SET state='dispatching',claim_id=$2,claimed_at=$3,generation_deadline=$4 WHERE permit_id=$1 AND state='reserved'`, id, nonce, now, deadline); err != nil {
 			return err
 		}
 		changed = true
@@ -85,7 +86,7 @@ func (s *PostgresStore) MarkDispatch(ctx context.Context, id, nonce string) (Att
 			return err
 		}
 		now := time.Now().UTC()
-		if !now.Before(a.StartBy) || !now.Before(a.Deadline) {
+		if !now.Before(a.StartBy) || !now.Before(a.executionDeadline()) {
 			return ErrClaimOwned
 		}
 		if a.Kind == "job" {
@@ -190,7 +191,7 @@ func (s *PostgresStore) settleAttempt(ctx context.Context, id, nonce string, o A
 		if o.NativeEntered && a.DispatchedAt == nil {
 			return ErrSettlementConflict
 		}
-		if o.Outcome.Kind == "completed" && (o.Outcome.FinishedAt == nil || o.Outcome.FinishedAt.After(a.Deadline)) {
+		if o.Outcome.Kind == "completed" && (o.Outcome.FinishedAt == nil || o.Outcome.FinishedAt.After(a.executionDeadline())) {
 			return ErrSettlementConflict
 		}
 		if err := applyAttemptItem(ctx, tx, &a, o); err != nil {

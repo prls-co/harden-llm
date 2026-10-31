@@ -429,3 +429,28 @@ func TestAttemptLedgerAdoptsLegacySchemaWithoutChangingAcceptedData(t *testing.T
 		t.Fatal("legacy zero snapshot cannot enter ledger", err)
 	}
 }
+
+func TestAttemptClaimResolvesGenerationDeadlineWithoutResetOnDispatch(t *testing.T) {
+	t.Parallel()
+	s, ref := ledgerFixture(t)
+	p := permitFixture(ref, 1)
+	p.Deadline = time.Now().Add(10 * time.Minute)
+	ctx := context.Background()
+	if _, err := s.ReserveAttempt(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	before := time.Now()
+	nonce := uuid.NewString()
+	claimed, err := s.ClaimAttempt(ctx, p.PermitID, nonce)
+	after := time.Now()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed.GenerationDeadline == nil || claimed.GenerationDeadline.Before(before.Add(300*time.Second).Add(-time.Microsecond)) || claimed.GenerationDeadline.After(after.Add(300*time.Second)) {
+		t.Fatal("claim did not resolve its accepted generation budget", claimed.GenerationDeadline)
+	}
+	dispatched, err := s.MarkDispatch(ctx, p.PermitID, nonce)
+	if err != nil || dispatched.GenerationDeadline == nil || !dispatched.GenerationDeadline.Equal(*claimed.GenerationDeadline) {
+		t.Fatal("dispatch reset generation deadline", err)
+	}
+}

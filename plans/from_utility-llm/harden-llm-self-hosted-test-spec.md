@@ -2240,3 +2240,35 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/batch/ledger_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-integration`.
 - Oracle: Real PostgreSQL enforces one invocation owner, same-permit reservation acknowledgement under a forced race, exact-owner unknown COMMIT readback, immutable and repeat-safe settlement, safe never-claimed expiry, local-stop generation fencing, additive schema/index compatibility and ordinary metadata without request manifests. Metadata failures cannot create replacement inference permission.
+
+### TEST-499: Independent CPA invocation and artifact evidence
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/attempt_execution_test.go`.
+- Command: `go test ./stateful/batch -run '^TestInvocation' -count=1`.
+- Oracle: Fresh invocation claims permit one provider execution; claim losers and uncertain claims cannot execute. Durable execution disables retry/repair/rerun/cache. Lost artifact acknowledgement requires positive identity-bound readback; metadata return contains no response body. Panic never invents transport stop or retains panic contents.
+
+### TEST-500: Independent CPA workflow metadata-only recovery
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/attempt_workflow_test.go`.
+- Command: `go test ./stateful/batch -run '^TestIndependentAttempt' -count=1`.
+- Oracle: Settlement metadata retries preserve the same owner/observation; failed provider activity acknowledgement and claim redelivery only reconcile retained evidence. Exactly one provider activity is scheduled, with no workflow inference retry. Settlement notices identify the stable pool and authoritative ledger revision.
+
+### TEST-501: Bounded idempotent CPA attempt starter
+
+- Type / verifies: unit; issue #134 phases P2/P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/attempt_starter_test.go`.
+- Command: `go test ./stateful/batch -run '^TestAttemptStarter|^TestAttemptSettlementNotice' -count=1`.
+- Oracle: At most 16 metadata starts share one 15-second budget and run concurrently; no provider execution occurs. Every retry preserves the permit/workflow identity with completed-ID reuse rejected. Workflow-already-exists acknowledges the same lifecycle; unknown start acknowledgement retains an unresolved intent. Settlement notifications use the stable pool workflow ID without a Run ID and contain only permit/revision references.
+
+### TEST-502: Independent CPA SQL claim and lost-result recovery
+
+- Type / verifies: integration; issue #134 phase P3.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/attempt_execution_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Real SQL plus local HTTP recovers a bound stored result after losing the provider return and observation acknowledgement. Redelivery cannot execute; exactly one HTTP request and one succeeded item survive. The result endpoint returns the original response, never the internal artifact envelope, after verifying the authoritative ledger owner and scoped item identity.

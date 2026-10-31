@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS batch_attempts (
  local_stopped_at timestamptz,
  settlement_revision bigint NOT NULL DEFAULT 0 CHECK(settlement_revision>=0),
  observation jsonb CHECK(jsonb_typeof(observation)='object' AND octet_length(observation::text)<=65536),
+ generation_deadline timestamptz,
  UNIQUE(pool_id,sequence),
  UNIQUE(api_key_hash,job_id,item_index,ordinal),
  FOREIGN KEY(api_key_hash,job_id,item_index) REFERENCES batch_items(api_key_hash,job_id,item_index),
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS batch_attempts (
  CHECK(state<>'reserved' OR claim_id IS NULL),
  CHECK(state<>'settled' OR (settlement_revision>0 AND observation IS NOT NULL))
 );
+ALTER TABLE batch_attempts ADD COLUMN IF NOT EXISTS generation_deadline timestamptz;
 CREATE UNIQUE INDEX IF NOT EXISTS batch_attempts_unsettled_item ON batch_attempts(api_key_hash,job_id,item_index) WHERE kind='job' AND state<>'settled';
 CREATE UNIQUE INDEX IF NOT EXISTS batch_attempts_ordinary_request ON batch_attempts(pool_id,api_key_hash,request_id) WHERE kind='ordinary';
 CREATE INDEX IF NOT EXISTS batch_attempts_pool_unsettled ON batch_attempts(pool_id,state,permit_id);

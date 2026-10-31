@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
@@ -255,6 +256,12 @@ func (s *Service) WriteResults(ctx context.Context, scope, id string, w io.Write
 			}
 			if len(raw) > 16<<20 || !json.Valid(raw) {
 				return errors.New("batch: invalid result artifact")
+			}
+			if strings.HasPrefix(v.Outcome.ArtifactID, "attempt-") {
+				raw, err = s.attemptResponse(ctx, raw, Ref{Scope: scope, JobID: id, Index: i}, v.Outcome)
+				if err != nil {
+					return err
+				}
 			}
 			r.Response = raw
 		}

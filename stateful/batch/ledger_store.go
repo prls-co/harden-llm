@@ -17,7 +17,7 @@ import (
 //go:embed ledger_schema.sql
 var ledgerSchema string
 
-const attemptColumns = `permit_id::text,pool_id,generation,sequence,api_key_hash,kind,job_id::text,item_index,request_id::text,workflow_id,granted_at,start_by,execution_deadline,budget_ms,admission_epoch,policy_revision,probe,ordinal,state,claim_id::text,claimed_at,dispatch_at,local_stopped_at,settlement_revision,observation`
+const attemptColumns = `permit_id::text,pool_id,generation,sequence,api_key_hash,kind,job_id::text,item_index,request_id::text,workflow_id,granted_at,start_by,execution_deadline,budget_ms,admission_epoch,policy_revision,probe,ordinal,state,claim_id::text,claimed_at,dispatch_at,local_stopped_at,settlement_revision,observation,generation_deadline`
 
 func applyLedgerSchema(ctx context.Context, tx pgx.Tx) error {
 	if _, err := tx.Exec(ctx, ledgerSchema); err != nil {
@@ -245,7 +245,7 @@ func scanAttempt(row pgx.Row) (Attempt, error) {
 	var job, request, claim *string
 	var index *int
 	var raw []byte
-	err := row.Scan(&a.PermitID, &a.PoolID, &a.Generation, &a.Sequence, &a.Ref.Scope, &a.Kind, &job, &index, &request, &a.WorkflowID, &a.GrantedAt, &a.StartBy, &a.Deadline, &a.BudgetMS, &a.Epoch, &a.PolicyRevision, &a.Probe, &a.Ordinal, &a.State, &claim, &a.ClaimedAt, &a.DispatchedAt, &a.StoppedAt, &a.SettlementRevision, &raw)
+	err := row.Scan(&a.PermitID, &a.PoolID, &a.Generation, &a.Sequence, &a.Ref.Scope, &a.Kind, &job, &index, &request, &a.WorkflowID, &a.GrantedAt, &a.StartBy, &a.Deadline, &a.BudgetMS, &a.Epoch, &a.PolicyRevision, &a.Probe, &a.Ordinal, &a.State, &claim, &a.ClaimedAt, &a.DispatchedAt, &a.StoppedAt, &a.SettlementRevision, &raw, &a.GenerationDeadline)
 	if err != nil {
 		return a, err
 	}
