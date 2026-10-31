@@ -781,3 +781,12 @@ Remaining full-scope work includes lifecycle/timing fault
 acceptance, optional deterministic recovery jitter, selected-environment rollout
 and explicitly selected bounded CPA acceptance. No production promotion, browser
 or real CPA inference occurred in this checkpoint.
+
+
+Implementation checkpoint `1d25697bee38b96fb16216ed4d77af0ee77eadec` is pushed to
+`feat/cpa-shared-admission-v2` in draft PR #141. The source-file digests in the
+redacted receipt identify that implementation. The small summary is explicitly
+tracked despite the repository's general raw-evidence ignore rule; raw logs and
+native payloads remain uncommitted. Local/tracking/remote refs were verified.
+Hosted checks for this new checkpoint are separate and must be inspected before
+claiming exact-head CI acceptance. The full #134 goal stays active.
