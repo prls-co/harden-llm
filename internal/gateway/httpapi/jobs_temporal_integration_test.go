@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -34,6 +35,7 @@ import (
 	"github.com/prls-co/harden-llm/stateful/batch"
 	"go.temporal.io/api/enums/v1"
 	historypb "go.temporal.io/api/history/v1"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
@@ -41,7 +43,7 @@ import (
 )
 
 type temporalBatchFixture struct {
-	nativeStreamExpectations sync.Map
+	nativeStreamExpectations *sync.Map
 	clientOptions            stateful.ClientOptions
 	server                   *httptest.Server
 	key, scope               string
@@ -62,7 +64,7 @@ func newTemporalBatchFixtureWithGate(t *testing.T, throttle bool, gate func(cont
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	t.Cleanup(cancel)
-	f := &temporalBatchFixture{key: "batch-test-" + uuid.NewString(), queue: "batch-" + uuid.NewString(), ctx: ctx}
+	f := &temporalBatchFixture{key: "batch-test-" + uuid.NewString(), queue: "batch-" + uuid.NewString(), ctx: ctx, nativeStreamExpectations: &sync.Map{}}
 	sum := sha256.Sum256([]byte(f.key))
 	f.scope = hex.EncodeToString(sum[:])
 	_, dsn := integrationtest.PostgresLease(t)
@@ -646,7 +648,7 @@ func enableFixtureOrdinaryAdmission(t *testing.T, f *temporalBatchFixture) {
 	if err := stateful.ApplySchema(f.ctx, store.Pool); err != nil {
 		t.Fatal(err)
 	}
-	service, err := stateful.NewService(stateful.Config{Client: f.clientOptions, Pool: store.Pool, Admission: &stateful.CPAAdmission{Store: store, Signals: batch.TemporalRequestSignals{Client: f.temporal}, PoolID: f.activities.PoolID, Endpoint: f.clientOptions.Connections[0].BaseURL}})
+	service, err := stateful.NewService(stateful.Config{Client: f.clientOptions, Pool: store.Pool, Admission: &stateful.CPAAdmission{Store: store, Signals: batch.TemporalRequestSignals{Client: f.temporal}, PoolID: f.activities.PoolID, Endpoint: f.clientOptions.Connections[0].BaseURL, Logger: mixedFixtureLogger(t)}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -912,4 +914,91 @@ func TestTemporalBatchOrdinaryRefusalSharesCooldownAndRetryOwnership(t *testing.
 	if attempts != 2 || executions != 1 || minOrdinal != 1 || maxOrdinal != 2 || f.calls.Load() != 3 || f.peak.Load() > 2 {
 		t.Fatal("shared retry reset identity or duplicated inference", attempts, executions, minOrdinal, maxOrdinal, f.calls.Load(), f.peak.Load())
 	}
+}
+
+// Mixed qualification helpers stay in this approved Temporal composition file.
+func newMixedFixtureReplica(t *testing.T, f *temporalBatchFixture) *temporalBatchFixture {
+	t.Helper()
+	original := f.activities.Store.(*batch.PostgresStore)
+	pool, err := pgxpool.New(f.ctx, original.Pool.Config().ConnString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	store := &batch.PostgresStore{Pool: pool}
+	service, err := stateful.NewService(stateful.Config{Client: f.clientOptions, Pool: pool, Admission: &stateful.CPAAdmission{Store: store, Signals: batch.TemporalRequestSignals{Client: f.temporal}, PoolID: f.activities.PoolID, Endpoint: f.clientOptions.Connections[0].BaseURL, Logger: mixedFixtureLogger(t)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobs := *f.jobs
+	jobs.Store = store
+	api, err := New(Config{APIKeys: []string{f.key, strings.Repeat("other-synthetic-key-", 3)}, Service: service, Jobs: &jobs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(api.Handler())
+	t.Cleanup(server.Close)
+	return &temporalBatchFixture{server: server, key: f.key, scope: f.scope, jobs: &jobs, ctx: f.ctx, nativeStreamExpectations: f.nativeStreamExpectations}
+}
+func mixedPoolRunID(f *temporalBatchFixture) (string, error) {
+	info, err := f.temporal.DescribeWorkflowExecution(f.ctx, "hllm-cpa-pool-v1/"+f.activities.PoolID, "")
+	if err != nil {
+		return "", err
+	}
+	return info.WorkflowExecutionInfo.Execution.RunId, nil
+}
+func mixedContinuePool(f *temporalBatchFixture) error {
+	return f.temporal.SignalWorkflow(f.ctx, "hllm-cpa-pool-v1/"+f.activities.PoolID, "", "continue", true)
+}
+func mixedWaitPoolIdle(ctx context.Context, f *temporalBatchFixture) (batch.PoolState, error) {
+	bounded, stop := context.WithTimeout(ctx, 20*time.Second)
+	defer stop()
+	timer := time.NewTicker(100 * time.Millisecond)
+	defer timer.Stop()
+	for {
+		value, err := f.temporal.QueryWorkflow(bounded, "hllm-cpa-pool-v1/"+f.activities.PoolID, "", "state")
+		if err == nil {
+			var state batch.PoolState
+			if err := value.Get(&state); err != nil {
+				return state, err
+			}
+			if len(state.Outstanding) == 0 && len(state.StartIntents) == 0 && len(state.RequestRetirements) == 0 {
+				return state, nil
+			}
+		}
+		select {
+		case <-bounded.Done():
+			return batch.PoolState{}, bounded.Err()
+		case <-timer.C:
+		}
+	}
+}
+func mixedWorkflowCounts(ctx context.Context, f *temporalBatchFixture) (map[string]int64, error) {
+	counts := map[string]int64{}
+	for _, name := range []string{batch.AttemptWorkflowName, batch.BatchWorkflowName, batch.PoolWorkflowName} {
+		response, err := f.temporal.CountWorkflow(ctx, &workflowservice.CountWorkflowExecutionsRequest{Query: "WorkflowType = '" + name + "'"})
+		if err != nil {
+			return nil, err
+		}
+		counts[name] = response.Count
+	}
+	return counts, nil
+}
+
+func mixedFixtureLogger(t *testing.T) *slog.Logger {
+	t.Helper()
+	path := filepath.Join("..", "..", "..", "tmp", fmt.Sprintf("cpa-metadata-%d.jsonl", os.Getpid()))
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := file.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	return slog.New(slog.NewJSONHandler(file, nil))
 }

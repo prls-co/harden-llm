@@ -2279,7 +2279,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Coverage gate: `integration`.
 - Location: `stateful/batch/queue_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-integration`.
-- Oracle: Real SQL rotates key scopes first and each scope's jobs second, with FIFO items. More jobs cannot buy a key more global turns. Cursor ownership survives another activity/store instance, selection returns no input payload and mints no permit, and expired/active/unpersisted-intent items cannot be selected. Stale generations and oversized pages reject.
+- Oracle: Real SQL rotates key scopes first and each scope's jobs second, with FIFO items. More jobs cannot buy a key more global turns. Cursor ownership survives another activity/store instance, selection returns no input payload and mints no permit, and expired/active/unpersisted-intent items cannot be selected. Stale generations and oversized pages reject. A 1,000-live-waiter page fits the unchanged metadata transaction deadline. A separate iterative oracle checks uneven owner rotation. Additive/repeated FIFO index migration preserves accepted items and rejects a weaker same-named index.
 
 ### TEST-504: CPA pool state, admission epochs and bounded continuation
 
@@ -2408,3 +2408,19 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
 - Oracle: Real Temporal/PostgreSQL/Garage and native HTTP share one cap across a held durable call and two authenticated ordinary scopes. Waiting lookup respects key isolation and actual pool capacity. A queued timeout cannot later infer. Both ordinary OpenAI endpoints preserve completed JSON/SSE behavior. Warm cache bypasses permits; ordinary execution creates no batch manifest or reference history. Actual native request counts/overlap, immutable metadata settlement and the existing durable result boundary remain checked. This is a bounded compatibility case, not 1,000/10,000-call or live CPA throughput acceptance.
+
+### TEST-520: Mixed V2 load identity, shared admission and resource qualification
+
+- Type / verifies: explicit integration/endurance; issue #134 phase P5.
+- Coverage gate: `temporal-endurance`.
+- Location: `internal/gateway/httpapi/jobs_mixed_endurance_integration_test.go`; SDK helpers stay in the approved `jobs_temporal_integration_test.go` boundary.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-endurance`; individual profiles can be selected through the runner's focused manifest.
+- Serial resource: process-wide Go heap/goroutine counters and the shared measurement host. The canonical endurance task enforces `-parallel=1`; the measured clients and provider dispatches remain concurrent.
+- Oracle: Two separately composed API instances/database pools and two bearer scopes share one V2 account pool at cap 128. The local 5 ms provider has no external quota; no real credentials/provider are used. The 1,000 profile mixes 800 durable and 200 concurrent ordinary tasks; the 10,000 profile mixes 9,000 durable and 1,000 concurrent ordinary tasks. Every custom ID/result and actual native HTTP start is counted once; original ordinary deadlines remain. Cross-key result isolation, empty outstanding/start/retirement state, correct ledger ownership/artifact boundaries and continuation are required. Progress logs and retained timing/heap/goroutine/database/workflow reports support resource and overhead qualification, not live CPA throughput claims.
+
+### TEST-521: Metadata backpressure and one dispatch-readiness episode
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `stateful/cpa_admission_test.go`, `stateful/admission_metadata_test.go`, `stateful/admission_signals_test.go`, `stateful/batch/pool_state_test.go`.
+- Command: `go test -race ./stateful ./stateful/batch -run '^TestCPAAdmissionBoundsMetadata|^TestPoolCoalescesOneUnavailable' -count=1`.
+- Oracle: Twelve concurrent live calls use at most two enqueue/poll operations and two existing-permit operations per API instance, while all twelve native dispatches can overlap and still execute once. Caller deadlines/cancellation remain authoritative; the metadata bound never spans native I/O. Overlapping/recent successful wake hints coalesce without dropping settlement notices; canceled callers and failed acknowledgements remain distinct. A single unclaimed expiry wave creates one two-second readiness floor rather than compounding to thirty seconds; the workflow version gate retains historical behavior for old histories.

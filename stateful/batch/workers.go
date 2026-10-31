@@ -113,8 +113,11 @@ func newWorkers(c client.Client, queue string, a *Activities, create workerFacto
 		a.Temporal = c
 	}
 	combined := &pairedWorker{stopped: make(chan struct{}), failure: make(chan error, 1)}
-	control := create(c, queue, worker.Options{MaxConcurrentActivityExecutionSize: a.Policy.Concurrency + 16, WorkerStopTimeout: 45 * time.Second, DisableRegistrationAliasing: true, OnFatalError: combined.fail})
-	provider := create(c, queue+"/provider", worker.Options{MaxConcurrentActivityExecutionSize: a.Policy.Concurrency, WorkerStopTimeout: 45 * time.Second, DisableRegistrationAliasing: true, DisableWorkflowWorker: true, OnFatalError: combined.fail})
+	// Poll capacity feeds metadata/workflow execution; it does not grant native
+	// capacity. Bound both queues' pollers independently of their execution slots.
+	pollers := min(8, max(2, (a.Policy.Concurrency+15)/16))
+	control := create(c, queue, worker.Options{MaxConcurrentWorkflowTaskPollers: pollers, MaxConcurrentActivityTaskPollers: pollers, MaxConcurrentActivityExecutionSize: a.Policy.Concurrency + 16, WorkerStopTimeout: 45 * time.Second, DisableRegistrationAliasing: true, OnFatalError: combined.fail})
+	provider := create(c, queue+"/provider", worker.Options{MaxConcurrentActivityTaskPollers: pollers, MaxConcurrentActivityExecutionSize: a.Policy.Concurrency, WorkerStopTimeout: 45 * time.Second, DisableRegistrationAliasing: true, DisableWorkflowWorker: true, OnFatalError: combined.fail})
 	for _, entry := range []struct {
 		name string
 		fn   interface{}

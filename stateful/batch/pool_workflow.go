@@ -120,6 +120,9 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 	}
 	var a *Activities
 	publishStatus := workflow.GetVersion(ctx, "pool-status-publication", workflow.DefaultVersion, 1) != workflow.DefaultVersion
+	if workflow.GetVersion(ctx, "coalesced-dispatch-backpressure", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+		state.CoalesceDispatchFailures = true
+	}
 	identity := PoolIdentity{PoolID: state.PoolID, Generation: state.Generation}
 	initCtx := workflow.WithActivityOptions(ctx, attemptMetadataOptions())
 	metaCtx := workflow.WithActivityOptions(ctx, poolMetadataOptions(5*time.Second))

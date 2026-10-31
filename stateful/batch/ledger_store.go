@@ -46,6 +46,9 @@ func applyLedgerSchema(ctx context.Context, tx pgx.Tx) error {
 			return errors.New("batch: incompatible execution ledger schema; operator action required")
 		}
 	}
+	if _, err := tx.Exec(ctx, `CREATE TEMP TABLE expected_batch_items(api_key_hash text,job_id uuid,queued_at timestamptz,item_index integer,state text,current_permit uuid) ON COMMIT DROP`); err != nil {
+		return err
+	}
 	for _, index := range []struct {
 		table, name, keys, predicate string
 		unique                       bool
@@ -55,6 +58,7 @@ func applyLedgerSchema(ctx context.Context, tx pgx.Tx) error {
 		{"batch_attempts", "batch_attempts_pool_unsettled", "pool_id,state,permit_id", "", false},
 		{"batch_request_waiters", "batch_request_waiters_ready", "pool_id,api_key_hash,enqueue_sequence", "closed_at IS NULL AND current_permit IS NULL", false},
 		{"batch_request_waiters", "batch_request_waiters_retention", "pool_id,retention_until,request_id", "", false},
+		{"batch_items", "batch_items_available_fifo", "api_key_hash,job_id,queued_at,item_index", "state IN ('queued','waiting') AND current_permit IS NULL", false},
 	} {
 		unique := ""
 		if index.unique {

@@ -651,3 +651,133 @@ jitter, and selected-environment plus bounded real CPA acceptance. These bounded
 synthetic compatibility cases do not establish CPA quotas, token limits or live
 throughput. No deployment, real CPA inference, browser or production promotion
 occurred. Operator/status docs and the bundled OpenAPI reflect the new source.
+
+
+## 17. Mixed-load qualification and bounded control overhead
+
+The published checkpoint is `cce83eb`; this section records the subsequent local
+candidate until publication is explicitly recorded. Neither local endurance
+qualification nor hosted fast checks establish deployment or CPA throughput.
+
+TEST-520 adds two explicitly selected local profiles: 800 durable plus 200
+ordinary tasks, and 9,000 durable plus 1,000 ordinary tasks. Two separately
+composed API instances use separate PostgreSQL pools and two bearer scopes with
+one V2 authority. The TLS fixture takes 5 ms and has no external quota. The
+provider cap remains 128; ordinary requests retain their original 60-second
+deadlines and grants retain their five-second start lease. Each accepted profile
+requires exact native/result identities and counts, no unknown/leaked permits,
+no extra never-sent attempt workflows, result isolation, ordinary artifact/history
+boundaries, safe continuation and bounded process resources. Individual profiles
+run sequentially because heap/goroutine counters cover the entire Go process;
+`-parallel=1` is machine-checked in the canonical runner contract. Client requests
+and provider activities remain concurrent.
+
+Retained failures identify distinct control costs rather than provider quotas:
+
+- `tmp/cpa-mixed-1000-first.json`: admission failures before complete native
+  execution. Stage diagnostics were added without logging prompts, keys or raw
+  errors; this first run alone does not establish which operation failed.
+- `tmp/cpa-mixed-1000-diagnostic.json`: all 1,000 native requests/results completed
+  in about 94.5 seconds, but extra never-sent reservations/workflows failed the
+  unchanged healthy-load metadata-count oracle.
+- `tmp/cpa-mixed-1000-bounded-metadata.json`: all 1,000 native requests/results
+  completed in about 69.4 seconds, still with excess never-sent reservations.
+- `tmp/cpa-mixed-1000-pollers8.json`: accepted an earlier candidate in 46.062
+  seconds, exactly 1,000 native requests, 800 attempt workflows, zero ordinary
+  errors, 42,136,224-byte observed Go heap and 1,125 goroutines. Actual native
+  overlap peaked at three under the 5 ms fixture. This does not qualify 128
+  simultaneous real provider calls or the later source without another run.
+- `tmp/cpa-mixed-10000-first.json`: all 1,000 ordinary requests failed with zero
+  native calls. Diagnostics showed wake/metadata pressure, not provider refusal.
+- `tmp/cpa-mixed-10000-coalesced.json`: wake coalescing and the FIFO index allowed
+  native work, but ordinary errors remained. PostgreSQL canceled ready selection
+  and enqueue statements. The old selector repeated its eligible-owner scan up
+  to 64 times while holding the generation lock inside one 600 ms transaction.
+- `tmp/cpa-mixed-page-red.json`: a focused real PostgreSQL regression with 1,000
+  live ordinary waiters reproduces that transaction failure. The same unchanged
+  scope/owner/FIFO oracle passes with one set-based page query in
+  `tmp/cpa-mixed-page-green.json`.
+- `tmp/cpa-mixed-10000-paged.json`: 995/1,000 ordinary results in about 22 seconds;
+  five pre-native failures remain, so the profile is rejected.
+- `tmp/cpa-claim-hint-red.log`: a blocked best-effort claim notice delayed native
+  entry despite a confirmed ledger claim. `tmp/cpa-claim-hint-green.log` passes
+  after the bounded request-owned sender runs alongside inference and is canceled
+  and joined before finalization. It cannot grant permission or replay inference.
+- `tmp/cpa-mixed-10000-claim-hint.json`: 932/1,000 ordinary results; claim/dispatch
+  failures show that notification overlap alone does not remove metadata pressure.
+  This is retained as failed, not retried into a passing receipt.
+
+The candidate bounds ordinary metadata to four operations per API instance:
+separate two-slot lanes for enqueue/polling and existing-permit/cancellation work.
+Waiting happens before the short SQL transaction deadline, under the original
+caller context, and projects `persistence_wait` with no invented ETA. No slot
+spans native I/O. Wake hints coalesce overlapping RPCs and successful acknowledgments
+within 50 ms; every caller still positively claims its own permit. Failed wake
+acks are not cached, settlement notices remain distinct, and the existing bounded
+manifest scan covers newly committed waiters. The set-based SQL page preserves
+scope/owner rotation and FIFO exclusions and updates only the final owner cursor
+per selected scope. The explicit schema command adds/verifies the partial FIFO
+index while preserving accepted work; serving paths execute no DDL.
+
+Workers use 2..8 control/provider pollers according to configured concurrency,
+without changing the provider execution cap. A version-gated readiness change
+coalesces one wave of never-sent expiries into one backoff floor; legacy histories
+retain their preceding behavior. TEST-521 covers metadata bounds, caller deadline
+reporting, nonblocking claim hints, wake acknowledgments and legacy/current
+readiness behavior. TEST-503 retains real SQL fairness/schema/count assertions.
+
+`tmp/cpa-mixed-10000-priority.json` is terminal and rejected: all 1,000 ordinary
+calls succeeded, but the durable jobs exceeded their eight-minute execution
+budget. The run recorded 7,858 native requests in 487.819 seconds; the first
+waited job ended with 683 successes and 317 deadline failures. Partial result
+collection is not a complete 10,000-result receipt. Cleanup errors/warnings are
+empty. A read-only midpoint ledger observation showed 147 never-dispatched job
+attempts; grant-to-claim latency was 1.625 seconds at p50 and 4.161 seconds at p95,
+close to the unchanged five-second lease. No real CPA refusal was involved.
+
+The next scale work is to bound unclaimed handoffs independently of active native
+capacity and provide prompt claim readback for long calls. It must preserve the
+128 active-permit cap, original deadlines, one-attempt inference, fencing and
+unknown-outcome behavior. Increasing deadlines or dropping the exact healthy-load
+count oracle would hide this bottleneck and is not an accepted fix. Final scale acceptance remains unproved; the successful semantic gates below do
+not qualify this checkpoint for full-scale delivery.
+
+Verification so far:
+
+- `tmp/cpa-mixed-final-owners.log`: focused stateful/batch race checks pass.
+- `tmp/cpa-mixed-final-fifo.json`: real PostgreSQL queue/index and independent
+  uneven-owner reference oracles pass; cleanup empty.
+- `tmp/cpa-mixed-final-fast.log`: all ten fast tasks accepted; cleanup empty.
+- `tmp/cpa-mixed-lanes-regression.log`: the new lane probe initially omitted the
+  required client connection and failed during fixture construction. The corrected
+  probe uses an unused synthetic connection. `tmp/cpa-mixed-lanes-verified.log`
+  passes the same lane/deadline/native-overlap oracles under the race detector.
+- `tmp/cpa-mixed-final-integration-race.json`: retained failed gate. The unchanged
+  exact-17-MiB history case positively saved its record but took 2.072 seconds
+  against a two-second wall bound while fast checks ran concurrently. No history
+  implementation, assertion or deadline was changed.
+- `tmp/cpa-mixed-isolated-integration-race.json`: the same canonical full gate
+  accepted after competing fast checks ended; cleanup errors/warnings empty.
+  This isolated receipt does not erase the loaded-host timing failure above.
+- `tmp/cpa-mixed-final-temporal.json`: the canonical full real Temporal/PostgreSQL/
+  Garage suite accepted, including shared ordinary cap/cooldown, preserved wire
+  behavior, V1/V2 handoff, active-call rollover and retained history replay;
+  cleanup errors/warnings empty.
+
+- `tmp/cpa-mixed-final-1000.json`: rejected by the unchanged overhead oracle.
+  Exactly 1,000 native calls and distinct validated results completed in 44.009
+  seconds, with zero ordinary errors and no unsettled/unknown permits. One
+  never-dispatched job reservation produced 801 attempt workflows instead of 800.
+  Observed Go heap peaked at 44,686,856 bytes and goroutines at 1,171. The
+  unclaimed-handoff defect therefore remains relevant even at the 1,000 profile.
+
+A redacted machine-readable receipt is retained at
+`plans/evidence/harden-llm/cpa-admission/2026-10-31-control-overhead.json`.
+It records source-file hashes and both failed load gates, without prompts,
+credentials or native payloads. The PR remains draft; these scale failures are
+not replaced by the earlier candidate's 1,000 pass.
+
+Remaining full-scope work includes lifecycle/timing fault
+acceptance, optional deterministic recovery jitter, selected-environment rollout
+and explicitly selected bounded CPA acceptance. No production promotion, browser
+or real CPA inference occurred in this checkpoint.

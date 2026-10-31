@@ -4,6 +4,7 @@ package batch
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -190,5 +191,40 @@ func TestPoolStateOldEpisodeRefusalRefundsOnlyItsCurrentWindow(t *testing.T) {
 	s.Observe(now.Add(4*time.Second), poolSettlement(old, now.Add(4*time.Second), "rejected", true))
 	if s.Controller.WindowStarts != before-1 || s.Controller.Cooling {
 		t.Fatal("old episode refusal lost valid window credit or reset recovery", before, s.Controller)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-521
+func TestPoolCoalescesOneUnavailableDispatchEpisode(t *testing.T) {
+	t.Parallel()
+	for _, coalesce := range []bool{false, true} {
+		t.Run(fmt.Sprint(coalesce), func(t *testing.T) {
+			now := time.Unix(1000, 0)
+			s := NewPoolState("pool", 2, DefaultPolicy())
+			s.CoalesceDispatchFailures = coalesce
+			var reservations []Reservation
+			for i := range 8 {
+				r, err := s.Grant(now, poolReady(i, now))
+				if err != nil {
+					t.Fatal(err)
+				}
+				reservations = append(reservations, r)
+			}
+			for _, r := range reservations {
+				a := poolSettlement(r, now, "never_dispatched", true)
+				a.Observation.NativeEntered = false
+				a.ClaimedAt = nil
+				a.ClaimID = ""
+				a.DispatchedAt = nil
+				s.Observe(now, a)
+			}
+			floor, backoff := 30*time.Second, 30*time.Second
+			if coalesce {
+				floor, backoff = 2*time.Second, 4*time.Second
+			}
+			if !s.DispatchNeedsReady || !s.DispatchBlockedUntil.Equal(now.Add(floor)) || s.DispatchBackoff != backoff {
+				t.Fatal("dispatch episode/version behavior changed", coalesce, s.DispatchBlockedUntil.Sub(now), s.DispatchBackoff)
+			}
+		})
 	}
 }

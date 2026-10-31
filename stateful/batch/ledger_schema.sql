@@ -17,6 +17,7 @@ ALTER TABLE batch_items ADD COLUMN IF NOT EXISTS reservation_ordinal bigint NOT 
 ALTER TABLE batch_items ADD COLUMN IF NOT EXISTS current_permit uuid;
 CREATE INDEX IF NOT EXISTS batch_jobs_pool_queue ON batch_jobs(pool_id,api_key_hash,enqueue_sequence,id);
 CREATE INDEX IF NOT EXISTS batch_items_ready ON batch_items(api_key_hash,job_id,state,item_index);
+CREATE INDEX IF NOT EXISTS batch_items_available_fifo ON batch_items(api_key_hash,job_id,queued_at,item_index) WHERE state IN ('queued','waiting') AND current_permit IS NULL;
 CREATE TABLE IF NOT EXISTS batch_request_waiters (
  request_id uuid PRIMARY KEY,
  pool_id text NOT NULL REFERENCES batch_pool_generations(pool_id),

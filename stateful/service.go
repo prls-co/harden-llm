@@ -38,6 +38,14 @@ func NewService(config Config) (*Service, error) {
 		if err := copy.validate(); err != nil {
 			return nil, err
 		}
+		if guarded, ok := copy.Store.(*admissionMetadataStore); ok {
+			copy.Store = guarded.RequestQueueStore
+		}
+		copy.Store = &admissionMetadataStore{RequestQueueStore: copy.Store, slots: make(chan struct{}, 2), urgent: make(chan struct{}, 2)}
+		if coalesced, ok := copy.Signals.(*admissionPoolSignals); ok {
+			copy.Signals = coalesced.next
+		}
+		copy.Signals = &admissionPoolSignals{next: copy.Signals}
 		config.Admission = &copy
 	}
 	if config.CacheTTL == 0 {

@@ -77,6 +77,7 @@ func TestCPAAdmissionUnavailableCannotBypassIntoNative(t *testing.T) {
 }
 
 type admissionMemoryStore struct {
+	onEnqueue func(context.Context)
 	batch.RequestQueueStore
 	mu           sync.Mutex
 	waiters      map[string]batch.RequestWaiter
@@ -95,7 +96,10 @@ func newAdmissionMemoryStore() *admissionMemoryStore {
 func (s *admissionMemoryStore) PoolGeneration(context.Context, string) (batch.PoolGeneration, error) {
 	return batch.PoolGeneration{PoolID: "pool", Generation: 2, Mode: "active"}, nil
 }
-func (s *admissionMemoryStore) EnqueueRequest(_ context.Context, w batch.RequestWaiter) (batch.RequestWaiter, error) {
+func (s *admissionMemoryStore) EnqueueRequest(ctx context.Context, w batch.RequestWaiter) (batch.RequestWaiter, error) {
+	if s.onEnqueue != nil {
+		s.onEnqueue(ctx)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	w.LiveUntil = time.Now().Add(10 * time.Second)
@@ -226,13 +230,17 @@ func (s *admissionScriptNative) Execute(ctx context.Context, p hardenllm.Prepare
 	s.calls.Add(1)
 	return s.execute(ctx, p)
 }
-func admissionTestClient(t *testing.T, store *admissionMemoryStore, native hardenllm.Executor) *hardenllm.Client {
+func admissionTestClient(t *testing.T, store *admissionMemoryStore, native hardenllm.Executor, override ...batch.RequestPoolSignals) *hardenllm.Client {
 	t.Helper()
 	signals := admissionSignals{}
 	if store.fail == "signal" {
 		signals.wake = func() error { return batch.ErrUnavailable }
 	}
-	s, err := NewService(Config{Admission: &CPAAdmission{Store: store, Signals: signals, PoolID: "pool", Endpoint: "https://fixture.invalid/v1"}, Client: ClientOptions{Connections: []hardenllm.Connection{{ID: "cpa", Provider: "cpa", Protocol: "responses", BaseURL: "https://fixture.invalid/v1", APIKey: "fixture-private-key"}}, DefaultConnection: "cpa"}})
+	var port batch.RequestPoolSignals = signals
+	if len(override) != 0 {
+		port = override[0]
+	}
+	s, err := NewService(Config{Admission: &CPAAdmission{Store: store, Signals: port, PoolID: "pool", Endpoint: "https://fixture.invalid/v1"}, Client: ClientOptions{Connections: []hardenllm.Connection{{ID: "cpa", Provider: "cpa", Protocol: "responses", BaseURL: "https://fixture.invalid/v1", APIKey: "fixture-private-key"}}, DefaultConnection: "cpa"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,6 +250,41 @@ func admissionTestClient(t *testing.T, store *admissionMemoryStore, native harde
 		t.Fatal(err)
 	}
 	return c
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-521
+func TestCPAAdmissionClaimHintCannotBlockConfirmedNativeDispatch(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	release := make(chan struct{})
+	defer close(release)
+	entered := make(chan struct{})
+	native := &admissionScriptNative{execute: func(context.Context, hardenllm.PreparedOperation) (hardenllm.ProviderResult, error) {
+		close(entered)
+		return hardenllm.ProviderResult{Output: "OK", AssistantText: "OK"}, nil
+	}}
+	signals := admissionSignalStub{wake: func(context.Context, string) error { return nil }, changed: func(ctx context.Context, _ string, n batch.SettlementNotice) error {
+		if n.Revision != 0 {
+			return nil
+		}
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}}
+	c := admissionTestClient(t, newAdmissionMemoryStore(), native, signals)
+	done := make(chan error, 1)
+	go func() { _, err := c.Call(ctx, admissionTestRequest()); done <- err }()
+	select {
+	case <-entered:
+	case <-time.After(250 * time.Millisecond):
+		t.Error("best-effort claim hint delayed confirmed native dispatch")
+	}
+	cancel()
+	<-done // The request joins its bounded hint; no background metadata owner leaks.
 }
 func admissionTestRequest() hardenllm.Request {
 	return hardenllm.Request{ModelID: "selected-model", CallType: hardenllm.CallTypeText, Messages: []hardenllm.Message{{Role: "user", Content: json.RawMessage(`"private prompt"`)}}, ProviderOptions: map[string]any{"temperature": 0.2}, CacheMode: hardenllm.CacheModeOff, RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{}, Backoff: hardenllm.RecoveryBackoff{}}}
@@ -447,5 +490,109 @@ func TestCPAAdmissionOriginUsesConfiguredDomainAcrossAliases(t *testing.T) {
 		if admissionOrigin(input) != "" {
 			t.Fatal("invalid configured origin accepted")
 		}
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-521
+func TestCPAAdmissionBoundsMetadataWithoutReducingNativeCapacity(t *testing.T) {
+	t.Parallel()
+	store := newAdmissionMemoryStore()
+	var active, peak atomic.Int32
+	entered := make(chan struct{}, 12)
+	release := make(chan struct{})
+	var once sync.Once
+	defer once.Do(func() { close(release) })
+	store.onEnqueue = func(ctx context.Context) {
+		n := active.Add(1)
+		defer active.Add(-1)
+		for {
+			old := peak.Load()
+			if n <= old || peak.CompareAndSwap(old, n) {
+				break
+			}
+		}
+		entered <- struct{}{}
+		select {
+		case <-release:
+		case <-ctx.Done():
+		}
+	}
+	nativeEntered := make(chan struct{}, 12)
+	nativeRelease := make(chan struct{})
+	var releaseNative sync.Once
+	defer releaseNative.Do(func() { close(nativeRelease) })
+	native := &admissionScriptNative{execute: func(ctx context.Context, _ hardenllm.PreparedOperation) (hardenllm.ProviderResult, error) {
+		nativeEntered <- struct{}{}
+		select {
+		case <-nativeRelease:
+		case <-ctx.Done():
+			return hardenllm.ProviderResult{}, ctx.Err()
+		}
+		return hardenllm.ProviderResult{Output: "OK", AssistantText: "OK"}, nil
+	}}
+	c := admissionTestClient(t, store, native)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	var group sync.WaitGroup
+	defer func() {
+		cancel()
+		once.Do(func() { close(release) })
+		releaseNative.Do(func() { close(nativeRelease) })
+		group.Wait()
+	}()
+	launch := make(chan struct{})
+	for range 12 {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			<-launch
+			_, err := c.Call(ctx, admissionTestRequest())
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	close(launch)
+	for range 2 {
+		select {
+		case <-entered:
+		case <-ctx.Done():
+			t.Fatal("metadata did not fill its bounded slots")
+		}
+	}
+	select {
+	case <-entered:
+		t.Error("metadata oversubscription reached the backing store")
+	case <-time.After(50 * time.Millisecond):
+	}
+	once.Do(func() { close(release) })
+	for range 12 {
+		select {
+		case <-nativeEntered:
+		case <-ctx.Done():
+			t.Fatal("metadata bound leaked into native execution", ctx.Err())
+		}
+	}
+	releaseNative.Do(func() { close(nativeRelease) })
+	group.Wait()
+	if peak.Load() > 2 || native.calls.Load() != 12 {
+		t.Fatal("metadata limit failed or reduced inference demand", peak.Load(), native.calls.Load())
+	}
+}
+
+func TestCPAAdmissionMetadataQueueReportsWaitAndHonorsDeadline(t *testing.T) {
+	t.Parallel()
+	s := &admissionMetadataStore{slots: make(chan struct{}, 1)}
+	s.slots <- struct{}{}
+	now := time.Now()
+	record, _ := NewTrackingRecord(uuid.NewString(), "/v1/responses", now, now.Add(time.Second))
+	session := NewTrackingSession(record, time.Now)
+	ctx, cancel := context.WithTimeout(WithTrackingSession(context.Background(), session), 20*time.Millisecond)
+	defer cancel()
+	called := false
+	err := s.run(ctx, func() error { called = true; return nil })
+	state := session.Snapshot(false)
+	if !errors.Is(err, context.DeadlineExceeded) || called || state.Status != "waiting" || state.Reason == nil || *state.Reason != "persistence_wait" || state.NextAttemptAt != nil || session.ProviderEntered() {
+		t.Fatal("metadata queue hid waiting or extended the caller", state, called, err)
 	}
 }

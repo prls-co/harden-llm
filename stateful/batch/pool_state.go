@@ -20,33 +20,34 @@ type PoolPermit struct {
 	AwaitingStop bool
 }
 type PoolState struct {
-	PoolID               string
-	Generation           int64
-	Controller           Controller
-	Sequence             int64
-	PolicyRevision       int64
-	Episode              int64
-	WindowID             int64
-	WindowAnchored       bool
-	AfterScope           string
-	Outstanding          []PoolPermit
-	StartIntents         []Reservation
-	ProbeID              string
-	ProbeClaimAt         time.Time
-	DispatchNeedsReady   bool
-	DispatchBlockedUntil time.Time
-	DispatchBackoff      time.Duration
-	Quiescing            bool
-	PersistenceWait      bool
-	PublicationAfter     int64
-	PublicationAt        time.Time
-	PublicationReason    string
-	PublicationNext      *time.Time
-	RequestRetirements   []string `json:",omitempty"`
+	PoolID                   string
+	Generation               int64
+	Controller               Controller
+	Sequence                 int64
+	PolicyRevision           int64
+	Episode                  int64
+	WindowID                 int64
+	WindowAnchored           bool
+	AfterScope               string
+	Outstanding              []PoolPermit
+	StartIntents             []Reservation
+	ProbeID                  string
+	ProbeClaimAt             time.Time
+	DispatchNeedsReady       bool
+	DispatchBlockedUntil     time.Time
+	DispatchBackoff          time.Duration
+	Quiescing                bool
+	PersistenceWait          bool
+	PublicationAfter         int64
+	PublicationAt            time.Time
+	PublicationReason        string
+	PublicationNext          *time.Time
+	RequestRetirements       []string `json:",omitempty"`
+	CoalesceDispatchFailures bool     `json:",omitempty"`
 }
 
 func NewPoolState(pool string, generation int64, policy Policy) PoolState {
-	return PoolState{PoolID: pool, Generation: generation, Controller: NewController(policy), PolicyRevision: 1, Episode: 1, WindowID: 1, DispatchBackoff: 2 * time.Second}
+	return PoolState{PoolID: pool, Generation: generation, Controller: NewController(policy), PolicyRevision: 1, Episode: 1, WindowID: 1, DispatchBackoff: 2 * time.Second, CoalesceDispatchFailures: true}
 }
 func (s *PoolState) refreshWindow(now time.Time) {
 	if s.WindowAnchored && s.Controller.Policy.WindowRequests > 0 && !now.Before(s.Controller.WindowStart.Add(s.Controller.Policy.WindowDuration)) {
@@ -192,6 +193,9 @@ func (s *PoolState) applyOutcome(now time.Time, a Attempt) {
 			s.ProbeID = ""
 		}
 		if a.Kind == "ordinary" {
+			return
+		}
+		if s.CoalesceDispatchFailures && s.DispatchNeedsReady {
 			return
 		}
 		s.DispatchNeedsReady = true

@@ -129,6 +129,12 @@ claims remain retained rather than being freed by a metadata TTL. The ordinary
 stateful provider adapter uses these records directly; it creates no durable
 request inference workflow, batch manifest or result artifact.
 
+Ordinary metadata uses four operation slots per API instance, split between
+two enqueue/poll slots and two existing-permit/cancellation slots. Those slots
+never span native I/O and do not change the shared provider cap. Coalesced wake
+hints cannot grant dispatch permission. Claim notices run in a bounded sender
+alongside the confirmed invocation and are joined before finalization.
+
 Before declaring the full #134 feature delivered, complete remaining
 recovery/timing qualification, mixed 1,000/10,000-call tests and selected
 environment/CPA acceptance. Browser layout, public-provider capacity and deployment

@@ -103,6 +103,28 @@ func admissionFailure() error {
 	return &hardenllm.ProviderError{Status: 503, Category: retry.CategoryOther, Code: "admission_unavailable", Err: errors.New("CPA admission could not be confirmed")}
 }
 
+func (a *CPAAdmission) failure(ctx context.Context, stage string, causes ...error) error {
+	if a.Logger != nil {
+		class := "unavailable"
+		if len(causes) > 0 {
+			switch {
+			case errors.Is(causes[0], batch.ErrClaimOwned):
+				class = "claim_not_available"
+			case errors.Is(causes[0], batch.ErrClaimUnconfirmed):
+				class = "claim_unconfirmed"
+			case errors.Is(causes[0], batch.ErrGenerationFenced):
+				class = "generation_fenced"
+			case errors.Is(causes[0], context.DeadlineExceeded):
+				class = "deadline"
+			case errors.Is(causes[0], context.Canceled):
+				class = "canceled"
+			}
+		}
+		a.Logger.ErrorContext(ctx, "ordinary CPA admission not confirmed", "pool_id", a.PoolID, "metadata_stage", stage, "metadata_error_class", class, "native_entered", false)
+	}
+	return admissionFailure()
+}
+
 func (a *CPAAdmission) notify(ctx context.Context, permit string, revision int64) {
 	bounded, stop := context.WithTimeout(ctx, time.Second)
 	defer stop()
@@ -121,7 +143,7 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 	}
 	marker, readErr := a.Store.PoolGeneration(ctx, a.PoolID)
 	if readErr != nil || marker.Generation < 2 || marker.Mode != "active" {
-		return attempt, admissionFailure()
+		return attempt, a.failure(ctx, "pool_generation")
 	}
 	w := batch.RequestWaiter{RequestID: uuid.NewString(), PoolID: a.PoolID, Generation: marker.Generation, Scope: scope, OwnerID: uuid.NewString(), ExecutionID: execution.id, Ordinal: int(execution.ordinal.Add(1)), Deadline: deadline.UTC().Truncate(time.Microsecond), BudgetMS: max(1, time.Until(deadline).Milliseconds())}
 	permit := ""
@@ -152,13 +174,13 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 		s.AdmissionWait("dispatch_pending", nil)
 	}
 	if _, queueErr := a.Store.EnqueueRequest(ctx, w); queueErr != nil {
-		return attempt, admissionFailure()
+		return attempt, a.failure(ctx, "enqueue")
 	}
 	wake, stop := context.WithTimeout(ctx, 3*time.Second)
 	signalErr := a.Signals.Wake(wake, a.PoolID)
 	stop()
 	if signalErr != nil {
-		return attempt, admissionFailure()
+		return attempt, a.failure(ctx, "wake")
 	}
 	waitStarted := time.Now()
 	for {
@@ -167,7 +189,11 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 		}
 		current, e := a.Store.ReadRequest(ctx, scope, w.RequestID, w.OwnerID, true)
 		if e != nil || current.ClosedAt != nil || !time.Now().Before(current.LiveUntil) {
-			return attempt, admissionFailure()
+			stage := "waiter_read"
+			if e == nil {
+				stage = "waiter_expired_or_closed"
+			}
+			return attempt, a.failure(ctx, stage)
 		}
 		if s := trackingSession(ctx); s != nil {
 			reason := current.WaitingReason
@@ -197,18 +223,17 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 	}
 	attempt, err = a.Store.ClaimAttempt(ctx, permit, w.OwnerID)
 	if err != nil {
-		return batch.Attempt{}, admissionFailure()
+		return batch.Attempt{}, a.failure(ctx, "claim", err)
 	}
 	if attempt.Kind != "ordinary" || attempt.RequestID != w.RequestID || attempt.PoolID != w.PoolID || attempt.Generation != w.Generation || attempt.Ref.Scope != scope || attempt.ClaimID != w.OwnerID || attempt.BudgetMS != w.BudgetMS || !attempt.Deadline.Equal(w.Deadline) {
-		return batch.Attempt{}, admissionFailure()
+		return batch.Attempt{}, a.failure(ctx, "claim_identity")
 	}
-	a.notify(ctx, permit, 0)
 	if ctx.Err() != nil {
 		return attempt, ctx.Err()
 	}
 	attempt, err = a.Store.MarkDispatch(ctx, permit, w.OwnerID)
 	if err != nil {
-		return batch.Attempt{}, admissionFailure()
+		return batch.Attempt{}, a.failure(ctx, "dispatch_intent", err)
 	}
 	if ctx.Err() != nil || !time.Now().Before(attempt.StartBy) || !time.Now().Before(attempt.Deadline) {
 		if ctx.Err() != nil {
@@ -280,6 +305,17 @@ func (e admissionExecutor) Execute(ctx context.Context, p hardenllm.PreparedOper
 	}
 	original := wrapped.operation
 	original.Operation, original.StreamProgress = p.Operation, p.StreamProgress
+	// The ledger claim and dispatch intent already authorize this invocation.
+	// A best-effort pool read hint must not consume its five-second start lease.
+	// One bounded, request-owned sender runs alongside native I/O and is joined
+	// before finalization; it can neither grant capacity nor replay inference.
+	hintCtx, stopHint := context.WithCancel(ctx)
+	hintDone := make(chan struct{})
+	go func() {
+		defer close(hintDone)
+		e.admission.notify(hintCtx, a.PermitID, 0)
+	}()
+	defer func() { stopHint(); <-hintDone }()
 	nativeEntered = true
 	result, err = e.next.Execute(ctx, original)
 	duration = time.Since(started)
