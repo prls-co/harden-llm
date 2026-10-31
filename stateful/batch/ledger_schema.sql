@@ -17,6 +17,30 @@ ALTER TABLE batch_items ADD COLUMN IF NOT EXISTS reservation_ordinal bigint NOT 
 ALTER TABLE batch_items ADD COLUMN IF NOT EXISTS current_permit uuid;
 CREATE INDEX IF NOT EXISTS batch_jobs_pool_queue ON batch_jobs(pool_id,api_key_hash,enqueue_sequence,id);
 CREATE INDEX IF NOT EXISTS batch_items_ready ON batch_items(api_key_hash,job_id,state,item_index);
+CREATE TABLE IF NOT EXISTS batch_request_waiters (
+ request_id uuid PRIMARY KEY,
+ pool_id text NOT NULL REFERENCES batch_pool_generations(pool_id),
+ generation bigint NOT NULL CHECK(generation>=2),
+ api_key_hash text NOT NULL CHECK(api_key_hash ~ '^[0-9a-f]{64}$'),
+ owner_id uuid NOT NULL,
+ execution_id uuid NOT NULL,
+ dispatch_ordinal integer NOT NULL CHECK(dispatch_ordinal BETWEEN 1 AND 1024),
+ enqueue_sequence bigint NOT NULL DEFAULT nextval('batch_jobs_enqueue_sequence_seq'),
+ created_at timestamptz NOT NULL,
+ deadline timestamptz NOT NULL CHECK(deadline>created_at),
+ budget_ms bigint NOT NULL CHECK(budget_ms BETWEEN 1 AND 900000),
+ live_until timestamptz NOT NULL CHECK(live_until<=deadline),
+ closed_at timestamptz,
+ current_permit uuid UNIQUE,
+ pool_observed_at timestamptz,
+ waiting_reason text NOT NULL DEFAULT 'dispatch_pending',
+ next_attempt_at timestamptz,
+ pool_heartbeat_at timestamptz,
+ retention_until timestamptz NOT NULL CHECK(retention_until=deadline+interval '24 hours'),
+ UNIQUE(pool_id,api_key_hash,execution_id,dispatch_ordinal)
+);
+CREATE INDEX IF NOT EXISTS batch_request_waiters_ready ON batch_request_waiters(pool_id,api_key_hash,enqueue_sequence) WHERE closed_at IS NULL AND current_permit IS NULL;
+CREATE INDEX IF NOT EXISTS batch_request_waiters_retention ON batch_request_waiters(pool_id,retention_until,request_id);
 CREATE TABLE IF NOT EXISTS batch_attempts (
  permit_id uuid PRIMARY KEY,
  pool_id text NOT NULL REFERENCES batch_pool_generations(pool_id),

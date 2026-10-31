@@ -42,6 +42,7 @@ type PoolState struct {
 	PublicationAt        time.Time
 	PublicationReason    string
 	PublicationNext      *time.Time
+	RequestRetirements   []string `json:",omitempty"`
 }
 
 func NewPoolState(pool string, generation int64, policy Policy) PoolState {
@@ -68,7 +69,7 @@ func (s *PoolState) unresolved() bool {
 }
 func (s *PoolState) CanGrant(now time.Time) bool {
 	s.refreshWindow(now)
-	if s.Quiescing || s.PersistenceWait || s.DispatchNeedsReady || s.unresolved() || len(s.StartIntents) >= maximumStartIntents {
+	if s.Quiescing || s.PersistenceWait || s.DispatchNeedsReady || s.unresolved() || len(s.StartIntents) >= maximumStartIntents || len(s.RequestRetirements)+len(s.Outstanding) >= 1000 {
 		return false
 	}
 	c := &s.Controller
@@ -78,18 +79,31 @@ func (s *PoolState) CanGrant(now time.Time) bool {
 	return c.CanStart(now, len(s.Outstanding))
 }
 func (s *PoolState) Grant(now time.Time, item ReadyItem) (Reservation, error) {
-	if !s.CanGrant(now) || !validPool(s.PoolID) || s.Generation < 1 || s.Sequence == math.MaxInt64 || !validScope(item.Ref.Scope) || !validPermitID(item.Ref.JobID) || item.Ref.Index < 0 || item.Ref.Index >= MaximumItems || item.BudgetMS < 1 || item.BudgetMS > MaximumGenerationBudget.Milliseconds() || !now.Before(item.Deadline) {
+	kind := item.Kind
+	if kind == "" {
+		kind = "job"
+	}
+	validOwner := (kind == "job" && validPermitID(item.Ref.JobID) && item.Ref.Index >= 0 && item.Ref.Index < MaximumItems && item.RequestID == "") || (kind == "ordinary" && validPermitID(item.RequestID) && item.Ref.JobID == "" && item.Ref.Index == 0)
+	if !s.CanGrant(now) || !validPool(s.PoolID) || s.Generation < 1 || s.Sequence == math.MaxInt64 || !validScope(item.Ref.Scope) || !validOwner || item.BudgetMS < 1 || item.BudgetMS > MaximumGenerationBudget.Milliseconds() || !now.Before(item.Deadline) {
 		return Reservation{}, ErrUnavailable
 	}
 	for _, r := range s.StartIntents {
-		if r.Ref == item.Ref {
+		if r.Kind == kind && ((kind == "job" && r.Ref == item.Ref) || (kind == "ordinary" && r.RequestID == item.RequestID)) {
 			return Reservation{}, ErrConflict
 		}
 	}
 	s.Sequence++
 	identity := fmt.Sprintf("%s\x00%d\x00%d\x00%s\x00%s\x00%d", s.PoolID, s.Generation, s.Sequence, item.Ref.Scope, item.Ref.JobID, item.Ref.Index)
+	if kind == "ordinary" {
+		identity += "\x00ordinary\x00" + item.RequestID
+	}
 	id := uuid.NewSHA1(uuid.NameSpaceOID, []byte(identity)).String()
 	r := Reservation{PermitID: id, PoolID: s.PoolID, Generation: s.Generation, Sequence: s.Sequence, Ref: item.Ref, Kind: "job", WorkflowID: "hllm-cpa-attempt-v2/" + id, GrantedAt: now, StartBy: minTime(now.Add(5*time.Second), item.Deadline), Deadline: item.Deadline, BudgetMS: item.BudgetMS, Epoch: s.Episode, WindowID: s.WindowID, PolicyRevision: s.PolicyRevision, Probe: s.Controller.Cooling}
+	if kind == "ordinary" {
+		r.Kind = kind
+		r.RequestID = item.RequestID
+		r.WorkflowID = "hllm-cpa-request-v2/" + id
+	}
 	// The V2 window is anchored by a confirmed claim, not a grant or a worker's
 	// wall clock. Reuse the existing pacer while accounting its window separately.
 	policy := s.Controller.Policy
@@ -158,6 +172,9 @@ func (s *PoolState) Observe(now time.Time, a Attempt) bool {
 	slot.AwaitingStop = a.StoppedAt == nil
 	if a.StoppedAt != nil {
 		s.Outstanding = append(s.Outstanding[:index], s.Outstanding[index+1:]...)
+		if a.Kind == "ordinary" {
+			s.RequestRetirements = append(s.RequestRetirements, a.PermitID)
+		}
 	}
 	return true
 }
@@ -173,6 +190,9 @@ func (s *PoolState) applyOutcome(now time.Time, a Attempt) {
 		if probe {
 			c.Probing = false
 			s.ProbeID = ""
+		}
+		if a.Kind == "ordinary" {
+			return
 		}
 		s.DispatchNeedsReady = true
 		if s.DispatchBackoff < 2*time.Second {
@@ -228,10 +248,20 @@ func (s *PoolState) AcknowledgeStarts(results []AttemptStartResult) {
 }
 func (s *PoolState) Snapshot() ([]byte, error) {
 	raw, err := json.Marshal(s)
-	if err != nil || len(raw) >= maximumPoolSnapshot || len(s.StartIntents) > maximumStartIntents || len(s.Outstanding) > 1000 {
+	if err != nil || len(raw) >= maximumPoolSnapshot || len(s.StartIntents) > maximumStartIntents || len(s.Outstanding)+len(s.RequestRetirements) > 1000 {
 		return nil, ErrUnavailable
 	}
 	return raw, nil
+}
+
+func (s *PoolState) ReadyRequestExclusions() []string {
+	var out []string
+	for _, r := range s.StartIntents {
+		if r.Kind == "ordinary" {
+			out = append(out, r.RequestID)
+		}
+	}
+	return out
 }
 func (s *PoolState) ReadyExclusions() []Ref {
 	out := make([]Ref, 0, len(s.StartIntents))

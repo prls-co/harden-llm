@@ -89,6 +89,14 @@ func (a *Activities) ReadPool(ctx context.Context, read PoolRead) ([]Attempt, er
 }
 func (a *Activities) ProviderReady(ctx context.Context) error { return ctx.Err() }
 
+func (a *Activities) RetireRequests(ctx context.Context, read PoolRead) error {
+	store, ok := a.Store.(RequestQueueStore)
+	if !ok || read.PoolID != a.PoolID {
+		return ErrUnavailable
+	}
+	return store.AcknowledgeRequests(ctx, read)
+}
+
 type poolStarterFuture struct {
 	future       workflow.Future
 	reservations []Reservation
@@ -126,7 +134,9 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 	oldQuiesces := workflow.GetSignalChannel(ctx, legacyQuiesceSignal)
 	var starters []poolStarterFuture
 	var reads []workflow.Future
-	var selection, readiness, publication workflow.Future
+	var selection, readiness, publication, retirement workflow.Future
+	var retirementIDs []string
+	var nextRetirement time.Time
 	var publicationRequest PoolPublication
 	var ready []ReadyItem
 	now := workflow.Now(ctx)
@@ -294,7 +304,16 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 			}
 			publication = nil
 		}
-		if forceContinue && len(starters) == 0 && len(reads) == 0 && selection == nil && readiness == nil && publication == nil {
+		if retirement != nil && retirement.IsReady() {
+			if err := retirement.Get(ctx, nil); err == nil {
+				// New settlements may have arrived while this bounded batch ran.
+				state.RequestRetirements = state.RequestRetirements[len(retirementIDs):]
+			} else {
+				nextRetirement = now.Add(2 * time.Second)
+			}
+			retirement = nil
+		}
+		if forceContinue && len(starters) == 0 && len(reads) == 0 && selection == nil && readiness == nil && publication == nil && retirement == nil {
 			// No yielding operation after this drain. Lost notices/wakes are backed by
 			// ledger/manifests; restrictions and all grant/start identities are carried.
 			drain()
@@ -304,6 +323,10 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 			return workflow.NewContinueAsNewError(ctx, PoolWorkflowName, state)
 		}
 		if !forceContinue {
+			if retirement == nil && len(state.RequestRetirements) > 0 && !now.Before(nextRetirement) {
+				retirementIDs = append([]string(nil), state.RequestRetirements[:min(128, len(state.RequestRetirements))]...)
+				retirement = workflow.ExecuteActivity(metaCtx, a.RetireRequests, PoolRead{PoolID: state.PoolID, Generation: state.Generation, IDs: retirementIDs})
+			}
 			if publishStatus && publication == nil {
 				reason, next := state.Waiting(now)
 				changed := reason != state.PublicationReason || !sameOptionalTime(next, state.PublicationNext)
@@ -349,7 +372,7 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 				}
 			}
 			if selection == nil && len(ready) == 0 && state.CanGrant(now) && !now.Before(nextQueue) {
-				selection = workflow.ExecuteActivity(metaCtx, a.SelectPoolReady, QueueSelection{PoolID: state.PoolID, Generation: state.Generation, AfterScope: state.AfterScope, Limit: 64, Exclude: state.ReadyExclusions()})
+				selection = workflow.ExecuteActivity(metaCtx, a.SelectPoolReady, QueueSelection{PoolID: state.PoolID, Generation: state.Generation, AfterScope: state.AfterScope, Limit: 64, Exclude: state.ReadyExclusions(), ExcludeRequests: state.ReadyRequestExclusions()})
 			}
 			if !now.Before(nextStart) {
 				running := map[string]bool{}
@@ -407,6 +430,9 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 		}
 		if publication != nil {
 			selector.AddFuture(publication, func(workflow.Future) {})
+		}
+		if retirement != nil {
+			selector.AddFuture(retirement, func(workflow.Future) {})
 		}
 		timerCtx, cancel := workflow.WithCancel(ctx)
 		selector.AddFuture(workflow.NewTimer(timerCtx, delay), func(workflow.Future) {})

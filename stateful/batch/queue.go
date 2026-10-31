@@ -13,17 +13,20 @@ import (
 // QueueSelection carries only references already granted but not durably reserved.
 // Ready manifests stay in PostgreSQL, not in pool workflow snapshots.
 type QueueSelection struct {
-	PoolID     string
-	Generation int64
-	AfterScope string
-	Limit      int
-	Exclude    []Ref
+	PoolID          string
+	Generation      int64
+	AfterScope      string
+	Limit           int
+	Exclude         []Ref
+	ExcludeRequests []string `json:",omitempty"`
 }
 type ReadyItem struct {
-	Ref      Ref
-	BudgetMS int64
-	Deadline time.Time
-	ReadyAt  time.Time
+	Kind      string `json:",omitempty"`
+	RequestID string `json:",omitempty"`
+	Ref       Ref
+	BudgetMS  int64
+	Deadline  time.Time
+	ReadyAt   time.Time
 }
 type ReadyPage struct {
 	Items      []ReadyItem
@@ -57,25 +60,28 @@ func (s *PostgresStore) AttachJob(ctx context.Context, pool string, generation i
 const nextReadySQL = `WITH excluded AS MATERIALIZED (
  SELECT * FROM jsonb_to_recordset($3::jsonb) AS x(scope text,job_id uuid,item_index integer)
 ), eligible AS NOT MATERIALIZED (
- SELECT j.api_key_hash,j.id,j.enqueue_sequence,j.deadline FROM batch_jobs j
+ SELECT j.api_key_hash,j.id,j.enqueue_sequence,j.deadline,'job'::text AS kind,NULL::bigint AS budget_ms,NULL::timestamptz AS created_at FROM batch_jobs j
  WHERE j.pool_id=$1 AND j.deadline>$4 AND EXISTS (
   SELECT 1 FROM batch_items i WHERE i.api_key_hash=j.api_key_hash AND i.job_id=j.id
   AND i.state IN ('queued','waiting') AND i.current_permit IS NULL
   AND NOT EXISTS(SELECT 1 FROM excluded x WHERE x.scope=i.api_key_hash AND x.job_id=i.job_id AND x.item_index=i.item_index)
  )
+ UNION ALL
+ SELECT api_key_hash,request_id,enqueue_sequence,deadline,'ordinary',budget_ms,created_at FROM batch_request_waiters
+ WHERE pool_id=$1 AND generation=$6 AND deadline>$4 AND live_until>$4 AND closed_at IS NULL AND current_permit IS NULL AND NOT(request_id=ANY($5::uuid[]))
 ), next_scope AS (
  SELECT api_key_hash FROM eligible GROUP BY api_key_hash ORDER BY (api_key_hash<=$2),api_key_hash LIMIT 1
 ), next_job AS (
  SELECT e.* FROM eligible e JOIN next_scope s USING(api_key_hash)
  ORDER BY (e.enqueue_sequence<=COALESCE((SELECT last_job_sequence FROM batch_pool_scope_cursors c WHERE c.pool_id=$1 AND c.api_key_hash=e.api_key_hash),0)),e.enqueue_sequence LIMIT 1
 )
-SELECT j.api_key_hash,j.id::text,j.enqueue_sequence,j.deadline,i.item_index,i.queued_at,i.request->>'timeout_ms'
-FROM next_job j CROSS JOIN LATERAL (
+SELECT j.api_key_hash,CASE WHEN j.kind='job' THEN j.id::text ELSE NULL END,j.enqueue_sequence,j.deadline,COALESCE(i.item_index,0),COALESCE(i.queued_at,j.created_at),i.request->>'timeout_ms',j.kind,CASE WHEN j.kind='ordinary' THEN j.id::text ELSE '' END,j.budget_ms
+FROM next_job j LEFT JOIN LATERAL (
  SELECT i.item_index,i.queued_at,i.request FROM batch_items i
- WHERE i.api_key_hash=j.api_key_hash AND i.job_id=j.id AND i.state IN ('queued','waiting') AND i.current_permit IS NULL
+ WHERE j.kind='job' AND i.api_key_hash=j.api_key_hash AND i.job_id=j.id AND i.state IN ('queued','waiting') AND i.current_permit IS NULL
  AND NOT EXISTS(SELECT 1 FROM excluded x WHERE x.scope=i.api_key_hash AND x.job_id=i.job_id AND x.item_index=i.item_index)
  ORDER BY i.queued_at,i.item_index LIMIT 1
-) i`
+) i ON true WHERE j.kind='ordinary' OR i.item_index IS NOT NULL`
 
 type excludedItem struct {
 	Scope string `json:"scope"`
@@ -85,8 +91,14 @@ type excludedItem struct {
 
 func (s *PostgresStore) SelectReady(ctx context.Context, selection QueueSelection) (ReadyPage, error) {
 	result := ReadyPage{Items: []ReadyItem{}, AfterScope: selection.AfterScope}
-	if !validPool(selection.PoolID) || selection.Limit < 1 || selection.Limit > 128 || len(selection.Exclude) > 128 || (selection.AfterScope != "" && !validScope(selection.AfterScope)) {
+	if !validPool(selection.PoolID) || selection.Limit < 1 || selection.Limit > 128 || len(selection.Exclude)+len(selection.ExcludeRequests) > 128 || (selection.AfterScope != "" && !validScope(selection.AfterScope)) {
 		return result, ErrUnavailable
+	}
+	requests := append([]string{}, selection.ExcludeRequests...)
+	for _, id := range requests {
+		if !validPermitID(id) {
+			return result, ErrUnavailable
+		}
 	}
 	excluded := make([]excludedItem, 0, len(selection.Exclude)+selection.Limit)
 	for _, ref := range selection.Exclude {
@@ -105,12 +117,17 @@ func (s *PostgresStore) SelectReady(ctx context.Context, selection QueueSelectio
 			var item ReadyItem
 			var sequence int64
 			var timeout *string
-			err := tx.QueryRow(ctx, nextReadySQL, selection.PoolID, result.AfterScope, raw, now).Scan(&item.Ref.Scope, &item.Ref.JobID, &sequence, &item.Deadline, &item.Ref.Index, &item.ReadyAt, &timeout)
+			var job *string
+			var requestBudget *int64
+			err := tx.QueryRow(ctx, nextReadySQL, selection.PoolID, result.AfterScope, raw, now, requests, selection.Generation).Scan(&item.Ref.Scope, &job, &sequence, &item.Deadline, &item.Ref.Index, &item.ReadyAt, &timeout, &item.Kind, &item.RequestID, &requestBudget)
 			if errors.Is(err, pgx.ErrNoRows) {
 				break
 			}
 			if err != nil {
 				return err
+			}
+			if job != nil {
+				item.Ref.JobID = *job
 			}
 			ms := int64(0)
 			if timeout != nil {
@@ -124,12 +141,24 @@ func (s *PostgresStore) SelectReady(ctx context.Context, selection QueueSelectio
 				return ErrConflict
 			}
 			item.BudgetMS = budget.Milliseconds()
+			if item.Kind == "ordinary" {
+				if requestBudget == nil || *requestBudget < 1 || *requestBudget > 900000 {
+					return ErrConflict
+				}
+				item.BudgetMS = *requestBudget
+			} else {
+				item.Kind = ""
+			}
 			if _, err := tx.Exec(ctx, `INSERT INTO batch_pool_scope_cursors(pool_id,api_key_hash,last_job_sequence) VALUES($1,$2,$3) ON CONFLICT(pool_id,api_key_hash) DO UPDATE SET last_job_sequence=EXCLUDED.last_job_sequence`, selection.PoolID, item.Ref.Scope, sequence); err != nil {
 				return err
 			}
 			result.Items = append(result.Items, item)
 			result.AfterScope = item.Ref.Scope
-			excluded = append(excluded, excludedItem{item.Ref.Scope, item.Ref.JobID, item.Ref.Index})
+			if item.Kind == "ordinary" {
+				requests = append(requests, item.RequestID)
+			} else {
+				excluded = append(excluded, excludedItem{item.Ref.Scope, item.Ref.JobID, item.Ref.Index})
+			}
 		}
 		return nil
 	}, nil)

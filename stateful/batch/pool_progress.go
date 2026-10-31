@@ -46,7 +46,7 @@ func (s *PostgresStore) PublishPool(ctx context.Context, p PoolPublication) (Pub
 		if generation != p.Generation {
 			return ErrGenerationFenced
 		}
-		rows, err := tx.Query(ctx, `SELECT j.enqueue_sequence FROM batch_jobs j WHERE j.pool_id=$1 AND j.enqueue_sequence>$2 AND EXISTS(SELECT 1 FROM batch_items i WHERE i.api_key_hash=j.api_key_hash AND i.job_id=j.id AND i.state NOT IN ('succeeded','failed')) ORDER BY j.enqueue_sequence LIMIT $3`, p.PoolID, p.After, p.Limit+1)
+		rows, err := tx.Query(ctx, `SELECT enqueue_sequence FROM (SELECT j.enqueue_sequence FROM batch_jobs j WHERE j.pool_id=$1 AND j.enqueue_sequence>$2 AND EXISTS(SELECT 1 FROM batch_items i WHERE i.api_key_hash=j.api_key_hash AND i.job_id=j.id AND i.state NOT IN ('succeeded','failed')) UNION ALL SELECT enqueue_sequence FROM batch_request_waiters WHERE pool_id=$1 AND enqueue_sequence>$2 AND closed_at IS NULL AND current_permit IS NULL AND live_until>now()) pending ORDER BY enqueue_sequence LIMIT $3`, p.PoolID, p.After, p.Limit+1)
 		if err != nil {
 			return err
 		}
@@ -77,6 +77,11 @@ func (s *PostgresStore) PublishPool(ctx context.Context, p PoolPublication) (Pub
 			return err
 		}
 		out.Updated = int(tag.RowsAffected())
+		tag, err = tx.Exec(ctx, `UPDATE batch_request_waiters SET pool_heartbeat_at=CASE WHEN pool_heartbeat_at IS NULL OR pool_heartbeat_at<=now()-interval '5 seconds' THEN now() ELSE pool_heartbeat_at END,waiting_reason=$3,next_attempt_at=$4 WHERE pool_id=$1 AND enqueue_sequence=ANY($2::bigint[]) AND closed_at IS NULL AND current_permit IS NULL AND live_until>now() AND (pool_heartbeat_at IS NULL OR pool_heartbeat_at<=now()-interval '5 seconds' OR waiting_reason IS DISTINCT FROM $3 OR next_attempt_at IS DISTINCT FROM $4)`, p.PoolID, sequences, p.Reason, p.Next)
+		if err != nil {
+			return err
+		}
+		out.Updated += int(tag.RowsAffected())
 		return nil
 	}, nil)
 	return out, ledgerError(err)
@@ -95,13 +100,21 @@ func (a *Activities) PublishPool(ctx context.Context, p PoolPublication) (Public
 	if !ok || p.PoolID != a.PoolID {
 		return PublicationPage{}, ErrUnavailable
 	}
-	return store.PublishPool(ctx, p)
+	page, err := store.PublishPool(ctx, p)
+	if err == nil {
+		if requests, ok := a.Store.(RequestQueueStore); ok {
+			if _, pruneErr := requests.PruneRequests(ctx, p.PoolID, 128); pruneErr != nil && a.Logger != nil {
+				a.Logger.Warn("ordinary admission metadata pruning unavailable")
+			}
+		}
+	}
+	return page, err
 }
 func (s PoolState) Waiting(now time.Time) (string, *time.Time) {
 	switch {
 	case s.unresolved():
 		return "unresolved_execution", nil
-	case s.PersistenceWait:
+	case s.PersistenceWait || (len(s.RequestRetirements) > 0 && len(s.RequestRetirements)+len(s.Outstanding) >= 1000):
 		return "persistence_wait", nil
 	case s.Quiescing:
 		return "workflow_rollover", nil

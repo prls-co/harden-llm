@@ -344,6 +344,9 @@ func TestAttemptOrdinaryStoresMetadataOnly(t *testing.T) {
 	p.Kind = "ordinary"
 	p.RequestID = uuid.NewString()
 	nonce := uuid.NewString()
+	if _, err := s.EnqueueRequest(ctx, RequestWaiter{RequestID: p.RequestID, PoolID: p.PoolID, Generation: p.Generation, Scope: p.Ref.Scope, OwnerID: nonce, ExecutionID: uuid.NewString(), Ordinal: 1, Deadline: p.Deadline, BudgetMS: p.BudgetMS}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.ReserveAttempt(ctx, p); err != nil {
 		t.Fatal("ordinary metadata depended on a manifest", err)
 	}

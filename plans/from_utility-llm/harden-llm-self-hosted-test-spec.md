@@ -2368,3 +2368,19 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/batch/workflows_test.go`.
 - Command: `go test ./stateful/batch -run '^TestBatchWorkflow' -count=1`.
 - Oracle: The job lifecycle expires never-started work once at its execution deadline, then observes claimed-attempt finalization without scheduling inference or resetting deadlines. Historical workflow version behavior remains available; the queued-expiry fixture reflects the mutation proved at the SQL boundary.
+
+### TEST-515: Live ordinary dispatch metadata and shared CPA queue
+
+- Type / verifies: integration; issue #134 phase P5 foundation.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/request_admission_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Ordinary permits require an exact scoped live waiter, accepted deadline/budget and owner nonce. Cancellation/liveness expiry cannot authorize abandoned inference or pretend an active claim stopped. Safe never-sent grants settle after cancellation races. Ordinary success retains metadata without batch manifests/artifacts and cannot be overwritten. Jobs and live requests rotate by scope then owner using one sequence/cursor, pending intents and reservations are excluded, and pool waiting publication shares bounded/coalesced pages. Twenty-four-hour pruning requires positive local stop and pool-applied settlement; unresolved claims remain. Additive schema/index checks reject weaker shapes. This does not establish the gateway adapter or mixed provider load.
+
+### TEST-516: Ordinary request grants and retirement ownership
+
+- Type / verifies: unit; issue #134 phase P5 foundation.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/request_pool_test.go`.
+- Command: `go test -race ./stateful/batch -run '^TestPoolRequest|^TestRequestStarter|^TestPoolWorkflowRetires' -count=1`.
+- Oracle: Ordinary grants consume the existing shared cap/window, retain separate same-scope request identities and refund only positively never-sent work. Their metadata starter cannot spawn a durable provider workflow. Pool settlement acknowledgements retry without inference, retire only positively stopped/applied requests and carry unresolved execution across continuation.

@@ -41,6 +41,12 @@ func (a *Activities) StartAttempts(ctx context.Context, reservations []Reservati
 				out[i].ErrorCode = "reservation_unconfirmed"
 				return
 			}
+			if r.Kind == "ordinary" {
+				// A live API request owns execution. Publishing its reservation
+				// must never start a durable provider workflow in its absence.
+				out[i].Started = true
+				return
+			}
 			_, err := a.Temporal.ExecuteWorkflow(bounded, client.StartWorkflowOptions{ID: r.WorkflowID, TaskQueue: a.TaskQueue, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE}, AttemptWorkflowName, AttemptInput{Reservation: r, ProviderTaskQueue: a.TaskQueue + "/provider"})
 			var duplicate *serviceerror.WorkflowExecutionAlreadyStarted
 			if err == nil || errors.As(err, &duplicate) {

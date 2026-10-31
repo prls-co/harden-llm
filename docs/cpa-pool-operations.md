@@ -97,6 +97,21 @@ See `plans/implementation/cpa-delivery-2026-10-31.md` for exact failure/pass
 receipts and source checkpoints. Local integration evidence is distinct from
 hosted checks, environment deployment and representative CPA acceptance.
 
+Ordinary dispatch scheduling now has a metadata-only waiter record with scoped
+owner/execution/dispatch IDs. It shares scope/owner rotation, the global cap,
+window, cooling and probe state with jobs. A live request must claim and dispatch
+its own reservation; the starter cannot create an inference workflow for it.
+Cancellation and a ten-second waiter liveness expiry prevent a future dispatch,
+but never prove an already claimed provider transport stopped. Waiter refreshes
+coalesce and cannot resurrect an expired owner.
+
+Waiter metadata expires 24 hours after its accepted request deadline. Cleanup
+uses bounded pages and removes settled permit metadata only after the pool has
+applied that settlement and positive local-stop evidence exists. Unknown active
+claims remain retained rather than being freed by a metadata TTL. The HTTP
+provider adapter is still outstanding, so these primitives do not yet govern
+ordinary gateway inference.
+
 Before declaring the full #134 feature delivered, complete the ordinary adapter,
 remaining recovery/timing qualification, mixed 1,000/10,000-call tests and selected
 environment/CPA acceptance. Browser layout, public-provider capacity and deployment

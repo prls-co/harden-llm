@@ -23,7 +23,7 @@ func applyLedgerSchema(ctx context.Context, tx pgx.Tx) error {
 	if _, err := tx.Exec(ctx, ledgerSchema); err != nil {
 		return err
 	}
-	for _, table := range []string{"batch_pool_generations", "batch_attempts", "batch_pool_scope_cursors"} {
+	for _, table := range []string{"batch_pool_generations", "batch_attempts", "batch_pool_scope_cursors", "batch_request_waiters"} {
 		start := strings.Index(ledgerSchema, "CREATE TABLE IF NOT EXISTS "+table+" (")
 		end := strings.Index(ledgerSchema[start:], "\n);") + start + 2
 		ddl := strings.Replace(ledgerSchema[start:end], "CREATE TABLE IF NOT EXISTS "+table, "CREATE TEMP TABLE expected_"+table, 1)
@@ -47,12 +47,14 @@ func applyLedgerSchema(ctx context.Context, tx pgx.Tx) error {
 		}
 	}
 	for _, index := range []struct {
-		name, keys, predicate string
-		unique                bool
+		table, name, keys, predicate string
+		unique                       bool
 	}{
-		{"batch_attempts_unsettled_item", "api_key_hash,job_id,item_index", "kind='job' AND state<>'settled'", true},
-		{"batch_attempts_ordinary_request", "pool_id,api_key_hash,request_id", "kind='ordinary'", true},
-		{"batch_attempts_pool_unsettled", "pool_id,state,permit_id", "", false},
+		{"batch_attempts", "batch_attempts_unsettled_item", "api_key_hash,job_id,item_index", "kind='job' AND state<>'settled'", true},
+		{"batch_attempts", "batch_attempts_ordinary_request", "pool_id,api_key_hash,request_id", "kind='ordinary'", true},
+		{"batch_attempts", "batch_attempts_pool_unsettled", "pool_id,state,permit_id", "", false},
+		{"batch_request_waiters", "batch_request_waiters_ready", "pool_id,api_key_hash,enqueue_sequence", "closed_at IS NULL AND current_permit IS NULL", false},
+		{"batch_request_waiters", "batch_request_waiters_retention", "pool_id,retention_until,request_id", "", false},
 	} {
 		unique := ""
 		if index.unique {
@@ -62,7 +64,7 @@ func applyLedgerSchema(ctx context.Context, tx pgx.Tx) error {
 		if index.predicate != "" {
 			predicate = " WHERE " + index.predicate
 		}
-		if _, err := tx.Exec(ctx, "CREATE "+unique+"INDEX expected_"+index.name+" ON expected_batch_attempts("+index.keys+")"+predicate); err != nil {
+		if _, err := tx.Exec(ctx, "CREATE "+unique+"INDEX expected_"+index.name+" ON expected_"+index.table+"("+index.keys+")"+predicate); err != nil {
 			return err
 		}
 		const indexShape = `SELECT jsonb_build_array(i.indisunique,i.indisvalid,am.amname,ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY k(n,ord) JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.n ORDER BY ord),pg_get_expr(i.indpred,i.indrelid)) FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_am am ON am.oid=c.relam WHERE i.indexrelid=$1::regclass`
@@ -90,6 +92,13 @@ func applyLedgerSchema(ctx context.Context, tx pgx.Tx) error {
 	}
 	if !reflect.DeepEqual(cursorForeignKeys, []string{"FOREIGN KEY (pool_id) REFERENCES batch_pool_generations(pool_id)"}) {
 		return errors.New("batch: incompatible scope cursor foreign key; operator action required")
+	}
+	var waiterForeignKeys []string
+	if err := tx.QueryRow(ctx, `SELECT array_agg(pg_get_constraintdef(oid) ORDER BY pg_get_constraintdef(oid)) FROM pg_constraint WHERE conrelid='batch_request_waiters'::regclass AND contype='f'`).Scan(&waiterForeignKeys); err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(waiterForeignKeys, []string{"FOREIGN KEY (pool_id) REFERENCES batch_pool_generations(pool_id)"}) {
+		return errors.New("batch: incompatible request waiter foreign key; operator action required")
 	}
 	for _, column := range []struct {
 		table, name, kind string
@@ -332,10 +341,10 @@ func (s *PostgresStore) reserveAttempt(ctx context.Context, r Reservation, opts 
 	if r.Kind != "job" && r.Kind != "ordinary" {
 		return result, ErrUnavailable
 	}
-	if r.Kind == "job" && (!validPermitID(r.Ref.JobID) || r.Ref.Index < 0 || r.Ref.Index >= 1000) {
+	if r.Kind == "job" && (!validPermitID(r.Ref.JobID) || r.Ref.Index < 0 || r.Ref.Index >= 1000 || r.RequestID != "") {
 		return result, ErrUnavailable
 	}
-	if r.Kind == "ordinary" && !validPermitID(r.RequestID) {
+	if r.Kind == "ordinary" && (!validPermitID(r.RequestID) || r.Ref.JobID != "" || r.Ref.Index != 0) {
 		return result, ErrUnavailable
 	}
 	err := s.ledgerTx(ctx, func(ctx context.Context, tx pgx.Tx) error {
@@ -360,6 +369,7 @@ func (s *PostgresStore) reserveAttempt(ctx context.Context, r Reservation, opts 
 		var job any
 		var index any
 		var request any
+		requestExpired := false
 		if r.Kind == "job" {
 			var pool, state string
 			var current *string
@@ -395,6 +405,16 @@ func (s *PostgresStore) reserveAttempt(ctx context.Context, r Reservation, opts 
 			}
 			job, index = r.Ref.JobID, r.Ref.Index
 		} else {
+			waiter, err := readRequestWaiter(ctx, tx, r.RequestID, true)
+			if err != nil {
+				return err
+			}
+			if !requestMatchesReservation(waiter, r) || waiter.PermitID != "" {
+				return ErrConflict
+			}
+			now := time.Now().UTC()
+			requestExpired = waiter.ClosedAt != nil || !now.Before(waiter.LiveUntil) || !now.Before(waiter.Deadline)
+			ordinal = int64(waiter.Ordinal)
 			request = r.RequestID
 		}
 		_, err = tx.Exec(ctx, `INSERT INTO batch_attempts(permit_id,pool_id,generation,sequence,api_key_hash,kind,job_id,item_index,request_id,workflow_id,granted_at,start_by,execution_deadline,budget_ms,admission_epoch,policy_revision,probe,ordinal,state,admission_window) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'reserved',$19)`, r.PermitID, r.PoolID, r.Generation, r.Sequence, r.Ref.Scope, r.Kind, job, index, request, r.WorkflowID, r.GrantedAt, r.StartBy, r.Deadline, r.BudgetMS, r.Epoch, r.PolicyRevision, r.Probe, ordinal, r.WindowID)
@@ -404,6 +424,23 @@ func (s *PostgresStore) reserveAttempt(ctx context.Context, r Reservation, opts 
 		if r.Kind == "job" {
 			if _, err := tx.Exec(ctx, `UPDATE batch_items SET current_permit=$4,reservation_ordinal=$5,state='active' WHERE api_key_hash=$1 AND job_id=$2 AND item_index=$3`, r.Ref.Scope, r.Ref.JobID, r.Ref.Index, r.PermitID, ordinal); err != nil {
 				return err
+			}
+		} else {
+			if _, err := tx.Exec(ctx, `UPDATE batch_request_waiters SET current_permit=$2 WHERE request_id=$1`, r.RequestID, r.PermitID); err != nil {
+				return err
+			}
+			if requestExpired {
+				// A selection/grant can race disconnection. Retain the pool's exact
+				// grant as positively never sent so it can settle capacity safely.
+				now := time.Now().UTC()
+				o := AttemptObservation{Outcome: Outcome{Kind: "never_dispatched"}, LocalStopped: true, ObservedAt: now}
+				raw, _ := json.Marshal(o)
+				if _, err := tx.Exec(ctx, `UPDATE batch_attempts SET state='settled',observation=$2,settlement_revision=1,local_stopped_at=$3 WHERE permit_id=$1`, r.PermitID, raw, now); err != nil {
+					return err
+				}
+				if _, err := tx.Exec(ctx, `UPDATE batch_request_waiters SET closed_at=COALESCE(closed_at,$2) WHERE request_id=$1`, r.RequestID, now); err != nil {
+					return err
+				}
 			}
 		}
 		result, err = readAttempt(ctx, tx, r.PermitID, false)

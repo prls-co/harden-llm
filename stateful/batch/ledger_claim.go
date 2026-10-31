@@ -35,6 +35,9 @@ func (s *PostgresStore) claimAttempt(ctx context.Context, id, nonce string, opts
 		if err := guardPool(ctx, tx, a.PoolID, a.Generation); err != nil {
 			return err
 		}
+		if err := guardRequestClaim(ctx, tx, a, nonce); err != nil {
+			return err
+		}
 		now := time.Now().UTC()
 		if !now.Before(a.StartBy) || !now.Before(a.Deadline) {
 			return ErrClaimOwned
@@ -85,6 +88,9 @@ func (s *PostgresStore) MarkDispatch(ctx context.Context, id, nonce string) (Att
 		if err := guardPool(ctx, tx, a.PoolID, a.Generation); err != nil {
 			return err
 		}
+		if err := guardRequestClaim(ctx, tx, a, nonce); err != nil {
+			return err
+		}
 		now := time.Now().UTC()
 		if !now.Before(a.StartBy) || !now.Before(a.executionDeadline()) {
 			return ErrClaimOwned
@@ -119,7 +125,7 @@ func validObservation(o AttemptObservation) bool {
 	if o.ObservedAt.IsZero() {
 		return false
 	}
-	if o.Outcome.Kind == "completed" && (o.Outcome.ArtifactID == "" || !o.NativeEntered) {
+	if o.Outcome.Kind == "completed" && !o.NativeEntered {
 		return false
 	}
 	if o.Outcome.Kind == "never_dispatched" && (o.NativeEntered || !o.LocalStopped) {
@@ -145,6 +151,9 @@ func (s *PostgresStore) StageAttempt(ctx context.Context, id, nonce string, o At
 		}
 		if a.ClaimID != nonce || a.State == "reserved" {
 			return ErrClaimOwned
+		}
+		if !observationMatchesOwner(a, o) {
+			return ErrSettlementConflict
 		}
 		if a.Observation != nil {
 			if !sameTerminalObservation(*a.Observation, o) {
@@ -177,6 +186,9 @@ func (s *PostgresStore) settleAttempt(ctx context.Context, id, nonce string, o A
 		}
 		if a.ClaimID != nonce || a.State == "reserved" {
 			return ErrClaimOwned
+		}
+		if !observationMatchesOwner(a, o) {
+			return ErrSettlementConflict
 		}
 		if a.State == "settled" {
 			if a.Observation == nil || !sameTerminalObservation(*a.Observation, o) {
@@ -235,8 +247,9 @@ func fillAttemptCounts(ctx context.Context, tx pgx.Tx, a *Attempt) error {
 	return err
 }
 func applyAttemptItem(ctx context.Context, tx pgx.Tx, a *Attempt, o AttemptObservation) error {
-	if a.Kind != "job" {
-		return nil
+	if a.Kind == "ordinary" {
+		_, err := tx.Exec(ctx, `UPDATE batch_request_waiters SET closed_at=COALESCE(closed_at,now()) WHERE request_id=$1 AND current_permit=$2`, a.RequestID, a.PermitID)
+		return err
 	}
 	var current *string
 	var state string
@@ -277,6 +290,13 @@ func applyAttemptItem(ctx context.Context, tx pgx.Tx, a *Attempt, o AttemptObser
 	}
 	_, err := tx.Exec(ctx, `UPDATE batch_jobs SET last_progress=now(),last_heartbeat=now() WHERE api_key_hash=$1 AND id=$2`, a.Ref.Scope, a.Ref.JobID)
 	return err
+}
+
+func observationMatchesOwner(a Attempt, o AttemptObservation) bool {
+	if a.Kind == "ordinary" {
+		return o.Outcome.ArtifactID == ""
+	}
+	return o.Outcome.Kind != "completed" || o.Outcome.ArtifactID != ""
 }
 func (s *PostgresStore) ExpireReservation(ctx context.Context, id string) (Attempt, error) {
 	var result Attempt

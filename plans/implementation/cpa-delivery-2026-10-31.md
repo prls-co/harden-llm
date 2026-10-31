@@ -488,3 +488,74 @@ the ordinary request-bound per-dispatch adapter and its status/cancellation/
 retention integration, mixed 1,000/10,000-call verification, and the selected
 environment plus explicitly bounded CPA acceptance. The batch runtime checkpoint
 must not be presented as closing the ordinary-call admission bypass.
+
+## 15. Ordinary live-waiter ownership and shared scheduling foundation
+
+This checkpoint builds on published `611b814` and implements the metadata and
+scheduler portion of P5. It does not yet install the ordinary provider adapter:
+regular gateway inference still bypasses shared admission. The full #134 goal
+and its original acceptance requirements remain active.
+
+Implemented:
+
+- Additive `batch_request_waiters` metadata records carry server request/owner/
+  execution IDs, per-execution dispatch ordinal, accepted scope/deadline/budget,
+  shared enqueue sequence, liveness and bounded waiting diagnostics. No prompt,
+  response, batch manifest, artifact or reference-history record is created.
+- Enqueue is identity-preserving on retry, serializes only its metadata cap check
+  under the pool row and requires an active V2 generation. The source bounds live
+  waiters at 10,000; this is not 10,000-call throughput acceptance.
+- One fair selector rotates scopes, then owner/job queue sequences, then FIFO job
+  items. Requests and jobs use the existing common sequence/cursor. Pending
+  request intents and reservations are excluded without loading inference input.
+- A reservation requires the exact accepted waiter. Claim and dispatch require
+  its owner nonce and still-live, uncanceled metadata under row locks. A grant
+  racing abandoned/expired waiting instead retains a positively never-dispatched
+  settlement under the original permit ID, so pool capacity can settle safely.
+- Cancel/expiry never marks claimed transport stopped. Refresh writes coalesce
+  and cannot resurrect an expired owner. The metadata starter does not create a
+  durable inference workflow for an ordinary request: its live caller must own
+  execution. Successful ordinary dispatch settlement is metadata-only; job
+  completion retains its existing required artifact invariant.
+- Pool publication pages include waiting requests and jobs together, coalescing
+  heartbeats and retaining only actual reasons/known eligibility floors.
+- Ordinary metadata retention is 24 hours after the accepted deadline. Cleanup
+  removes at most 128 rows per page and cannot delete an active/unknown claim.
+  Settled permit deletion requires positive local stop and an acknowledgement
+  scheduled only after the pool applied settlement. The bounded acknowledgement
+  backlog survives continuation; failures retry metadata without inference.
+
+Regression and final verification receipts:
+
+- `tmp/cpa-request-owner-red.json` proved an ordinary permit could be reserved
+  without live-owner metadata. `tmp/cpa-request-pool-red.log` proved the pool could
+  not grant an ordinary owner without fabricating a batch identity.
+- `tmp/cpa-request-owner-green.json` and
+  `tmp/cpa-request-mixed-queue-green.json` passed focused real SQL/race checks for
+  scope/owner fencing, cancellation/claim races, expired liveness, immutable
+  metadata-only success, mixed fairness, waiting pages and retention safety.
+- Review added two further RED cases: `tmp/cpa-request-ordinal-red.json` proved a
+  second dispatch lost its ordinal; `tmp/cpa-request-retirement-wait-red.log`
+  proved bounded retirement backpressure omitted its persistence waiting reason.
+  Both are fixed and included in the final gates.
+- `tmp/cpa-request-queue-final-owners.log`: all default-tag batch owner tests pass
+  under the race detector, including metadata-only starter/retirement tests.
+- `tmp/cpa-request-queue-final-fast.log`: all ten fast tasks accepted; cleanup
+  errors/warnings empty.
+- `tmp/cpa-request-queue-final-integration-race.log`: canonical backend SQL and
+  real-service integration/race accepted; cleanup errors/warnings empty.
+- `tmp/cpa-request-queue-final-temporal.json`: canonical real Temporal/PostgreSQL/
+  Garage suite accepted, retaining V1/V2 handoff, cooldown, rollover and replay
+  checks; cleanup errors/warnings empty. Ordinary HTTP adapter adoption and real
+  mixed-provider execution are not established by these retained job tests.
+- New catalog TEST-515/516 registration and whitespace checks pass. Prior source
+  `611b814` hosted fast checks passed; hosted checks for this new checkpoint are
+  a separate publication gate.
+
+Next is the concrete request-bound dispatch adapter in stateful composition:
+managed CPA target matching, exact per-dispatch permits for repair/retry calls,
+original deadline/cancellation semantics, truthful admission status and native
+entry diagnostics. Then complete the original lifecycle/timing faults, optional
+recovery jitter, mixed 1,000/10,000-call resource/count qualification and selected
+environment plus bounded CPA acceptance. No deployment, real CPA inference,
+browser run or production promotion occurred in this checkpoint.
