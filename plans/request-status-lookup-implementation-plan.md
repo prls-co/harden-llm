@@ -438,116 +438,116 @@ Exit: source and test ownership are explicit; no runtime changes yet.
 
 ### P1. Add the contract and parsing regressions
 
-1. [ ] Add failing header parser cases: absent, valid UUID, nil, malformed,
+1. [x] Add failing header parser cases: absent, valid UUID, nil, malformed,
    compact/URN/uppercase, empty, duplicate fields and comma-separated values.
-2. [ ] Add failing OpenAPI schema/route assertions for the new GET, optional
+2. [x] Add failing OpenAPI schema/route assertions for the new GET, optional
    header on exactly two POSTs, same bearer and fixed error shapes.
-3. [ ] Add the OpenAPI definitions from Section 3 and implement only the pure
+3. [x] Add the OpenAPI definitions from Section 3 and implement only the pure
    header/path parser in the proposed gateway tracking file.
-4. [ ] Update the exact existing route allowlist without weakening its length
+4. [x] Update the exact existing route allowlist without weakening its length
    or unexpected-route assertions. Add only the intended new path.
-5. [ ] Validate the complete example against the actual OpenAPI schema; test
+5. [x] Validate the complete example against the actual OpenAPI schema; test
    null timing fields, every status and rejected unknown enum values.
 
 Exit: parsers/contract pass; ordinary handler behavior is still unchanged.
 
 ### P2. Implement the metadata reducer and wire projection
 
-1. [ ] Add a table-driven transition test for start, provider/validation phase,
+1. [x] Add a table-driven transition test for start, provider/validation phase,
    actual retry enter/exit, result projection, finish and repeated stale events.
-2. [ ] Implement payload-free stateful types and a pure transition reducer with
+2. [x] Implement payload-free stateful types and a pure transition reducer with
    increasing revision and fixed allowlists. A terminal owner finish is final.
-3. [ ] Add fake-clock assertions for elapsed time, remaining retry delay,
+3. [x] Add fake-clock assertions for elapsed time, remaining retry delay,
    frozen terminal elapsed time and nonnegative values under clock skew.
-4. [ ] Add separate heartbeat/progress tests: identical snapshots/ticks cannot
+4. [x] Add separate heartbeat/progress tests: identical snapshots/ticks cannot
    advance progress; GET time cannot advance heartbeat.
-5. [ ] Implement pure stale projection: 15-second liveness threshold and
+5. [x] Implement pure stale projection: 15-second liveness threshold and
    deadline-plus-30-second derived uncertainty, without modifying persistence.
-6. [ ] Assert that finalization clears retry fields, and stale wait-exit callbacks
+6. [x] Assert that finalization clears retry fields, and stale wait-exit callbacks
    cannot clear a newer phase or overwrite terminal status.
 
 Exit: all transition meanings are deterministic and testable without services.
 
 ### P3. Add one table through the existing schema command
 
-1. [ ] Add real PostgreSQL RED cases: fresh schema gains the table; existing v1
+1. [x] Add real PostgreSQL RED cases: fresh schema gains the table; existing v1
    schema gains it with sentinel profiles/history/cache untouched; repeat apply
    is idempotent; incompatible base schema still rejects without mutation.
-2. [ ] Embed the new SQL and invoke it inside the existing bounded schema
+2. [x] Embed the new SQL and invoke it inside the existing bounded schema
    transaction after base schema validation/creation. The current early return
    for existing v1 must no longer skip additive tracking DDL.
-3. [ ] Preserve the accepted reference schema version and its existing readers;
+3. [x] Preserve the accepted reference schema version and its existing readers;
    this additive table does not justify resetting data or inventing a new
    migration CLI. Never run DDL on a normal HTTP request.
-4. [ ] If a same-named table exists incompatibly, detect missing/mismatched
+4. [x] If a same-named table exists incompatibly, detect missing/mismatched
    required shape and return an operator error; do not silently reset it or
    treat `CREATE TABLE IF NOT EXISTS` as proof of compatibility.
-5. [ ] Add SQL constraint/index assertions and keep existing DDL/request budget
+5. [x] Add SQL constraint/index assertions and keep existing DDL/request budget
    tests passing. Existing schema/rollback tests keep their original oracle.
 
 Exit: explicit `schema` command upgrades valid existing storage additively.
 
 ### P4. Implement scoped reserve/update/read operations
 
-1. [ ] Add T1 store-interface tests for failure mapping, then T3 tests of real
+1. [x] Add T1 store-interface tests for failure mapping, then T3 tests of real
    reservation uniqueness across two clients/replicas and two key scopes.
-2. [ ] Implement reserve with one fresh invocation nonce; map only the exact
+2. [x] Implement reserve with one fresh invocation nonce; map only the exact
    unique-key conflict to `tracking_id_conflict`.
-3. [ ] Add a transaction fault test for ambiguous COMMIT. Confirmed readback
+3. [x] Add a transaction fault test for ambiguous COMMIT. Confirmed readback
    of this exact nonce may acknowledge registration; absent/failed readback
    cannot authorize the core. Assert no replacement insertion or inference.
-4. [ ] Implement revision/nonce-fenced snapshot and final updates. Test stale
+4. [x] Implement revision/nonce-fenced snapshot and final updates. Test stale
    revision, duplicate finish, different nonce and terminal immutability.
-5. [ ] Implement scoped lookup and logical expiry; other-key IDs have the exact
+5. [x] Implement scoped lookup and logical expiry; other-key IDs have the exact
    same response as absent IDs. Never expose hash/nonce in public projections.
-6. [ ] Implement indexed, bounded expired-row cleanup. Test the requested
+6. [x] Implement indexed, bounded expired-row cleanup. Test the requested
    expired ID can be reused even when more than 100 other rows are expired;
    the old nonce cannot update the new record. Other keys/live records survive.
-7. [ ] Test nil pool, acquisition timeout, query failure and read outage produce
+7. [x] Test nil pool, acquisition timeout, query failure and read outage produce
    a safe storage error. Test cleanup does not call any artifact/history API.
 
 Exit: database races and retention are proved at the actual SQL boundary.
 
 ### P5. Wire ordinary request registration and authoritative completion
 
-1. [ ] Add RED handler tests using a synthetic blocked provider and injectable
+1. [x] Add RED handler tests using a synthetic blocked provider and injectable
    tracking store: a validated tracked POST reserves once before core entry;
    invalid input, conflict and unavailable registration dispatch zero calls.
-2. [ ] Extract the existing timeout resolution into one helper reused by both
+2. [x] Extract the existing timeout resolution into one helper reused by both
    tracked/untracked execution; create the deadline once before tracked reserve.
    Keep existing timeout defaults, maximum and earlier-parent precedence.
-3. [ ] Pass a tracking session/progress channel only for header-bearing requests.
+3. [x] Pass a tracking session/progress channel only for header-bearing requests.
    Without a header, assert zero tracking-store calls and no collector.
-4. [ ] Add deferred failure finalization for every registered exit path, including
+4. [x] Add deferred failure finalization for every registered exit path, including
    core validation, provider failure, projection error and handler panic cleanup.
    A panic is rethrown to the existing server recovery; tracking must not hide it.
-5. [ ] At successful projection and size validation, finalize known completion
+5. [x] At successful projection and size validation, finalize known completion
    before beginning the existing JSON/SSE body. Do not finalize on a dropped
    runtime terminal event. Avoid changing JSON/SSE encoding to obtain status.
-6. [ ] On metadata final-write failure, preserve the already known wire result
+6. [x] On metadata final-write failure, preserve the already known wire result
    and provider dispatch count. Use one bounded metadata cleanup context.
-7. [ ] Assert the header is absent upstream and does not affect cache identity:
+7. [x] Assert the header is absent upstream and does not affect cache identity:
    fresh tracking IDs can observe a cache hit without another provider call.
 
 Exit: ordinary API contracts remain intact with optional metadata tracking.
 
 ### P6. Connect real progress/retry facts and bound lifecycle overhead
 
-1. [ ] Add observer-delegation RED tests proving all seven methods preserve
+1. [x] Add observer-delegation RED tests proving all seven methods preserve
    the wrapped observer's contexts/callbacks and invoke each exactly once.
-2. [ ] Implement the stateful observer decorator/session context. Test no-session
+2. [x] Implement the stateful observer decorator/session context. Test no-session
    calls preserve existing telemetry and do no tracking work.
-3. [ ] Test retry enter/exit using `StartRetry` with a controlled wait; then use
+3. [x] Test retry enter/exit using `StartRetry` with a controlled wait; then use
    the real core with a local 429/Retry-After provider and controlled release.
    Poll while the original request is blocked and observe a genuine wait.
-4. [ ] Test a final 429 with no scheduled retry becomes failed, and generic
+4. [x] Test a final 429 with no scheduled retry becomes failed, and generic
    retry backoff uses the correct different reason. Do not alter retry policy.
-5. [ ] Implement the one-collector/five-second coalescing rule with injectable
+5. [x] Implement the one-collector/five-second coalescing rule with injectable
    clock/ticker; no real multi-second sleeps in unit tests.
-6. [ ] Inject slow/failing storage and a full progress channel. Prove provider
+6. [x] Inject slow/failing storage and a full progress channel. Prove provider
    execution/callbacks are nonblocking, snapshots remain bounded and no raw
    payload enters storage/logs. All SQL still has its short acquisition budget.
-7. [ ] Race heartbeat/progress/finish/cancel. Prove final status wins, the same
+7. [x] Race heartbeat/progress/finish/cancel. Prove final status wins, the same
    request has one collector, and completion/shutdown/watchdog join it and stop
    its ticker. Do not make the core close a caller-owned progress channel.
 
@@ -555,42 +555,42 @@ Exit: meaningful waiting/progress is observable without new inference control.
 
 ### P7. Add authorized GET and real transport checks
 
-1. [ ] Add RED lookup tests for auth, two keys/same UUID, missing ID, expired ID,
+1. [x] Add RED lookup tests for auth, two keys/same UUID, missing ID, expired ID,
    invalid path/query, storage errors and `Cache-Control: no-store` on every case.
-2. [ ] Add the route through `api.authorize`, read its derived scope and call
+2. [x] Add the route through `api.authorize`, read its derived scope and call
    the shared store. Do not accept hash/owner/user/pool selectors from callers.
-3. [ ] Test two gateway instances against the same real PostgreSQL lease: POST
+3. [x] Test two gateway instances against the same real PostgreSQL lease: POST
    through A, observe running/finished through B. Do not rely on an in-memory map.
-4. [ ] Test actual client cancellation/disconnection during a held provider call.
+4. [x] Test actual client cancellation/disconnection during a held provider call.
    Await provider-start and handler-exit acknowledgements. Poll through a fresh
    connection; classify uncertainty from evidence and assert tracking introduced
    no provider dispatch/replay. Keep configured core attempts explicit.
-5. [ ] Test process-observation loss using a persisted active record, a second
+5. [x] Test process-observation loss using a persisted active record, a second
    API instance and injected time. It first becomes stale, then derived unknown;
    no provider construction/start or DB terminal mutation is performed by GET.
-6. [ ] Test a complete valid result followed by actual response-write failure:
+6. [x] Test a complete valid result followed by actual response-write failure:
    completed describes known execution/projection, not proven client delivery.
 
 Exit: status is useful across connections/replicas and truthful under failures.
 
 ### P8. Prove compatibility, isolation and representative scale
 
-1. [ ] Extend the existing official Go SDK fixture with the optional header
+1. [x] Extend the existing official Go SDK fixture with the optional header
    through its existing per-call/header mechanism. Cover both POST routes,
    JSON and final-only SSE, tools, structured output and an OpenAI-shaped error.
-2. [ ] Preserve existing untracked fixtures byte/shape/event assertions and
+2. [x] Preserve existing untracked fixtures byte/shape/event assertions and
    dispatch counts. Never enable real providers or SDK retries in these tests.
-3. [ ] Query actual SQL after tracked and untracked ordinary calls: reference
+3. [x] Query actual SQL after tracked and untracked ordinary calls: reference
    history/statistics/profiles are unchanged, no artifacts were written and
    tracking rows contain no prompt/output/credential sentinels.
-4. [ ] Locally exercise 1,000 distinct tracked calls with bounded test-generator
+4. [x] Locally exercise 1,000 distinct tracked calls with bounded test-generator
    concurrency, two keys and polling. Use only owned synthetic providers and
    the real shared test PostgreSQL; no Temporal/Garage dependency is needed.
-5. [ ] Verify distinct-ID count, no duplicate execution introduced by tracking,
+5. [x] Verify distinct-ID count, no duplicate execution introduced by tracking,
    terminal counts, cleanup/nonce fencing and cross-replica reads. Record total
    SQL operations, peak collectors, CPU/RAM and latency against an equivalent
    untracked local run. Do not claim this measures CPA capacity.
-6. [ ] Do not require 1,000 simultaneous OS connections as a unit-test oracle;
+6. [x] Do not require 1,000 simultaneous OS connections as a unit-test oracle;
    bound the generator and record actual concurrency. Investigate regressions
    with evidence rather than inventing a universal performance target.
 
@@ -598,24 +598,27 @@ Exit: useful-scale tracking is measured without changing inference semantics.
 
 ### P9. Documentation, verification and delivery
 
-1. [ ] Document header generation, two-connection polling, initial 404 race,
+1. [x] Document header generation, two-connection polling, initial 404 race,
    polling interval, fixed retention, same-key lookup, duplicate `409` and the
    difference between metadata completion, delivery and unknown execution.
-2. [ ] State that polling cannot extend client/proxy/server timeouts and cannot
+2. [x] State that polling cannot extend client/proxy/server timeouts and cannot
    retrieve output. Do not advertise background execution or batch support.
    Update ADR-HLLM-032's boundary language to distinguish tracking metadata from
    reference history or retained responses; the root execution core stays stateless.
-3. [ ] Run the commands in Section 9 at their proper boundaries. Record failures
+3. [x] Run the commands in Section 9 at their proper boundaries. Record failures
    and remaining gates; do not mark a Docker or transport gate passed from a stub.
-4. [ ] Commit/push coherent verified checkpoints and update issue #136 with
+4. [x] Commit/push coherent verified checkpoints and update issue #136 with
    exact source and evidence. Preserve unrelated work and accepted data.
-5. [ ] Prepare rollout instructions: run the additive schema command with the
+5. [x] Prepare rollout instructions: run the additive schema command with the
    matching build before enabling tracked requests; reuse the same pool/network.
    An older binary ignores the new table, but rolling backward while callers
    expect tracking removes that feature. Drain active ordinary calls first.
 6. [ ] Only when deployment is separately undertaken, record branch/source SHA,
    API image identity/environment URL and browser-free health/auth/status
    acceptance. Never infer live status support from this document or a draft PR.
+
+Deployment item P9.6 is conditional and has not been undertaken. The local
+implementation exit does not require production promotion.
 
 Exit: local implementation is reviewable and remaining operational gates explicit.
 
@@ -686,18 +689,50 @@ remains outstanding rather than being replaced with a weaker oracle.
 
 ## 10. Completion checklist and implementation record
 
-- [ ] Optional header and lookup route implemented exactly as documented.
-- [ ] Existing untracked clients have unchanged bodies, wire formats and policy.
-- [ ] Same-key ID reservation is race-safe before execution; duplicates are `409`.
-- [ ] Shared metadata survives gateway changes without recovering/replaying work.
-- [ ] Waiting derives from an actual scheduled wait; liveness/progress stay distinct.
-- [ ] Cancellation, stale metadata and unknown outcomes remain truthful.
-- [ ] Retention, cleanup, nil-storage and outage behavior are tested and documented.
-- [ ] Root core remains stateless; no reference history/output/artifact persistence.
-- [ ] Canonical test registration, focused/race/fast/SQL gates and evidence complete.
-- [ ] Source/checkpoint linked from issue #136; deployment state stated accurately.
+- [x] Optional header and lookup route implemented exactly as documented.
+- [x] Existing untracked clients have unchanged bodies, wire formats and policy.
+- [x] Same-key ID reservation is race-safe before execution; duplicates are `409`.
+- [x] Shared metadata survives gateway changes without recovering/replaying work.
+- [x] Waiting derives from an actual scheduled wait; liveness/progress stay distinct.
+- [x] Cancellation, stale metadata and unknown outcomes remain truthful.
+- [x] Retention, cleanup, nil-storage and outage behavior are tested and documented.
+- [x] Root core remains stateless; no reference history/output/artifact persistence.
+- [x] Canonical test registration, focused/race/fast/SQL gates and evidence complete.
+- [x] Source/checkpoint linked from issue #136; deployment state stated accurately.
 
 Implementation started 2026-10-31 on `feat/request-status-and-cpa-admission`.
 See [the delivery evidence](implementation/cpa-delivery-2026-10-31.md) for source,
 RED/GREEN commands, failed checks, SQL/transport/race/scale results and remaining
 gates. The broader CPA scheduling issue remains separate and incomplete.
+
+## 11. Final local implementation audit
+
+Runtime source: `0ef61e36ece24f9c537dc2015120c280201dfce4`, published in
+[PR #140](https://github.com/prls-co/harden-llm/pull/140). Its hosted fast tasks,
+CodeQL analyses and security summary passed; hosted Docker/browser/release
+tracks were skipped, not passed. The audit adds no runtime behavior.
+
+| Phase | Current source and executable evidence |
+| --- | --- |
+| P1 | TEST-490/491: strict header/path parsing, canonical route/allowlist and complete schema projections/enums |
+| P2 | TEST-491/494: reducer/session source ordering, fake-clock elapsed/stale projection, terminal fencing and actual observer delegation |
+| P3 | TEST-492 plus retained schema holdouts: additive/repeated schema, preserved profiles/history/cache and incompatible shape rejection |
+| P4 | TEST-492: concurrent scoped reservation, four unknown-COMMIT outcomes, exact terminal readback, retention/nonce fencing and exhausted-pool error mapping |
+| P5 | TEST-493/495: validation before reserve, unchanged deadlines/wire behavior, positive final projection, metadata failure isolation and cache identity |
+| P6 | TEST-493/494: seven observer methods, real 429/503 waits, terminal refusal, bounded collector/SQL writes, panic/watchdog/finish joins |
+| P7 | TEST-493/495: real cross-replica SQL/HTTP, auth and exact 404 isolation, disconnect/cancellation, derived observation loss and actual socket-write failure |
+| P8 | TEST-493/495: typed official SDK JSON/SSE/tools/structured outputs, no reference/artifact/payload retention, isolated tracked/untracked 1,000-call comparison |
+| P9 | `docs/request-status.md`, ADR-HLLM-032, canonical test registration, published source and local verification receipts; deployment remains separate |
+
+`tmp/status-full-integration-race.log` records the accepted canonical integration
+race gate. `tmp/status-acceptance-audit-fast.log` records all ten fast tasks
+accepted. `tmp/status-final-acquisition-audit-race.json` adds real exhausted-pool
+checks for reserve/update/lookup, respecting an earlier caller deadline and
+proving no registration/update mutation; all request-status SQL/HTTP/TCP/race
+cases accepted with empty cleanup errors/warnings. Existing TEST-466 separately
+checks the shared acquisition budget without network I/O. See the delivery
+evidence for earlier RED/GREEN runs, exact counts and resource measurements.
+
+All local implementation requirements are accounted for. No deployment, live
+CPA acceptance, browser layout check or merge into main is claimed. Issue #134
+continues separately; status lookup does not implement shared admission.

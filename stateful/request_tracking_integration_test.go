@@ -260,3 +260,55 @@ func TestRequestTrackingUnknownCommit(t *testing.T) {
 		})
 	}
 }
+
+func TestRequestTrackingAcquisitionTimeoutIsUnavailableWithoutMutation(t *testing.T) {
+	t.Parallel()
+	pool, _ := referencePool(t, true)
+	service, _ := serviceFixture(t, pool, nil)
+	now := time.Now().UTC()
+	original, _ := NewTrackingRecord(uuid.NewString(), "/v1/responses", now, now.Add(time.Minute))
+	if err := service.ReserveTracking(context.Background(), keyHashA, original); err != nil {
+		t.Fatal(err)
+	}
+	one, err := pool.Acquire(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer one.Release()
+	two, err := pool.Acquire(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer two.Release()
+	unregistered, _ := NewTrackingRecord(uuid.NewString(), "/v1/responses", now, now.Add(time.Minute))
+	changed := original
+	changed.Revision++
+	for _, operation := range []struct {
+		name string
+		call func(context.Context) error
+	}{
+		{"reserve", func(ctx context.Context) error { return service.ReserveTracking(ctx, keyHashA, unregistered) }},
+		{"update", func(ctx context.Context) error { return service.UpdateTracking(ctx, keyHashA, changed) }},
+		{"lookup", func(ctx context.Context) error {
+			_, err := service.LookupTracking(ctx, keyHashA, original.ID)
+			return err
+		}},
+	} {
+		t.Run(operation.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+			defer cancel()
+			if err := operation.call(ctx); !errors.Is(err, ErrTrackingUnavailable) || !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				t.Fatal("exhausted acquisition did not map to unavailable", err, ctx.Err())
+			}
+		})
+	}
+	two.Release()
+	one.Release()
+	retained, err := service.LookupTracking(context.Background(), keyHashA, original.ID)
+	if err != nil || retained.Revision != original.Revision || retained.Status != "running" {
+		t.Fatal("acquisition timeout mutated registered observation", err, retained)
+	}
+	if _, err := service.LookupTracking(context.Background(), keyHashA, unregistered.ID); !errors.Is(err, ErrTrackingNotFound) {
+		t.Fatal("failed acquisition registered replacement work", err)
+	}
+}
