@@ -107,7 +107,7 @@ func (api *API) beginTrackedCall(w http.ResponseWriter, r *http.Request, timeout
 	call := &trackedCall{api: api, scope: scopeFromContext(ctx).hash, session: session, progress: make(chan hardenllm.ProgressEvent, 64), stop: make(chan struct{}), done: make(chan struct{}), cancelFlush: cancelFlush}
 	ctx = stateful.WithTrackingSession(ctx, session)
 	ctx = context.WithValue(ctx, trackingProgressKey{}, (chan<- hardenllm.ProgressEvent)(call.progress))
-	api.logger.InfoContext(ctx, "request tracking registered", "tracking_id", record.ID, "endpoint", record.Endpoint)
+	api.logger.InfoContext(ctx, "request tracking registered", "endpoint", record.Endpoint)
 	go call.collect(flushCtx, deadline)
 	return ctx, call, cancel, true
 }
@@ -146,7 +146,7 @@ func (c *trackedCall) collect(ctx context.Context, deadline time.Time) {
 			c.session.Progress(p)
 		case <-ticks:
 			if err := c.api.tracking.UpdateTracking(ctx, c.scope, c.session.Snapshot(true)); err != nil {
-				c.api.logger.Warn("request tracking snapshot unavailable", "tracking_id", c.session.Snapshot(false).ID)
+				c.api.logger.Warn("request tracking snapshot unavailable", "endpoint", c.session.Snapshot(false).Endpoint)
 			}
 		case <-c.stop:
 			drain()
@@ -154,7 +154,7 @@ func (c *trackedCall) collect(ctx context.Context, deadline time.Time) {
 			err := c.api.tracking.UpdateTracking(finalCtx, c.scope, c.session.Snapshot(false))
 			cancel()
 			record := c.session.Snapshot(false)
-			c.api.logger.Info("request tracking finished", "tracking_id", record.ID, "status", record.Status, "elapsed_ms", record.Observe(time.Now()).ElapsedMS, "metadata_saved", err == nil, "call_id", c.callID, "trace_id", c.traceID, "retry_wait_ms", c.retryWaitMS)
+			c.api.logger.Info("request tracking finished", "endpoint", record.Endpoint, "status", record.Status, "elapsed_ms", record.Observe(time.Now()).ElapsedMS, "metadata_saved", err == nil, "call_id", c.callID, "trace_id", c.traceID, "retry_wait_ms", c.retryWaitMS)
 			return
 		case <-watchdog.C:
 			// Missing owner completion stays stale/unknown. Observation never extends

@@ -139,3 +139,18 @@ This is a draft implementation checkpoint, not a deployed or merged feature.
 The final #136 audit must explicitly check panic/watchdog shutdown, remaining
 storage-fault variants and exact SDK/contract coverage before marking all
 60 plan tasks complete. Earlier failures remain recorded, not silently retried.
+
+## 8. Hosted security feedback
+
+PR #140 CodeQL reported a high-severity header-to-log flow at registration.
+Retain the security gate. A cheap TEST-493 regression first failed on caller
+tracking-ID leakage, then logging was changed to fixed endpoint and server
+call/trace correlation only. Caller header IDs remain in scoped metadata and
+responses, not logs. The implementation plan and operator guide reflect this
+privacy refinement. Local race checks and hosted reanalysis are recorded
+separately; a successful analysis job alone does not clear an outstanding alert.
+
+Privacy fix local acceptance: `go test -race ./internal/gateway/httpapi -run
+'^TestRequestTracking' -count=1`, registration policy and whitespace passed;
+`tmp/status-header-privacy-fast.log` records all ten fast tasks accepted with
+no cleanup errors/warnings. Hosted CodeQL reanalysis remains a separate gate.

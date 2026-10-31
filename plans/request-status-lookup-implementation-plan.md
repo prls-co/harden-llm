@@ -300,9 +300,9 @@ Whitelist and copy fields immediately; never persist `ProgressEvent.Attempts`,
 accounting payloads or arbitrary event data wholesale.
 
 Use the existing structured logger for one registration and one final summary,
-plus bounded metadata-write failure diagnostics. Include validated tracking ID,
-fixed endpoint/stage/outcome, elapsed time, known retry wait and the existing
-call/trace correlation when available. Never log raw provider errors, key/hash,
+plus bounded metadata-write failure diagnostics. Include fixed endpoint/stage/outcome, elapsed time, known retry wait and
+server-generated call/trace correlation when available. Caller-supplied tracking
+IDs stay in scoped status metadata and responses; never log request headers. Never log raw provider errors, key/hash,
 nonce, input or output. Do not put a UUID into metric labels or create a
 per-token/per-poll log stream; the existing HTTP logger already records polls.
 
