@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
@@ -38,15 +39,19 @@ type Config struct {
 }
 
 type API struct {
-	clientForKey   func(string) (*hardenllm.Client, error)
-	keys           []string
-	service        *stateful.Service
-	readiness      []ReadinessCheck
-	maxRunDuration time.Duration
-	telemetry      *gateway.Telemetry
-	propagator     propagation.TextMapPropagator
-	logger         *slog.Logger
-	handler        http.Handler
+	clientForKey             func(string) (*hardenllm.Client, error)
+	keys                     []string
+	service                  *stateful.Service
+	readiness                []ReadinessCheck
+	maxRunDuration           time.Duration
+	telemetry                *gateway.Telemetry
+	propagator               propagation.TextMapPropagator
+	logger                   *slog.Logger
+	tracking                 trackingStore
+	trackingTicks            func() (<-chan time.Time, func())
+	trackingActiveCollectors atomic.Int64
+	trackingPeakCollectors   atomic.Int64
+	handler                  http.Handler
 }
 
 type openAIError struct {
@@ -128,7 +133,7 @@ func New(config Config) (*API, error) {
 		config.Logger = slog.New(slog.DiscardHandler)
 	}
 	api := &API{
-		keys: append([]string(nil), config.APIKeys...), service: config.Service, clientForKey: config.Service.ClientForKey, readiness: append([]ReadinessCheck(nil), config.Readiness...),
+		tracking: config.Service, keys: append([]string(nil), config.APIKeys...), service: config.Service, clientForKey: config.Service.ClientForKey, readiness: append([]ReadinessCheck(nil), config.Readiness...),
 		maxRunDuration: config.MaxRunDuration, telemetry: config.Telemetry,
 		propagator: propagation.TraceContext{}, logger: config.Logger,
 	}
@@ -150,6 +155,10 @@ func (api *API) router() http.Handler {
 	mux.HandleFunc("GET /healthz", api.health)
 	mux.HandleFunc("GET /readyz", api.ready)
 	mux.HandleFunc("GET /v1/models", api.authorize(api.models))
+	mux.HandleFunc("GET /v1/requests/{trackingID}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		api.authorize(api.requestStatus)(w, r)
+	})
 	mux.HandleFunc("POST /v1/chat/completions", api.authorize(api.chatCompletions))
 	mux.HandleFunc("POST /v1/responses", api.authorize(api.responses))
 	mux.HandleFunc("GET /api/v1/status", api.authorize(api.referenceStatus))

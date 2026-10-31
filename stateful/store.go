@@ -62,10 +62,12 @@ func ApplySchema(ctx context.Context, pool *pgxpool.Pool) error {
 			if version != 1 {
 				return &SchemaVersionError{Actual: version}
 			}
-			return nil
+			return applyTrackingSchema(ctx, tx)
 		}
-		_, err := tx.Exec(ctx, referenceSchemaSQL)
-		return err
+		if _, err := tx.Exec(ctx, referenceSchemaSQL); err != nil {
+			return err
+		}
+		return applyTrackingSchema(ctx, tx)
 	})
 }
 
@@ -76,6 +78,10 @@ func withStorageTx(ctx context.Context, pool *pgxpool.Pool, options pgx.TxOption
 }
 
 func withSQLTx(ctx context.Context, pool *pgxpool.Pool, options pgx.TxOptions, transactionTimeout, statementTimeout time.Duration, fn func(context.Context, pgx.Tx) error) error {
+	return withSQLTxCommit(ctx, pool, options, transactionTimeout, statementTimeout, fn, nil)
+}
+
+func withSQLTxCommit(ctx context.Context, pool *pgxpool.Pool, options pgx.TxOptions, transactionTimeout, statementTimeout time.Duration, fn func(context.Context, pgx.Tx) error, commit func(context.Context, pgx.Tx) error) error {
 	if ctx == nil {
 		return errors.New("stateful: context is required")
 	}
@@ -89,7 +95,11 @@ func withSQLTx(ctx context.Context, pool *pgxpool.Pool, options pgx.TxOptions, t
 		return err
 	}
 	defer func() {
-		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), storageStatementTimeout)
+		cleanupDeadline := time.Now().Add(storageStatementTimeout)
+		if deadline, ok := bounded.Deadline(); ok && deadline.Before(cleanupDeadline) {
+			cleanupDeadline = deadline
+		}
+		cleanup, cancel := context.WithDeadline(context.WithoutCancel(ctx), cleanupDeadline)
 		defer cancel()
 		_ = tx.Rollback(cleanup)
 	}()
@@ -98,6 +108,9 @@ func withSQLTx(ctx context.Context, pool *pgxpool.Pool, options pgx.TxOptions, t
 	}
 	if err = fn(bounded, tx); err != nil {
 		return err
+	}
+	if commit != nil {
+		return commit(bounded, tx)
 	}
 	return tx.Commit(bounded)
 }

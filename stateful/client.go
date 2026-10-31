@@ -59,7 +59,7 @@ func newEffects(options ClientOptions) (hardenllm.Options, error) {
 	if err != nil {
 		return hardenllm.Options{}, err
 	}
-	return hardenllm.Options{Connections: connections, DefaultConnection: options.DefaultConnection, Cache: options.Cache, Executor: executor, Observer: observer, DiscoverModels: func(ctx context.Context, c hardenllm.Connection) ([]hardenllm.Model, error) {
+	return hardenllm.Options{Connections: connections, DefaultConnection: options.DefaultConnection, Cache: options.Cache, Executor: executor, Observer: trackingObserver{next: observer}, DiscoverModels: func(ctx context.Context, c hardenllm.Connection) ([]hardenllm.Model, error) {
 		found, err := discovery.Discover(ctx, providers.ModelDiscoveryRequest{BaseURL: c.BaseURL, APIInferenceType: c.Protocol, APIKey: c.APIKey, Headers: c.Headers})
 		if err != nil {
 			return nil, err

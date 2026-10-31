@@ -23,7 +23,7 @@ func TestOpenAIContractOpenAPIRoutes(t *testing.T) {
 
 	want := map[string]struct{}{
 		"/healthz": {}, "/readyz": {}, "/v1/models": {},
-		"/v1/chat/completions": {}, "/v1/responses": {},
+		"/v1/requests/{trackingID}": {}, "/v1/chat/completions": {}, "/v1/responses": {},
 		"/api/v1/status": {}, "/api/v1/profiles": {}, "/api/v1/profiles/{profileID}": {},
 		"/api/v1/profiles/{profileID}/models:refresh": {}, "/api/v1/profiles/bundle": {},
 		"/api/v1/run": {}, "/api/v1/state": {}, "/api/v1/history": {},

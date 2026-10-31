@@ -15,7 +15,7 @@ The incoming API bearer is `HARDEN_LLM_TOKEN`, stored in the ignored root
 `.env`. `CPA_API_KEY` is used only by the gateway for its configured upstream.
 The checked-in connection example is [`config/upstreams.example.json`](config/upstreams.example.json).
 See [the API contract](api/openapi.yaml), [architecture](docs/architecture.md),
-and [self-hosting guide](docs/self-hosting.md).
+[request status lookup](docs/request-status.md), and [self-hosting guide](docs/self-hosting.md).
 
 ## Repository map
 
