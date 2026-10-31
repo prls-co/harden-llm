@@ -238,7 +238,7 @@ func (a *Activities) startClaimReadHint(ctx context.Context, claimed Attempt) fu
 	go func() {
 		defer close(done)
 
-		_ = a.Temporal.SignalWorkflow(bounded, "hllm-cpa-pool-v1/"+claimed.PoolID, "", settlementSignal, SettlementNotice{PermitID: claimed.PermitID, Revision: 0})
+		_ = a.coalescePoolRead(bounded, claimed.PoolID, SettlementNotice{PermitID: claimed.PermitID, Revision: 0})
 	}()
 	return func() { cancel(); <-done }
 }

@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -53,7 +54,27 @@ type temporalBatchFixture struct {
 	queue                    string
 	worker                   worker.Worker
 	calls, active, peak      atomic.Int32
+	claimSignalCalls         atomic.Int64
+	settlementSignalCalls    atomic.Int64
 	ctx                      context.Context
+}
+
+// Count logical durable SignalWorkflow calls, not SDK transport retry attempts.
+// The embedded real client retains every other behavior and payload unchanged.
+type fixtureDurableSignalCounter struct {
+	client.Client
+	fixture *temporalBatchFixture
+}
+
+func (c fixtureDurableSignalCounter) SignalWorkflow(ctx context.Context, id, run, name string, arg interface{}) error {
+	if notice, ok := arg.(batch.SettlementNotice); ok && name == "attempt-settled" {
+		if notice.Revision == 0 {
+			c.fixture.claimSignalCalls.Add(1)
+		} else {
+			c.fixture.settlementSignalCalls.Add(1)
+		}
+	}
+	return c.Client.SignalWorkflow(ctx, id, run, name, arg)
 }
 
 func newTemporalBatchFixture(t *testing.T, throttle bool) *temporalBatchFixture {
@@ -61,6 +82,11 @@ func newTemporalBatchFixture(t *testing.T, throttle bool) *temporalBatchFixture 
 	return newTemporalBatchFixtureWithGate(t, throttle, nil)
 }
 func newTemporalBatchFixtureWithGate(t *testing.T, throttle bool, gate func(context.Context, string)) *temporalBatchFixture {
+	t.Helper()
+	return newTemporalBatchFixtureWithTemporal(t, throttle, gate, nil)
+}
+
+func newTemporalBatchFixtureWithTemporal(t *testing.T, throttle bool, gate func(context.Context, string), wrap func(client.Client) client.Client) *temporalBatchFixture {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	t.Cleanup(cancel)
@@ -129,6 +155,10 @@ func newTemporalBatchFixtureWithGate(t *testing.T, throttle bool, gate func(cont
 		t.Fatal(err)
 	}
 	f.temporal, _ = integrationtest.TemporalLease(t)
+	activityTemporal := f.temporal
+	if wrap != nil {
+		activityTemporal = wrap(activityTemporal)
+	}
 	store := &batch.PostgresStore{Pool: pool}
 	policy := batch.DefaultPolicy()
 	// This local provider has no account quota; window timing is covered at T0.
@@ -138,7 +168,7 @@ func newTemporalBatchFixtureWithGate(t *testing.T, throttle bool, gate func(cont
 		policy.Burst = 2
 	}
 	f.jobs = &batch.Service{Store: store, Starter: batch.TemporalStarter{Client: f.temporal, TaskQueue: f.queue}, Artifacts: artifacts, Upstream: "cpa", JobTimeout: 2 * time.Minute}
-	f.activities = &batch.Activities{Store: store, Artifacts: artifacts, Temporal: f.temporal, TaskQueue: f.queue, PoolID: uuid.NewString(), Policy: policy, Encode: EncodeBatchResponse, Execute: func(ctx context.Context, scope string, r hardenllm.Request) (hardenllm.Result, error) {
+	f.activities = &batch.Activities{Store: store, Artifacts: artifacts, Temporal: fixtureDurableSignalCounter{Client: activityTemporal, fixture: f}, TaskQueue: f.queue, PoolID: uuid.NewString(), Policy: policy, Encode: EncodeBatchResponse, Execute: func(ctx context.Context, scope string, r hardenllm.Request) (hardenllm.Result, error) {
 		core, err := service.ClientForKey(scope)
 		if err != nil {
 			return hardenllm.Result{}, err
@@ -1115,4 +1145,242 @@ func mixedObservePool(ctx context.Context, f *temporalBatchFixture) mixedPoolObs
 		}
 	}
 	return out
+}
+
+// Drop only the caller acknowledgement after a real positive Temporal start.
+// The independent execution and its original workflow identity remain intact.
+type fixtureLostAttemptStart struct {
+	client.Client
+	mu          sync.Mutex
+	reservation batch.Reservation
+	identities  map[string]int
+	lost        atomic.Bool
+	ackLost     chan struct{}
+}
+
+func (c *fixtureLostAttemptStart) ExecuteWorkflow(ctx context.Context, opts client.StartWorkflowOptions, w interface{}, args ...interface{}) (client.WorkflowRun, error) {
+	if w != batch.AttemptWorkflowName {
+		return c.Client.ExecuteWorkflow(ctx, opts, w, args...)
+	}
+	c.mu.Lock()
+	c.identities[opts.ID]++
+	c.mu.Unlock()
+	run, err := c.Client.ExecuteWorkflow(ctx, opts, w, args...)
+	if err == nil && c.lost.CompareAndSwap(false, true) {
+		c.mu.Lock()
+		c.reservation = args[0].(batch.AttemptInput).Reservation
+		c.mu.Unlock()
+		close(c.ackLost)
+		return nil, errors.New("synthetic lost acknowledgement after real positive start")
+	}
+	return run, err
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-526
+func TestTemporalBatchLostStartAcknowledgementKeepsOneAttemptAndResult(t *testing.T) {
+	t.Parallel()
+	entered, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	defer once.Do(func() { close(release) })
+	lost := &fixtureLostAttemptStart{identities: map[string]int{}, ackLost: make(chan struct{})}
+	f := newTemporalBatchFixtureWithTemporal(t, false, func(ctx context.Context, _ string) {
+		close(entered)
+		select {
+		case <-release:
+		case <-ctx.Done():
+		}
+	}, func(c client.Client) client.Client {
+		lost.Client = c
+		return lost
+	})
+	startFixtureV2Pool(t, f, 1)
+	job, _ := f.submit(t, 1)
+	select {
+	case <-entered:
+	case <-f.ctx.Done():
+		t.Fatal("started workflow never entered its sole native call", f.ctx.Err())
+	}
+	select {
+	case <-lost.ackLost:
+	case <-f.ctx.Done():
+		t.Fatal("no real positive start acknowledgement was lost", f.ctx.Err())
+	}
+	lost.mu.Lock()
+	r := lost.reservation
+	lost.mu.Unlock()
+	// Retry metadata using the exact reservation/Workflow ID while HTTP is active.
+	out, err := f.activities.StartAttempts(f.ctx, []batch.Reservation{r})
+	if err != nil || len(out) != 1 || !out[0].Started || out[0].PermitID != r.PermitID {
+		t.Fatal("same-identity retry failed to resolve an already-started execution", err, out)
+	}
+	store := f.activities.Store.(*batch.PostgresStore)
+	var rows, ordinal int
+	if err := store.Pool.QueryRow(f.ctx, `SELECT count(*),max(ordinal) FROM batch_attempts WHERE permit_id=$1`, r.PermitID).Scan(&rows, &ordinal); err != nil || rows != 1 || ordinal != 1 || f.calls.Load() != 1 || f.active.Load() != 1 {
+		t.Fatal("lost start acknowledgement duplicated reservation or native execution", err, rows, ordinal, f.calls.Load())
+	}
+	encoded, err := f.temporal.QueryWorkflow(f.ctx, "hllm-cpa-pool-v1/"+f.activities.PoolID, "", "state")
+	var active batch.PoolState
+	if err != nil || encoded.Get(&active) != nil || len(active.Outstanding) != 1 || active.Outstanding[0].ID != r.PermitID {
+		t.Fatal("uncertain start acknowledgement released active capacity", err, active)
+	}
+	once.Do(func() { close(release) })
+	finished := f.wait(t, job.JobID, func(s batch.Status) bool { return s.Counts.Done() })
+	if finished.Counts.Succeeded != 1 || f.calls.Load() != 1 {
+		t.Fatal("lost start acknowledgement lost or repeated the final result", finished.Counts, f.calls.Load())
+	}
+	f.assertResults(t, job.JobID, 1)
+	if err := f.temporal.GetWorkflow(f.ctx, r.WorkflowID, "").Get(f.ctx, nil); err != nil {
+		t.Fatal("independent workflow did not finish after metadata recovery", err)
+	}
+	lost.mu.Lock()
+	identities, starts := len(lost.identities), lost.identities[r.WorkflowID]
+	lost.mu.Unlock()
+	if identities != 1 || starts < 2 {
+		t.Fatal("retry selected a replacement workflow identity", identities, starts)
+	}
+	retained, err := store.ReadAttempts(f.ctx, r.PoolID, []string{r.PermitID})
+	if err != nil || len(retained) != 1 || retained[0].State != "settled" || retained[0].StoppedAt == nil || retained[0].Observation == nil || retained[0].Observation.Outcome.Kind != "completed" {
+		t.Fatal("same-identity execution did not retain a confirmed settlement", err, retained)
+	}
+	assertFixturePoolSettled(t, f, 1)
+	// Replay the actual independent attempt history, including its new version
+	// marker and combined metadata-finalization activity.
+	history := &historypb.History{}
+	events := f.temporal.GetWorkflowHistory(f.ctx, r.WorkflowID, "", false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+	for events.HasNext() {
+		event, err := events.Next()
+		if err != nil || len(history.Events) >= 1000 {
+			t.Fatal("attempt history unavailable or unexpectedly unbounded", err)
+		}
+		history.Events = append(history.Events, event)
+	}
+	replayer := worker.NewWorkflowReplayer()
+	replayer.RegisterWorkflowWithOptions(batch.AttemptWorkflow, workflow.RegisterOptions{Name: batch.AttemptWorkflowName})
+	if err := replayer.ReplayWorkflowHistory(nil, history); err != nil {
+		t.Fatal("real independent attempt history cannot replay", err)
+	}
+}
+
+func assertFixturePoolSettled(t *testing.T, f *temporalBatchFixture, sequence int64) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(f.ctx, 10*time.Second)
+	defer cancel()
+	tick := time.NewTicker(50 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		encoded, err := f.temporal.QueryWorkflow(ctx, "hllm-cpa-pool-v1/"+f.activities.PoolID, "", "state")
+		var state batch.PoolState
+		if err != nil || encoded.Get(&state) != nil {
+			t.Fatal("pool state unavailable after positive settlement", err)
+		}
+		if len(state.Outstanding) == 0 && len(state.StartIntents) == 0 && len(state.RequestRetirements) == 0 && !state.PersistenceWait {
+			if state.Sequence != sequence || f.active.Load() != 0 {
+				t.Fatal("settlement changed permit identities or left native transport active", state.Sequence, f.active.Load())
+			}
+			return
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("positive settlement leaked pool capacity or persistence gate", state, ctx.Err())
+		case <-tick.C:
+		}
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-527
+func TestTemporalBatchPersistenceBlockRetriesMetadataWithoutInference(t *testing.T) {
+	t.Parallel()
+	entered, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	defer once.Do(func() { close(release) })
+	f := newTemporalBatchFixtureWithGate(t, false, func(ctx context.Context, _ string) {
+		close(entered)
+		select {
+		case <-release:
+		case <-ctx.Done():
+		}
+	})
+	startFixtureV2Pool(t, f, 1)
+	job, _ := f.submit(t, 1)
+	select {
+	case <-entered:
+	case <-f.ctx.Done():
+		t.Fatal("provider never entered before persistence blockage", f.ctx.Err())
+	}
+	store := f.activities.Store.(*batch.PostgresStore)
+	var permit, claim, workflowID string
+	if err := store.Pool.QueryRow(f.ctx, `SELECT permit_id::text,claim_id::text,workflow_id FROM batch_attempts WHERE api_key_hash=$1 AND job_id=$2`, f.scope, job.JobID).Scan(&permit, &claim, &workflowID); err != nil {
+		t.Fatal(err)
+	}
+	held, err := store.Pool.Begin(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Rollback(context.Background())
+	var locked string
+	if err := held.QueryRow(f.ctx, `SELECT permit_id::text FROM batch_attempts WHERE permit_id=$1 FOR UPDATE`, permit).Scan(&locked); err != nil || locked != permit {
+		t.Fatal("test failed to acquire its own invocation row", err)
+	}
+	once.Do(func() { close(release) })
+	phase, stopPhase := context.WithTimeout(f.ctx, 12*time.Second)
+	defer stopPhase()
+	tick := time.NewTicker(50 * time.Millisecond)
+	defer tick.Stop()
+	artifactRetained, metadataRetried := false, false
+	for !artifactRetained || !metadataRetried {
+		if !artifactRetained {
+			r, err := f.activities.Artifacts.OpenBatchResult(phase, f.scope, job.JobID, "attempt-"+permit+".json")
+			if err == nil {
+				raw, readErr := io.ReadAll(io.LimitReader(r, 65536))
+				closeErr := r.Close()
+				var envelope struct {
+					PermitID    string                   `json:"permit_id"`
+					ClaimID     string                   `json:"claim_id"`
+					Observation batch.AttemptObservation `json:"observation"`
+				}
+				if readErr != nil || closeErr != nil || json.Unmarshal(raw, &envelope) != nil || envelope.PermitID != permit || envelope.ClaimID != claim || !envelope.Observation.NativeEntered || !envelope.Observation.LocalStopped || envelope.Observation.Outcome.Kind != "completed" {
+					t.Fatal("native result artifact lacked positive same-owner completion")
+				}
+				artifactRetained = true
+			}
+		}
+		if !metadataRetried {
+			described, err := f.temporal.DescribeWorkflowExecution(phase, workflowID, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, pending := range described.PendingActivities {
+				if pending.ActivityType.GetName() == "FinalizeAttempt" && (pending.Attempt > 1 || pending.LastFailure != nil) {
+					metadataRetried = true
+				}
+			}
+		}
+		if artifactRetained && metadataRetried {
+			break
+		}
+		select {
+		case <-phase.Done():
+			t.Fatal("did not observe real artifact completion and metadata retry under held SQL row", artifactRetained, metadataRetried, phase.Err())
+		case <-tick.C:
+		}
+	}
+	if f.calls.Load() != 1 || f.active.Load() != 0 {
+		t.Fatal("persistence blockage replayed inference or prevented native closure", f.calls.Load(), f.active.Load())
+	}
+	if err := held.Commit(f.ctx); err != nil {
+		t.Fatal(err)
+	}
+	finished := f.wait(t, job.JobID, func(s batch.Status) bool { return s.Counts.Done() })
+	if finished.Counts.Succeeded != 1 || finished.Counts.Failed != 0 || f.calls.Load() != 1 {
+		t.Fatal("same-observation metadata retry lost or repeated native output", finished.Counts, f.calls.Load())
+	}
+	f.assertResults(t, job.JobID, 1)
+	if err := f.temporal.GetWorkflow(f.ctx, workflowID, "").Get(f.ctx, nil); err != nil {
+		t.Fatal("independent workflow did not complete after persistence recovery", err)
+	}
+	retained, err := store.ReadAttempts(f.ctx, f.activities.PoolID, []string{permit})
+	if err != nil || len(retained) != 1 || retained[0].ClaimID != claim || retained[0].Ordinal != 1 || retained[0].State != "settled" || retained[0].StoppedAt == nil || retained[0].Observation == nil || retained[0].Observation.Outcome.Kind != "completed" {
+		t.Fatal("persistence recovery changed immutable ownership/result", err, retained)
+	}
+	assertFixturePoolSettled(t, f, 1)
 }

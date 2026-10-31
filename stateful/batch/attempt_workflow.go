@@ -27,6 +27,29 @@ type SettlementNotice struct {
 	Revision int64
 }
 
+// FinalizeAttempt combines metadata settlement/readback and its best-effort
+// read hint. A notification failure cannot turn a positive SQL result into a
+// failed settlement or schedule another inference. Pool readback remains the
+// fallback, including if this activity's normal return is lost.
+func (a *Activities) FinalizeAttempt(ctx context.Context, known KnownSettlement) (Attempt, error) {
+	var retained Attempt
+	var err error
+	if known.ClaimID != "" {
+		retained, err = a.SettleKnownAttempt(ctx, known)
+	} else {
+		retained, err = a.ReconcileAttempt(ctx, known.Reference)
+	}
+	if err != nil || retained.State != "settled" || a.Temporal == nil {
+		return retained, err
+	}
+	bounded, stop := context.WithTimeout(ctx, time.Second)
+	defer stop()
+	if notifyErr := a.NotifySettlement(bounded, retained); notifyErr != nil && a.Logger != nil {
+		a.Logger.WarnContext(ctx, "settled attempt wake unavailable; ledger readback retained", "pool_id", retained.PoolID, "permit_id", retained.PermitID)
+	}
+	return retained, nil
+}
+
 func (a *Activities) SettleKnownAttempt(ctx context.Context, known KnownSettlement) (Attempt, error) {
 	ledger, ok := a.Store.(ExecutionStore)
 	if !ok {
@@ -78,6 +101,11 @@ func (a *Activities) NotifySettlement(ctx context.Context, attempt Attempt) erro
 	if a.Temporal == nil || attempt.State != "settled" || attempt.SettlementRevision < 1 {
 		return ErrUnavailable
 	}
+	// Only positively stopped successes may join a bounded wake batch. The
+	// signal is a read hint, never settlement evidence or inference permission.
+	if attempt.Kind == "job" && attempt.StoppedAt != nil && attempt.Observation != nil && attempt.Observation.LocalStopped && attempt.Observation.Outcome.Kind == "completed" && attempt.Observation.Outcome.Admission == "" && attempt.Observation.Outcome.RetryAfterMS == 0 {
+		return a.coalescePoolRead(ctx, attempt.PoolID, SettlementNotice{PermitID: attempt.PermitID, Revision: attempt.SettlementRevision})
+	}
 	return a.Temporal.SignalWorkflow(ctx, "hllm-cpa-pool-v1/"+attempt.PoolID, "", settlementSignal, SettlementNotice{PermitID: attempt.PermitID, Revision: attempt.SettlementRevision})
 }
 func AttemptWorkflow(ctx workflow.Context, input AttemptInput) error {
@@ -85,6 +113,7 @@ func AttemptWorkflow(ctx workflow.Context, input AttemptInput) error {
 		return errors.New("batch: invalid independent attempt input")
 	}
 	var a *Activities
+	combinedFinalization := workflow.GetVersion(ctx, "combined-settlement-notice", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	remaining := input.Reservation.Deadline.Sub(workflow.Now(ctx))
 	providerOptions := workflow.ActivityOptions{TaskQueue: input.ProviderTaskQueue, StartToCloseTimeout: max(time.Second, min(time.Duration(input.Reservation.BudgetMS)*time.Millisecond, remaining)+attemptFinalizationGrace), HeartbeatTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}}
 	providerCtx := workflow.WithActivityOptions(ctx, providerOptions)
@@ -99,23 +128,40 @@ func AttemptWorkflow(ctx workflow.Context, input AttemptInput) error {
 		var err error
 		if invocationErr == nil && invoked.Observation != nil && invoked.ClaimID != "" {
 			known := KnownSettlement{Reference: reference, ClaimID: invoked.ClaimID, Observation: *invoked.Observation}
-			err = workflow.ExecuteActivity(metaCtx, a.SettleKnownAttempt, known).Get(metaCtx, &retained)
+			if combinedFinalization {
+				err = workflow.ExecuteActivity(metaCtx, a.FinalizeAttempt, known).Get(metaCtx, &retained)
+			} else {
+				err = workflow.ExecuteActivity(metaCtx, a.SettleKnownAttempt, known).Get(metaCtx, &retained)
+			}
 		} else {
-			err = workflow.ExecuteActivity(metaCtx, a.ReconcileAttempt, reference).Get(metaCtx, &retained)
+			if combinedFinalization {
+				err = workflow.ExecuteActivity(metaCtx, a.FinalizeAttempt, KnownSettlement{Reference: reference}).Get(metaCtx, &retained)
+			} else {
+				err = workflow.ExecuteActivity(metaCtx, a.ReconcileAttempt, reference).Get(metaCtx, &retained)
+			}
 		}
 		if err == nil && retained.State == "settled" {
 			// A lost notice is covered by the pool's bounded ledger readback. It does
 			// not warrant replaying execution or changing the retained settlement.
-			_ = workflow.ExecuteActivity(metaCtx, a.NotifySettlement, retained).Get(metaCtx, nil)
+			if !combinedFinalization {
+				_ = workflow.ExecuteActivity(metaCtx, a.NotifySettlement, retained).Get(metaCtx, nil)
+			}
 			return nil
 		}
 		if err != nil && invoked.Observation != nil {
 			// Prefer an already-authoritative outcome if a concurrent finalization
 			// won. Keep our known observation for later metadata retry otherwise.
 			var current Attempt
-			readErr := workflow.ExecuteActivity(metaCtx, a.ReconcileAttempt, reference).Get(metaCtx, &current)
+			var readErr error
+			if combinedFinalization {
+				readErr = workflow.ExecuteActivity(metaCtx, a.FinalizeAttempt, KnownSettlement{Reference: reference}).Get(metaCtx, &current)
+			} else {
+				readErr = workflow.ExecuteActivity(metaCtx, a.ReconcileAttempt, reference).Get(metaCtx, &current)
+			}
 			if readErr == nil && current.State == "settled" {
-				_ = workflow.ExecuteActivity(metaCtx, a.NotifySettlement, current).Get(metaCtx, nil)
+				if !combinedFinalization {
+					_ = workflow.ExecuteActivity(metaCtx, a.NotifySettlement, current).Get(metaCtx, nil)
+				}
 				return nil
 			}
 		}

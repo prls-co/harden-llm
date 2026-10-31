@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 1,
+  "sourceBaseSHA": "90c0bf0dc99a5961e0e27cd6191b08ec61dea16e",
+  "combinedLoadSource": {
+    "sourceBaseSHA": "90c0bf0dc99a5961e0e27cd6191b08ec61dea16e",
+    "note": "Runtime and load-fixture bytes used by combined-finalizer profiles, before additional real fault tests.",
+    "sha256": {
+      "internal/gateway/httpapi/jobs_mixed_endurance_integration_test.go": "748de1836091ef7047e07b7bf578e900b7b5114927b12ce84c0a82537ca74bfa",
+      "internal/gateway/httpapi/jobs_temporal_integration_test.go": "3092851a946cd23107915f199cde2c2294367ec143e8c4c545cb483f65a28b99",
+      "stateful/batch/activities.go": "cc785df516deda30f4f619dc276bd1a1cbf53e746a69cdc419fbf7416ed4e649",
+      "stateful/batch/attempt_execution.go": "dd606539c49b1064bd613392ee6968b374d9ab19507d472e801457904f00bd47",
+      "stateful/batch/attempt_workflow.go": "997991871ceee678c3e48c0b3859e2e3cfbd31009d27b103cdb835425e4b5fc4",
+      "stateful/batch/workers.go": "518253d5101ecf2992ae2fc55e052d13b16ac1d48c4402483a12dfb8271c33db",
+      "stateful/batch/pool_wake.go": "29b110a8732c5d5b2b84e370f7f3ea6d0041618ae931cd6887663e7ea42bb1a3",
+      "deploy/test/compose.integration.yml": "b639c28d5cf63b6645ed307b23bb8cfcbaf92db98f492ce8a64bf72d3dc7215b"
+    }
+  },
+  "scope": "Local synthetic TLS provider, four-shard owned Temporal/PostgreSQL/Garage; no CPA or paid calls.",
+  "nativeCap": 128,
+  "ordinaryDeadlineSeconds": 60,
+  "durableDeadlineSeconds": 480,
+  "grantStartLeaseSeconds": 5,
+  "fullScaleAccepted": false,
+  "combinedProviderExecutionComplete": true,
+  "combinedStrictControlCountsAccepted": false,
+  "checks": {
+    "integration_race": {
+      "accepted": true,
+      "localReceipt": "tmp/cpa-wake-finalizer-integration-race.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "temporal_replay_faults": {
+      "accepted": true,
+      "localReceipt": "tmp/cpa-wake-finalizer-temporal.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "fast": {
+      "accepted": true,
+      "localReceipt": "tmp/test-feedback/runner-1793468044089-901672-e5c8a1a283d6f262.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    }
+  },
+  "profiles": {
+    "wake_1000": {
+      "runnerAccepted": true,
+      "localReceipt": "tmp/cpa-coalesced-wakes-1000.json",
+      "localMetrics": "tmp/cpa-mixed-1000-651734.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "metrics": {
+        "Accepted": true,
+        "Total": 1000,
+        "Durable": 800,
+        "Ordinary": 200,
+        "Replicas": 2,
+        "Scopes": 2,
+        "Concurrency": 128,
+        "ElapsedMS": 37939,
+        "NativeRequests": 1000,
+        "NativePeak": 6,
+        "DistinctNative": 1000,
+        "DistinctResults": 1000,
+        "OrdinaryErrors": 0,
+        "PeakHeapBytes": 41105240,
+        "PeakGoroutines": 1180,
+        "LedgerSnapshotConfirmed": true,
+        "LedgerAttempts": 1000,
+        "NeverSentAttempts": 0,
+        "ClaimP50MS": 445.72,
+        "ClaimP95MS": 1198.7756499999994,
+        "ClaimMaxMS": 1852.094,
+        "PoolAcquireDurationMS": 2771,
+        "PoolEmptyAcquires": 338,
+        "AttemptOutcomesConfirmed": true,
+        "AttemptOutcomes": [
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 800
+          },
+          {
+            "Kind": "ordinary",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 200
+          }
+        ],
+        "DurableClaimSignalCalls": 103,
+        "DurableSettlementSignalCalls": 108,
+        "Workflows": {
+          "HLLMBatchV1": 2,
+          "HLLMCPAAttemptV2": 800,
+          "HLLMCPAPoolV2": 2
+        },
+        "Continued": true,
+        "SnapshotBytes": 1221,
+        "QueueP50MS": 13568.5,
+        "QueueP95MS": 29333.25,
+        "QueueMaxMS": 31366,
+        "NativeP95MS": 6,
+        "DatabaseTransactions": 11969,
+        "DatabaseUpdatedRows": 8889
+      }
+    },
+    "wake_10000": {
+      "runnerAccepted": false,
+      "localReceipt": "tmp/cpa-coalesced-wakes-10000.json",
+      "localMetrics": "tmp/cpa-mixed-10000-664447.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "metrics": {
+        "Accepted": false,
+        "Total": 10000,
+        "Durable": 9000,
+        "Ordinary": 1000,
+        "Replicas": 2,
+        "Scopes": 2,
+        "Concurrency": 128,
+        "ElapsedMS": 484508,
+        "NativeRequests": 8705,
+        "NativePeak": 5,
+        "DistinctNative": 8705,
+        "DistinctResults": 1000,
+        "OrdinaryErrors": 0,
+        "PeakHeapBytes": 141116264,
+        "PeakGoroutines": 5202,
+        "LedgerSnapshotConfirmed": true,
+        "LedgerAttempts": 8708,
+        "NeverSentAttempts": 3,
+        "ClaimP50MS": 669.217,
+        "ClaimP95MS": 1445.5779999999993,
+        "ClaimMaxMS": 3803.996,
+        "PoolAcquireDurationMS": 32165,
+        "PoolEmptyAcquires": 3137,
+        "AttemptOutcomesConfirmed": true,
+        "AttemptOutcomes": [
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 7705
+          },
+          {
+            "Kind": "ordinary",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 1000
+          },
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "never_dispatched",
+            "Code": "",
+            "Claimed": false,
+            "DispatchRecorded": false,
+            "LocalStopped": true,
+            "Count": 3
+          }
+        ],
+        "DurableClaimSignalCalls": 772,
+        "DurableSettlementSignalCalls": 1225,
+        "Workflows": null,
+        "Continued": false,
+        "SnapshotBytes": 0,
+        "QueueP50MS": 0,
+        "QueueP95MS": 0,
+        "QueueMaxMS": 0,
+        "NativeP95MS": 0,
+        "DatabaseTransactions": 0,
+        "DatabaseUpdatedRows": 0
+      }
+    },
+    "combined_1000": {
+      "runnerAccepted": true,
+      "localReceipt": "tmp/cpa-combined-finalizer-1000.json",
+      "localMetrics": "tmp/cpa-mixed-1000-767986.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "metrics": {
+        "Accepted": true,
+        "Total": 1000,
+        "Durable": 800,
+        "Ordinary": 200,
+        "Replicas": 2,
+        "Scopes": 2,
+        "Concurrency": 128,
+        "ElapsedMS": 33364,
+        "NativeRequests": 1000,
+        "NativePeak": 6,
+        "DistinctNative": 1000,
+        "DistinctResults": 1000,
+        "OrdinaryErrors": 0,
+        "PeakHeapBytes": 40350376,
+        "PeakGoroutines": 1212,
+        "LedgerSnapshotConfirmed": true,
+        "LedgerAttempts": 1000,
+        "NeverSentAttempts": 0,
+        "ClaimP50MS": 438.3115,
+        "ClaimP95MS": 780.43535,
+        "ClaimMaxMS": 1165.387,
+        "PoolAcquireDurationMS": 3191,
+        "PoolEmptyAcquires": 374,
+        "AttemptOutcomesConfirmed": true,
+        "AttemptOutcomes": [
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 800
+          },
+          {
+            "Kind": "ordinary",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 200
+          }
+        ],
+        "DurableClaimSignalCalls": 77,
+        "DurableSettlementSignalCalls": 111,
+        "Workflows": {
+          "HLLMBatchV1": 2,
+          "HLLMCPAAttemptV2": 800,
+          "HLLMCPAPoolV2": 2
+        },
+        "Continued": true,
+        "SnapshotBytes": 1237,
+        "QueueP50MS": 13334,
+        "QueueP95MS": 27558.35,
+        "QueueMaxMS": 28997,
+        "NativeP95MS": 6,
+        "DatabaseTransactions": 12505,
+        "DatabaseUpdatedRows": 8871
+      }
+    },
+    "combined_10000": {
+      "runnerAccepted": false,
+      "localReceipt": "tmp/cpa-combined-finalizer-10000.json",
+      "localMetrics": "tmp/cpa-mixed-10000-779672.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "metrics": {
+        "Accepted": false,
+        "Total": 10000,
+        "Durable": 9000,
+        "Ordinary": 1000,
+        "Replicas": 2,
+        "Scopes": 2,
+        "Concurrency": 128,
+        "ElapsedMS": 492140,
+        "NativeRequests": 10000,
+        "NativePeak": 6,
+        "DistinctNative": 10000,
+        "DistinctResults": 10000,
+        "OrdinaryErrors": 0,
+        "PeakHeapBytes": 133523952,
+        "PeakGoroutines": 5203,
+        "LedgerSnapshotConfirmed": true,
+        "LedgerAttempts": 10002,
+        "NeverSentAttempts": 2,
+        "ClaimP50MS": 607.3335,
+        "ClaimP95MS": 1250.8694499999986,
+        "ClaimMaxMS": 3793.622,
+        "PoolAcquireDurationMS": 36816,
+        "PoolEmptyAcquires": 3664,
+        "AttemptOutcomesConfirmed": true,
+        "AttemptOutcomes": [
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 9000
+          },
+          {
+            "Kind": "ordinary",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 1000
+          },
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "never_dispatched",
+            "Code": "dispatch_not_confirmed",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 1
+          },
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "never_dispatched",
+            "Code": "claim_acknowledgement_lost",
+            "Claimed": true,
+            "DispatchRecorded": false,
+            "LocalStopped": true,
+            "Count": 1
+          }
+        ],
+        "DurableClaimSignalCalls": 912,
+        "DurableSettlementSignalCalls": 1230,
+        "Workflows": {
+          "HLLMBatchV1": 9,
+          "HLLMCPAAttemptV2": 9002,
+          "HLLMCPAPoolV2": 9
+        },
+        "Continued": true,
+        "SnapshotBytes": 1221,
+        "QueueP50MS": 174002.5,
+        "QueueP95MS": 424636.44999999995,
+        "QueueMaxMS": 451420,
+        "NativeP95MS": 7,
+        "DatabaseTransactions": 121799,
+        "DatabaseUpdatedRows": 93581
+      }
+    }
+  },
+  "limitations": [
+    "Combined 10000 profile has exact native/validated result identities but two extra pre-entry ledger/attempt workflows; strict gate remains rejected.",
+    "492140 ms includes result collection and final diagnostics; all durable execution completed within accepted budgets.",
+    "Resource samples are reported; resource assertions follow the failed count oracle and were not the runner acceptance decision.",
+    "Additional real fault-only fixture helpers were added after measured load; frozen runtime/load hashes are retained separately.",
+    "Logical signal counts are SDK call entries, not transport retry attempts.",
+    "Not a CPA throughput/quota measurement; no deployment, browser, external provider or production promotion."
+  ]
+}

@@ -2238,9 +2238,11 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 
 - Type / verifies: integration; issue #134 phase P2.
 - Coverage gate: `integration`.
-- Location: `stateful/batch/ledger_integration_test.go`.
+- Locations: `stateful/batch/ledger_integration_test.go`, `stateful/batch/ledger_expiry_race_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-integration`.
 - Oracle: Real PostgreSQL enforces one invocation owner, same-permit reservation acknowledgement under a forced race, exact-owner unknown COMMIT readback, immutable and repeat-safe settlement, safe never-claimed expiry, local-stop generation fencing, additive schema/index compatibility and ordinary metadata without request manifests. Metadata failures cannot create replacement inference permission.
+- Additional oracle: Actual PostgreSQL row-lock waits for expiry and a stale claimant are observed before releasing the owning transaction. Expiry wins without a provider retry and the item remains safely queueable.
+
 
 ### TEST-499: Independent CPA invocation and artifact evidence
 
@@ -2254,9 +2256,11 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 
 - Type / verifies: unit; issue #134 phase P3.
 - Coverage gate: `fast`.
-- Location: `stateful/batch/attempt_workflow_test.go`.
-- Command: `go test ./stateful/batch -run '^TestIndependentAttempt' -count=1`.
+- Locations: `stateful/batch/attempt_workflow_test.go`, `stateful/batch/attempt_finalization_test.go`.
+- Command: `go test ./stateful/batch -run '^TestIndependentAttempt|^TestIndependentFinalization' -count=1`.
 - Oracle: Settlement metadata retries preserve the same owner/observation; failed provider activity acknowledgement and claim redelivery only reconcile retained evidence. Exactly one provider activity is scheduled, with no workflow inference retry. Settlement notices identify the stable pool and authoritative ledger revision.
+- Additional oracle: The combined-finalization version marker retains legacy activity decisions while new attempts use one metadata activity after inference. Known retries retain the same observation; unknown/lost provider returns reconcile without native replay. Failed wake hints cannot invalidate positive settlement.
+
 
 ### TEST-501: Bounded idempotent CPA attempt starter
 
@@ -2295,8 +2299,10 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Type / verifies: unit; issue #134 phase P3.
 - Coverage gate: `fast`.
 - Location: `stateful/batch/pool_workflow_test.go`.
-- Command: `go test ./stateful/batch -run '^TestPoolWorkflow' -count=1`.
+- Command: `go test ./stateful/batch -run '^TestPoolWorkflow|^TestPoolPolicy' -count=1`.
 - Oracle: Pool continuation carries active independent attempts, unknown start intents and restrictions without draining inference. Initialization outage cannot indefinitely prevent continuation. Recovery uses the exact eligible timer rather than rounding an empty local queue to the generic poll interval. All metadata failures retain grant identity.
+- Additional oracle: An actual policy result survives idle/continuation. Policy signals shrink/increase a cap with active work while preserving permit IDs, window budget and restrictions; new grants retain accepted budgets/deadlines. Old accepted SQL snapshots remain owned by TEST-497.
+
 
 ### TEST-506: CPA provider/control worker ownership and shutdown
 
@@ -2449,3 +2455,27 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/batch/attempt_execution_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-integration`.
 - Oracle: Commit a real PostgreSQL claim, drop its acknowledgement and fail the first readback. A later positive same-owner local-stop CAS stages known never-entry; settlement returns the item to the queue with no consumed provider attempt, no result artifact and exactly zero native executions. This is the concrete SQL boundary for TEST-523; absent/foreign proof cannot be replaced by an inference retry.
+
+
+### TEST-525: Bounded durable pool wakes and authoritative trailing readback
+
+- Coverage gate: `fast`.
+- Tier: T1; `stateful/batch/pool_wake_test.go`, `stateful/batch/pool_workflow_test.go`.
+- Command: `go test -race ./stateful/batch -run '^TestDurablePoolWake|^TestPoolOneWake' -count=1`.
+- Oracle: Concurrent positively stopped successful settlements and positive claim hints share one bounded collection/RPC without granting or releasing capacity. Arrivals after sealing require a trailing batch; canceled followers/owners cannot discard other committed hints. Failures are not cached, the original earlier deadline wins, RPC lifetime is at most one second, and pools stay isolated. Restrictions/refusals/uncertain outcomes bypass successful batches. SDK virtual time proves one hint reads all outstanding SQL settlements before the five-second fallback, while a fabricated revision alone releases no permit. Ordinary notice forwarding remains independently unchanged.
+
+
+### TEST-526: Real lost Temporal start acknowledgement and independent replay
+
+- Coverage gate: `integration`.
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: A real Temporal start succeeds before its caller receives a synthetic acknowledgement loss. Retrying the exact reservation/Workflow ID while local native HTTP is blocked resolves the existing execution, retains one ledger ordinal and active permit, and produces exactly one HTTP call and validated artifact result. Real independent-attempt history replays through the combined-finalization version marker. No mock replaces PostgreSQL, Temporal, native HTTP or Garage; only the lost caller acknowledgement is injected.
+
+
+### TEST-527: Real persistence blockage after native result completion
+
+- Coverage gate: `integration`.
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Hold only the test invocation ledger row after confirmed native HTTP entry. Release HTTP while its local-stop/observation/settlement writes are blocked. Require a positively bound Garage artifact and real Temporal finalization retry before releasing the row. The retained observation then settles once, returns one validated result, keeps the original claim/ordinal, and releases pool capacity with exactly one provider HTTP call. The database, native HTTP, Temporal retry, artifact and recovery are real; no inference is replayed.

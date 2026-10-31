@@ -35,6 +35,7 @@ type mixedLoadReport struct {
 	AttemptOutcomesConfirmed                                bool
 	AttemptOutcomes                                         []mixedAttemptOutcome
 	PoolAcquireDurationMS, PoolEmptyAcquires                int64
+	DurableClaimSignalCalls, DurableSettlementSignalCalls   int64
 	History                                                 mixedHistoryDiagnostics
 	PoolObservations                                        []mixedPoolObservation
 	LedgerSnapshotConfirmed                                 bool
@@ -160,6 +161,8 @@ func qualifyMixedCPALoad(t *testing.T, total, ordinaryCount int) {
 		report.ElapsedMS = time.Since(started).Milliseconds()
 		report.NativeRequests = f.calls.Load()
 		report.NativePeak = f.peak.Load()
+		report.DurableClaimSignalCalls = f.claimSignalCalls.Load()
+		report.DurableSettlementSignalCalls = f.settlementSignalCalls.Load()
 		nativeMu.Lock()
 		report.DistinctNative = len(nativeIDs)
 		report.Starts = append([]mixedNativeStart(nil), starts...)

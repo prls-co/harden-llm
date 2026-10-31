@@ -41,6 +41,7 @@ type Activities struct {
 	PoolID    string
 	Policy    Policy
 	Logger    *slog.Logger
+	wakeHints poolWakeHints
 }
 
 func (a *Activities) Enqueue(ctx context.Context, j JobRef) error {

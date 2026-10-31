@@ -1008,3 +1008,161 @@ checks also pass. The redacted checkpoint metrics are in
 `plans/evidence/harden-llm/cpa-admission/2026-10-31-bounded-handoff.json`; raw
 provider/test logs remain private and ignored. This checkpoint is suitable for
 publishing to draft #141, not for marking #134 complete.
+
+
+## 19. Bounded durable wake collection candidate
+
+The preceding published checkpoint `90c0bf0` passed hosted hierarchy run
+`41221903361`. This section records newer source; full scale and semantic gates
+must be attached separately before publication.
+
+Durable claim hints and positively stopped successful settlement hints now share
+one bounded collection/RPC per `Activities` instance and trusted pool. The first
+owner collects for 50 ms, seals before signaling and owns a maximum one-second
+lifetime under its earlier caller deadline. At most one RPC and one collecting
+trailing batch exist. Arrivals after sealing cannot join the in-flight batch;
+they require a subsequent signal because SQL may already have been read. There
+is no successful-acknowledgement cache, background daemon or per-permit map.
+Followers may cancel without deleting already-committed hints; owner cancellation
+cannot cancel other followers' shared metadata read hint. Existing activity/
+claim-sender lifetimes own and join the work. No provider deadline is extended.
+
+Only positive claim read hints and stopped successful settlements may coalesce.
+Refusals, restrictions, uncertain results, trusted retry hints and missing stop
+proof keep direct notification. Ordinary request notices remain unchanged. Every
+signal still carries only one bounded notice to the stable pool workflow ID;
+SQL readback of all outstanding entries remains the authority, not the notice's
+permit or revision. No workflow code/recorded decision contract changes for this
+activity-only hint optimization.
+
+- `tmp/cpa-wake-coalescing-red.log` reproduces 32 logical successful settlements
+  becoming 32 signals instead of one bounded hint.
+- `tmp/cpa-wake-coalescing-green.log` retains a failed new test: scheduling made
+  its intended canceled follower become the trailing batch owner. The corrected
+  test explicitly establishes an owner before creating/canceling the follower;
+  no production assertion or deadline was relaxed.
+- `tmp/cpa-wake-coalescing-verified.log` accepts cancellation, trailing-batch,
+  failure/deadline, pool isolation, critical bypass and claim/settlement cases.
+- `tmp/cpa-wake-owners-race.log` accepts complete `stateful`/`batch` owner packages
+  with the SDK one-hint/all-settlements test. A fabricated revision releases no
+  permit; one later hint reads both real settlements before periodic fallback.
+  Later policy fault cases need their own refreshed owner receipt.
+- `tmp/cpa-coalesced-wakes-1000.json` accepts the unchanged four-shard 1,000-task
+  profile. Numeric report `tmp/cpa-mixed-1000-651734.json` records 37.939 seconds,
+  exact 1,000 native/results/ledger counts, 800 durable attempt workflows,
+  zero never-sent attempts and ordinary errors, peak native overlap six, heap
+  41,105,240 bytes and 1,180 goroutines. The real-client wrapper counts 103
+  logical claim signal calls and 108 settlement signal calls. These count SDK
+  call entries, not transport retry attempts. Full result/ownership oracles are
+  unchanged. The earlier 44.299-second comparison is a single retained profile,
+  not statistical throughput certification or a live CPA quota measurement.
+
+The 10,000-task campaign and remaining semantic gates are separate from this
+successful 1,000-task result. No browser, external provider or deployment ran.
+
+
+### 19.1. Wake-only full-scale outcome
+
+`tmp/cpa-coalesced-wakes-10000.json` remains rejected. Numeric report
+`tmp/cpa-mixed-10000-664447.json` records 8,705 native requests in 484.508 seconds;
+all 1,000 ordinary calls succeeded. The SQL snapshot confirms 7,705 completed
+and three never-dispatched durable attempts, without a retained unconfirmed
+outcome at that snapshot. It counts 772 logical claim and 1,225 settlement
+signal calls. The original durable deadlines still expired, so reducing signal
+traffic alone was insufficient. Cleanup errors/warnings are empty.
+
+## 20. Combined metadata finalization and additional lifecycle faults
+
+The next regression, `tmp/cpa-combined-settlement-red.log`, proves one positively
+settled attempt schedules a second activity solely to notify the pool. New
+histories now run `FinalizeAttempt`, combining the existing same-observation SQL
+settlement/readback and a bounded best-effort hint. A hint error cannot fail a
+positive settlement, cause an inference retry, change its artifact or fabricate
+local stop. `ReconcileAttempt` itself remains a pure metadata operation: pool
+readback can call it without recursively signaling itself per row.
+
+A `combined-settlement-notice` Temporal version marker retains the original
+activity decisions for legacy histories. Legacy activity registrations remain;
+new finalization is registered only on the control worker. Existing legacy
+metadata-retry, lost-provider-return and claim-loser oracles remain. Equivalent
+new-version cases and direct finalizer tests verify positive-settlement ordering,
+unconfirmed metadata, failed signal acknowledgements and nonterminal readback.
+`tmp/cpa-combined-finalizer-verified.log` passes complete `stateful`/`batch` owner
+packages with the race detector.
+
+Two SDK policy faults now pass in `tmp/cpa-wake-policy-faults-verified.log`: an
+actual policy settlement pauses an idle account across continuation and its next
+run; policy signals shrink/increase a cap with active permits while preserving
+IDs, window budget and restrictions. New grants retain their accepted budget and
+deadline. The actor carries IDs, not accepted SQL snapshots; TEST-497 separately
+owns old accepted-budget immutability. An earlier test draft did not compile
+because it tried to inspect a nonexistent full reservation in `PoolPermit`;
+`tmp/cpa-wake-policy-faults.log` records that compile failure. It ran no tests.
+
+Scale with the same runtime changes:
+
+- `tmp/cpa-combined-finalizer-1000.json` is accepted. Numeric report
+  `tmp/cpa-mixed-1000-767986.json` records 33.364 seconds, 1,000 native/validated
+  result/settled attempt identities, 800 independent attempt workflows, zero
+  never-sent attempts and ordinary errors. Claim p95/max are 780.435/1,165.387 ms;
+  heap/goroutine samples peak at 40,350,376 bytes and 1,212. Logical durable claim
+  and settlement signal calls are 77 and 111. Cleanup errors/warnings are empty.
+- `tmp/cpa-combined-finalizer-10000.json` is rejected by the unchanged strict
+  control-overhead oracle, despite all 10,000 separate native calls and distinct
+  validated results completing. Numeric report `tmp/cpa-mixed-10000-779672.json`
+  records 492.140 seconds including result collection/final diagnostics, with
+  all durable items successful inside their original execution budgets. Native
+  overlap peaks at six. There are 10,002 ledger attempts and 9,002 independent
+  attempt workflows instead of 10,000/9,000: two positively stopped pre-entry
+  attempts recovered a lost claim acknowledgement and an unconfirmed dispatch
+  acknowledgement. Their codes are `claim_acknowledgement_lost` and
+  `dispatch_not_confirmed`; neither repeated native inference. All 10,000 native
+  identities are unique, ordinary errors and unknown/leaked capacity are zero,
+  and the pool spans nine workflow runs. The final empty
+  snapshot is 1,221 bytes. Claim p95/max are 1,250.869/3,793.622 ms. Heap/goroutine
+  samples peak at 133,523,952 bytes and 5,203; because the count oracle failed
+  first, later resource assertions were not the runner's acceptance decision.
+  Cleanup errors/warnings are empty. This rejected profile is not a full P5 pass.
+
+The next targeted performance/safety work is acknowledgement readback, rather
+than another unchanged full load run: prove a bounded additional read can recover
+this invocation's own fresh claim after a transient failed readback; prove a
+positive same-owner readback of a newly written dispatch intent can resolve a
+lost acknowledgement without repeating that write or any provider call. Missing,
+foreign, terminal, previously recorded dispatch and expired ownership must remain
+non-authorizing. Keep transaction/statement budgets, lease and count oracle fixed.
+The current published candidate does not yet make these changes.
+
+Additional fault cases are prepared for canonical real-service verification:
+TEST-526 injects lost caller acknowledgement only after a real Temporal start,
+retries the exact reservation while HTTP remains active, validates one SQL
+ordinal/native/artifact result and replays the actual independent workflow.
+TEST-527 blocks the invocation row after native entry, requires the same-owner
+Garage artifact and real Temporal metadata retry before unblocking, then requires
+one result and fully released capacity. TEST-498 adds a real row-lock/blocked PID
+race between reservation expiry and a claimant holding a stale snapshot. They
+must pass their own canonical tracks before being counted as acceptance.
+
+Runtime/load-fixture hashes before the additional fault-only fixture helpers are
+retained in `tmp/cpa-combined-load-source.json`. The workload assertions and
+runtime source are unchanged by those helpers. No browser, real CPA/provider,
+selected-environment deployment or production promotion occurred.
+
+
+### 20.1. Canonical fault verification
+
+`tmp/cpa-wake-finalizer-integration-race.json` accepts the full canonical backend
+SQL/race track in 92.234 seconds, including the real blocked-row stale-claim
+race. `tmp/cpa-wake-finalizer-temporal.json` accepts the full real Temporal,
+PostgreSQL and Garage track in 45.395 seconds, including TEST-526/527 and actual
+independent-attempt history replay through the combined-finalization marker.
+Both tracks have empty cleanup errors/warnings. These results qualify the named
+faults and retained rollover/compatibility cases, not the failed strict scale
+count oracle. The full fast gate is recorded separately when terminal.
+
+`tmp/cpa-wake-finalizer-fast.log` accepts all ten fast tasks. Authoritative
+receipt: `tmp/test-feedback/runner-1793468044089-901672-e5c8a1a283d6f262.json`.
+Cleanup errors/warnings are empty; canonical registration and whitespace checks
+pass. The redacted scale/gate receipt is
+`plans/evidence/harden-llm/cpa-admission/2026-10-31-wake-finalization.json`.
+This is a verified source checkpoint for draft #141, not full #134 completion.

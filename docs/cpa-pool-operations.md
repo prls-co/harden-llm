@@ -141,6 +141,23 @@ two enqueue/poll slots and two existing-permit/cancellation slots. Those slots
 never span native I/O and do not change the shared provider cap. Coalesced wake
 hints cannot grant dispatch permission. Claim notices run in a bounded sender
 alongside the confirmed invocation and are joined before finalization.
+Durable positive claim hints and positively stopped successful settlements share
+50 ms collection batches per worker/pool, with one signal call in flight and a
+mandatory trailing batch for arrivals after sealing. Collection, RPC admission
+and signaling share a one-second maximum under the original earlier deadline.
+There is no recent-success cache. Cancellation cannot discard other committed
+hints; periodic SQL readback covers an unavailable signal. Restrictions,
+refusals and uncertain outcomes bypass successful batches. Ordinary settlement
+notices retain their existing forwarding behavior. A notice never supplies
+permission or local-stop proof.
+
+New independent attempts use `FinalizeAttempt` on the control queue to combine
+metadata settlement/readback with its bounded best-effort hint. A hint failure
+does not undo positive settlement or retry inference. A Temporal version marker
+retains legacy activity decisions and registrations. Roll out compatible control
+workers before accepting new attempts; drain pending new activity types before
+returning to an older binary. Pool readback remains metadata-only and does not
+recursively notify itself per reconciled row.
 
 Before declaring the full #134 feature delivered, complete remaining
 recovery/timing qualification, mixed 1,000/10,000-call tests and selected

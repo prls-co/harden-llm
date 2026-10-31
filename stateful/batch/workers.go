@@ -137,6 +137,7 @@ func newWorkers(c client.Client, queue string, a *Activities, create workerFacto
 		{"PublishPool", a.PublishPool}, {"InitializePool", a.InitializePool}, {"SelectPoolReady", a.SelectPoolReady}, {"ReadPool", a.ReadPool}, {"StartAttempts", a.StartAttempts},
 		{"RetireRequests", a.RetireRequests},
 		{"SettleKnownAttempt", a.SettleKnownAttempt}, {"ReconcileAttempt", a.ReconcileAttempt}, {"NotifySettlement", a.NotifySettlement},
+		{"FinalizeAttempt", a.FinalizeAttempt},
 	} {
 		control.RegisterActivityWithOptions(entry.fn, activity.RegisterOptions{Name: entry.name})
 	}
