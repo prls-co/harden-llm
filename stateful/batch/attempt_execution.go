@@ -50,6 +50,9 @@ func (a *Activities) InvokeAttempt(ctx context.Context, id string) (returned Inv
 		case errors.Is(err, ErrClaimOwned):
 			return InvocationResult{Disposition: "claim_owned_elsewhere"}, nil
 		case errors.Is(err, ErrClaimUnconfirmed):
+			if recovered, ok := a.confirmNeverEnteredClaim(ctx, ledger, id, nonce); ok {
+				return recovered, nil
+			}
 			return InvocationResult{Disposition: "claim_unconfirmed"}, nil
 		default:
 			return returned, err
@@ -101,6 +104,8 @@ func (a *Activities) InvokeAttempt(ctx context.Context, id string) (returned Inv
 	if claimed.Kind != "job" {
 		return neverSent("invalid_attempt_kind")
 	}
+	stopClaimHint := a.startClaimReadHint(ctx, claimed)
+	defer stopClaimHint()
 	item, err := a.Store.Load(ctx, claimed.Ref)
 	if err != nil {
 		return neverSent("item_unavailable")
@@ -199,6 +204,43 @@ func (a *Activities) InvokeAttempt(ctx context.Context, id string) (returned Inv
 		}
 	}
 	return returned, nil
+}
+
+// Only this invocation's fresh nonce can establish that its uncertain claim
+// committed. No provider execution has occurred on this return path. A positive
+// same-owner stop CAS can therefore stage never-dispatched evidence; missing or
+// foreign ownership remains unconfirmed and cannot authorize another inference.
+func (a *Activities) confirmNeverEnteredClaim(ctx context.Context, ledger ExecutionStore, id, nonce string) (InvocationResult, bool) {
+	cleanup, stop := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer stop()
+	now := time.Now().UTC()
+	retained, err := ledger.MarkLocalStop(cleanup, id, nonce, now)
+	if err != nil || retained.ClaimID != nonce || retained.State == "reserved" || retained.State == "settled" || retained.DispatchedAt != nil {
+		return InvocationResult{}, false
+	}
+	o := AttemptObservation{Outcome: Outcome{Kind: "never_dispatched", Error: &ItemError{Code: "claim_acknowledgement_lost", Message: "The invocation did not enter the provider path."}}, LocalStopped: true, ObservedAt: now}
+	_, stageErr := ledger.StageAttempt(cleanup, id, nonce, o)
+	if a.Logger != nil {
+		a.Logger.InfoContext(cleanup, "claim acknowledgement recovered without provider entry", "permit_id", id, "pool_id", retained.PoolID, "native_entered", false, "local_stopped", true, "stage_confirmed", stageErr == nil)
+	}
+	return InvocationResult{Disposition: "observed", ClaimID: nonce, Observation: &o}, true
+}
+
+// A claim hint prompts authoritative ledger readback while a long native call
+// is active. It cannot grant/release capacity and must not delay native entry.
+// The activity owns and joins one bounded sender, including on panic/cancel.
+func (a *Activities) startClaimReadHint(ctx context.Context, claimed Attempt) func() {
+	if a.Temporal == nil {
+		return func() {}
+	}
+	bounded, cancel := context.WithTimeout(ctx, time.Second)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+
+		_ = a.Temporal.SignalWorkflow(bounded, "hllm-cpa-pool-v1/"+claimed.PoolID, "", settlementSignal, SettlementNotice{PermitID: claimed.PermitID, Revision: 0})
+	}()
+	return func() { cancel(); <-done }
 }
 
 func watchProviderShutdown(ctx context.Context, cancel context.CancelFunc) func() {

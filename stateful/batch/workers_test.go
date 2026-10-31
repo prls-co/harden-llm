@@ -66,7 +66,7 @@ func TestWorkersSeparateProviderQueueAndPreserveLegacyRegistrations(t *testing.T
 	if !reflect.DeepEqual(queues, []string{"control", "control/provider"}) || !options[1].DisableWorkflowWorker || options[1].MaxConcurrentActivityExecutionSize != 128 {
 		t.Fatal("provider queue/concurrency not independent", queues, options[1])
 	}
-	if options[0].MaxConcurrentWorkflowTaskPollers != 8 || options[0].MaxConcurrentActivityTaskPollers != 8 || options[1].MaxConcurrentActivityTaskPollers != 8 {
+	if options[0].MaxConcurrentWorkflowTaskPollers != 32 || options[0].MaxConcurrentActivityTaskPollers != 32 || options[1].MaxConcurrentActivityTaskPollers != 8 {
 		t.Fatal("default pollers cannot feed the qualified 128-permit pool", options)
 	}
 	if !reflect.DeepEqual(created[1].activities, []string{"InvokeAttempt", "ProviderReady"}) || len(created[0].workflows) != 4 {

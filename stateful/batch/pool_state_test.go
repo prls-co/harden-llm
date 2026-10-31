@@ -132,6 +132,9 @@ func TestPoolStateNeverSentBackpressureAndSnapshotBound(t *testing.T) {
 	p.Burst = 1000
 	p.WindowRequests = 0
 	s := NewPoolState("pool", 2, p)
+	// Preserve the original maximum legacy snapshot oracle, including up to 64
+	// unclaimed start intents. New histories additionally bound pending claims.
+	s.PendingClaimLimit = 0
 	for i := range 1000 {
 		if len(s.StartIntents) == maximumStartIntents {
 			acks := make([]AttemptStartResult, len(s.StartIntents))
@@ -226,5 +229,74 @@ func TestPoolCoalescesOneUnavailableDispatchEpisode(t *testing.T) {
 				t.Fatal("dispatch episode/version behavior changed", coalesce, s.DispatchBlockedUntil.Sub(now), s.DispatchBackoff)
 			}
 		})
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-521
+func TestPoolBoundsUnclaimedHandoffsWithoutReducingActiveCapacity(t *testing.T) {
+	t.Parallel()
+	now := time.Unix(1000, 0)
+	p := DefaultPolicy()
+	p.WindowRequests = 0
+	s := NewPoolState("pool", 2, p)
+	s.PendingClaimLimit = 16
+	var granted []Reservation
+	for i := range 16 {
+		r, err := s.Grant(now, poolReady(i, now))
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.AcknowledgeStarts([]AttemptStartResult{{PermitID: r.PermitID, Started: true}})
+		granted = append(granted, r)
+	}
+	if s.CanGrant(now) {
+		t.Fatal("workflow-start acknowledgement bypassed the pending-claim bound")
+	}
+	reason, next := s.Waiting(now)
+	if reason != "dispatch_pending" || next != nil {
+		t.Fatal("handoff wait invented an eligibility time", reason, next)
+	}
+	raw, err := s.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored PoolState
+	if err := json.Unmarshal(raw, &restored); err != nil || restored.CanGrant(now) {
+		t.Fatal("continuation reset pending handoff state", err)
+	}
+	for _, r := range granted {
+		restored.Observe(now, Attempt{Reservation: r, State: "dispatching", ClaimedAt: &now})
+	}
+	for i := 16; i < 128; i++ {
+		r, err := restored.Grant(now, poolReady(i, now))
+		if err != nil {
+			t.Fatal("handoff bound reduced active provider capacity", i, err)
+		}
+		restored.AcknowledgeStarts([]AttemptStartResult{{PermitID: r.PermitID, Started: true}})
+		restored.Observe(now, Attempt{Reservation: r, State: "dispatching", ClaimedAt: &now})
+	}
+	if len(restored.Outstanding) != 128 || restored.CanGrant(now) {
+		t.Fatal("shared active cap changed", len(restored.Outstanding))
+	}
+}
+
+func TestPoolLegacyClaimReadbackKeepsHistoricalStateAndDecision(t *testing.T) {
+	t.Parallel()
+	now := time.Unix(1000, 0)
+	s := NewPoolState("pool", 2, DefaultPolicy())
+	s.PendingClaimLimit = 0
+	r, err := s.Grant(now, poolReady(0, now))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.AcknowledgeStarts([]AttemptStartResult{{PermitID: r.PermitID, Started: true}})
+	s.WindowAnchored = true
+	before, _ := s.Snapshot()
+	if s.Observe(now, Attempt{Reservation: r, State: "dispatching", ClaimedAt: &now}) {
+		t.Fatal("legacy claim read introduced a new queue transition")
+	}
+	after, _ := s.Snapshot()
+	if string(before) != string(after) {
+		t.Fatal("legacy claim observation changed its retained snapshot")
 	}
 }

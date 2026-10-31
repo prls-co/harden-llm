@@ -129,6 +129,13 @@ claims remain retained rather than being freed by a metadata TTL. The ordinary
 stateful provider adapter uses these records directly; it creates no durable
 request inference workflow, batch manifest or result artifact.
 
+New V2 histories also bound unclaimed handoffs separately from active native
+capacity. The current source uses 32 pending claims; a positive SQL claim frees
+one handoff slot without releasing its active permit. Recorded version-one
+histories retain their 16-slot behavior. The default 128 native cap uses 32
+workflow-task/control-activity pollers and eight provider-activity pollers. Those are control
+capacities, not additional provider permissions.
+
 Ordinary metadata uses four operation slots per API instance, split between
 two enqueue/poll slots and two existing-permit/cancellation slots. Those slots
 never span native I/O and do not change the shared provider cap. Coalesced wake

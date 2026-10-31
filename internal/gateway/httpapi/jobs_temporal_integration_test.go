@@ -1002,3 +1002,117 @@ func mixedFixtureLogger(t *testing.T) *slog.Logger {
 	})
 	return slog.New(slog.NewJSONHandler(file, nil))
 }
+
+type mixedTimingSummary struct {
+	Count          int
+	TotalMS, MaxMS float64
+}
+type mixedHistoryDiagnostics struct {
+	Complete bool
+	Events   int
+	Timings  map[string]mixedTimingSummary
+}
+
+// Retain timing aggregates only. Inference payloads, workflow inputs, headers,
+// scope keys and raw history never enter this report.
+func mixedPoolHistoryTiming(ctx context.Context, f *temporalBatchFixture) mixedHistoryDiagnostics {
+	out := mixedHistoryDiagnostics{Timings: map[string]mixedTimingSummary{}}
+	type span struct {
+		name string
+		at   time.Time
+	}
+	scheduled, started := map[int64]span{}, map[int64]span{}
+	add := func(name string, d time.Duration) {
+		v := out.Timings[name]
+		v.Count++
+		ms := float64(d) / float64(time.Millisecond)
+		v.TotalMS += ms
+		v.MaxMS = max(v.MaxMS, ms)
+		out.Timings[name] = v
+	}
+	events := f.temporal.GetWorkflowHistory(ctx, "hllm-cpa-pool-v1/"+f.activities.PoolID, "", false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+	for events.HasNext() && out.Events < 10000 {
+		e, err := events.Next()
+		if err != nil {
+			return out
+		}
+		out.Events++
+		at := e.GetEventTime().AsTime()
+		if a := e.GetActivityTaskScheduledEventAttributes(); a != nil {
+			scheduled[e.EventId] = span{a.ActivityType.Name, at}
+		}
+		if a := e.GetActivityTaskStartedEventAttributes(); a != nil {
+			if s, ok := scheduled[a.ScheduledEventId]; ok {
+				add(s.name+"/queue", at.Sub(s.at))
+				started[a.ScheduledEventId] = span{s.name, at}
+			}
+		}
+		if a := e.GetActivityTaskCompletedEventAttributes(); a != nil {
+			if s, ok := started[a.ScheduledEventId]; ok {
+				add(s.name+"/execute", at.Sub(s.at))
+			}
+		}
+		if e.GetWorkflowTaskScheduledEventAttributes() != nil {
+			scheduled[e.EventId] = span{"workflow", at}
+		}
+		if a := e.GetWorkflowTaskStartedEventAttributes(); a != nil {
+			if s, ok := scheduled[a.ScheduledEventId]; ok {
+				add("workflow/queue", at.Sub(s.at))
+				started[a.ScheduledEventId] = span{"workflow", at}
+			}
+		}
+		if a := e.GetWorkflowTaskCompletedEventAttributes(); a != nil {
+			if s, ok := started[a.ScheduledEventId]; ok {
+				add("workflow/execute", at.Sub(s.at))
+			}
+		}
+		if a := e.GetTimerStartedEventAttributes(); a != nil {
+			scheduled[e.EventId] = span{"timer/" + a.StartToFireTimeout.AsDuration().String(), at}
+		}
+		if a := e.GetTimerFiredEventAttributes(); a != nil {
+			if s, ok := scheduled[a.StartedEventId]; ok {
+				add(s.name, at.Sub(s.at))
+			}
+		}
+	}
+	out.Complete = !events.HasNext()
+	return out
+}
+
+type mixedPoolObservation struct {
+	ElapsedMS                                                                  int64
+	Confirmed                                                                  bool
+	Reason                                                                     string
+	Outstanding, Unclaimed, StartIntents, PendingClaimLimit, Retirements, Rate int
+	PersistenceWait, DispatchNeedsReady, Quiescing                             bool
+	NextStart, NextEligible                                                    time.Time
+}
+
+func mixedObservePool(ctx context.Context, f *temporalBatchFixture) mixedPoolObservation {
+	var out mixedPoolObservation
+	v, err := f.temporal.QueryWorkflow(ctx, "hllm-cpa-pool-v1/"+f.activities.PoolID, "", "state")
+	if err != nil {
+		return out
+	}
+	var s batch.PoolState
+	if err := v.Get(&s); err != nil {
+		return out
+	}
+	out.Confirmed = true
+	out.Reason, _ = s.Waiting(time.Now())
+	out.Outstanding = len(s.Outstanding)
+	out.StartIntents = len(s.StartIntents)
+	out.PendingClaimLimit = s.PendingClaimLimit
+	out.Retirements = len(s.RequestRetirements)
+	out.Rate = s.Controller.Rate
+	out.PersistenceWait, out.DispatchNeedsReady, out.Quiescing = s.PersistenceWait, s.DispatchNeedsReady, s.Quiescing
+	out.NextStart, out.NextEligible = s.Controller.NextStart, s.Controller.NextEligible
+	if s.PendingClaimLimit > 0 {
+		for _, p := range s.Outstanding {
+			if !p.Claimed {
+				out.Unclaimed++
+			}
+		}
+	}
+	return out
+}

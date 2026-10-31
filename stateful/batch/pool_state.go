@@ -11,6 +11,7 @@ import (
 
 const PoolWorkflowName = "HLLMCPAPoolV2"
 const maximumStartIntents = 64
+const pendingClaimLimit = 32
 const maximumPoolSnapshot = 256 << 10
 
 type PoolPermit struct {
@@ -18,36 +19,52 @@ type PoolPermit struct {
 	Revision     int64
 	Applied      bool
 	AwaitingStop bool
+	Claimed      bool `json:",omitempty"`
 }
 type PoolState struct {
-	PoolID                   string
-	Generation               int64
-	Controller               Controller
-	Sequence                 int64
-	PolicyRevision           int64
-	Episode                  int64
-	WindowID                 int64
-	WindowAnchored           bool
-	AfterScope               string
-	Outstanding              []PoolPermit
-	StartIntents             []Reservation
-	ProbeID                  string
-	ProbeClaimAt             time.Time
-	DispatchNeedsReady       bool
-	DispatchBlockedUntil     time.Time
-	DispatchBackoff          time.Duration
-	Quiescing                bool
-	PersistenceWait          bool
-	PublicationAfter         int64
-	PublicationAt            time.Time
-	PublicationReason        string
-	PublicationNext          *time.Time
-	RequestRetirements       []string `json:",omitempty"`
-	CoalesceDispatchFailures bool     `json:",omitempty"`
+	PoolID                       string
+	Generation                   int64
+	Controller                   Controller
+	Sequence                     int64
+	PolicyRevision               int64
+	Episode                      int64
+	WindowID                     int64
+	WindowAnchored               bool
+	AfterScope                   string
+	Outstanding                  []PoolPermit
+	StartIntents                 []Reservation
+	ProbeID                      string
+	ProbeClaimAt                 time.Time
+	DispatchNeedsReady           bool
+	DispatchBlockedUntil         time.Time
+	DispatchBackoff              time.Duration
+	Quiescing                    bool
+	PersistenceWait              bool
+	PublicationAfter             int64
+	PublicationAt                time.Time
+	PublicationReason            string
+	PublicationNext              *time.Time
+	RequestRetirements           []string `json:",omitempty"`
+	CoalesceDispatchFailures     bool     `json:",omitempty"`
+	PendingClaimLimit            int      `json:",omitempty"`
+	CoalesceTransientPublication bool     `json:",omitempty"`
 }
 
 func NewPoolState(pool string, generation int64, policy Policy) PoolState {
-	return PoolState{PoolID: pool, Generation: generation, Controller: NewController(policy), PolicyRevision: 1, Episode: 1, WindowID: 1, DispatchBackoff: 2 * time.Second, CoalesceDispatchFailures: true}
+	return PoolState{PoolID: pool, Generation: generation, Controller: NewController(policy), PolicyRevision: 1, Episode: 1, WindowID: 1, DispatchBackoff: 2 * time.Second, CoalesceDispatchFailures: true, PendingClaimLimit: pendingClaimLimit, CoalesceTransientPublication: true}
+}
+
+func (s PoolState) pendingClaimsFull() bool {
+	if s.PendingClaimLimit == 0 {
+		return false
+	} // Retained historical behavior.
+	unclaimed := 0
+	for _, p := range s.Outstanding {
+		if !p.Claimed {
+			unclaimed++
+		}
+	}
+	return unclaimed >= s.PendingClaimLimit
 }
 func (s *PoolState) refreshWindow(now time.Time) {
 	if s.WindowAnchored && s.Controller.Policy.WindowRequests > 0 && !now.Before(s.Controller.WindowStart.Add(s.Controller.Policy.WindowDuration)) {
@@ -70,7 +87,7 @@ func (s *PoolState) unresolved() bool {
 }
 func (s *PoolState) CanGrant(now time.Time) bool {
 	s.refreshWindow(now)
-	if s.Quiescing || s.PersistenceWait || s.DispatchNeedsReady || s.unresolved() || len(s.StartIntents) >= maximumStartIntents || len(s.RequestRetirements)+len(s.Outstanding) >= 1000 {
+	if s.Quiescing || s.PersistenceWait || s.DispatchNeedsReady || s.unresolved() || s.pendingClaimsFull() || len(s.StartIntents) >= maximumStartIntents || len(s.RequestRetirements)+len(s.Outstanding) >= 1000 {
 		return false
 	}
 	c := &s.Controller
@@ -143,6 +160,10 @@ func (s *PoolState) Observe(now time.Time, a Attempt) bool {
 	}
 	changed := false
 	if a.ClaimedAt != nil {
+		if s.PendingClaimLimit > 0 && !s.Outstanding[index].Claimed {
+			s.Outstanding[index].Claimed = true
+			changed = true
+		}
 		s.dropIntent(a.PermitID)
 		s.DispatchBackoff = 2 * time.Second
 		if a.PermitID == s.ProbeID && s.ProbeClaimAt.IsZero() {
@@ -252,7 +273,7 @@ func (s *PoolState) AcknowledgeStarts(results []AttemptStartResult) {
 }
 func (s *PoolState) Snapshot() ([]byte, error) {
 	raw, err := json.Marshal(s)
-	if err != nil || len(raw) >= maximumPoolSnapshot || len(s.StartIntents) > maximumStartIntents || len(s.Outstanding)+len(s.RequestRetirements) > 1000 {
+	if err != nil || s.PendingClaimLimit < 0 || s.PendingClaimLimit > maximumStartIntents || len(raw) >= maximumPoolSnapshot || len(s.StartIntents) > maximumStartIntents || len(s.Outstanding)+len(s.RequestRetirements) > 1000 {
 		return nil, ErrUnavailable
 	}
 	return raw, nil

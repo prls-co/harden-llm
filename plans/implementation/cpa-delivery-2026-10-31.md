@@ -790,3 +790,221 @@ tracked despite the repository's general raw-evidence ignore rule; raw logs and
 native payloads remain uncommitted. Local/tracking/remote refs were verified.
 Hosted checks for this new checkpoint are separate and must be inspected before
 claiming exact-head CI acceptance. The full #134 goal stays active.
+
+
+## 18. Bounded unclaimed handoffs and prompt claim readback candidate
+
+Hosted run `41210700556` passed on published checkpoint `2c3ad72`; this section
+records newer local source and is not a published/qualified scale claim.
+
+The pool now tracks positive ledger claims separately from workflow-start
+acknowledgements. The first candidate admits at most 16 not-yet-claimed grants while
+retaining its configured active-provider cap (128 by default). A confirmed claim
+opens one handoff slot but does not release active capacity. Start acknowledgement
+alone cannot open a handoff slot. Pending claims project `dispatch_pending` with
+no ETA. The new gate and claimed bits survive continuation; old histories keep
+zero/disabled pending-claim behavior through a dedicated Temporal version marker.
+Claim tracking must be version-gated too, so legacy history decisions do not gain
+new queue/progress transitions during replay.
+
+A durable invocation sends a best-effort revision-zero notice alongside its
+metadata/native work after a positive claim. The activity owns one bounded sender
+and joins it on return, panic and cancellation. The notice is only a request for
+SQL readback; the actor never treats it as permission, stop evidence, a released
+permit or a trusted claim timestamp. Periodic ledger reads cover lost notices.
+Long native calls can therefore anchor their window/recovery state promptly,
+without waiting for completion or blocking their dispatch on a signal RPC.
+
+- `tmp/cpa-handoff-bound-red.log` reproduces unlimited pending claims after
+  workflow-start acknowledgement; the independent active-cap oracle remains 128.
+- `tmp/cpa-handoff-bound-green.log` passes the pending/continuation/cap oracles.
+  The retained 1,000-permit legacy snapshot test still exercises its original
+  maximum start-intent shape, explicitly selecting legacy mode.
+- `tmp/cpa-durable-claim-hint-red.log` proves the missing in-flight claim notice.
+- `tmp/cpa-handoff-and-claim-owners.log` passes all stateful/batch race tests,
+  including bounded/nonblocking claim-notice ownership.
+
+`tmp/cpa-handoff-1000.json` accepted the unchanged 1,000 oracle: exactly 1,000
+native requests/distinct validated results and ledger attempts, 800 durable
+workflows, zero ordinary errors and zero never-dispatched attempts. Elapsed time
+was 48.574 seconds, observed Go heap 36,705,440 bytes and peak goroutines 1,090.
+Grant-to-claim p50/p95/max were 295.610/568.256/973.465 ms. Actual native overlap
+peaked at four with the 5 ms fixture. The pool continued safely; cleanup empty.
+This is the newer candidate's local synthetic acceptance, not CPA throughput.
+
+The 16-slot 10,000 profile is running with no never-dispatched attempts at the
+midpoint, but throughput remains low. A separate 32-slot candidate is prepared
+using a new version branch; recorded version-one histories keep their immutable
+16-slot behavior. Old histories without the marker retain disabled behavior.
+The earlier 1,000 receipt qualifies 16 slots only, not this newer default. Both
+new profiles and the real Temporal/replay and broad regression gates still need
+qualification before publication. This candidate changes no provider cap, deadline,
+start lease, inference retry rule, native count or result-identity assertion.
+
+
+The 16-slot full profile `tmp/cpa-handoff-10000.json` is rejected: 7,044 native
+calls in 481.817 seconds, all 1,000 ordinary calls successful, but durable jobs
+expired. Its final ledger snapshot has 7,046 attempts and two never-dispatched
+attempts; a midpoint zero-expiry observation is not a final zero-expiry claim.
+Claim p50/p95/max were 396.932/896.658/2,299.528 ms. Cleanup is empty.
+
+The 32-slot candidate (`bounded-pending-claims` version two; recorded version one
+still means exactly 16) accepted `tmp/cpa-handoff32-1000.json`: exactly 1,000
+native/results/ledger attempts and 800 durable workflows, zero ordinary errors
+and never-dispatched attempts, 43.964 seconds. Claim p95/max were 910.198/1,362.238
+ms; cleanup empty. The SDK version-branch test covers absent/one/two marker values,
+and the legacy claim-readback test requires byte-identical historical state and
+no extra queue transition.
+
+An additional controlled poller candidate changes only workflow-task polling:
+32 rather than eight at the default 128 native cap. Both activity queues retain
+eight pollers, all activity execution limits stay unchanged, and the pending
+handoff bound remains 32. `tmp/cpa-workflow-pollers32-red.log` records the preceding
+worker-options contract; `tmp/cpa-workflow-pollers32-owners.log` passes the stateful/
+batch race suite with the new option. `tmp/cpa-pollers32-1000.json` accepts all
+unchanged count/identity/resource oracles in 41.804 seconds, with zero never-sent
+attempts and claim p95 748.072 ms. The improvement over 43.964 seconds is modest
+and is not proof that polling is the only control bottleneck. Cleanup is empty.
+
+The corresponding 10,000 profile is running. None of these synthetic observations
+establishes a CPA quota or authorizes native retries for uncertain outcomes.
+
+
+The 32-handoff/32-workflow-poller full profile
+`tmp/cpa-pollers32-10000.json` is rejected: 7,937 native requests, zero
+never-dispatched attempts, but original job budgets expired. The missing-call
+causes were not fully retained in its earlier report and must not be inferred
+solely from native counts.
+
+Further controlled diagnostics/experiments:
+
+- `tmp/cpa-timing-1000.json` passes with retained current-pool-run timing
+  aggregates and five-second state observations. Those overlapping span totals
+  are not additive wall-time/CPU attribution and do not cover every CAN run.
+- `tmp/cpa-short-hints-1000.json` passes but 100 ms suppression of short-call
+  claim hints did not improve elapsed time (46.222 seconds). That speculative
+  optimization and its feature-specific tests were removed; prompt claim hints
+  remain. The native/count/deadline oracles were never weakened.
+- `tmp/cpa-publication-1000.json` passes in 44.958 seconds with zero never-sent
+  attempts. Version-gated coalescing reduces sampled publication activities from
+  53/61 to seven. It coalesces only empty/dispatch/capacity transitions within
+  five seconds; trusted floors, restrictions, persistence/worker failures and
+  unresolved execution still publish immediately, including their recovery.
+  `tmp/cpa-publication-red.log` and `tmp/cpa-publication-green.log` retain the
+  focused regression. SDK version tests cover legacy/current combinations.
+- `tmp/cpa-control32-profile-1000.json` passes with 32 control-activity pollers,
+  32 workflow pollers and eight provider-activity pollers; native cap remains 128.
+  This change alone does not prove a throughput gain. Its diagnostic CPU profile
+  used 20.49 CPU seconds over 48.07 seconds, about 0.43 core, not app CPU saturation.
+- The exact pinned Temporal image defaults to four history shards with an empty
+  dynamic-config file. A read-only filtered configuration check also confirmed
+  four shards on the existing shared cluster. No shared service was changed.
+  A fresh owned 128-shard test cluster accepted the unchanged 1,000 profile in
+  `tmp/cpa-shards128-1000.json` at 34.197 seconds. This is an experimental runtime
+  comparison, not a CPA quota result or an adopted canonical fixture change.
+- `tmp/cpa-shards128-10000.json` remains rejected: 9,993 native requests in
+  516.576 seconds, all ordinary calls successful, final ledger 10,006 attempts
+  including six never-sent attempts, with durable failures. Its old report lacks
+  a full per-outcome error histogram; not every missing call has a proven cause.
+  The later reporter now retains outcome/error and dispatch/stop evidence plus
+  pool acquisition counters, including on failure.
+- `tmp/cpa-shards128-resource-sample.json` records one owned-runtime observation:
+  Temporal 53.04% CPU/168.8 MiB, PostgreSQL 96.31% CPU/225 MiB, Garage 4.52%
+  CPU/5.457 MiB; ten SQL samples peaked at 70 connections, mostly idle. This is
+  not a peak-resource certification. Raw sampling contains no inference payloads.
+
+The [Temporal service configuration reference](https://docs.temporal.io/references/service-configuration)
+confirms history-shard count is fixed at cluster creation. A shared-cluster
+migration is a separate infrastructure-owner decision; changing an environment
+value against accepted state is not a supported implementation shortcut.
+
+A real pool regression now proves another concrete defect:
+`tmp/cpa-ledger-queue-red.json` fails because connection waiting consumed the
+600 ms transaction budget. `tmp/cpa-ledger-queue-green.json` passes after pgx
+connection admission moves before that deadline. Acquisition has its own five-
+second maximum under the original earlier caller context; transaction 600 ms
+and statement 500 ms limits remain. A canceled waiter enters no SQL. This is
+TEST-522, a real acquisition-trace boundary rather than a timing-only mock.
+
+TEST-523/524 cover an uncertain claim COMMIT followed by positive same-fresh-nonce
+cleanup before provider entry. Missing/foreign proof stays unconfirmed. A valid
+local-stop CAS may stage known never-entry; it does not replay inference or
+rewrite a terminal result. `tmp/cpa-lost-claim-cleanup-red.log` and green owner
+receipt show the regression; `tmp/cpa-ledger-recovery-sql-verified.json` proves
+real committed-claim/readback-loss recovery with zero native calls, no artifact
+and no consumed provider retry. The initial runner invocation was rejected for
+assigning one test ID to two tasks; unit TEST-523 and SQL TEST-524 now have
+separate canonical owners. No test ran in that rejected invocation.
+
+These newer source changes still require fresh scale and full semantic/replay
+acceptance before publication. The canonical fixture remains four shards. See
+`plans/implementation/cpa-acceptance-audit-2026-10-31.md` for the requirement/fault
+matrix and concrete remaining fault cases. Optional deterministic jitter and P6
+remain open; the full goal remains active.
+
+### 18.1. Current queue/claim candidate scale outcome
+
+Both profiles below use the canonical four-shard owned Temporal fixture and the
+same source, including the separate connection-acquisition budget and positive
+same-owner uncertain-claim cleanup. No provider cap, original request/job
+deadline, five-second grant lease or count oracle changed.
+
+- `tmp/cpa-ledger-admission-1000.json` is accepted. Numeric report
+  `tmp/cpa-mixed-1000-398434.json` records 44.299 seconds, exactly 1,000 native
+  requests/distinct results/settled completed attempts, 800 durable attempt
+  workflows, zero never-dispatched attempts and zero ordinary errors. Peak
+  observed native overlap is five against cap 128. Grant-to-claim p95 is 645.308
+  ms and maximum 1,493.999 ms. Heap/goroutine samples peak at 43,178,552 bytes
+  and 1,181. Pool acquisition duration is 4,076 ms aggregated across concurrent
+  operations, not additive wall-time attribution.
+- `tmp/cpa-ledger-admission-10000.json` is rejected. Numeric report
+  `tmp/cpa-mixed-10000-430175.json` records 8,021 separate native requests in
+  485.478 seconds. All 1,000 ordinary calls succeeded; durable work exceeded the
+  unchanged eight-minute budget. The retained SQL outcome snapshot confirms
+  7,021 completed durable attempts and 1,000 completed ordinary attempts, plus
+  25 never-claimed expired reservations and one positively stopped never-entry
+  with dispatch intent (`dispatch_deadline_exceeded`). It does not show an
+  unconfirmed outcome at that snapshot. The failed profile is still incomplete:
+  `DistinctResults=1000` covers collected ordinary results, not complete durable
+  result validation. Unset post-success counters are not evidence of zero work.
+  Grant-to-claim p95 is 1,281.586 ms and maximum 3,220.734 ms; peak native overlap
+  is six. Reported heap/goroutine samples peak at 142,446,968 bytes and 5,213.
+  Both runner cleanup error/warning lists are empty.
+
+New bounded history aggregates cover only the final pool continuation run.
+That run contains 206 workflow-task samples, with maximum queue delay 2,846.475
+ms, and 86 `StartAttempts` execution samples with maximum 1,414.918 ms. These
+observations support investigating scheduling/control latency; parallel span
+totals cannot be added to explain whole-campaign wall time. This synthetic
+fixture has no upstream quota and does not measure CPA concurrency or rate
+limits. More identical load reruns without a demonstrated source/runtime change
+would add little evidence. Next performance work should reproduce and reduce
+per-item pool wake/start overhead with focused tests before another full run.
+
+### 18.2. Checkpoint verification
+
+`tmp/cpa-checkpoint-current-fast.log` retains a rejected fast run. Its unchanged
+native-window test observed 44.172 ms between fixture entries against its 45 ms
+minimum: real host scheduling delayed the first callback after the scheduler's
+grant/window anchor. This is not an accepted gate. The test now runs the actual
+scheduler, timers and worker goroutines inside Go's `testing/synctest` clock;
+the same six calls, two-per-window policy, 50 ms window and 45 ms assertion
+remain. No runtime scheduler, policy or bound changed.
+`tmp/cpa-window-clock-regression.log` passes the focused race regression. The
+subsequent full gate must be recorded separately; the rejected receipt remains.
+
+`tmp/cpa-checkpoint-current-integration-race.json` accepts the full canonical
+backend integration/race track (85.260 seconds).
+`tmp/cpa-checkpoint-current-temporal.json` accepts the canonical real Temporal,
+PostgreSQL and Garage track (43.095 seconds), including active-call rollover and
+history replay on the new version branches. Both report empty cleanup errors
+and warnings. These semantic gates do not turn the rejected 10,000 profile into
+a pass. No browser or real CPA inference ran.
+
+`tmp/cpa-checkpoint-virtual-clock-fast.log` accepts all ten fast tasks after the
+virtual-clock regression fix. Authoritative receipt: `tmp/test-feedback/runner-1793465635000-585960-e6346c74a7f2676c.json`.
+Cleanup errors/warnings are empty. Canonical test registration and whitespace
+checks also pass. The redacted checkpoint metrics are in
+`plans/evidence/harden-llm/cpa-admission/2026-10-31-bounded-handoff.json`; raw
+provider/test logs remain private and ignored. This checkpoint is suitable for
+publishing to draft #141, not for marking #134 complete.

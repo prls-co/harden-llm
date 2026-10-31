@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -82,23 +83,27 @@ func TestNativeSearchDoublesThenBisectsKnownThrottleBoundary(t *testing.T) {
 }
 
 func TestNativeWindowBudgetDoesNotRefillOnFastCompletion(t *testing.T) {
-	var starts []time.Time
-	var mu sync.Mutex
-	b := NativeBench{Directory: t.TempDir(), Events: io.Discard, Started: time.Now(), WindowBurst: 2, WindowDuration: 50 * time.Millisecond, Call: func(ctx context.Context, prefix string, id, attempt int) NativeMeasurement {
-		now := time.Now()
-		mu.Lock()
-		starts = append(starts, now)
-		mu.Unlock()
-		return NativeMeasurement{ID: id, Attempt: attempt, Kind: "completed", Started: now, Finished: now}
-	}}
-	p, err := b.Point(context.Background(), "window", 4, 6, 0, true)
-	if err != nil || p.Completed != 6 {
-		t.Fatalf("window queue failed: %+v %v", p, err)
-	}
-	sort.Slice(starts, func(i, j int) bool { return starts[i].Before(starts[j]) })
-	if starts[2].Sub(starts[0]) < 45*time.Millisecond || starts[4].Sub(starts[2]) < 45*time.Millisecond {
-		t.Fatal("fast completions refilled quota", starts)
-	}
+	// Keep the actual scheduler, goroutines and 45 ms oracle; virtual time
+	// removes host scheduling delay between a grant and fixture entry.
+	synctest.Test(t, func(t *testing.T) {
+		var starts []time.Time
+		var mu sync.Mutex
+		b := NativeBench{Directory: t.TempDir(), Events: io.Discard, Started: time.Now(), WindowBurst: 2, WindowDuration: 50 * time.Millisecond, Call: func(ctx context.Context, prefix string, id, attempt int) NativeMeasurement {
+			now := time.Now()
+			mu.Lock()
+			starts = append(starts, now)
+			mu.Unlock()
+			return NativeMeasurement{ID: id, Attempt: attempt, Kind: "completed", Started: now, Finished: now}
+		}}
+		p, err := b.Point(context.Background(), "window", 4, 6, 0, true)
+		if err != nil || p.Completed != 6 {
+			t.Fatalf("window queue failed: %+v %v", p, err)
+		}
+		sort.Slice(starts, func(i, j int) bool { return starts[i].Before(starts[j]) })
+		if starts[2].Sub(starts[0]) < 45*time.Millisecond || starts[4].Sub(starts[2]) < 45*time.Millisecond {
+			t.Fatal("fast completions refilled quota", starts)
+		}
+	})
 }
 func TestNativeRecoveryProbeDoesNotWaitForAnIndependentSlowCall(t *testing.T) {
 	release := make(chan struct{})

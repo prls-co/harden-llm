@@ -16,8 +16,52 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	hardenllm "github.com/prls-co/harden-llm"
 )
+
+type committedUnknownInvocationClaim struct{ *PostgresStore }
+
+func (s committedUnknownInvocationClaim) ClaimAttempt(ctx context.Context, id, nonce string) (Attempt, error) {
+	return s.claimAttempt(ctx, id, nonce, claimWriteOptions{commit: func(ctx context.Context, tx pgx.Tx) error {
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		return errors.New("synthetic lost claim commit acknowledgement")
+	}, readbackError: errors.New("synthetic unavailable claim readback")})
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-524
+func TestInvocationRealSQLRecoversOwnClaimWithoutEnteringHTTP(t *testing.T) {
+	t.Parallel()
+	s, ref := ledgerFixture(t)
+	ctx := context.Background()
+	reservation := permitFixture(ref, 1)
+	if _, err := s.ReserveAttempt(ctx, reservation); err != nil {
+		t.Fatal(err)
+	}
+	artifacts := &invocationArtifacts{}
+	var calls atomic.Int32
+	a := &Activities{Store: committedUnknownInvocationClaim{s}, Artifacts: artifacts, Execute: func(context.Context, string, hardenllm.Request) (hardenllm.Result, error) {
+		calls.Add(1)
+		return hardenllm.Result{}, nil
+	}, Encode: func(Generation, hardenllm.Result, time.Time) (json.RawMessage, error) {
+		t.Error("never-entered invocation encoded a provider result")
+		return nil, nil
+	}}
+	out, err := a.InvokeAttempt(ctx, reservation.PermitID)
+	if err != nil || out.Observation == nil || out.Observation.Outcome.Kind != "never_dispatched" || out.Observation.NativeEntered || !out.Observation.LocalStopped || calls.Load() != 0 || artifacts.puts != 0 {
+		t.Fatal("lost claim acknowledgement lacked positive never-entry recovery", err, out, calls.Load(), artifacts.puts)
+	}
+	settled, err := s.SettleAttempt(ctx, reservation.PermitID, out.ClaimID, *out.Observation)
+	if err != nil || settled.StoppedAt == nil || settled.DispatchedAt != nil || settled.Counts.Queued != 1 {
+		t.Fatal("same-owner cleanup lost queue/stop fencing", err, settled)
+	}
+	item, err := s.Load(ctx, ref)
+	if err != nil || item.Attempt != 0 || item.State != "queued" {
+		t.Fatal("metadata recovery consumed provider retry or terminalized known never-entry", err, item.Attempt, item.State)
+	}
+}
 
 type droppedObservationStore struct{ ExecutionStore }
 

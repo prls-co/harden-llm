@@ -32,6 +32,11 @@ type mixedNativeStart struct {
 	ElapsedMS int64  `json:"elapsed_ms"`
 }
 type mixedLoadReport struct {
+	AttemptOutcomesConfirmed                                bool
+	AttemptOutcomes                                         []mixedAttemptOutcome
+	PoolAcquireDurationMS, PoolEmptyAcquires                int64
+	History                                                 mixedHistoryDiagnostics
+	PoolObservations                                        []mixedPoolObservation
 	LedgerSnapshotConfirmed                                 bool
 	LedgerAttempts, NeverSentAttempts                       int
 	ClaimP50MS, ClaimP95MS, ClaimMaxMS                      float64
@@ -49,6 +54,11 @@ type mixedLoadReport struct {
 	Continued                                               bool
 	SnapshotBytes                                           int
 	Starts                                                  []mixedNativeStart
+}
+type mixedAttemptOutcome struct {
+	Kind, State, Outcome, Code              string
+	Claimed, DispatchRecorded, LocalStopped bool
+	Count                                   int
 }
 type mixedJob struct {
 	owner  int
@@ -107,14 +117,46 @@ func qualifyMixedCPALoad(t *testing.T, total, ordinaryCount int) {
 		}
 	}
 	store := f.activities.Store.(*batch.PostgresStore)
+	poolAcquisition := func() (int64, int64) {
+		var duration, empty int64
+		for _, r := range replicas {
+			stats := r.jobs.Store.(*batch.PostgresStore).Pool.Stat()
+			duration += stats.AcquireDuration().Milliseconds()
+			empty += stats.EmptyAcquireCount()
+		}
+		return duration, empty
+	}
+	beforeAcquire, beforeEmpty := poolAcquisition()
 	beforeTx, beforeUpdates := mixedDatabaseCounters(t, f)
 	report := mixedLoadReport{Total: total, Durable: total - ordinaryCount, Ordinary: ordinaryCount, Replicas: 2, Scopes: 2, Concurrency: 128}
 	defer func() {
 		report.Accepted = !t.Failed()
+		// Timing extraction is a bounded post-run diagnostic, not a reason to
+		// retry native work or extend an execution deadline.
+		historyCtx, stopHistory := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		report.History = mixedPoolHistoryTiming(historyCtx, f)
+		stopHistory()
 		diagnosticCtx, stopDiagnostic := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 		diagnosticErr := store.Pool.QueryRow(diagnosticCtx, `SELECT count(*),count(*) FILTER(WHERE observation->'outcome'->>'kind'='never_dispatched'),COALESCE(percentile_cont(0.5) WITHIN GROUP(ORDER BY extract(epoch FROM (claimed_at-granted_at))*1000),0),COALESCE(percentile_cont(0.95) WITHIN GROUP(ORDER BY extract(epoch FROM (claimed_at-granted_at))*1000),0),COALESCE(max(extract(epoch FROM (claimed_at-granted_at))*1000),0) FROM batch_attempts`).Scan(&report.LedgerAttempts, &report.NeverSentAttempts, &report.ClaimP50MS, &report.ClaimP95MS, &report.ClaimMaxMS)
 		report.LedgerSnapshotConfirmed = diagnosticErr == nil
+		rows, outcomeErr := store.Pool.Query(diagnosticCtx, `SELECT kind,state,COALESCE(observation->'outcome'->>'kind','unobserved'),COALESCE(observation->'outcome'->'error'->>'code',''),claimed_at IS NOT NULL,dispatch_at IS NOT NULL,local_stopped_at IS NOT NULL,count(*) FROM batch_attempts GROUP BY 1,2,3,4,5,6,7 ORDER BY count(*) DESC LIMIT 64`)
+		if outcomeErr == nil {
+			for rows.Next() {
+				var o mixedAttemptOutcome
+				if outcomeErr = rows.Scan(&o.Kind, &o.State, &o.Outcome, &o.Code, &o.Claimed, &o.DispatchRecorded, &o.LocalStopped, &o.Count); outcomeErr != nil {
+					break
+				}
+				report.AttemptOutcomes = append(report.AttemptOutcomes, o)
+			}
+			if outcomeErr == nil {
+				outcomeErr = rows.Err()
+			}
+			rows.Close()
+		}
+		report.AttemptOutcomesConfirmed = outcomeErr == nil
 		stopDiagnostic()
+		afterAcquire, afterEmpty := poolAcquisition()
+		report.PoolAcquireDurationMS, report.PoolEmptyAcquires = afterAcquire-beforeAcquire, afterEmpty-beforeEmpty
 		report.ElapsedMS = time.Since(started).Milliseconds()
 		report.NativeRequests = f.calls.Load()
 		report.NativePeak = f.peak.Load()
@@ -184,6 +226,14 @@ func qualifyMixedCPALoad(t *testing.T, total, ordinaryCount int) {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	lastLog := time.Time{}
+	observePool := func() {
+		bounded, stop := context.WithTimeout(ctx, time.Second)
+		s := mixedObservePool(bounded, f)
+		stop()
+		s.ElapsedMS = time.Since(started).Milliseconds()
+		report.PoolObservations = append(report.PoolObservations, s)
+		t.Logf("mixed pool observation %+v", s)
+	}
 	continued := false
 	var jobs []mixedJob
 	submittersDone := false
@@ -207,6 +257,7 @@ func qualifyMixedCPALoad(t *testing.T, total, ordinaryCount int) {
 			}
 			if time.Since(lastLog) >= 5*time.Second {
 				lastLog = time.Now()
+				observePool()
 				t.Logf("mixed qualification alive total=%d native=%d ordinary_finished=%d active=%d elapsed=%s", total, f.calls.Load(), ordinaryDone.Load(), f.active.Load(), time.Since(started).Round(time.Second))
 			}
 		case <-ctx.Done():
@@ -255,6 +306,10 @@ jobsDrained:
 		owner := clients[job.owner][job.owner]
 		status, err := owner.WaitJob(ctx, job.status.JobID, func(s httpclient.JobStatus) {
 			mixedSampleProcess(&report)
+			if time.Since(lastLog) >= 5*time.Second {
+				lastLog = time.Now()
+				observePool()
+			}
 			t.Logf("mixed durable alive job=%s counts=%+v native=%d elapsed=%s", s.JobID, s.Counts, f.calls.Load(), time.Since(started).Round(time.Second))
 		})
 		if err != nil || status.Counts.Succeeded != job.count || status.Counts.Failed != 0 {

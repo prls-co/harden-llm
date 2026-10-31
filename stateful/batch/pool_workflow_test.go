@@ -5,6 +5,7 @@ package batch
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -26,6 +27,44 @@ func continuedPoolState(t *testing.T, env *testsuite.TestWorkflowEnvironment) Po
 		t.Fatal(err)
 	}
 	return state
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-521
+func TestPoolPendingClaimVersionPreservesRecordedLimits(t *testing.T) {
+	t.Parallel()
+	for _, version := range []workflow.Version{workflow.DefaultVersion, 1, 2} {
+		for _, publicationVersion := range []workflow.Version{workflow.DefaultVersion, 1} {
+			t.Run(fmt.Sprintf("claims-%d/publication-%d", version, publicationVersion), func(t *testing.T) {
+				var suite testsuite.WorkflowTestSuite
+				env := suite.NewTestWorkflowEnvironment()
+				var a Activities
+				env.RegisterActivity(&a)
+				env.OnGetVersion("bounded-pending-claims", workflow.DefaultVersion, 2).Return(version)
+				env.OnGetVersion("coalesced-pool-publication", workflow.DefaultVersion, 1).Return(publicationVersion)
+				env.OnActivity(a.InitializePool, mock.Anything, PoolIdentity{PoolID: "pool", Generation: 2}).Return(nil)
+				env.OnActivity(a.PublishPool, mock.Anything, mock.Anything).Return(PublicationPage{}, nil).Maybe()
+				env.OnActivity(a.SelectPoolReady, mock.Anything, mock.Anything).Return(ReadyPage{}, nil).Maybe()
+				env.RegisterDelayedCallback(func() { env.SignalWorkflow("continue", true) }, time.Second)
+				state := NewPoolState("pool", 2, DefaultPolicy())
+				state.PendingClaimLimit = 0 // Input shape retained before this feature.
+				state.CoalesceTransientPublication = false
+				env.ExecuteWorkflow(PoolWorkflow, state)
+				continued := continuedPoolState(t, env)
+				want := 0
+				if version == 1 {
+					want = 16
+				} else if version == 2 {
+					want = 32
+				}
+				if continued.CoalesceTransientPublication != (publicationVersion == 1) {
+					t.Fatal("recorded publication behavior changed", publicationVersion, continued.CoalesceTransientPublication)
+				}
+				if continued.PendingClaimLimit != want {
+					t.Fatal("recorded handoff policy changed", version, continued.PendingClaimLimit, want)
+				}
+			})
+		}
+	}
 }
 func TestPoolWorkflowContinuesWithActiveAttemptAndStartsIndependentWork(t *testing.T) {
 	t.Parallel()

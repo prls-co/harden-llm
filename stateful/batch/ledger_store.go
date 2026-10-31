@@ -124,9 +124,19 @@ func (s *PostgresStore) ledgerTx(ctx context.Context, fn func(context.Context, p
 	if s == nil || s.Pool == nil || ctx == nil {
 		return ErrUnavailable
 	}
+	// Connection contention is admission waiting, not SQL execution. Bound it
+	// separately under the original caller context, then start the short SQL
+	// deadline only after a connection is available. Never replay the transaction.
+	acquireCtx, stopAcquire := context.WithTimeout(ctx, 5*time.Second)
+	conn, err := s.Pool.Acquire(acquireCtx)
+	stopAcquire()
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
 	bounded, cancel := context.WithTimeout(ctx, 600*time.Millisecond)
 	defer cancel()
-	tx, err := s.Pool.BeginTx(bounded, pgx.TxOptions{})
+	tx, err := conn.BeginTx(bounded, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}

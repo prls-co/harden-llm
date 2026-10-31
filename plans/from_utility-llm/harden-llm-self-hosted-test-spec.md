@@ -2040,6 +2040,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Coverage gate: `fast`; live native measurements require `go run -tags=live ./cmd/harden-llm-cpabench --live` and a new private output directory.
 - Locations: `internal/livecapacity/native_test.go`, `internal/livecapacity/nativebench_test.go`.
 - Command: `go test -race ./internal/livecapacity -run '^TestNative' -count=1`.
+- Clock boundary: the fast-completion window case runs the actual scheduler/timers/goroutines under `testing/synctest`; its six-call, two-per-50-ms-window and 45-ms minimum-gap assertions are unchanged. This removes host callback scheduling from the policy clock, without replacing the scheduler or relaxing its quota oracle.
 - Oracle: a validated native `response.completed` returns without connection EOF; exact nonce/model/usage qualify results; explicit 429/Retry-After and policy stops remain distinct from malformed/unknown outcomes. Correlation retains only the validated eight-hex CPA request-ID suffix, excluding the sensitive trace-header prefix and malformed suffixes. The pool continues independent items after an unknown without replaying it, overlaps its configured slots, retries only known rejections, doubles then bisects a deterministic throttle boundary, prevents fast completion from refilling a configured window budget, refunds only explicit same-window refusals while retaining unknown reservations, and permits a recovery probe while an unrelated old call remains active. Native experiments use one existing CPA credential, no official API, unbounded client connection slots up to 1000, five-second progress, and a separate bounded native request deadline. Neither HLLM's 60 s core deadline nor production egress policy changes. Only explicit rejections define the throttle bracket; unknown outliers remain separate and malformed results invalidate calibration; a 1000-result drain still requires exactly 1000 validated results.
 
 ### TEST-482: Reference HTTP client, complete outcomes and no inference replay
@@ -2423,4 +2424,28 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Coverage gate: `fast`.
 - Tier: T0/T1; `stateful/cpa_admission_test.go`, `stateful/admission_metadata_test.go`, `stateful/admission_signals_test.go`, `stateful/batch/pool_state_test.go`.
 - Command: `go test -race ./stateful ./stateful/batch -run '^TestCPAAdmissionBoundsMetadata|^TestPoolCoalescesOneUnavailable' -count=1`.
-- Oracle: Twelve concurrent live calls use at most two enqueue/poll operations and two existing-permit operations per API instance, while all twelve native dispatches can overlap and still execute once. Caller deadlines/cancellation remain authoritative; the metadata bound never spans native I/O. Overlapping/recent successful wake hints coalesce without dropping settlement notices; canceled callers and failed acknowledgements remain distinct. A single unclaimed expiry wave creates one two-second readiness floor rather than compounding to thirty seconds; the workflow version gate retains historical behavior for old histories.
+- Oracle: Twelve concurrent live calls use at most two enqueue/poll operations and two existing-permit operations per API instance, while all twelve native dispatches can overlap and still execute once. Caller deadlines/cancellation remain authoritative; the metadata bound never spans native I/O. Overlapping/recent successful wake hints coalesce without dropping settlement notices; canceled callers and failed acknowledgements remain distinct. A single unclaimed expiry wave creates one two-second readiness floor rather than compounding to thirty seconds; the workflow version gate retains historical behavior for old histories. The separate pending-claim bound survives continuation, is not released by workflow-start acknowledgement alone, and preserves all 128 active permits. Durable claim hints run alongside native execution without blocking entry; a version marker preserves legacy actor decisions.
+
+
+### TEST-522: Ledger connection queue and original execution deadlines
+
+- Coverage gate: `integration`.
+- Tier: T3; `stateful/batch/ledger_capacity_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: A real one-connection pgx pool and acquisition tracer hold metadata in the connection queue longer than the 600 ms SQL transaction budget. Once the slot is released, the read succeeds under its original caller deadline. A separately canceled caller enters no SQL. SQL statement/transaction deadlines remain unchanged; waiting cannot authorize inference or reset execution deadlines. A concrete pgx acquisition boundary is necessary for this cancellation/queue oracle.
+
+
+### TEST-523: Positive same-owner recovery after an uncertain claim acknowledgement
+
+- Coverage gate: `fast`.
+- Location: `stateful/batch/attempt_execution_test.go`.
+- Command: `go test -race ./stateful/batch -run 'LostClaimAck' -count=1`.
+- Oracle: A lost claim COMMIT acknowledgement and failed readback cannot enter the provider. Only a later positive same-fresh-nonce local-stop CAS can stage a known never-dispatched observation. Foreign/missing ownership remains unconfirmed, terminal outcomes remain immutable, and metadata-only settlement returns known never-entry to the queue without consuming a provider attempt or writing a result artifact. The real PostgreSQL case commits the claim before dropping its acknowledgement; native execution remains exactly zero.
+
+
+### TEST-524: Real committed-claim recovery without provider entry
+
+- Coverage gate: `integration`.
+- Location: `stateful/batch/attempt_execution_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Commit a real PostgreSQL claim, drop its acknowledgement and fail the first readback. A later positive same-owner local-stop CAS stages known never-entry; settlement returns the item to the queue with no consumed provider attempt, no result artifact and exactly zero native executions. This is the concrete SQL boundary for TEST-523; absent/foreign proof cannot be replaced by an inference retry.

@@ -25,6 +25,19 @@ type PoolProgressStore interface {
 	HeartbeatAttempt(context.Context, Attempt, bool) error
 }
 
+func (s PoolState) publicationDue(now time.Time, reason string, next *time.Time) bool {
+	if s.PublicationAt.IsZero() || !now.Before(s.PublicationAt.Add(5*time.Second)) {
+		return true
+	}
+	changed := reason != s.PublicationReason || !sameOptionalTime(next, s.PublicationNext)
+	return changed && !s.coalesciblePublication(reason, next)
+}
+
+func (s PoolState) coalesciblePublication(reason string, next *time.Time) bool {
+	transient := func(r string) bool { return r == "" || r == "dispatch_pending" || r == "pool_capacity" }
+	return s.CoalesceTransientPublication && transient(s.PublicationReason) && transient(reason) && sameOptionalTime(s.PublicationNext, next)
+}
+
 func validWaitingReason(reason string) bool {
 	switch reason {
 	case "", "provider_throttled", "admission_window", "account_restricted", "dispatch_pending", "workflow_rollover", "persistence_wait", "worker_unavailable", "unresolved_execution", "pool_capacity":
@@ -139,7 +152,7 @@ func (s PoolState) Waiting(now time.Time) (string, *time.Time) {
 	if !s.WindowAnchored && s.Controller.Policy.WindowRequests > 0 && s.Controller.WindowStarts >= s.Controller.Policy.WindowRequests {
 		return "admission_window", nil
 	}
-	if len(s.StartIntents) > 0 {
+	if len(s.StartIntents) > 0 || s.pendingClaimsFull() {
 		return "dispatch_pending", nil
 	}
 	if len(s.Outstanding) >= s.Controller.Policy.Concurrency {

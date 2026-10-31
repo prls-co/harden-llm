@@ -7,6 +7,42 @@ import (
 	"time"
 )
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-521
+func TestPoolCoalescesTransientStatusButPublishesRestrictionsImmediately(t *testing.T) {
+	t.Parallel()
+	now := time.Unix(1000, 0)
+	s := NewPoolState("pool", 2, DefaultPolicy())
+	s.CoalesceTransientPublication = true
+	s.PublicationAt = now
+	s.PublicationReason = "dispatch_pending"
+	for _, reason := range []string{"", "pool_capacity", "dispatch_pending"} {
+		if s.publicationDue(now.Add(time.Millisecond), reason, nil) {
+			t.Fatal("transient status flicker bypassed heartbeat coalescing", reason)
+		}
+		if !s.publicationDue(now.Add(5*time.Second), reason, nil) {
+			t.Fatal("coalescing suppressed heartbeat", reason)
+		}
+	}
+	for _, reason := range []string{"provider_throttled", "admission_window", "account_restricted", "unresolved_execution", "worker_unavailable", "persistence_wait", "workflow_rollover"} {
+		if !s.publicationDue(now.Add(time.Millisecond), reason, nil) {
+			t.Fatal("critical restriction publication delayed", reason)
+		}
+		s.PublicationReason = reason
+		if !s.publicationDue(now.Add(time.Millisecond), "dispatch_pending", nil) {
+			t.Fatal("restriction recovery publication delayed", reason)
+		}
+		s.PublicationReason = "dispatch_pending"
+	}
+	next := now.Add(time.Hour)
+	if !s.publicationDue(now.Add(time.Millisecond), "dispatch_pending", &next) {
+		t.Fatal("trusted eligibility change delayed")
+	}
+	s.CoalesceTransientPublication = false
+	if !s.publicationDue(now.Add(time.Millisecond), "", nil) {
+		t.Fatal("legacy publication decisions changed")
+	}
+}
+
 func TestPoolWaitingProjectionUsesActualGateAndNoInventedETA(t *testing.T) {
 	t.Parallel()
 	now := time.Unix(1000, 0)

@@ -123,6 +123,15 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 	if workflow.GetVersion(ctx, "coalesced-dispatch-backpressure", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 		state.CoalesceDispatchFailures = true
 	}
+	switch workflow.GetVersion(ctx, "bounded-pending-claims", workflow.DefaultVersion, 2) {
+	case 1:
+		state.PendingClaimLimit = 16 // Preserve the first qualified history's decisions.
+	case 2:
+		state.PendingClaimLimit = 32 // Recorded values stay immutable when tuning a newer version.
+	}
+	if workflow.GetVersion(ctx, "coalesced-pool-publication", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+		state.CoalesceTransientPublication = true
+	}
 	identity := PoolIdentity{PoolID: state.PoolID, Generation: state.Generation}
 	initCtx := workflow.WithActivityOptions(ctx, attemptMetadataOptions())
 	metaCtx := workflow.WithActivityOptions(ctx, poolMetadataOptions(5*time.Second))
@@ -294,7 +303,7 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 				reason, next := state.Waiting(now)
 				state.PublicationReason = publicationRequest.Reason
 				state.PublicationNext = publicationRequest.Next
-				if reason != publicationRequest.Reason || !sameOptionalTime(next, publicationRequest.Next) {
+				if (reason != publicationRequest.Reason || !sameOptionalTime(next, publicationRequest.Next)) && !state.coalesciblePublication(reason, next) {
 					state.PublicationAfter = 0
 					state.PublicationAt = time.Time{}
 				} else if page.More {
@@ -333,8 +342,8 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 			if publishStatus && publication == nil {
 				reason, next := state.Waiting(now)
 				changed := reason != state.PublicationReason || !sameOptionalTime(next, state.PublicationNext)
-				if changed || state.PublicationAt.IsZero() || !now.Before(state.PublicationAt.Add(5*time.Second)) {
-					if changed {
+				if state.publicationDue(now, reason, next) {
+					if changed && !state.coalesciblePublication(reason, next) {
 						state.PublicationAfter = 0
 					}
 					publicationRequest = PoolPublication{PoolID: state.PoolID, Generation: state.Generation, Reason: reason, Next: next, After: state.PublicationAfter, Limit: 128}

@@ -126,6 +126,58 @@ func invocationFixture() (*Activities, *invocationStore, *invocationArtifacts) {
 	}}
 	return a, s, artifacts
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-521
+func TestInvocationClaimHintRunsDuringNativeWithoutBlockingDispatch(t *testing.T) {
+	t.Parallel()
+	a, s, _ := invocationFixture()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	hintEntered, nativeEntered := make(chan struct{}), make(chan struct{})
+	releaseHint, releaseNative := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	stop := func() { releaseOnce.Do(func() { close(releaseHint); close(releaseNative) }) }
+	defer stop()
+	a.Temporal = starterTemporal{signal: func(ctx context.Context, id, run, signal string, arg interface{}) error {
+		n, ok := arg.(SettlementNotice)
+		if id != "hllm-cpa-pool-v1/pool" || run != "" || signal != settlementSignal || !ok || n.PermitID != s.attempt.PermitID || n.Revision != 0 {
+			t.Error("claim hint changed pool/permit identity", id, signal)
+		}
+		close(hintEntered)
+		select {
+		case <-releaseHint:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}}
+	a.Execute = func(ctx context.Context, _ string, _ hardenllm.Request) (hardenllm.Result, error) {
+		close(nativeEntered)
+		select {
+		case <-releaseNative:
+			return hardenllm.Result{}, nil
+		case <-ctx.Done():
+			return hardenllm.Result{}, ctx.Err()
+		}
+	}
+	done := make(chan error, 1)
+	go func() { _, err := a.InvokeAttempt(ctx, s.attempt.PermitID); done <- err }()
+	select {
+	case <-hintEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Error("long native call did not publish a claim read hint")
+	}
+	select {
+	case <-nativeEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Error("claim hint blocked native dispatch")
+	}
+	stop()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestInvocationClaimsOnceAndKeepsResponseOutOfReturn(t *testing.T) {
 	t.Parallel()
 	a, s, artifacts := invocationFixture()
@@ -187,6 +239,59 @@ func TestInvocationUnknownClaimCannotExecute(t *testing.T) {
 	out, err := a.InvokeAttempt(context.Background(), s.attempt.PermitID)
 	if err != nil || out.Disposition != "claim_unconfirmed" || out.Observation != nil || calls != 0 || s.stageCalls != 0 {
 		t.Fatal("uncertain claim authorized execution or invented an outcome", out, err, calls)
+	}
+}
+
+type lostInvocationClaim struct {
+	*invocationStore
+	foreign, terminal bool
+}
+
+func (s lostInvocationClaim) ClaimAttempt(ctx context.Context, id, nonce string) (Attempt, error) {
+	if _, err := s.invocationStore.ClaimAttempt(ctx, id, nonce); err != nil {
+		return Attempt{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.foreign {
+		s.attempt.ClaimID = uuid.NewString()
+	}
+	if s.terminal {
+		s.attempt.State = "settled"
+		s.attempt.SettlementRevision = 1
+		s.attempt.Observation = &AttemptObservation{Outcome: Outcome{Kind: "unconfirmed"}}
+	}
+	return Attempt{}, ErrClaimUnconfirmed
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-523
+func TestInvocationLostClaimAcknowledgementNeedsPositiveSameOwnerCleanup(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []string{"own", "foreign", "terminal"} {
+		t.Run(mode, func(t *testing.T) {
+			a, s, artifacts := invocationFixture()
+			a.Store = lostInvocationClaim{invocationStore: s, foreign: mode == "foreign", terminal: mode == "terminal"}
+			calls := 0
+			a.Execute = func(context.Context, string, hardenllm.Request) (hardenllm.Result, error) {
+				calls++
+				return hardenllm.Result{}, nil
+			}
+			out, err := a.InvokeAttempt(context.Background(), s.attempt.PermitID)
+			if err != nil || calls != 0 || artifacts.puts != 0 {
+				t.Fatal("claim recovery entered native inference", err, calls, artifacts.puts)
+			}
+			if mode == "own" {
+				if out.Observation == nil || out.Observation.Outcome.Kind != "never_dispatched" || !out.Observation.LocalStopped || out.Observation.NativeEntered || out.ClaimID != s.attempt.ClaimID || s.stageCalls != 1 {
+					t.Fatal("positive same-owner never-entry proof was lost", out, s.stageCalls)
+				}
+			} else if mode == "foreign" {
+				if out.Observation != nil || s.attempt.StoppedAt != nil || s.stageCalls != 0 {
+					t.Fatal("foreign owner was stopped or rewritten", out)
+				}
+			} else if s.attempt.Observation.Outcome.Kind != "unconfirmed" || s.stageCalls != 0 {
+				t.Fatal("terminal outcome was rewritten by late claim cleanup", out, s.stageCalls)
+			}
+		})
 	}
 }
 func TestInvocationRecoversLostArtifactAckWithoutInferenceRetry(t *testing.T) {

@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "sourceBaseSHA": "2c3ad723d30fe322a08fd244094ddf491f23f28d",
+  "changedRuntimeAndTestFilesSHA256": {
+    "internal/gateway/httpapi/jobs_mixed_endurance_integration_test.go": "d78d49396a79eeedee518fa576d1f890012ee333658f26ed05f074a0e1181f20",
+    "internal/gateway/httpapi/jobs_temporal_integration_test.go": "429cab1c967a1a68e38c31951413b7177439abfbb748b9526656a0d68a892bcd",
+    "internal/livecapacity/nativebench_test.go": "317f3b92b4ee576961ab909ec21dfe8eb8cbc731f0b6e2822435d7d0802d2e8c",
+    "stateful/batch/attempt_execution.go": "0a5ed0cfada6a17b572d6aeee03871e84f428626a1d019bfa5a14f4c7ba52ac3",
+    "stateful/batch/attempt_execution_integration_test.go": "855267c8cb829c6cfeeef6babb1bc6564f2578164b268909a4463fff48c578a6",
+    "stateful/batch/attempt_execution_test.go": "18d818b84c7c06819005f86b024fe61a10fd08eb30ba4c3f7cb97573c55b4b9e",
+    "stateful/batch/ledger_store.go": "a625ca2b783b82fd0ec3571018423ab9f9017440aea78178cd9d7ec6f63ca9ef",
+    "stateful/batch/pool_progress.go": "ef11b90898838d15ba2ad515732bda13be8f7313f5241a1b12ebfbaf53b9169c",
+    "stateful/batch/pool_progress_test.go": "beaf0d9da05bbb1e71d8919b788349fe8c22ab51995733d00411ddc1b5b329f7",
+    "stateful/batch/pool_state.go": "ba79747e7646ab70dc0df364800e167fb967df58340d3dc5cfcba99818829f14",
+    "stateful/batch/pool_state_test.go": "367808d3b85e49bce481834fafa9fcc09e2a8010b4fcbb1b5a421da302f2c245",
+    "stateful/batch/pool_workflow.go": "fb8d730a61e6861367bae26a2ec0e71d4ac5334d5d35ec892db1c681c4abeecb",
+    "stateful/batch/pool_workflow_test.go": "8d7bceccdfd0287d7175cff0784181976fffb66ea7e383aad78f0050b44c1d51",
+    "stateful/batch/workers.go": "5009472099e48f06f01d2d62c68d47fc7e61460ae45389812456e2d74cf358ef",
+    "stateful/batch/workers_test.go": "daff70be4f263f7fadd258ccccf894de99cdbd59e32954644e0eebd84d3256c4",
+    "test/test-tiers.json": "bbcaab1f4bc5e97a4372216d992477a0be97b9f162eb0e4ef2bf7f129d74162c",
+    "stateful/batch/ledger_capacity_integration_test.go": "8568ec58ac0905298e60aea89bcee7fac92f61bdeab9601f3202ac5adef1dd38"
+  },
+  "scope": "Synthetic local TLS provider and owned self-hosted Temporal/PostgreSQL/Garage; no CPA calls.",
+  "historyShards": 4,
+  "providerDelayMS": 5,
+  "nativeCap": 128,
+  "ordinaryDeadlineSeconds": 60,
+  "durableDeadlineSeconds": 480,
+  "grantStartLeaseSeconds": 5,
+  "fullScaleAccepted": false,
+  "profiles": {
+    "mixed_1000": {
+      "runnerAccepted": true,
+      "localReceipt": "tmp/cpa-ledger-admission-1000.json",
+      "localMetrics": "tmp/cpa-mixed-1000-398434.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "metrics": {
+        "Accepted": true,
+        "Total": 1000,
+        "Durable": 800,
+        "Ordinary": 200,
+        "Replicas": 2,
+        "Scopes": 2,
+        "Concurrency": 128,
+        "ElapsedMS": 44299,
+        "NativeRequests": 1000,
+        "NativePeak": 5,
+        "DistinctNative": 1000,
+        "DistinctResults": 1000,
+        "OrdinaryErrors": 0,
+        "PeakHeapBytes": 43178552,
+        "PeakGoroutines": 1181,
+        "LedgerSnapshotConfirmed": true,
+        "LedgerAttempts": 1000,
+        "NeverSentAttempts": 0,
+        "ClaimP50MS": 396.171,
+        "ClaimP95MS": 645.3082999999997,
+        "ClaimMaxMS": 1493.999,
+        "PoolAcquireDurationMS": 4076,
+        "PoolEmptyAcquires": 498,
+        "AttemptOutcomesConfirmed": true,
+        "AttemptOutcomes": [
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 800
+          },
+          {
+            "Kind": "ordinary",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 200
+          }
+        ],
+        "Workflows": {
+          "HLLMBatchV1": 2,
+          "HLLMCPAAttemptV2": 800,
+          "HLLMCPAPoolV2": 2
+        },
+        "Continued": true,
+        "SnapshotBytes": 1221
+      }
+    },
+    "mixed_10000": {
+      "runnerAccepted": false,
+      "localReceipt": "tmp/cpa-ledger-admission-10000.json",
+      "localMetrics": "tmp/cpa-mixed-10000-430175.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "metrics": {
+        "Accepted": false,
+        "Total": 10000,
+        "Durable": 9000,
+        "Ordinary": 1000,
+        "Replicas": 2,
+        "Scopes": 2,
+        "Concurrency": 128,
+        "ElapsedMS": 485478,
+        "NativeRequests": 8021,
+        "NativePeak": 6,
+        "DistinctNative": 8021,
+        "DistinctResults": 1000,
+        "OrdinaryErrors": 0,
+        "PeakHeapBytes": 142446968,
+        "PeakGoroutines": 5213,
+        "LedgerSnapshotConfirmed": true,
+        "LedgerAttempts": 8047,
+        "NeverSentAttempts": 26,
+        "ClaimP50MS": 528.8485000000001,
+        "ClaimP95MS": 1281.5856999999999,
+        "ClaimMaxMS": 3220.734,
+        "PoolAcquireDurationMS": 38844,
+        "PoolEmptyAcquires": 4071,
+        "AttemptOutcomesConfirmed": true,
+        "AttemptOutcomes": [
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 7021
+          },
+          {
+            "Kind": "ordinary",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 1000
+          },
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "never_dispatched",
+            "Code": "",
+            "Claimed": false,
+            "DispatchRecorded": false,
+            "LocalStopped": true,
+            "Count": 25
+          },
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "never_dispatched",
+            "Code": "dispatch_deadline_exceeded",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 1
+          }
+        ],
+        "Workflows": null,
+        "Continued": false,
+        "SnapshotBytes": 0
+      }
+    }
+  },
+  "limitations": [
+    "A successful 1000-task profile does not certify 10000 tasks or a live CPA quota.",
+    "Failed profile collected ordinary results only; unset post-success fields do not mean zero work.",
+    "Final SQL snapshot is bounded observed evidence, not full campaign result validation.",
+    "Timing spans and pool acquisition durations overlap and are not additive wall time.",
+    "Semantic gate receipts are recorded separately in the delivery journal.",
+    "No deployment, production promotion, browser or live provider acceptance.",
+    "The native-window test moved to virtual time after load profiles; runtime/load fixture code stayed unchanged."
+  ],
+  "checks": {
+    "integration_race": {
+      "accepted": true,
+      "localReceipt": "tmp/cpa-checkpoint-current-integration-race.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "temporal_replay": {
+      "accepted": true,
+      "localReceipt": "tmp/cpa-checkpoint-current-temporal.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "fast": {
+      "accepted": true,
+      "localReceipt": "tmp/test-feedback/runner-1793465635000-585960-e6346c74a7f2676c.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "fast_before_virtual_clock": {
+      "accepted": false,
+      "localReceipt": "tmp/cpa-checkpoint-current-fast.log",
+      "reason": "Native window callback timing failed at 44.172 ms against unchanged 45 ms oracle; test moved to virtual time."
+    }
+  }
+}
