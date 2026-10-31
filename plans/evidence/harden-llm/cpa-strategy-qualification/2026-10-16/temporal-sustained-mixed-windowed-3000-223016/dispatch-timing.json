@@ -1,0 +1,98 @@
+{
+  "scope": "actual main dispatch times; 20-second gap grouping is analysis, not a provider quota definition",
+  "observedMainStarts": 3000,
+  "dispatchGroups": [
+    {
+      "starts": 200,
+      "atSeconds": 0.0,
+      "spanSeconds": 4.016
+    },
+    {
+      "starts": 200,
+      "atSeconds": 61.017,
+      "spanSeconds": 6.025
+    },
+    {
+      "starts": 200,
+      "atSeconds": 122.03,
+      "spanSeconds": 15.218
+    },
+    {
+      "starts": 200,
+      "atSeconds": 183.038,
+      "spanSeconds": 4.36
+    },
+    {
+      "starts": 200,
+      "atSeconds": 244.068,
+      "spanSeconds": 5.864
+    },
+    {
+      "starts": 200,
+      "atSeconds": 305.1,
+      "spanSeconds": 10.118
+    },
+    {
+      "starts": 200,
+      "atSeconds": 366.112,
+      "spanSeconds": 5.247
+    },
+    {
+      "starts": 200,
+      "atSeconds": 427.118,
+      "spanSeconds": 5.013
+    },
+    {
+      "starts": 200,
+      "atSeconds": 488.147,
+      "spanSeconds": 10.492
+    },
+    {
+      "starts": 200,
+      "atSeconds": 549.158,
+      "spanSeconds": 4.301
+    },
+    {
+      "starts": 200,
+      "atSeconds": 610.987,
+      "spanSeconds": 4.608
+    },
+    {
+      "starts": 200,
+      "atSeconds": 672.018,
+      "spanSeconds": 10.827
+    },
+    {
+      "starts": 200,
+      "atSeconds": 733.03,
+      "spanSeconds": 5.883
+    },
+    {
+      "starts": 200,
+      "atSeconds": 794.047,
+      "spanSeconds": 4.889
+    },
+    {
+      "starts": 127,
+      "atSeconds": 855.899,
+      "spanSeconds": 1.45
+    },
+    {
+      "starts": 73,
+      "atSeconds": 1023.979,
+      "spanSeconds": 1.441
+    }
+  ],
+  "maximumCompletedCall": {
+    "generation_ms": 167377,
+    "headers_ms": 613,
+    "first_output_ms": 166185,
+    "input_tokens": 105,
+    "output_tokens": 42,
+    "reasoning_tokens": 0
+  },
+  "workflowRunCountsObservedInBoundedPreview": [],
+  "workflowObservationIncompleteBecausePreviewTruncated": true,
+  "interpretation": "Last admission episode released 127 calls, then remaining 73 after a long in-flight call completed. Dispatcher source drains active activities before history rollover; this is consistent with that boundary, but the precise trigger is not retained in the bounded summary. Do not attribute the entire duration to quota waiting.",
+  "nativeAttempts": null
+}

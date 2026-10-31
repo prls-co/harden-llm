@@ -1,0 +1,20 @@
+{
+  "TemporalUsed": false,
+  "binarySHA256": "01e2cb85e662b36491224616ee09025a5acddb2348ccf252869ba317234c309e",
+  "competing": false,
+  "endpoint": "https://cpa.prls.co",
+  "foregroundCalls": 2,
+  "mixedBoundedText": false,
+  "model": "gpt-6-luna",
+  "nativeInternalAttempts": null,
+  "officialAPIUsed": false,
+  "policy": "windowed",
+  "reasoning": "low",
+  "sharedCPAConfigurationChanged": false,
+  "sharedController": false,
+  "sourceDiffSHA256": "e96a3710f86a46e573e58858ec92b6d5e9a70594c5a1949c4c82ab17b9d8c638",
+  "sourceDirty": true,
+  "sourceSHA": "1ada1e2ebd456c8a19acce886f61c7b0c99e3776",
+  "startedAt": "2026-10-16T20:41:06.752500063Z",
+  "tokenBudget": 8000000
+}

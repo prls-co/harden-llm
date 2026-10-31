@@ -1,0 +1,123 @@
+{
+  "finishedAt": "2026-10-16T21:05:18.525427457Z",
+  "measurement": {
+    "at": "2026-10-16T14:05:18.525417984-07:00",
+    "elapsedMs": 459474,
+    "Active": 0,
+    "Peak": 135,
+    "ReportedTokens": 122800,
+    "UnknownTokenReserve": 0,
+    "ActiveTokenReserve": 0,
+    "TokenBudget": 8000000,
+    "Actors": [
+      {
+        "name": "foreground",
+        "Offered": 1000,
+        "Dispatched": 1631,
+        "Completed": 1000,
+        "Rejected": 631,
+        "Unknown": 0,
+        "Failed": 0,
+        "Policy": 0,
+        "Active": 0,
+        "Peak": 128,
+        "InputTokens": 66000,
+        "OutputTokens": 36000,
+        "FirstStart": "2026-10-16T13:57:54.051063875-07:00",
+        "LastFinish": "2026-10-16T14:04:58.263006192-07:00",
+        "ReadyMs": 424212
+      },
+      {
+        "name": "background",
+        "Offered": 200,
+        "Dispatched": 275,
+        "Completed": 200,
+        "Rejected": 75,
+        "Unknown": 0,
+        "Failed": 0,
+        "Policy": 0,
+        "Active": 0,
+        "Peak": 64,
+        "InputTokens": 13400,
+        "OutputTokens": 7400,
+        "FirstStart": "2026-10-16T13:57:39.050693122-07:00",
+        "LastFinish": "2026-10-16T14:05:18.525061773-07:00",
+        "ReadyMs": 459474
+      }
+    ],
+    "Controllers": [
+      {
+        "Policy": {
+          "Concurrency": 128,
+          "Burst": 200,
+          "StartRate": 100,
+          "MaximumRate": 200,
+          "RefillEstimate": 61000000000,
+          "WindowRequests": 0,
+          "WindowDuration": 61000000000
+        },
+        "Rate": 200,
+        "BurstLeft": 0,
+        "Successes": 19,
+        "Epoch": "2026-10-16T14:03:55.701117841-07:00",
+        "NextStart": "2026-10-16T14:03:58.331553296-07:00",
+        "NextEligible": "0001-01-01T00:00:00Z",
+        "Cooling": false,
+        "Probing": false,
+        "ProbeDelay": 2000000000,
+        "Paused": false,
+        "WindowStart": "0001-01-01T00:00:00Z",
+        "WindowStarts": 0,
+        "RefillWindowBurst": true,
+        "PacedRecovery": true
+      },
+      {
+        "Policy": {
+          "Concurrency": 64,
+          "Burst": 100,
+          "StartRate": 1,
+          "MaximumRate": 1,
+          "RefillEstimate": 61000000000,
+          "WindowRequests": 0,
+          "WindowDuration": 61000000000
+        },
+        "Rate": 1,
+        "BurstLeft": 0,
+        "Successes": 81,
+        "Epoch": "2026-10-16T14:03:56.37123206-07:00",
+        "NextStart": "2026-10-16T14:05:18.321100259-07:00",
+        "NextEligible": "0001-01-01T00:00:00Z",
+        "Cooling": false,
+        "Probing": false,
+        "ProbeDelay": 2000000000,
+        "Paused": false,
+        "WindowStart": "0001-01-01T00:00:00Z",
+        "WindowStarts": 0,
+        "RefillWindowBurst": true,
+        "PacedRecovery": true
+      }
+    ]
+  },
+  "metadata": {
+    "TemporalUsed": false,
+    "binarySHA256": "0b95f388b4cb6b5faf168a35160d5ab1a28cd58362562fc354e6ba8a9560614c",
+    "competing": true,
+    "endpoint": "https://cpa.prls.co",
+    "foregroundCalls": 1000,
+    "mixedBoundedText": false,
+    "model": "gpt-6-luna",
+    "nativeInternalAttempts": null,
+    "officialAPIUsed": false,
+    "policy": "continuous",
+    "reasoning": "low",
+    "sharedCPAConfigurationChanged": false,
+    "sharedController": false,
+    "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sourceDirty": false,
+    "sourceSHA": "2e909c706ecca3416d1cb4b89e67790929b28a8f",
+    "startedAt": "2026-10-16T20:56:09.045257597Z",
+    "tokenBudget": 8000000
+  },
+  "reportedUsageIsNotNativeInternalUsage": true,
+  "status": "passed"
+}

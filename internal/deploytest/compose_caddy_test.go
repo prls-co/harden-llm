@@ -55,6 +55,41 @@ func renderCompose(t *testing.T, root string, files ...string) map[string]any {
 	return renderComposeWithEnvironment(t, root, composeContractEnvironment(), files...)
 }
 
+// TEST-479 also checks the effective, explicitly opted-in worker composition.
+func TestBatchOverlayReusesGatewayEffectsAndPrivateTemporal(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	env := append(composeContractEnvironment(),
+		"HARDEN_LLM_TEMPORAL_ADDRESS=temporal:7233",
+		"HARDEN_LLM_TEMPORAL_NAMESPACE=hllm-fixture",
+		"HARDEN_LLM_TEMPORAL_NETWORK=temporal-fixture-network",
+		"HARDEN_LLM_BATCH_POOL_ID=fixture-cpa-pool",
+		"HARDEN_LLM_BATCH_UPSTREAM=cpa")
+	model := renderComposeWithEnvironment(t, root, env, filepath.Join(root, "docker-compose.yml"), filepath.Join(root, "deploy/batch/compose.yml"))
+	services := objectField(t, model, "services")
+	api := asObject(t, services["harden-llm-gateway"], "gateway")
+	w := asObject(t, services["harden-llm-batch-worker"], "worker")
+	apiEnv, workerEnv := environmentValueMap(t, api["environment"]), environmentValueMap(t, w["environment"])
+	if api["image"] != w["image"] || fmt.Sprint(w["command"]) != "[worker]" {
+		t.Fatal("worker must run the same backend image")
+	}
+	for _, key := range []string{"HARDEN_LLM_DATABASE_URL", "HARDEN_LLM_DATABASE_POOL_SIZE", "HARDEN_LLM_ARTIFACT_ENDPOINT", "HARDEN_LLM_ARTIFACT_BUCKET", "HARDEN_LLM_ARTIFACT_ACCESS_KEY_ID", "HARDEN_LLM_ARTIFACT_SECRET_ACCESS_KEY", "HARDEN_LLM_TOKEN", "CPA_API_KEY", "HARDEN_LLM_TEMPORAL_ADDRESS", "HARDEN_LLM_TEMPORAL_NAMESPACE", "HARDEN_LLM_BATCH_TASK_QUEUE", "HARDEN_LLM_BATCH_POOL_ID", "HARDEN_LLM_BATCH_WINDOW_REQUESTS"} {
+		if apiEnv[key] == "" || apiEnv[key] != workerEnv[key] {
+			t.Errorf("worker effect configuration differs at %s", key)
+		}
+	}
+	if workerEnv["HARDEN_LLM_BATCH_ENABLED"] != "true" || asObject(t, w["healthcheck"], "worker healthcheck")["disable"] != true {
+		t.Fatal("worker must explicitly enable jobs without an HTTP healthcheck")
+	}
+	for _, service := range []map[string]any{api, w} {
+		if _, ok := objectField(t, service, "networks")["batch-temporal"]; !ok {
+			t.Fatal("both API and worker require the existing private Temporal network")
+		}
+	}
+	if _, ok := services["temporal"]; ok {
+		t.Fatal("overlay must reuse Temporal rather than start another service")
+	}
+}
+
 func renderComposeWithEnvironment(t *testing.T, root string, environment []string, files ...string) map[string]any {
 	t.Helper()
 	args := []string{"compose", "--project-name", "harden-llm-contract"}

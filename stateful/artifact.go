@@ -52,6 +52,22 @@ type ArtifactReader struct {
 }
 type artifactDeleteOptions struct{ beforeDelete func(string) error }
 
+// Batch artifacts use the same key-scoped Garage prefix and credential client.
+func (store *ArtifactStore) PutBatchResult(ctx context.Context, hash, jobID, id string, data []byte) error {
+	_, err := store.put(ctx, hash, jobID, id, "batch-result", data)
+	return err
+}
+func (store *ArtifactStore) OpenBatchResult(ctx context.Context, hash, jobID, id string) (io.ReadCloser, error) {
+	if err := artifactAddress(hash, jobID, id); err != nil {
+		return nil, err
+	}
+	response, err := store.client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(store.bucket), Key: aws.String(store.runPrefix(hash, jobID) + id)})
+	if err != nil {
+		return nil, &OperationError{Code: "artifact_read_failed", Message: "Garage result retrieval failed.", cause: err}
+	}
+	return response.Body, nil
+}
+
 // NewArtifactStore constructs one bounded path-style Garage client without I/O.
 func NewArtifactStore(options ArtifactOptions) (*ArtifactStore, error) {
 	parsed, err := url.Parse(options.Endpoint)

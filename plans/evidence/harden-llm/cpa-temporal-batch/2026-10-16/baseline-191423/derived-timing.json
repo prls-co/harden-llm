@@ -1,0 +1,14 @@
+{
+  "scope": "measured main jobs only; overlap counts core executor calls, not TCP connections",
+  "executorOverlapPeak": 126,
+  "coreCompleted": 948,
+  "ordinaryErrors": 52,
+  "explicitRefusals": 0,
+  "attemptKindCounts": {
+    "completed": 948,
+    "failed": 52
+  },
+  "generationMedianMs": 1319.0,
+  "generationP95Ms": 2312,
+  "generationMaximumMs": 23151
+}

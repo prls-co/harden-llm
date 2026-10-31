@@ -808,6 +808,16 @@ progress/accounting/cache/trace/downloads and `/embed/llm`. WEB-TEST-118–123 a
 backend TEST-428–431/446–448 retain baseline test purposes; no browser launch is
 implicit. Production identity and HTTP acceptance do not prove browser layout.
 
+WEB-TEST-119 / TEST-429 also covers a selection-only host rendering the existing
+`ProfileWidgetComponent.profile_row/1`: it shares public
+`ProfileWidgetState.profile_options/1` and `reasoning_options/2` with the full
+widget, retains exact search labels/ordering and configured reasoning, and
+never substitutes an unknown profile. Two independent selection rows coexist
+with the full widgets without mounting another editor or emitting a full-widget
+message. Profile management remains in the full widget; product hosts own
+catalog/access/current-selection validation. No new routes or gateway behavior
+are introduced by this extraction.
+
 ## 25. Preset and recovery workflow qualification (2026-10-13)
 
 Issues #109 and #115 retain the restored UI and its fixed recovery roles.

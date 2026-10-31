@@ -71,10 +71,10 @@ func validatePayloadCapabilities(connection runtime.Connection, call runtime.Cal
 	case "chat-completions":
 		unsupported = []string{"include", "truncation", "max_output_tokens"}
 	case "gemini-generate-content":
-		unsupported = []string{"include", "truncation", "parallel_tool_calls"}
+		unsupported = []string{"include", "truncation", "parallel_tool_calls", "service_tier"}
 	case "anthropic-messages":
 		unsupported = []string{
-			"frequency_penalty", "presence_penalty", "seed", "include", "truncation", "parallel_tool_calls",
+			"frequency_penalty", "presence_penalty", "seed", "include", "truncation", "parallel_tool_calls", "service_tier",
 		}
 	}
 	for _, key := range unsupported {

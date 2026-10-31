@@ -1,0 +1,10 @@
+{
+  "scope": "conservative campaign accounting correction; original failed measurement is preserved",
+  "originalSourceSHA": "b866bb61a32d553d33ca5be2095f2a3608061c61",
+  "originalUnknownReserve": 98304,
+  "additionalReserve": 32768,
+  "correctedCaseUncertainReserve": 131072,
+  "reason": "Item 960 ended in an SSE error terminal without usage. The old native benchmark labeled it qualification_mismatch instead of unconfirmed, omitting its 32768-token reserve. No inference was replayed.",
+  "originalQualificationStatus": "failed",
+  "outcomeInterpretation": "996 valid outputs plus four errors with uncertain usage; not a 1000-success result"
+}

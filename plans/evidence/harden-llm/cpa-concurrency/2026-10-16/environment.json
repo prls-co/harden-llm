@@ -1,0 +1,33 @@
+{
+  "observedAt": "2026-10-16T01:26:53.944135+00:00",
+  "configSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8",
+  "image": "ghcr.io/prls-co/cli-proxy-api-patched@sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "imageId": "sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "startedAt": "2026-10-04T07:59:51.607040867Z",
+  "restartCount": 0,
+  "oomKilled": false,
+  "settings": {
+    "request-retry": "3",
+    "max-retry-credentials": "1",
+    "max-retry-interval": "30",
+    "disable-cooling": "omitted",
+    "transient-error-cooldown-seconds": "omitted",
+    "passthrough-headers": "false",
+    "save-cooldown-status": "omitted",
+    "nonstream-keepalive-interval": "omitted"
+  },
+  "sharedConfigurationChanged": false,
+  "route": "https://cpa.prls.co/v1",
+  "model": "gpt-6-luna",
+  "reasoning": "low",
+  "binarySHA256": "e0cdf496fa9891522d2b7120eac7d822776f60678db22fb033ac9ec62bead777",
+  "after": {
+    "observedAt": "2026-10-16T01:41:33.649566+00:00",
+    "configSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8",
+    "imageId": "sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+    "restartCount": 0,
+    "oomKilled": false,
+    "running": true,
+    "finalBinarySHA256": "78ca6e8fed9e1e4d2a9a98f7c0932ce87580d3898aaa593a9bd9a4d76c3bb13f"
+  }
+}

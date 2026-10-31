@@ -1,0 +1,21 @@
+{
+  "binarySHA256": "53a11d9bb1a34624c4a4db04b000b30e1a46d72b129df840234e21da03d5a234",
+  "case": "rolling-128-50",
+  "finishedAt": "2026-10-16T16:53:10.125299888Z",
+  "firstSubmissionAt": "2026-10-16T16:53:09.337390809Z",
+  "logicalRequests": 1000,
+  "model": "gpt-6-luna",
+  "officialAPIEnabled": false,
+  "policy": {
+    "Concurrency": 128,
+    "Burst": 100,
+    "StartRate": 50,
+    "MaximumRate": 200,
+    "RefillEstimate": 61000000000
+  },
+  "reasoning": "low",
+  "sharedCPAConfigurationChanged": false,
+  "sourceSHA": "b2ebaa5f1c8727364bed2ad3c729cbbc6964aa0c",
+  "startedAt": "2026-10-16T16:51:38.940884819Z",
+  "status": "failed"
+}

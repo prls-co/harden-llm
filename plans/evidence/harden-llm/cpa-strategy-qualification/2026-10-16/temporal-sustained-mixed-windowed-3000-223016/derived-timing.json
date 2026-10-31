@@ -1,0 +1,81 @@
+{
+  "scope": "main actual Temporal/provider attempts; two real CPA pilot requests excluded from main-only metrics and counted separately in campaign usage",
+  "qualificationStatus": "passed",
+  "sourceSHA": "1c788aca9443a11d6fbe6b47eba1baa60eed32b4",
+  "reportedMainUsage": 820260,
+  "startedAttempts": 3000,
+  "finishedAttempts": 3000,
+  "outcomeCounts": {
+    "completed": 3000
+  },
+  "errorCodeCounts": {},
+  "peakObservedCallerOverlap": 128,
+  "openAttemptObservations": 0,
+  "perJobStartedAttempts": [
+    1000,
+    1000,
+    1000
+  ],
+  "perJobCompletedAttempts": [
+    1000,
+    1000,
+    1000
+  ],
+  "completedDiagnostics": {
+    "queue_ms": {
+      "known": 3000,
+      "median": 427751.5,
+      "p95": 855983,
+      "maximum": 1025313
+    },
+    "retry_wait_ms": {
+      "known": 3000,
+      "median": 0.0,
+      "p95": 0,
+      "maximum": 0
+    },
+    "generation_ms": {
+      "known": 3000,
+      "median": 1230.5,
+      "p95": 5965,
+      "maximum": 167377
+    },
+    "headers_ms": {
+      "known": 3000,
+      "median": 634.0,
+      "p95": 1315,
+      "maximum": 8889
+    },
+    "first_output_ms": {
+      "known": 3000,
+      "median": 329.0,
+      "p95": 2593,
+      "maximum": 166185
+    },
+    "input_tokens": {
+      "known": 3000,
+      "median": 105.0,
+      "p95": 630,
+      "maximum": 630
+    },
+    "output_tokens": {
+      "known": 3000,
+      "median": 42.0,
+      "p95": 797,
+      "maximum": 1804
+    },
+    "reasoning_tokens": {
+      "known": 3000,
+      "median": 0.0,
+      "p95": 238,
+      "maximum": 1245
+    }
+  },
+  "clockOrigins": {
+    "headers_ms": "provider request start to first response byte",
+    "first_output_ms": "SSE collection start; not directly subtractable from headers_ms",
+    "generation_ms": "core execution and response collection"
+  },
+  "cpaInternalAttempts": null,
+  "noInferenceReplayForUnknownOutcomes": true
+}

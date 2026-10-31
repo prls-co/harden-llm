@@ -1,0 +1,80 @@
+{
+  "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+  "callerAttemptsFromItemCounts": 1000,
+  "case": "windowed-128-100",
+  "completionObservedMs": 260368,
+  "distinctDownloadedResults": 1000,
+  "distinctValidatedResults": 1000,
+  "downloadFinishedMs": 265773,
+  "failedItems": 0,
+  "finishedAt": "2026-10-16T19:00:28.512160064Z",
+  "firstSubmissionAt": "2026-10-16T18:56:02.738274111Z",
+  "independentQualificationFailures": [],
+  "inputTokens": 107000,
+  "jobs": [
+    {
+      "job_id": "bb529baf-ce30-5608-bf04-ec6bb415666c",
+      "status": "completed",
+      "counts": {
+        "total": 1000,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 1000,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T11:56:02.845059-07:00",
+      "deadline": "2026-10-16T12:08:02.845059-07:00",
+      "observed_at": "2026-10-16T19:00:23.106969421Z",
+      "last_worker_heartbeat_at": "2026-10-16T12:00:19.295517-07:00",
+      "last_progress_at": "2026-10-16T12:00:19.295517-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/bb529baf-ce30-5608-bf04-ec6bb415666c",
+      "result_url": "/v1/jobs/bb529baf-ce30-5608-bf04-ec6bb415666c/result"
+    }
+  ],
+  "logicalRequests": 1000,
+  "model": "gpt-6-luna",
+  "officialAPIEnabled": false,
+  "outputTokensIncludingReasoning": 43000,
+  "pilot": {
+    "job_id": "2c88d604-aa4d-500a-a69e-e8fb138e16ec",
+    "status": "completed",
+    "counts": {
+      "total": 2,
+      "queued": 0,
+      "active": 0,
+      "waiting": 0,
+      "succeeded": 2,
+      "failed": 0
+    },
+    "created_at": "2026-10-16T11:54:02.64196-07:00",
+    "deadline": "2026-10-16T12:06:02.64196-07:00",
+    "observed_at": "2026-10-16T18:54:32.685982094Z",
+    "last_worker_heartbeat_at": "2026-10-16T11:54:29.277516-07:00",
+    "last_progress_at": "2026-10-16T11:54:29.277516-07:00",
+    "next_attempt_at": null,
+    "status_url": "/v1/jobs/2c88d604-aa4d-500a-a69e-e8fb138e16ec",
+    "result_url": "/v1/jobs/2c88d604-aa4d-500a-a69e-e8fb138e16ec/result"
+  },
+  "pilotRequests": 2,
+  "policy": {
+    "Concurrency": 128,
+    "Burst": 200,
+    "StartRate": 100,
+    "MaximumRate": 200,
+    "RefillEstimate": 61000000000,
+    "WindowRequests": 200,
+    "WindowDuration": 61000000000
+  },
+  "reasoning": "low",
+  "resultReadyAt": "2026-10-16T12:00:19.295517-07:00",
+  "resultReadyMs": 256557,
+  "sharedCPAConfigurationChanged": false,
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceDirty": false,
+  "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+  "startedAt": "2026-10-16T18:54:02.20797067Z",
+  "status": "passed",
+  "validatedByCore": 1000
+}

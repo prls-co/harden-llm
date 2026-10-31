@@ -1,0 +1,27 @@
+{
+  "cpaTimezone": "+08:00",
+  "campaignStartUTC": "2026-10-15T21:48:44Z",
+  "campaignEndUTC": "2026-10-15T22:04:58Z",
+  "httpStatuses": {
+    "200": 403,
+    "499": 2
+  },
+  "nonSuccess": [
+    {
+      "cpaLocalTime": "2026-10-16 05:52:54",
+      "status": 499,
+      "durations": [
+        "29.964s"
+      ]
+    },
+    {
+      "cpaLocalTime": "2026-10-16 05:54:38",
+      "status": 499,
+      "durations": [
+        "29.988s"
+      ]
+    }
+  ],
+  "networkFailureWindowSignals": [],
+  "scope": "all CPA /v1/responses traffic in this time window; temporal correlation only, background consumers not isolated"
+}

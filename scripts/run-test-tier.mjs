@@ -409,6 +409,7 @@ async function startServicePool(task, options) {
       const endpoint = normalizePublishedEndpoint(resolved.stdout.preview);
       if (service.name === "harden-postgres") pool.environment.HARDEN_LLM_TEST_POSTGRES_ENDPOINT = endpoint;
       if (service.name === "garage") pool.environment.HARDEN_LLM_TEST_GARAGE_ENDPOINT = endpoint;
+      if (service.name === "temporal") pool.environment.HARDEN_LLM_TEST_TEMPORAL_ENDPOINT = endpoint;
     }
   } catch (error) {
     error.resourceReceiptPath = receiptPath;

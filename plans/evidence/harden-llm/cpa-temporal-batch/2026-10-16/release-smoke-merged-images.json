@@ -1,0 +1,31 @@
+{
+  "scope": "test-owned merged-revision Compose smoke; not deployment",
+  "sourceSHA": "fb6e4b083db1ff7839cbe836dd7cb5115e256545",
+  "components": [
+    {
+      "service": "harden-llm-gateway",
+      "configuredImage": "harden-llm-gateway:0.1.0",
+      "imageId": "sha256:216cf6c2ba3de67825fe1473649f06052bbee45d6ce44ebca2544257d62aa8c4"
+    },
+    {
+      "service": "harden-llm-web",
+      "configuredImage": "harden-llm-web:1.0.0",
+      "imageId": "sha256:b3ab2c0b6db7b9bf2ced5407cd8b40251509b51d7d398a122b26e03459faf84c"
+    },
+    {
+      "service": "fake-provider",
+      "configuredImage": "harden-llm-fake-provider:0.1.0",
+      "imageId": "sha256:17eca82e873a0c7fee7b44ed627190a8f53097c0ce583a73827fbbf03493ae2a"
+    },
+    {
+      "service": "harden-postgres",
+      "configuredImage": "postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
+      "imageId": "sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609"
+    },
+    {
+      "service": "garage",
+      "configuredImage": "dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690",
+      "imageId": "sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690"
+    }
+  ]
+}

@@ -1,0 +1,229 @@
+{
+  "sourceSHA": "90e42af9862db03bfa6d227fb6268371d5be71bb",
+  "scope": "browser-free release attempt after failed-attempt retry-hint fix; not accepted",
+  "accepted": false,
+  "report": "tmp/test-feedback/runner-1792189675995-436874-f73ee18235ec7641.json",
+  "reportSHA256": "a885ac21075a06028a223679c721b6ad9c33bcbb341bd5a81c4d6a0aac00a401",
+  "firstFailure": {
+    "taskId": "frontend-gateway-workflows",
+    "status": 1,
+    "summary": "Preset/LiveView workflow retained #draft-error when selecting OpenAI GPT-5.4; exact message not retained by original assertion."
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "tasks": [
+    {
+      "taskId": "go-format",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 334
+    },
+    {
+      "taskId": "go-lint",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 2448
+    },
+    {
+      "taskId": "go-build",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 6870
+    },
+    {
+      "taskId": "go-static",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 3659
+    },
+    {
+      "taskId": "runner-contracts",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 110695
+    },
+    {
+      "taskId": "production-config-compose",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 876
+    },
+    {
+      "taskId": "go-unit",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 17674
+    },
+    {
+      "taskId": "go-parity",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 7964
+    },
+    {
+      "taskId": "go-integration",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 40115
+    },
+    {
+      "taskId": "go-temporal-integration",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 52915
+    },
+    {
+      "taskId": "go-integration-race",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "go-api",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 6700
+    },
+    {
+      "taskId": "go-observability",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 6051
+    },
+    {
+      "taskId": "go-compose",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "go-compose-contract",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 800
+    },
+    {
+      "taskId": "go-race",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 142012
+    },
+    {
+      "taskId": "go-vulnerability",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 5697
+    },
+    {
+      "taskId": "frontend-ui-package",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 47181
+    },
+    {
+      "taskId": "frontend-format",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 115630
+    },
+    {
+      "taskId": "frontend-compile",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 114232
+    },
+    {
+      "taskId": "frontend-deterministic",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 192084
+    },
+    {
+      "taskId": "client-core",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 593
+    },
+    {
+      "taskId": "run-progress-client",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 1180
+    },
+    {
+      "taskId": "frontend-deps-audit",
+      "status": 1,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 73031
+    },
+    {
+      "taskId": "frontend-hex-audit",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 1828
+    },
+    {
+      "taskId": "frontend-assets-deploy",
+      "status": 1,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 54663
+    },
+    {
+      "taskId": "frontend-pagination-asset-check",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-release",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "backend-verify-baseline",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-gateway-workflows",
+      "status": 1,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 362226
+    }
+  ],
+  "canceledTasksAreNotIndependentAssertionFailures": true,
+  "batchTemporalIntegrationPassed": true,
+  "providerLoadWasNotRun": true
+}

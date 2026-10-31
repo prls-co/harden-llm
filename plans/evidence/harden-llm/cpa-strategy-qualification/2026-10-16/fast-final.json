@@ -1,0 +1,69 @@
+{
+  "scope": "the exact ten fast-task commands accepted as part of the full release; not a separately executed fast-selector run",
+  "sourceSHA": "edaea2a6c29c744e6cfec606954ae4dc090805e1",
+  "report": "tmp/test-feedback/runner-1792193128572-811056-c6410903c61c02ca.json",
+  "reportSHA256": "e2c92f4c29fc0119b7adc06de92a833e7b7690c8bc6c993af5ff44e55e9ef21a",
+  "selector": "fast subset of accepted release",
+  "accepted": true,
+  "manifestSHA256": "08b2cd7e480d08d784871f8edfdc495b38300a7aff43b59716c66f1699d87125",
+  "taskCount": 10,
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "localCPUTaskSlots": 1,
+  "GOMAXPROCS": 4,
+  "ERLSchedulers": 4,
+  "allOriginalCasesAssertionsAndSQLLimitsPreserved": true,
+  "priorAggregateFailuresRetained": true,
+  "tasks": [
+    {
+      "taskId": "go-static",
+      "status": 0,
+      "wallTimeMs": 3014
+    },
+    {
+      "taskId": "runner-contracts",
+      "status": 0,
+      "wallTimeMs": 88073
+    },
+    {
+      "taskId": "go-unit",
+      "status": 0,
+      "wallTimeMs": 9780
+    },
+    {
+      "taskId": "go-parity",
+      "status": 0,
+      "wallTimeMs": 6529
+    },
+    {
+      "taskId": "go-api",
+      "status": 0,
+      "wallTimeMs": 4826
+    },
+    {
+      "taskId": "go-observability",
+      "status": 0,
+      "wallTimeMs": 5228
+    },
+    {
+      "taskId": "frontend-ui-package",
+      "status": 0,
+      "wallTimeMs": 43084
+    },
+    {
+      "taskId": "frontend-deterministic",
+      "status": 0,
+      "wallTimeMs": 133281
+    },
+    {
+      "taskId": "client-core",
+      "status": 0,
+      "wallTimeMs": 351
+    },
+    {
+      "taskId": "run-progress-client",
+      "status": 0,
+      "wallTimeMs": 767
+    }
+  ]
+}

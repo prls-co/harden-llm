@@ -1,0 +1,1092 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "apiAttemptReservationUSD": 0.00128,
+    "apiBudgetUSD": 5,
+    "duration": "2h0m0s",
+    "model": "gpt-6-luna",
+    "persistence": false,
+    "pricingSource": "https://developers.openai.com/api/docs/changelog#september-2026",
+    "reasoning": "low",
+    "sharedCPAConfigChanged": false,
+    "sourceSHA": "545a4954e232959a855b424d8f15947959ff9cbd\n",
+    "syntheticWorkload": true,
+    "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "campaignID": "20261015T214844Z",
+  "startedAt": "2026-10-15T14:48:44.917019375-07:00",
+  "lastUpdatedAt": "2026-10-15T22:04:57.3123058Z",
+  "campaignWallMs": 972399,
+  "campaignFinished": true,
+  "finalProgress": {
+    "peakCPA": 6,
+    "peakOpenAI": 4,
+    "accepted": 1000,
+    "completed": 996,
+    "failed": 0,
+    "unconfirmed": 4,
+    "queuedCPA": 0,
+    "queuedOpenAI": 0,
+    "activeCPA": 0,
+    "activeOpenAI": 0,
+    "percentCompleted": 99.6,
+    "waitingReason": "drain_incomplete",
+    "cpa": {
+      "concurrency": 1,
+      "intervalNs": 500000000,
+      "active": 0,
+      "nextStartAt": "2026-10-15T14:57:12.681826085-07:00",
+      "pauseUntil": "2026-10-15T14:58:12.19629662-07:00",
+      "consecutiveRejections": 2,
+      "disabled": true
+    },
+    "openai": {
+      "concurrency": 4,
+      "intervalNs": 1000000000,
+      "active": 0,
+      "nextStartAt": "2026-10-15T15:04:57.094869446-07:00",
+      "pauseUntil": "0001-01-01T00:00:00Z",
+      "consecutiveRejections": 0,
+      "disabled": false
+    },
+    "lastCompletionAt": "2026-10-15T15:04:57.296722977-07:00",
+    "settledUSD": 0.014898499999999959,
+    "reservedUSD": 4.336808689942018e-19,
+    "budgetUSD": 5,
+    "stopReason": "drain_incomplete"
+  },
+  "phases": [
+    {
+      "phase": "qualify-cpa",
+      "wallMs": 9349,
+      "start": {
+        "accepted": 3,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 0,
+        "cpa": {
+          "active": 0,
+          "concurrency": 1,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 4000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "0001-01-01T00:00:00Z",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 0,
+        "peakOpenAI": 0,
+        "percentCompleted": 0,
+        "queuedCPA": 3,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 0,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "finish": {
+        "accepted": 3,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 3,
+        "cpa": {
+          "active": 0,
+          "concurrency": 1,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 4000000000,
+          "nextStartAt": "2026-10-15T14:48:57.0176061-07:00",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "2026-10-15T14:48:54.265668523-07:00",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 1,
+        "peakOpenAI": 0,
+        "percentCompleted": 100,
+        "queuedCPA": 0,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 0,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "admitted": 3,
+      "outcomes": {
+        "completed": 3
+      },
+      "admissionStartSpanMs": 8099.589,
+      "measuredMeanStartsPerSecond": 0.24692610946061586
+    },
+    {
+      "phase": "qualify-openai",
+      "wallMs": 2103,
+      "start": {
+        "accepted": 1,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 0,
+        "cpa": {
+          "active": 0,
+          "concurrency": 1,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 4000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "0001-01-01T00:00:00Z",
+        "openai": {
+          "active": 0,
+          "concurrency": 1,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 0,
+        "peakOpenAI": 0,
+        "percentCompleted": 0,
+        "queuedCPA": 0,
+        "queuedOpenAI": 1,
+        "reservedUSD": 0,
+        "settledUSD": 0,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "finish": {
+        "accepted": 1,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 1,
+        "cpa": {
+          "active": 0,
+          "concurrency": 1,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 4000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "2026-10-15T14:48:56.367950725-07:00",
+        "openai": {
+          "active": 0,
+          "concurrency": 1,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "2026-10-15T14:48:55.267141131-07:00",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 0,
+        "peakOpenAI": 1,
+        "percentCompleted": 100,
+        "queuedCPA": 0,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "admitted": 1,
+      "outcomes": {
+        "completed": 1
+      }
+    },
+    {
+      "phase": "ramp-1",
+      "wallMs": 94395,
+      "start": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 0,
+        "cpa": {
+          "active": 0,
+          "concurrency": 1,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 4000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "0001-01-01T00:00:00Z",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 0,
+        "peakOpenAI": 0,
+        "percentCompleted": 0,
+        "queuedCPA": 24,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "finish": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 24,
+        "cpa": {
+          "active": 0,
+          "concurrency": 1,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 4000000000,
+          "nextStartAt": "2026-10-15T14:50:33.077924282-07:00",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "2026-10-15T14:50:30.77037634-07:00",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 1,
+        "peakOpenAI": 0,
+        "percentCompleted": 100,
+        "queuedCPA": 0,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "admitted": 24,
+      "outcomes": {
+        "completed": 24
+      },
+      "admissionStartSpanMs": 92699.397,
+      "measuredMeanStartsPerSecond": 0.24811380380392334
+    },
+    {
+      "phase": "ramp-2",
+      "wallMs": 48586,
+      "start": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 0,
+        "cpa": {
+          "active": 0,
+          "concurrency": 2,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 2000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "0001-01-01T00:00:00Z",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 0,
+        "peakOpenAI": 0,
+        "percentCompleted": 0,
+        "queuedCPA": 24,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "finish": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 24,
+        "cpa": {
+          "active": 0,
+          "concurrency": 2,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 2000000000,
+          "nextStartAt": "2026-10-15T14:51:19.622256119-07:00",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "2026-10-15T14:51:19.357320441-07:00",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 2,
+        "peakOpenAI": 0,
+        "percentCompleted": 100,
+        "queuedCPA": 0,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "admitted": 24,
+      "outcomes": {
+        "completed": 24
+      },
+      "admissionStartSpanMs": 46850.266,
+      "measuredMeanStartsPerSecond": 0.49092570787111434
+    },
+    {
+      "phase": "ramp-4",
+      "wallMs": 24923,
+      "start": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 0,
+        "cpa": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "0001-01-01T00:00:00Z",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 0,
+        "peakOpenAI": 0,
+        "percentCompleted": 0,
+        "queuedCPA": 24,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "finish": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 24,
+        "cpa": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "2026-10-15T14:51:44.059493405-07:00",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "2026-10-15T14:51:44.280767091-07:00",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 3,
+        "peakOpenAI": 0,
+        "percentCompleted": 100,
+        "queuedCPA": 0,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "admitted": 24,
+      "outcomes": {
+        "completed": 24
+      },
+      "admissionStartSpanMs": 23699.976,
+      "measuredMeanStartsPerSecond": 0.9704651177705834
+    },
+    {
+      "phase": "ramp-8",
+      "wallMs": 13262,
+      "start": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 0,
+        "cpa": {
+          "active": 0,
+          "concurrency": 8,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 500000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "0001-01-01T00:00:00Z",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 0,
+        "peakOpenAI": 0,
+        "percentCompleted": 0,
+        "queuedCPA": 24,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "finish": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 24,
+        "cpa": {
+          "active": 0,
+          "concurrency": 8,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 500000000,
+          "nextStartAt": "2026-10-15T14:51:56.832265506-07:00",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "2026-10-15T14:51:57.542366044-07:00",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 5,
+        "peakOpenAI": 0,
+        "percentCompleted": 100,
+        "queuedCPA": 0,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "admitted": 24,
+      "outcomes": {
+        "completed": 24
+      },
+      "admissionStartSpanMs": 12049.931,
+      "measuredMeanStartsPerSecond": 1.9087246225725274
+    },
+    {
+      "phase": "ramp-16",
+      "wallMs": 11449,
+      "start": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 0,
+        "cpa": {
+          "active": 0,
+          "concurrency": 16,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 250000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "0001-01-01T00:00:00Z",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 0,
+        "peakOpenAI": 0,
+        "percentCompleted": 0,
+        "queuedCPA": 24,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "finish": {
+        "accepted": 24,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 24,
+        "cpa": {
+          "active": 0,
+          "concurrency": 16,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 250000000,
+          "nextStartAt": "2026-10-15T14:52:04.495048168-07:00",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "2026-10-15T14:52:08.992504508-07:00",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 8,
+        "peakOpenAI": 0,
+        "percentCompleted": 100,
+        "queuedCPA": 0,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "admitted": 24,
+      "outcomes": {
+        "completed": 24
+      },
+      "admissionStartSpanMs": 6699.916,
+      "measuredMeanStartsPerSecond": 3.432878859973767
+    },
+    {
+      "phase": "drain-1000",
+      "wallMs": 768308,
+      "start": {
+        "accepted": 1000,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 0,
+        "cpa": {
+          "active": 0,
+          "concurrency": 8,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 500000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "failed": 0,
+        "lastCompletionAt": "0001-01-01T00:00:00Z",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "0001-01-01T00:00:00Z",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 0,
+        "peakOpenAI": 0,
+        "percentCompleted": 0,
+        "queuedCPA": 1000,
+        "queuedOpenAI": 0,
+        "reservedUSD": 0,
+        "settledUSD": 2.075e-05,
+        "unconfirmed": 0,
+        "waitingReason": "admission_pacing"
+      },
+      "finish": {
+        "accepted": 1000,
+        "activeCPA": 0,
+        "activeOpenAI": 0,
+        "budgetUSD": 5,
+        "completed": 996,
+        "cpa": {
+          "active": 0,
+          "concurrency": 1,
+          "consecutiveRejections": 2,
+          "disabled": true,
+          "intervalNs": 500000000,
+          "nextStartAt": "2026-10-15T14:57:12.681826085-07:00",
+          "pauseUntil": "2026-10-15T14:58:12.19629662-07:00"
+        },
+        "failed": 0,
+        "lastCompletionAt": "2026-10-15T15:04:57.296722977-07:00",
+        "openai": {
+          "active": 0,
+          "concurrency": 4,
+          "consecutiveRejections": 0,
+          "disabled": false,
+          "intervalNs": 1000000000,
+          "nextStartAt": "2026-10-15T15:04:57.094869446-07:00",
+          "pauseUntil": "0001-01-01T00:00:00Z"
+        },
+        "peakCPA": 6,
+        "peakOpenAI": 4,
+        "percentCompleted": 99.6,
+        "queuedCPA": 0,
+        "queuedOpenAI": 0,
+        "reservedUSD": 4.336808689942018e-19,
+        "settledUSD": 0.014898499999999959,
+        "unconfirmed": 4,
+        "waitingReason": "cpa_baseline_paused"
+      },
+      "admitted": 1000,
+      "outcomes": {
+        "completed": 996,
+        "unconfirmed": 4
+      },
+      "admissionStartSpanMs": 767096.798,
+      "measuredMeanStartsPerSecond": 1.3023128275396607
+    }
+  ],
+  "allRoutes": {
+    "cpa": {
+      "attempts": 406,
+      "outcomes": {
+        "completed": 402,
+        "unconfirmed": 4
+      },
+      "httpStatuses": {
+        "200": 402,
+        "502": 4
+      },
+      "allHTTPMs": {
+        "n": 406,
+        "p50": 1360,
+        "p95": 3572,
+        "max": 30002
+      },
+      "successfulHTTPMs": {
+        "n": 402,
+        "p50": 1359,
+        "p95": 3298,
+        "max": 13013
+      },
+      "successfulQueueWaitMs": {
+        "n": 402,
+        "p50": 68500,
+        "p95": 286568,
+        "max": 301944
+      },
+      "retryWaitMs": {
+        "n": 406,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "knownInputTokens": 23196,
+      "knownOutputTokens": 10734,
+      "knownReasoningTokens": 0
+    },
+    "openai": {
+      "attempts": 718,
+      "outcomes": {
+        "completed": 718
+      },
+      "httpStatuses": {
+        "200": 718
+      },
+      "allHTTPMs": {
+        "n": 718,
+        "p50": 1122,
+        "p95": 1603,
+        "max": 8133
+      },
+      "successfulHTTPMs": {
+        "n": 718,
+        "p50": 1122,
+        "p95": 1603,
+        "max": 8133
+      },
+      "successfulQueueWaitMs": {
+        "n": 718,
+        "p50": 397451,
+        "p95": 731100,
+        "max": 767100
+      },
+      "retryWaitMs": {
+        "n": 718,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "knownInputTokens": 41644,
+      "knownOutputTokens": 19386,
+      "knownReasoningTokens": 0
+    }
+  },
+  "drainRoutes": {
+    "cpa": {
+      "attempts": 283,
+      "outcomes": {
+        "completed": 279,
+        "unconfirmed": 4
+      },
+      "httpStatuses": {
+        "200": 279,
+        "502": 4
+      },
+      "allHTTPMs": {
+        "n": 283,
+        "p50": 1343,
+        "p95": 3244,
+        "max": 30002
+      },
+      "successfulHTTPMs": {
+        "n": 279,
+        "p50": 1342,
+        "p95": 3239,
+        "max": 11511
+      },
+      "successfulQueueWaitMs": {
+        "n": 279,
+        "p50": 137501,
+        "p95": 291327,
+        "max": 301944
+      },
+      "retryWaitMs": {
+        "n": 283,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "knownInputTokens": 16182,
+      "knownOutputTokens": 7533,
+      "knownReasoningTokens": 0
+    },
+    "openai": {
+      "attempts": 717,
+      "outcomes": {
+        "completed": 717
+      },
+      "httpStatuses": {
+        "200": 717
+      },
+      "allHTTPMs": {
+        "n": 717,
+        "p50": 1122,
+        "p95": 1593,
+        "max": 8133
+      },
+      "successfulHTTPMs": {
+        "n": 717,
+        "p50": 1122,
+        "p95": 1593,
+        "max": 8133
+      },
+      "successfulQueueWaitMs": {
+        "n": 717,
+        "p50": 397451,
+        "p95": 731100,
+        "max": 767100
+      },
+      "retryWaitMs": {
+        "n": 717,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "knownInputTokens": 41586,
+      "knownOutputTokens": 19359,
+      "knownReasoningTokens": 0
+    }
+  },
+  "nonCompletedMeasurements": [
+    {
+      "phase": "drain-1000",
+      "attempt": 1,
+      "cpaInternalAttempts": null,
+      "errorCode": "ETIMEDOUT",
+      "executionId": "a615e905-437f-4e05-ace9-96500c383b80",
+      "finishedAt": "2026-10-15T14:52:54.200721009-07:00",
+      "hllmAttempts": [
+        {
+          "branch": "original",
+          "category": "network",
+          "code": "ETIMEDOUT",
+          "connectionId": "cpa",
+          "dispatchObserved": true,
+          "duration": 30001654197,
+          "finishedAt": "2026-10-15T21:52:54.200426996Z",
+          "number": 1,
+          "providerUsed": true,
+          "reasoningEffort": "low",
+          "repair": false,
+          "retryable": false,
+          "stage": "original.generate",
+          "startedAt": "2026-10-15T21:52:24.198788222Z",
+          "target": {
+            "connectionId": "cpa",
+            "endpoint": "https://cpa.prls.co/v1",
+            "modelId": "gpt-6-luna",
+            "protocol": "openai.responses",
+            "provider": "cpa"
+          },
+          "wait": 0
+        }
+      ],
+      "httpStatus": 502,
+      "id": 29,
+      "inputTokens": null,
+      "localGatewayHTTPMs": 30002,
+      "localGatewayHeadersMs": 30002,
+      "model": "gpt-6-luna",
+      "nativeEffort": "low",
+      "outcome": {
+        "costUSD": 0,
+        "kind": "unconfirmed",
+        "retryAfterNs": 0,
+        "usageKnown": false
+      },
+      "outputTokens": null,
+      "queueWaitMs": 15201,
+      "reasoningTokens": null,
+      "retryWaitMs": 0,
+      "route": "cpa",
+      "startedAt": "2026-10-15T14:52:24.198430111-07:00",
+      "traceId": "5bf51b36-2cdf-4290-bd16-6e58f65c2999"
+    },
+    {
+      "phase": "drain-1000",
+      "attempt": 1,
+      "cpaInternalAttempts": null,
+      "errorCode": "ETIMEDOUT",
+      "executionId": "dc4a050e-d05a-49a2-afbd-0a67688c0ae2",
+      "finishedAt": "2026-10-15T14:54:37.95231936-07:00",
+      "hllmAttempts": [
+        {
+          "branch": "original",
+          "category": "network",
+          "code": "ETIMEDOUT",
+          "connectionId": "cpa",
+          "dispatchObserved": true,
+          "duration": 30001601839,
+          "finishedAt": "2026-10-15T21:54:37.951982629Z",
+          "number": 1,
+          "providerUsed": true,
+          "reasoningEffort": "low",
+          "repair": false,
+          "retryable": false,
+          "stage": "original.generate",
+          "startedAt": "2026-10-15T21:54:07.950397828Z",
+          "target": {
+            "connectionId": "cpa",
+            "endpoint": "https://cpa.prls.co/v1",
+            "modelId": "gpt-6-luna",
+            "protocol": "openai.responses",
+            "provider": "cpa"
+          },
+          "wait": 0
+        }
+      ],
+      "httpStatus": 502,
+      "id": 197,
+      "inputTokens": null,
+      "localGatewayHTTPMs": 30002,
+      "localGatewayHeadersMs": 30002,
+      "model": "gpt-6-luna",
+      "nativeEffort": "low",
+      "outcome": {
+        "costUSD": 0,
+        "kind": "unconfirmed",
+        "retryAfterNs": 0,
+        "usageKnown": false
+      },
+      "outputTokens": null,
+      "queueWaitMs": 118951,
+      "reasoningTokens": null,
+      "retryWaitMs": 0,
+      "route": "cpa",
+      "startedAt": "2026-10-15T14:54:07.949935039-07:00",
+      "traceId": "48c934fb-d8bb-4f7b-a868-9bfffd5b2d0c"
+    },
+    {
+      "phase": "drain-1000",
+      "attempt": 1,
+      "cpaInternalAttempts": null,
+      "errorCode": "NETWORK_ERROR",
+      "executionId": "cb322dbe-67ea-4b42-92c5-d05dbac5e853",
+      "finishedAt": "2026-10-15T14:57:12.196279054-07:00",
+      "hllmAttempts": [
+        {
+          "branch": "original",
+          "category": "network",
+          "code": "NETWORK_ERROR",
+          "connectionId": "cpa",
+          "dispatchObserved": true,
+          "duration": 10236862,
+          "finishedAt": "2026-10-15T21:57:12.196021883Z",
+          "number": 1,
+          "providerUsed": true,
+          "reasoningEffort": "low",
+          "repair": false,
+          "retryable": false,
+          "stage": "original.generate",
+          "startedAt": "2026-10-15T21:57:12.185805737Z",
+          "target": {
+            "connectionId": "cpa",
+            "endpoint": "https://cpa.prls.co/v1",
+            "modelId": "gpt-6-luna",
+            "protocol": "openai.responses",
+            "provider": "cpa"
+          },
+          "wait": 0
+        }
+      ],
+      "httpStatus": 502,
+      "id": 549,
+      "inputTokens": null,
+      "localGatewayHTTPMs": 10,
+      "localGatewayHeadersMs": 10,
+      "model": "gpt-6-luna",
+      "nativeEffort": "low",
+      "outcome": {
+        "costUSD": 0,
+        "kind": "unconfirmed",
+        "retryAfterNs": 0,
+        "usageKnown": false
+      },
+      "outputTokens": null,
+      "queueWaitMs": 303187,
+      "reasoningTokens": null,
+      "retryWaitMs": 0,
+      "route": "cpa",
+      "startedAt": "2026-10-15T14:57:12.185439074-07:00",
+      "traceId": "2708ca4a-2372-4a4d-a282-103ec12b2dd9"
+    },
+    {
+      "phase": "drain-1000",
+      "attempt": 1,
+      "cpaInternalAttempts": null,
+      "errorCode": "NETWORK_ERROR",
+      "executionId": "b606405f-f0d7-4645-86b1-ca19dd602bac",
+      "finishedAt": "2026-10-15T14:57:12.19629662-07:00",
+      "hllmAttempts": [
+        {
+          "branch": "original",
+          "category": "network",
+          "code": "NETWORK_ERROR",
+          "connectionId": "cpa",
+          "dispatchObserved": true,
+          "duration": 1944870936,
+          "finishedAt": "2026-10-15T21:57:12.196067155Z",
+          "number": 1,
+          "providerUsed": true,
+          "reasoningEffort": "low",
+          "repair": false,
+          "retryable": false,
+          "stage": "original.generate",
+          "startedAt": "2026-10-15T21:57:10.25120416Z",
+          "target": {
+            "connectionId": "cpa",
+            "endpoint": "https://cpa.prls.co/v1",
+            "modelId": "gpt-6-luna",
+            "protocol": "openai.responses",
+            "provider": "cpa"
+          },
+          "wait": 0
+        }
+      ],
+      "httpStatus": 502,
+      "id": 545,
+      "inputTokens": null,
+      "localGatewayHTTPMs": 1945,
+      "localGatewayHeadersMs": 1945,
+      "model": "gpt-6-luna",
+      "nativeEffort": "low",
+      "outcome": {
+        "costUSD": 0,
+        "kind": "unconfirmed",
+        "retryAfterNs": 0,
+        "usageKnown": false
+      },
+      "outputTokens": null,
+      "queueWaitMs": 301253,
+      "reasoningTokens": null,
+      "retryWaitMs": 0,
+      "route": "cpa",
+      "startedAt": "2026-10-15T14:57:10.250769308-07:00",
+      "traceId": "1ba49ee2-cf37-4c78-ae84-01c4f951d3b8"
+    }
+  ],
+  "eventsSHA256": "ee2e94eb104618f76896d67dabc29fcfec424c4d44960d2c469e640a7a3ebf00",
+  "eventsBytes": 2122132,
+  "heartbeats": 189,
+  "quantileDefinition": "sorted[min(n-1,floor(n*q))], matching the driver; p99 only at n>=1000 in that group",
+  "observedCPAInternalAttempts": null,
+  "providerReportedModelAndEffort": "not separately exposed by normalized HLLM response; selected/prepared model and native effort validated",
+  "finalAcceptance": "incomplete"
+}

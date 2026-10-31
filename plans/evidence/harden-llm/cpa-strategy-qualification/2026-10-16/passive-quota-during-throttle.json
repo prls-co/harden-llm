@@ -1,0 +1,23 @@
+{
+  "observedAt": "2026-10-16T20:49:26.658950+00:00",
+  "source": "local CPA management metadata; only numeric/bool quota allowlist retained",
+  "codexRecords": [
+    {
+      "quotaObservedAt": "2026-10-17T04:49:03.183144883+08:00",
+      "safeSignals": {
+        "retry-after": "7"
+      },
+      "signalShape": {
+        "Retry-After": "str"
+      },
+      "modelSignalShape": {
+        "Retry-After": "str"
+      },
+      "modelQuotaFieldNames": [
+        "observed_at",
+        "signals"
+      ]
+    }
+  ],
+  "rawRecordsPrintedOrStored": false
+}

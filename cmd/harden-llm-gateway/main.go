@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/prls-co/harden-llm/stateful"
 	"io"
 	"os"
 	"os/signal"
@@ -22,11 +21,20 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv func(string) string) error {
+	if len(args) == 1 && args[0] == "batch-policy" {
+		return runBatchPolicy(ctx, stdout, getenv)
+	}
+	if len(args) > 0 && args[0] == "wait-job" {
+		return runJobWait(ctx, args[1:], stdout, stderr, getenv)
+	}
 	if len(args) == 0 || len(args) == 1 && args[0] == "serve" {
 		return runGatewayServer(ctx, stdout, stderr, getenv)
 	}
 	if len(args) == 1 && args[0] == "schema" {
-		return runSchemaCommand(ctx, getenv, stateful.ApplySchema)
+		return runSchemaCommand(ctx, getenv, applyGatewaySchema)
+	}
+	if len(args) == 1 && args[0] == "worker" {
+		return runGatewayRuntime(ctx, stdout, stderr, getenv, true)
 	}
 	if args[0] == "healthcheck" {
 		return runHealthcheck(ctx, args[1:], stdout)

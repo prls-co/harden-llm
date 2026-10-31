@@ -1,0 +1,114 @@
+{
+  "scope": "deterministic quota simulation; not live provider limits",
+  "sourceBase": "1ada1e2",
+  "rows": [
+    {
+      "case": "fixed_window/shared=false/window=false",
+      "status": "passed",
+      "foregroundMs": 296050,
+      "backgroundMs": 187030,
+      "callerRefusals": 132
+    },
+    {
+      "case": "fixed_window/shared=false/window=true",
+      "status": "passed",
+      "foregroundMs": 296050,
+      "backgroundMs": 187030,
+      "callerRefusals": 468
+    },
+    {
+      "case": "fixed_window/shared=true/window=false",
+      "status": "passed",
+      "foregroundMs": 296050,
+      "backgroundMs": 187030,
+      "callerRefusals": 5
+    },
+    {
+      "case": "fixed_window/shared=true/window=true",
+      "status": "passed",
+      "foregroundMs": 294000,
+      "backgroundMs": 185000,
+      "callerRefusals": 0
+    },
+    {
+      "case": "sliding_window/shared=false/window=false",
+      "status": "passed",
+      "foregroundMs": 309050,
+      "backgroundMs": 187030,
+      "callerRefusals": 394
+    },
+    {
+      "case": "sliding_window/shared=false/window=true",
+      "status": "passed",
+      "foregroundMs": 311050,
+      "backgroundMs": 187030,
+      "callerRefusals": 506
+    },
+    {
+      "case": "sliding_window/shared=true/window=false",
+      "status": "passed",
+      "foregroundMs": 309050,
+      "backgroundMs": 187030,
+      "callerRefusals": 262
+    },
+    {
+      "case": "sliding_window/shared=true/window=true",
+      "status": "passed",
+      "foregroundMs": 309050,
+      "backgroundMs": 185000,
+      "callerRefusals": 140
+    },
+    {
+      "case": "token_bucket/shared=false/window=false",
+      "status": "failed",
+      "reason": "refusal_attempt_limit; unchanged complete-results oracle"
+    },
+    {
+      "case": "token_bucket/shared=false/window=true",
+      "status": "passed",
+      "foregroundMs": 294160,
+      "backgroundMs": 146000,
+      "callerRefusals": 3981
+    },
+    {
+      "case": "token_bucket/shared=true/window=false",
+      "status": "failed",
+      "reason": "refusal_attempt_limit; unchanged complete-results oracle"
+    },
+    {
+      "case": "token_bucket/shared=true/window=true",
+      "status": "passed",
+      "foregroundMs": 294000,
+      "backgroundMs": 185000,
+      "callerRefusals": 0
+    },
+    {
+      "case": "concurrency/shared=false/window=false",
+      "status": "passed",
+      "foregroundMs": 54260,
+      "backgroundMs": 146000,
+      "callerRefusals": 782
+    },
+    {
+      "case": "concurrency/shared=false/window=true",
+      "status": "passed",
+      "foregroundMs": 254040,
+      "backgroundMs": 146000,
+      "callerRefusals": 575
+    },
+    {
+      "case": "concurrency/shared=true/window=false",
+      "status": "passed",
+      "foregroundMs": 58280,
+      "backgroundMs": 146000,
+      "callerRefusals": 773
+    },
+    {
+      "case": "concurrency/shared=true/window=true",
+      "status": "passed",
+      "foregroundMs": 300040,
+      "backgroundMs": 185000,
+      "callerRefusals": 623
+    }
+  ]
+}

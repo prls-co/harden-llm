@@ -4,6 +4,32 @@ defmodule HardenLlmUI.ComponentsTest do
   import Phoenix.LiveViewTest
   @endpoint HardenLlmUI.TestEndpoint
 
+  # TEST-429 / WEB-TEST-119: the minimal selection-only host uses the same row/state owner.
+  test "portable profile rows stay independent of each other and full widget instances" do
+    {:ok, view, _html} = live(build_conn(), "/components")
+    assert has_element?(view, "#portable-query-profile[value='CPA Responses']")
+    assert has_element?(view, "#portable-utility-profile[value='Repair Provider']")
+    assert has_element?(view, "#portable-query-reasoning option[value='lowest'][selected]")
+    assert has_element?(view, "#portable-utility-reasoning option[value='highest'][selected]")
+    refute has_element?(view, "#portable-profile-form .ullm-profile-config-toggle")
+    refute has_element?(view, "#portable-query-profile[phx-change]")
+    refute has_element?(view, "#portable-query-reasoning[phx-change]")
+
+    view
+    |> element("#portable-profile-form")
+    |> render_change(%{
+      "row" => %{"query_profile" => "Repair Provider", "query_reasoning" => "middle"}
+    })
+
+    assert has_element?(view, "#portable-query-profile[value='Repair Provider']")
+    assert has_element?(view, "#portable-query-reasoning option[value='middle'][selected]")
+    assert has_element?(view, "#portable-utility-profile[value='Repair Provider']")
+    assert has_element?(view, "#portable-utility-reasoning option[value='highest'][selected]")
+    assert has_element?(view, "#left-run_selectedProfileId[value='CPA Responses']")
+    assert has_element?(view, "#right-run_selectedProfileId[value='CPA Responses']")
+    assert has_element?(view, "#component-messages", "[]")
+  end
+
   # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-429
   test "independent host keeps two profile picker and fold instances separate" do
     {:ok, view, _html} = live(build_conn(), "/components")

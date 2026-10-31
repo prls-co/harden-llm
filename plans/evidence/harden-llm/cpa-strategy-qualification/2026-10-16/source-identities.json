@@ -1,0 +1,21 @@
+{
+  "scope": "separate source-bound measurements and verification; not deployment",
+  "currentReleaseSourceSHA": "edaea2a6c29c744e6cfec606954ae4dc090805e1",
+  "runtimeControllerSourceSHA": "90e42af9862db03bfa6d227fb6268371d5be71bb",
+  "acceptedProviderSourceSHA": "1c788aca9443a11d6fbe6b47eba1baa60eed32b4",
+  "acceptedProviderBinarySHA256": "5a15b42b98c6ebd79fe9569ade0338bb1babe923edfbfc83501ad9834fc5c40f",
+  "providerSourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "providerSourceDirty": false,
+  "runtimeChangesAfterAcceptedProvider": false,
+  "filesAfterAcceptedProvider": [
+    "stateful/profile_resources_integration_test.go"
+  ],
+  "filesAfterRuntimeController": [
+    "frontend/test/harden_llm_web/live/gateway_workflows_test.exs",
+    "stateful/profile_resources_integration_test.go"
+  ],
+  "nativeMatchedSourceSHA": "2e909c706ecca3416d1cb4b89e67790929b28a8f",
+  "nativeFinalComparisonSourceSHA": "b866bb61a32d553d33ca5be2095f2a3608061c61",
+  "sourceIdentityMeaning": "Actual CPA qualification uses1c788ac; later edaea2a changes only test diagnostics and passed all30 release tasks. Runtimecontroller remains90e42af; these are local verification identities, not deployment.",
+  "currentReleaseAccepted": true
+}
