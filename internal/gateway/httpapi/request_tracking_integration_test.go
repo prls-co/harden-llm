@@ -85,13 +85,17 @@ func TestRequestTrackingCrossReplica(t *testing.T) {
 	var count atomic.Int32
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.Copy(io.Discard, r.Body)
-		count.Add(1)
-		close(started)
-		<-release
+		if count.Add(1) == 1 {
+			close(started)
+			<-release
+		}
 		w.Header().Set("Content-Type", "application/json")
 		io.WriteString(w, `{"id":"fixture","status":"completed","output_text":"fixture answer","output":[{"type":"message","content":[{"type":"output_text","text":"fixture answer"}]}]}`)
 	}))
 	a, b := newContractAPIWithPool(t, provider, pool), newContractAPIWithPool(t, provider, pool)
+	secondKey := "synthetic-other-key-0123456789abcdef"
+	a.keys = append(a.keys, secondKey)
+	b.keys = append(b.keys, secondKey)
 	first, second := httptest.NewServer(a.Handler()), httptest.NewServer(b.Handler())
 	defer func() { releaseOnce.Do(func() { close(release) }); first.Close(); second.Close(); provider.Close() }()
 	id := uuid.NewString()
@@ -126,8 +130,45 @@ func TestRequestTrackingCrossReplica(t *testing.T) {
 	if status, view := lookupTracked(t, second.Client(), second.URL, proxyTestToken, id); status != 200 || view.Status != "completed" || view.OutcomeConfirmed == nil || !*view.OutcomeConfirmed {
 		t.Fatal("B did not observe A completion", status, view)
 	}
-	if count.Load() != 1 {
-		t.Fatal("lookup/replication introduced inference")
+	errorBody := func(key, id string) string {
+		r, _ := http.NewRequest("GET", second.URL+"/v1/requests/"+id, nil)
+		r.Header.Set("Authorization", "Bearer "+key)
+		response, err := second.Client().Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		data, err := io.ReadAll(response.Body)
+		if err != nil || response.StatusCode != 404 || response.Header.Get("Cache-Control") != "no-store" {
+			t.Fatal("cross-key/absent lookup contract", response.StatusCode, err)
+		}
+		return string(data)
+	}
+	if errorBody(secondKey, id) != errorBody(proxyTestToken, uuid.NewString()) {
+		t.Fatal("other-key existence leaked")
+	}
+	request, _ := http.NewRequest("POST", second.URL+"/v1/responses", strings.NewReader(`{"model":"fixture-model","input":"hello"}`))
+	request.Header.Set("Authorization", "Bearer "+secondKey)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(trackingHeader, id)
+	response, err := second.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	io.Copy(io.Discard, response.Body)
+	response.Body.Close()
+	if response.StatusCode != 200 {
+		t.Fatal("same UUID under another key conflicted", response.StatusCode)
+	}
+	if status, view := lookupTracked(t, second.Client(), second.URL, secondKey, id); status != 200 || view.Status != "completed" {
+		t.Fatal("other-key independent request unavailable", status, view.Status)
+	}
+	var retained int
+	if err := pool.QueryRow(context.Background(), "SELECT count(*) FROM request_tracking WHERE tracking_id=$1", id).Scan(&retained); err != nil || retained != 2 {
+		t.Fatal("same UUID scopes were not independently stored", retained, err)
+	}
+	if count.Load() != 2 {
+		t.Fatal("lookup/replication introduced inference", count.Load())
 	}
 }
 func TestRequestTrackingScale(t *testing.T) {

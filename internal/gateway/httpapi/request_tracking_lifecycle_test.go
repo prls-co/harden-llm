@@ -22,6 +22,7 @@ import (
 	openai "github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/responses"
+	"github.com/openai/openai-go/shared"
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/stateful"
 )
@@ -561,6 +562,9 @@ func TestRequestTrackingStructuredAndToolResponses(t *testing.T) {
 	api := newContractAPI(t, provider)
 	var final stateful.TrackingRecord
 	api.tracking = trackingStoreStub{reserve: func(context.Context, string, stateful.TrackingRecord) error { return nil }, update: func(_ context.Context, _ string, r stateful.TrackingRecord) error { final = r; return nil }}
+	server := httptest.NewServer(api.Handler())
+	defer server.Close()
+	sdk := openai.NewClient(option.WithBaseURL(server.URL+"/v1"), option.WithAPIKey(proxyTestToken), option.WithMaxRetries(0))
 	for _, item := range []struct{ path, body, contains string }{
 		{"/v1/responses", `{"model":"fixture-model","input":"hello","text":{"format":{"type":"json_schema","name":"answer","schema":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}}}`, `\"ok\":true`},
 		{"/v1/chat/completions", `{"model":"fixture-model","messages":[{"role":"user","content":"hello"}],"response_format":{"type":"json_schema","json_schema":{"name":"answer","schema":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}}}`, `\"ok\":true`},
@@ -576,8 +580,37 @@ func TestRequestTrackingStructuredAndToolResponses(t *testing.T) {
 		if w.Code != 200 || !strings.Contains(w.Body.String(), item.contains) || final.Status != "completed" {
 			t.Fatal("tracked structured/tool projection changed", item.path, w.Code, w.Body.String(), final.Status)
 		}
+		var raw string
+		if item.path == "/v1/responses" {
+			var params responses.ResponseNewParams
+			if err := json.Unmarshal([]byte(item.body), &params); err != nil {
+				t.Fatal(err)
+			}
+			response, err := sdk.Responses.New(context.Background(), params, option.WithHeader(trackingHeader, uuid.NewString()))
+			if err != nil {
+				t.Fatal("typed SDK structured/tool request failed", err)
+			}
+			raw = response.RawJSON()
+		} else {
+			var params openai.ChatCompletionNewParams
+			if err := json.Unmarshal([]byte(item.body), &params); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(item.body, "response_format") {
+				params.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{OfJSONSchema: &shared.ResponseFormatJSONSchemaParam{JSONSchema: shared.ResponseFormatJSONSchemaJSONSchemaParam{Name: "answer", Schema: map[string]any{"type": "object", "properties": map[string]any{"ok": map[string]any{"type": "boolean"}}, "required": []string{"ok"}, "additionalProperties": false}}}}
+			}
+			response, err := sdk.Chat.Completions.New(context.Background(), params, option.WithHeader(trackingHeader, uuid.NewString()))
+			if err != nil {
+				t.Fatal("typed SDK structured/tool request failed", err)
+			}
+			raw = response.RawJSON()
+		}
+		if !strings.Contains(raw, item.contains) || final.Status != "completed" {
+			t.Fatal("typed SDK lost structured/tool output", item.path, raw, final.Status)
+		}
+
 	}
-	if count.Load() != 4 {
+	if count.Load() != 8 {
 		t.Fatal("tracking introduced repair/replay", count.Load())
 	}
 }
@@ -602,5 +635,74 @@ func TestRequestTrackingLogsExcludeCallerHeaders(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), `"call_id"`) || !strings.Contains(logs.String(), `"elapsed_ms"`) {
 		t.Fatal("server correlation/timing diagnostics missing")
+	}
+}
+
+func TestRequestTrackingPanicFinalizesAndPropagates(t *testing.T) {
+	t.Parallel()
+	var count atomic.Int32
+	api := newContractAPI(t, trackingProvider(t, &count))
+	var final stateful.TrackingRecord
+	api.tracking = trackingStoreStub{reserve: func(context.Context, string, stateful.TrackingRecord) error { return nil }, update: func(_ context.Context, _ string, r stateful.TrackingRecord) error { final = r; return nil }}
+	executor := &trackingNeverExecutor{}
+	client, err := hardenllm.New(hardenllm.Options{Connections: hardenllm.ConnectionCatalog{"cpa": {ID: "cpa", Provider: "fixture", Protocol: "responses", BaseURL: "https://fixture.invalid/v1", APIKey: "synthetic-private-provider-key"}}, DefaultConnection: "cpa", Executor: executor, Observer: trackingPanicObserver{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
+	var caught any
+	func() {
+		defer func() { caught = recover() }()
+		trackedRequest(api, "a60f21da-604f-4fe3-a039-23382ec6b313")
+	}()
+	if caught != "synthetic-observer-panic" {
+		t.Fatal("handler hid or changed panic", caught)
+	}
+	if final.Status != "unconfirmed" || final.FinishedAt == nil || final.OutcomeConfirmed == nil || *final.OutcomeConfirmed {
+		t.Fatal("panic left a live or falsely completed tracking record")
+	}
+	if executor.calls.Load() != 0 || count.Load() != 0 {
+		t.Fatal("panic cleanup dispatched/replayed provider work")
+	}
+}
+
+type trackingPanicObserver struct{ hardenllm.Observer }
+
+func (trackingPanicObserver) StartCall(context.Context, hardenllm.CallObservation) (context.Context, func(hardenllm.CallSummary, error)) {
+	panic("synthetic-observer-panic")
+}
+
+type trackingNeverExecutor struct{ calls atomic.Int32 }
+
+func (e *trackingNeverExecutor) Prepare(context.Context, hardenllm.ProviderConnection, hardenllm.ProviderCredential, hardenllm.ProviderCall) (hardenllm.PreparedOperation, error) {
+	e.calls.Add(1)
+	return hardenllm.PreparedOperation{}, errors.New("unexpected prepare")
+}
+func (e *trackingNeverExecutor) Execute(context.Context, hardenllm.PreparedOperation) (hardenllm.ProviderResult, error) {
+	e.calls.Add(1)
+	return hardenllm.ProviderResult{}, errors.New("unexpected execution")
+}
+
+func TestRequestTrackingWatchdogStopsObservationOnly(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+	record, _ := stateful.NewTrackingRecord("a60f21da-604f-4fe3-a039-23382ec6b313", "/v1/responses", now.Add(-time.Minute), now.Add(-2*time.Second))
+	session := stateful.NewTrackingSession(record, time.Now)
+	var count, stopped, writes atomic.Int32
+	api := newContractAPI(t, trackingProvider(t, &count))
+	ticks := make(chan time.Time)
+	api.trackingTicks = func() (<-chan time.Time, func()) { return ticks, func() { stopped.Add(1) } }
+	api.tracking = trackingStoreStub{update: func(context.Context, string, stateful.TrackingRecord) error { writes.Add(1); return nil }}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	call := &trackedCall{api: api, session: session, progress: make(chan hardenllm.ProgressEvent, 64), stop: make(chan struct{}), done: make(chan struct{}), cancelFlush: cancel}
+	go call.collect(ctx, record.DeadlineAt)
+	select {
+	case <-call.done:
+	case <-time.After(time.Second):
+		t.Fatal("watchdog leaked collector")
+	}
+	if stopped.Load() != 1 || writes.Load() != 0 || count.Load() != 0 || session.Snapshot(false).FinishedAt != nil || api.trackingActiveCollectors.Load() != 0 {
+		t.Fatal("watchdog failed cleanup or invented terminal execution")
 	}
 }
