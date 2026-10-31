@@ -2,7 +2,7 @@
 
 - Document: `PLAN-HLLM-REQUEST-STATUS-001`, version 1.0.
 - Date: 2026-10-18.
-- Status: implemented and ready for review in [PR #140](https://github.com/prls-co/harden-llm/pull/140), source `326767d`; unmerged and undeployed. Section 11 records implementation acceptance. Shared CPA admission remains separate in draft PR #141.
+- Status: implemented and ready for review in [PR #140](https://github.com/prls-co/harden-llm/pull/140), source `326767d`; unmerged. The combined `b75d86f` source is qualified in isolated nonproduction (section 12). Section 11 records implementation acceptance. Shared CPA admission remains separate in PR #141.
 - Tracking: [issue #136](https://github.com/prls-co/harden-llm/issues/136).
 - Related: [CPA execution issue #134](https://github.com/prls-co/harden-llm/issues/134) and [broader architecture](cpa-durable-execution-architecture.md).
 - Inspected source baseline: `f1ace14f9b0252ce8a49f7def5b776fbf524864a` (`origin/main` when planned); design branch was `e05ce9ee90c96bb5757948061950a45368e59def` before this document.
@@ -613,12 +613,12 @@ Exit: useful-scale tracking is measured without changing inference semantics.
    matching build before enabling tracked requests; reuse the same pool/network.
    An older binary ignores the new table, but rolling backward while callers
    expect tracking removes that feature. Drain active ordinary calls first.
-6. [ ] Only when deployment is separately undertaken, record branch/source SHA,
+6. [x] Only when deployment is separately undertaken, record branch/source SHA,
    API image identity/environment URL and browser-free health/auth/status
    acceptance. Never infer live status support from this document or a draft PR.
 
-Deployment item P9.6 is conditional and has not been undertaken. The local
-implementation exit does not require production promotion.
+Deployment item P9.6 was subsequently undertaken in the isolated combined
+#134/#136 environment recorded in section 12. Production promotion remains separate.
 
 Exit: local implementation is reviewable and remaining operational gates explicit.
 
@@ -703,7 +703,8 @@ remains outstanding rather than being replaced with a weaker oracle.
 Implementation started 2026-10-31 on `feat/request-status-and-cpa-admission`.
 See [the delivery evidence](implementation/cpa-delivery-2026-10-31.md) for source,
 RED/GREEN commands, failed checks, SQL/transport/race/scale results and remaining
-gates. The broader CPA scheduling issue remains separate and incomplete.
+gates. At that local checkpoint, the broader CPA scheduling issue remained
+separate and incomplete; subsequent qualification is recorded in section 12.
 
 ## 11. Final local implementation audit
 
@@ -736,3 +737,34 @@ evidence for earlier RED/GREEN runs, exact counts and resource measurements.
 All local implementation requirements are accounted for. No deployment, live
 CPA acceptance, browser layout check or merge into main is claimed. Issue #134
 continues separately; status lookup does not implement shared admission.
+
+## 12. Subsequent combined nonproduction qualification
+
+The earlier local/source-only record remains historical. On 2026-10-31,
+`feat/cpa-shared-admission-v2` source `b75d86f` includes PR #140's status code
+and is deployed as two API replicas plus one worker from exact image
+`sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba`.
+The isolated environment is `hllm-cpa-acceptance-20261031-9a4b47` at
+`http://127.0.0.1:33788` and `http://127.0.0.1:33787`. This is combined-source
+qualification, not a standalone release of PR #140 or a production deployment.
+
+The matching explicit schema command succeeded. Missing/wrong/upstream CPA
+bearers are rejected; authenticated missing request IDs return 404. Two tracked
+ordinary live CPA calls were separately authorized as part of #134's P6 campaign,
+after provider-free health/auth checks. JSON and the existing completed-SSE
+outputs validate; status lookup through the other replica confirms completion
+and one attempt. Retained duplicate IDs return 409 with retry suppression.
+There are exactly two ordinary ledger attempts/two completed tracking records,
+zero reference history/profiles/cache entries, and no ordinary result artifacts
+were introduced by tracking. The separate 1,000-item durable CPA campaign also
+passes; it does not redefine tracking as durable execution or result lookup.
+
+The existing completed-SSE terminal envelope puts response fields at the top
+level; this qualification preserves that accepted behavior and checks matching
+terminal output/deltas. It does not certify every SDK completed-response accessor.
+A client parser failure reused captured successful bytes without inference replay.
+
+Source/hosted/local/deployment identities, usage, failures and limitations are in
+`plans/evidence/harden-llm/cpa-admission/2026-10-31-nonproduction-cpa.json` and
+the delivery journal section 25. PR #140 remains unmerged; browser layout and
+production promotion are not claimed.

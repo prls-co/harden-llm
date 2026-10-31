@@ -2,9 +2,9 @@
 
 ## 1. Scope and current gate
 
-P6 of `plans/cpa-durable-execution-architecture.md` remains open until an actual
-immutable runtime image, isolated deployment and bounded live CPA campaign are
-verified. Synthetic results are not deployment or live-quota evidence. No
+At the planning checkpoint, P6 of `plans/cpa-durable-execution-architecture.md`
+remained open pending verification of an immutable runtime image, isolated
+deployment and bounded live CPA campaign. Section 7 records completed execution. Synthetic results are not deployment or live-quota evidence. No
 production promotion or browser run is authorized by this document.
 
 Use an isolated local nonproduction API/worker environment. The ordinary branch
@@ -122,3 +122,25 @@ Retain private runtime credentials, lifecycle manifest and accepted job/results
 for review. Any later cleanup must name only this environment's resources and
 accepted artifact IDs. Never use broad Docker/SQL/Garage cleanup or delete shared
 services, global key-scoped production prefixes or uncertain/accepted work.
+
+## 7. Executed qualification
+
+This checklist was executed on 2026-10-31 against runtime source `b75d86f`.
+Two API replicas and one worker use exact image
+`sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba`
+in isolated environment `hllm-cpa-acceptance-20261031-9a4b47`.
+Both provider-free deployment checks and the separate live campaign pass:
+1,000 separate validated durable CPA results in 259.002 seconds, plus two
+tracked ordinary JSON/existing-SSE calls. No final permits or uncertain outcomes
+remain. Reported campaign usage is 112,000 input/output tokens.
+
+Docker's exhausted automatic address pool required one explicitly allocated,
+non-overlapping owned private subnet. Initial operator-client payload/parser
+errors and the existing top-level completed-SSE envelope limitation are retained
+in the receipt; successful inference was not repeated to correct a parser.
+No shared-service reset, browser or production promotion occurred. Scoped data
+and private runtime credentials remain retained for review.
+
+Authoritative redacted receipt:
+`plans/evidence/harden-llm/cpa-admission/2026-10-31-nonproduction-cpa.json`.
+Full requirement reconciliation and limits are in the acceptance audit section 7.

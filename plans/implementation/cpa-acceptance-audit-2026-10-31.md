@@ -4,19 +4,23 @@
 
 This audit tracks #134 separately from status lookup #136. It does not replace
 `plans/cpa-durable-execution-architecture.md` or narrow its P0–P6 requirements.
-Published checkpoint `9fddf33` has passing hosted run `41225460846`. The next
-acknowledgement/jitter checkpoint passes all local gates and both strict scale
-profiles; its immutable source and hosted result must be recorded at publication.
-Redacted evidence is in
+Runtime checkpoint `b031fc9`, followed only by documentation correction
+`b75d86f`, passes the local gates and both strict scale profiles. Hosted run
+`41231308022` passes for `b75d86f`; hosted service/browser/release tracks were
+skipped, not passed. That exact source is deployed and qualified in an isolated
+loopback environment. No main merge or production promotion is claimed.
+
+Redacted source/scale evidence:
 `plans/evidence/harden-llm/cpa-admission/2026-10-31-acknowledgement-jitter.json`.
-P6 deployment and live-provider acceptance remain open. Test names alone are not
-acceptance evidence.
+Deployment/live acceptance:
+`plans/evidence/harden-llm/cpa-admission/2026-10-31-nonproduction-cpa.json`.
+Test names alone are not acceptance evidence.
 
 ## 2. Delivery requirements
 
 | Requirement | Authoritative coverage or remaining work |
 | --- | --- |
-| #136 ordinary status lookup, scope isolation, unchanged OpenAI JSON/SSE, stale/terminal projection | Ready-for-review PR #140, source `326767d`; its detailed P0–P9/RS acceptance audit is in `plans/request-status-lookup-implementation-plan.md`. Unmerged/undeployed. |
+| #136 ordinary status lookup, scope isolation, unchanged OpenAI JSON/SSE, stale/terminal projection | Ready-for-review PR #140, source `326767d`; its detailed P0–P9/RS acceptance audit is in `plans/request-status-lookup-implementation-plan.md`. Unmerged. Its code is included in the separately qualified combined `b75d86f` nonproduction deployment; see request-status plan section 12. |
 | P0 existing accepted-job/source ownership inventory and stable authority | Delivery sections 10–16; explicit schema and V1 drain/handoff, no serving-path DDL or pool reset. |
 | P1 immutable 180-second legacy / 300-second new / 900-second maximum budgets and separate finalization | `budget_test.go`, `budget_integration_test.go`, gateway OpenAPI/client fixtures; full current-source fast, SQL/race and Temporal gates pass. |
 | P2 claim/start/settlement fencing and immutable artifacts | `ledger_integration_test.go`, `attempt_starter_test.go`, `attempt_execution_integration_test.go`; no inference retry on unknown outcomes. |
@@ -26,8 +30,8 @@ acceptance evidence.
 | P5 ordinary/durable shared cap/cooldown and caller compatibility | `TestTemporalBatchOrdinaryShareAdmissionAndKeepOpenAIWire`, `TestTemporalBatchOrdinaryRefusalSharesCooldownAndRetryOwnership`; preserve cancellation, cache bypass, scope boundaries and metadata-only ordinary results. |
 | P5 1,000 separate native calls and complete results | Acknowledgement/jitter-default-zero four-shard candidate passes in 33.059 seconds: exactly 1,000 native calls, distinct validated results and settled attempts; exactly 800 durable attempt workflows, no never-dispatched attempts or ordinary errors. Receipt `tmp/cpa-ack-jitter-1000.json`. This is synthetic local-provider acceptance. |
 | P5 10,000 mixed calls, exact counts and bounded resources | Accepted with unchanged oracles in `tmp/cpa-ack-jitter-10000.json`: 10,000 separate native calls, distinct validated results and settled ledger attempts; exactly 9,000 durable attempt workflows; zero never-sent, ordinary-error, unknown or leaked permits. Full collection/diagnostics: 474.169 seconds. Resource assertions pass: heap 145,494,752 bytes, goroutines 5,203. Earlier rejected profiles remain retained. |
-| P6 selected environment, namespace/network, scoped storage, schema/images and HTTP checks | Not deployed/qualified. Record exact branch/SHA/images/environment and browser-free HTTP acceptance. |
-| P6 representative bounded CPA request campaign | Not run in this implementation checkpoint. Explicit opt-in, independent from deployment smoke tests. Synthetic throughput is not a CPA quota measurement. |
+| P6 selected environment, namespace/network, scoped storage, schema/images and HTTP checks | Accepted on `b75d86f`, image `sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba`: two API replicas/one worker; unique limited SQL role/database, Garage bucket/key and Temporal namespace/network; schema and V2 generation 2 initialized with zero inference; health/auth/status checks pass. See section 7. |
+| P6 representative bounded CPA request campaign | Accepted separately after deployment checks: 1,000 distinct short CPA `gpt-6-luna` low-reasoning results across two 500-item jobs/two APIs in 259.002 seconds including validation. All first attempt; 112,000 reported tokens; final pool/ledger empty and positively stopped. This is one qualified workload, not a universal quota or maximum-throughput result. |
 
 ## 3. Required fault coverage
 
@@ -75,21 +79,58 @@ acceptance evidence.
 5. Complete P6 environment/provider gates after source publication and hosted checks.
    Merge/main promotion and production deployment remain separate user decisions.
 
-## 6. Immediate delivery sequence
+## 6. Delivery disposition
 
-The design and P0–P5 source acceptance are ready. Remaining work concerns
-publication and P6 qualification, rather than a new architecture or CPA upgrade.
+P0–P6 implementation and the stated local/nonproduction acceptance are complete.
+PR #140 owns the status-only slice; PR #141 owns shared CPA admission. Both
+remain unmerged. Review, main merge and production promotion are separate.
+The operational checklist remains in
+`plans/implementation/cpa-nonproduction-qualification-2026-10-31.md`; section 7
+records its execution. Retain accepted jobs/results and private runtime settings
+for review, rather than automatically deleting them on observer completion.
 
-1. Publish the verified acknowledgement/jitter/process-fault checkpoint and check
-   the exact PR head and hosted result. Retain all earlier failures. #140 can
-   proceed through review independently; #141 stays draft until P6 acceptance.
-2. Follow `plans/implementation/cpa-nonproduction-qualification-2026-10-31.md`:
-   isolate database/role, Garage bucket/key and Temporal namespace; build one
-   pinned gateway image for two API replicas and a worker; run explicit schema
-   and V2 authority initialization, then authenticated HTTP checks without inference.
-3. Run the separately bounded real CPA campaign through those deployed APIs.
-   Validate every result and caller progress, actual retries/usage, terminal
-   uncertainty and final permits. Keep ordinary calls request-bound and use
-   existing durable jobs for multi-minute waits.
-4. Record exact SHA/images/environment/receipts and reconcile P0–P6 before
-   declaring delivery. Main merge and production promotion remain separate.
+## 7. P6 deployment and live acceptance
+
+- Source: `b75d86fb606f6c5bd7819016bc13390f63b759e0` on
+  `feat/cpa-shared-admission-v2`, with exact revision/version image labels.
+- Environment/namespace/pool/task queue: `hllm-cpa-acceptance-20261031-9a4b47`.
+  APIs: `http://127.0.0.1:33788` and `http://127.0.0.1:33787`.
+- Gateway image for both APIs and worker:
+  `sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba`.
+  No restarts/OOM kills; bounded API pools 5 each and worker pool 10.
+- Only new scoped SQL/Garage/Temporal resources were provisioned. Docker's
+  automatic address pool was exhausted before any API/worker started; a new
+  explicitly non-overlapping owned `/28` network solved startup. No shared
+  network, daemon setting, service or production dataset was reset.
+- Schema command and `batch-upgrade` positively confirmed generation 2 with zero
+  attempts before inference. Both APIs return health/readiness 200; missing,
+  wrong and upstream CPA bearers return 401; authenticated unknown IDs return
+  404. Upstream credentials are never incoming application authority.
+- Two tracked ordinary CPA calls validate JSON and the existing completed-SSE
+  wire, with lookup through the opposite replica, confirmed terminal metadata
+  and duplicate 409 plus SDK retry suppression. Their ordinary records produce
+  no reference history, profiles or cache entries.
+- The separate 1,000-item campaign validates every exact nonce and response ID,
+  cross-replica idempotent submission and complete NDJSON downloads. Generation
+  p50/p95/max: 1,262/1,987/4,829 ms. All 1,000 items finish on attempt one;
+  reported input/output tokens: 73,000/39,000. CPA internal attempts are unknown.
+- Worker logs prove 1,000 distinct native-path entries and completed, positively
+  stopped outcomes. Invocation-interval overlap peaks at 95 under configured
+  cap 128. This measures HLLM execution intervals, not upstream internal slots.
+- Final SQL proves 1,002 completed/stopped attempts (1,000 durable + two ordinary),
+  no unsettled/unknown/no-stop rows, two completed tracking records and zero
+  reference history/profiles/cache entries. Pool query confirms no outstanding
+  permits or start intents. No inference replay occurred during validation.
+- Five-second progress polling distinguishes window waits, next eligibility,
+  advancing heartbeat and genuine progress. No real throttle occurred in this
+  sample; deterministic tests own refusal/probe/cooldown qualification.
+- Initial operator-client payload omissions were rejected with zero inference.
+  A subsequent client parser expected a nested completed response; the existing
+  HLLM wire is top-level. The same captured successful SSE/deltas were validated
+  without another inference. This preserves the accepted wire, rather than
+  claiming compatibility with every SDK completed-response accessor. Raw failures
+  and private results are retained; no application assertion was weakened.
+- The retained CPA translator may strip requested `max_output_tokens`; exact
+  nonce schema constrained visible output. No token quota or ban-safe rate is
+  inferred from this campaign. Browser layout was not checked; no frontend,
+  production promotion or shared CPA configuration change occurred.

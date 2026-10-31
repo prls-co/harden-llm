@@ -1282,3 +1282,76 @@ data boundaries, immutable image and separately opted-in CPA campaign are in
 `plans/implementation/cpa-nonproduction-qualification-2026-10-31.md`. No shared
 service/data change, new infrastructure credential, provider call or deployment
 has occurred merely by preparing that plan.
+
+## 25. P6 deployed and real CPA accepted
+
+Previous turn published runtime checkpoint `b031fc9` and documentation-only
+`b75d86f`; local/tracking/remote/PR heads match and the worktree was clean.
+Hosted fast run `41231308022` succeeds on exact `b75d86f`. Hosted expensive
+service/browser/release jobs were skipped, not passed; the canonical service
+receipts in section 23.1 remain the local proof.
+
+Built only the existing gateway Dockerfile, with a BuildKit secret for private
+modules and exact revision/version labels. All two API replicas and one worker
+run image `sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba`
+from source `b75d86fb606f6c5bd7819016bc13390f63b759e0`.
+The deployment is `hllm-cpa-acceptance-20261031-9a4b47`, APIs
+`http://127.0.0.1:33788` and `http://127.0.0.1:33787`.
+
+Provisioned only a new limited SQL role/database, new bucket/key restricted to
+that bucket, a new self-hosted Temporal namespace and owned network. Generated
+application/encryption/storage credentials remain outside the repo in a private
+runtime directory; canonical upstream CPA access is read from the approved env
+file, not copied to another credential registry. Initial Docker startup failed
+before APIs/workers started because automatic address pools were exhausted.
+An explicitly non-overlapping owned `10.203.0.0/28` subnet resolved startup;
+shared services/networks/daemon configuration were not reset.
+
+The matching image's explicit `schema` command succeeds. `batch-upgrade`
+positively confirms generation 2/empty authority. Both APIs pass health/ready,
+missing/wrong bearer rejection, rejection of incoming CPA upstream bearer and
+authenticated missing-ID checks. SQL confirms zero inference before these
+provider-free checks. API pool sizes are 5 each, worker 10; memory ceilings are
+256/256/512 MiB. Runtime has no restarts/OOM kills. No frontend was rebuilt.
+
+A separately authorized live pilot uses two tracked ordinary CPA generations,
+JSON plus existing completed-SSE. Opposite replicas read confirmed terminal
+status; duplicate retained IDs return 409 plus SDK retry suppression. The first
+operator payload lacked required recovery-policy members and was rejected with
+400/zero attempts/tracking; those receipts remain. The later parser expected a
+nested completed response, whereas existing HLLM emits top-level fields. The
+captured successful wire validates exact nonce, terminal payload and matching
+SSE deltas without repeating inference. That pre-existing envelope limitation
+is explicit, not hidden behind a broader SDK compatibility claim.
+
+The separate durable campaign submits two 500-item jobs through opposite APIs,
+rechecks idempotency through the other replica, polls every five seconds and
+validates every NDJSON identity/output and distinct response ID. All 1,000 items
+succeed on HLLM attempt one in **259.002 seconds** including download/validation.
+Reported input/output tokens are **73,000/39,000**; reported reasoning tokens are
+zero (subset). CPA internal attempts remain unknown. Generation p50/p95/max:
+1,262/1,987/4,829 ms. The user-facing counts, window wait/eligibility and distinct
+heartbeat/progress timestamps remain observable throughout.
+
+Final real SQL confirms exactly 1,002 completed/stopped attempts: 1,000 durable
+and two ordinary, with no unsettled/no-stop/unknown rows, exactly two completed
+tracking records and zero reference history/profiles/cache entries. Actual
+Temporal query confirms no outstanding permits/start intents. Worker logs retain
+1,000 distinct native-entered completed/stopped outcomes with timing and usage
+fields. Their invocation-interval overlap peaks at 95 under cap 128; this is
+HLLM execution overlap, not an upstream internal slot count. Resource samples
+are retained, with observed worker memory below 43 MiB in those samples.
+
+The final audit initially needed its timestamp parser adapted to the logger's
+UTC format; this retried only read-only metadata auditing. The campaign itself
+ran once and succeeded. No application test oracle was relaxed.
+
+Redacted authoritative receipt:
+`plans/evidence/harden-llm/cpa-admission/2026-10-31-nonproduction-cpa.json`.
+Private manifests/results/failures and accepted jobs/artifacts remain retained.
+This qualifies the selected short-output workload, not universal quotas, the
+maximum-throughput optimum, every SDK accessor or a ban-safe rate. No real
+throttle occurred here; deterministic tests own cooldown/probe failure behavior.
+The retained CPA translator may strip requested output limits. Shared CPA config,
+main and production remain unchanged; no browser ran. P0–P6 source/local/
+nonproduction acceptance is complete, with review/merge/promotion separate.

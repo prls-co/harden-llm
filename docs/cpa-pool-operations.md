@@ -8,7 +8,8 @@ stable workflow ID `hllm-cpa-pool-v1/<configured pool ID>` even after its workfl
 type becomes `HLLMCPAPoolV2`. Control uses the configured task queue; provider
 activities use that queue with `/provider` appended, in the same worker process.
 
-This document describes source capabilities, not a deployed feature. Ordinary
+Source `b75d86f` is qualified in the isolated nonproduction deployment recorded
+in the acceptance audit section 7. Main/production adoption remains separate. Ordinary
 OpenAI generation now uses the same V2 pool when batch admission is enabled and
 the connection uses the configured CPA origin. Status lookup in issue #136 does
 not supply durable waiting or result retrieval.
@@ -108,7 +109,7 @@ automatic core/compatible-SDK replay (`x-should-retry: false`). Explicit pre-out
 refusals retain trusted retry floors. Local metadata cleanup is bounded separately
 and cannot extend provider execution or replace a known response.
 
-## 5. Verification and outstanding acceptance
+## 5. Verification and qualification
 
 See `plans/implementation/cpa-delivery-2026-10-31.md` for exact failure/pass
 receipts and source checkpoints. Local integration evidence is distinct from
@@ -160,10 +161,12 @@ returning to an older binary. Pool readback remains metadata-only and does not
 recursively notify itself per reconciled row.
 
 The current acknowledgement/jitter checkpoint passes local recovery/fault and
-strict mixed 1,000/10,000-call acceptance. Before declaring the full #134 feature
-delivered, publish and qualify that exact source in the selected nonproduction
-environment, then complete the separately bounded CPA campaign. Browser layout, public-provider capacity and deployment
-are not established by these source instructions or synthetic-provider tests.
+strict mixed 1,000/10,000-call acceptance. Runtime `b75d86f` also passes isolated
+nonproduction deployment and a separately bounded 1,000-result CPA campaign;
+see the acceptance audit section 7 for exact source/image/environment and limits.
+Main review/merge and production promotion remain separate. The bounded CPA
+campaign qualifies its recorded workload; browser layout and universal provider
+capacity are not established by these source instructions or synthetic tests.
 
 
 ## 6. Optional recovery padding and acknowledgement confirmation
