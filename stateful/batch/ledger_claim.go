@@ -10,9 +10,54 @@ import (
 )
 
 type claimWriteOptions struct {
-	commit        func(context.Context, pgx.Tx) error
-	readbackError error
-	onReadback    func()
+	commit         func(context.Context, pgx.Tx) error
+	readbackError  error
+	onReadback     func()
+	beforeReadback func(context.Context, pgx.Tx) error
+}
+
+type dispatchWriteOptions struct {
+	commit         func(context.Context, pgx.Tx) error
+	readbackError  error
+	beforeReadback func(context.Context, pgx.Tx) error
+}
+
+// Retry only failed metadata reads, never a write or an invalid ownership
+// observation. One recovery phase has at most two short SQL transactions.
+func (s *PostgresStore) confirmAttemptWrite(ctx context.Context, id, nonce string, before func(context.Context, pgx.Tx) error, accepts func(Attempt) bool) (Attempt, error) {
+	for range 2 {
+		var result Attempt
+		err := s.ledgerTx(ctx, func(ctx context.Context, tx pgx.Tx) error {
+			if before != nil {
+				if err := before(ctx, tx); err != nil {
+					return err
+				}
+			}
+			var err error
+			result, err = readAttempt(ctx, tx, id, true)
+			if err != nil {
+				return err
+			}
+			now := time.Now()
+			if result.State != "dispatching" || result.ClaimID != nonce || result.ClaimedAt == nil || result.StoppedAt != nil || result.Observation != nil || !now.Before(result.StartBy) || !now.Before(result.executionDeadline()) || !accepts(result) {
+				return ErrClaimUnconfirmed
+			}
+			if err := guardPool(ctx, tx, result.PoolID, result.Generation); err != nil {
+				return err
+			}
+			return guardRequestClaim(ctx, tx, result, nonce)
+		}, nil)
+		if err == nil {
+			if ctx.Err() == nil && time.Now().Before(result.StartBy) && time.Now().Before(result.executionDeadline()) {
+				return result, nil
+			}
+			return Attempt{}, ErrClaimUnconfirmed
+		}
+		if ctx.Err() != nil || errors.Is(err, pgx.ErrNoRows) || errors.Is(err, ErrClaimUnconfirmed) || errors.Is(err, ErrClaimOwned) || errors.Is(err, ErrGenerationFenced) {
+			break
+		}
+	}
+	return Attempt{}, ErrClaimUnconfirmed
 }
 
 func (s *PostgresStore) ClaimAttempt(ctx context.Context, id, nonce string) (Attempt, error) {
@@ -24,6 +69,8 @@ func (s *PostgresStore) claimAttempt(ctx context.Context, id, nonce string, opts
 		return result, ErrClaimUnconfirmed
 	}
 	changed := false
+	var expected Reservation
+	var claimedAt, generationDeadline time.Time
 	err := s.ledgerTx(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		a, err := readAttempt(ctx, tx, id, true)
 		if err != nil {
@@ -43,6 +90,7 @@ func (s *PostgresStore) claimAttempt(ctx context.Context, id, nonce string, opts
 			return ErrClaimOwned
 		}
 		deadline := minTime(a.Deadline, now.Add(time.Duration(a.BudgetMS)*time.Millisecond))
+		expected, claimedAt, generationDeadline = a.Reservation, now.UTC().Truncate(time.Microsecond), deadline.UTC().Truncate(time.Microsecond)
 		if _, err := tx.Exec(ctx, `UPDATE batch_attempts SET state='dispatching',claim_id=$2,claimed_at=$3,generation_deadline=$4 WHERE permit_id=$1 AND state='reserved'`, id, nonce, now, deadline); err != nil {
 			return err
 		}
@@ -60,26 +108,29 @@ func (s *PostgresStore) claimAttempt(ctx context.Context, id, nonce string, opts
 		if opts.readbackError != nil {
 			return Attempt{}, ErrClaimUnconfirmed
 		}
-		readErr := s.ledgerTx(ctx, func(ctx context.Context, tx pgx.Tx) error {
-			var e error
-			result, e = readAttempt(ctx, tx, id, false)
-			return e
-		}, nil)
-		if readErr == nil && result.ClaimID == nonce && result.State == "dispatching" {
-			return result, nil
-		}
-		return Attempt{}, ErrClaimUnconfirmed
+		readCtx, stop := context.WithDeadline(ctx, minTime(time.Now().Add(2*time.Second), minTime(expected.StartBy, generationDeadline)))
+		defer stop()
+		return s.confirmAttemptWrite(readCtx, id, nonce, opts.beforeReadback, func(a Attempt) bool {
+			return sameReservation(a.Reservation, expected) && a.ClaimedAt.Equal(claimedAt) && a.GenerationDeadline != nil && a.GenerationDeadline.Equal(generationDeadline) && a.DispatchedAt == nil
+		})
 	}
 	return Attempt{}, ledgerError(err)
 }
 func (s *PostgresStore) MarkDispatch(ctx context.Context, id, nonce string) (Attempt, error) {
+	return s.markDispatch(ctx, id, nonce, dispatchWriteOptions{})
+}
+func (s *PostgresStore) markDispatch(ctx context.Context, id, nonce string, opts dispatchWriteOptions) (Attempt, error) {
 	var result Attempt
+	var expected Reservation
+	var dispatchedAt time.Time
+	var claimedAt, generationDeadline *time.Time
+	changed := false
 	err := s.ledgerTx(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		a, err := readAttempt(ctx, tx, id, true)
 		if err != nil {
 			return err
 		}
-		if a.ClaimID != nonce || a.State != "dispatching" {
+		if a.ClaimID != nonce || a.State != "dispatching" || a.StoppedAt != nil || a.Observation != nil {
 			return ErrClaimOwned
 		}
 		if a.DispatchedAt != nil {
@@ -95,6 +146,7 @@ func (s *PostgresStore) MarkDispatch(ctx context.Context, id, nonce string) (Att
 		if !now.Before(a.StartBy) || !now.Before(a.executionDeadline()) {
 			return ErrClaimOwned
 		}
+		expected, dispatchedAt, claimedAt, generationDeadline = a.Reservation, now.Truncate(time.Microsecond), a.ClaimedAt, a.GenerationDeadline
 		if a.Kind == "job" {
 			tag, err := tx.Exec(ctx, `UPDATE batch_items SET attempts=attempts+1 WHERE api_key_hash=$1 AND job_id=$2 AND item_index=$3 AND current_permit=$4 AND state='active' AND attempts<16`, a.Ref.Scope, a.Ref.JobID, a.Ref.Index, id)
 			if err != nil {
@@ -107,11 +159,25 @@ func (s *PostgresStore) MarkDispatch(ctx context.Context, id, nonce string) (Att
 		if _, err := tx.Exec(ctx, `UPDATE batch_attempts SET dispatch_at=$2 WHERE permit_id=$1`, id, now); err != nil {
 			return err
 		}
+		changed = true
 		result, err = readAttempt(ctx, tx, id, false)
 		return err
-	}, nil)
-	// An uncertain dispatch-intent acknowledgement must not authorize Execute.
+	}, opts.commit)
 	if err != nil {
+		// Only this call's newly acknowledged UPDATE may enter readback. A prior
+		// dispatch intent fails above and is never reused as new permission.
+		if changed && opts.readbackError == nil {
+			deadline := expected.Deadline
+			if generationDeadline != nil {
+				deadline = *generationDeadline
+			}
+			readCtx, stop := context.WithDeadline(ctx, minTime(time.Now().Add(2*time.Second), minTime(expected.StartBy, deadline)))
+			defer stop()
+			return s.confirmAttemptWrite(readCtx, id, nonce, opts.beforeReadback, func(a Attempt) bool {
+				return sameReservation(a.Reservation, expected) && sameOptionalTime(a.ClaimedAt, claimedAt) && sameOptionalTime(a.GenerationDeadline, generationDeadline) && a.DispatchedAt != nil && a.DispatchedAt.Equal(dispatchedAt)
+			})
+		}
+		// Missing positive confirmation never authorizes provider entry.
 		return Attempt{}, ledgerError(err)
 	}
 	return result, nil

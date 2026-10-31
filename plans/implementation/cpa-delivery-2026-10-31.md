@@ -1166,3 +1166,119 @@ Cleanup errors/warnings are empty; canonical registration and whitespace checks
 pass. The redacted scale/gate receipt is
 `plans/evidence/harden-llm/cpa-admission/2026-10-31-wake-finalization.json`.
 This is a verified source checkpoint for draft #141, not full #134 completion.
+
+
+## 21. Positive same-invocation acknowledgement recovery
+
+Published `9fddf33` passed hosted hierarchy run `41225460846`. The next candidate
+recovers the two measured pre-entry acknowledgement failures without extending
+SQL budgets, grant leases or provider execution. A claim/dispatch write still runs
+once. Only after its UPDATE is acknowledged locally may a bounded readback phase
+confirm the exact fresh nonce, captured reservation and timestamps. At most two
+short SQL transactions run under a two-second overall phase and earlier caller/
+start/generation deadlines. Only an actual failed read transaction may retry;
+absent/foreign/terminal/stopped/expired/fenced or changed observations stop at once.
+Previously recorded dispatch intents do not enter this recovery path.
+
+- `tmp/cpa-ack-readback-red.json` reproduces both committed-write/lost-reply cases
+  with zero native execution: claim has one failed read; dispatch has no readback.
+- `tmp/cpa-ack-readback-green.json` accepts first-read SQL abort then positive
+  readback, with one write/native/artifact/ledger ordinal for both phases.
+- `tmp/cpa-ack-readback-ordinary-verified.json` accepts the expanded race matrix,
+  including real SQL corrupt/foreign/terminal/stop/deadline/cancellation guards,
+  persistent aborted read transactions, old intent rejection and canceled ordinary
+  owners. The existing unknown-COMMIT and TEST-524 no-native-entry oracles remain
+  unchanged and pass. Read-only rejection mutates no retained ledger data.
+- `tmp/cpa-ack-readback-owner-race.log` passes complete stateful/batch owner tests.
+- `tmp/cpa-ack-readback-1000.json` passes before optional jitter was added;
+  numeric report `tmp/cpa-mixed-1000-1032737.json` records 34.253 seconds and exact
+  counts, zero never-sent attempts, claim p95/max 699.948/974.156 ms.
+
+T3 is required to prove COMMIT really occurred and a separate read transaction
+really aborted. The existing cheap invocation/error/redelivery tests retain the
+composition guard; no fake SQL acknowledgement replaces this distinct boundary.
+
+## 22. Optional deterministic recovery jitter
+
+`HARDEN_LLM_BATCH_RECOVERY_JITTER_MS` now supports the planned optional 0–1,000 ms
+padding, default zero, shared by API/worker Compose. Padding is selected once for
+a genuinely newer scheduled recovery floor and retained in bounded pool state.
+Version-one SHA-256 inputs/bytes are fixed; a golden vector selects 745 ms for a
+specified pool/episode/revision/floor. Policy changes and continuation cannot
+redraw an existing choice. Long hints/fallback estimates are never shortened,
+normal dispatch gets no padding, single-probe gating stays, and probe success
+clears the choice. Invalid policy/snapshot values fail closed. Workflow logging
+separates the trusted floor, selected padding and actual eligibility.
+
+`tmp/cpa-recovery-jitter-red.log` retains the missing padding/range regressions;
+`tmp/cpa-recovery-jitter-green.log` and `tmp/cpa-ack-jitter-owners.log` accept the
+pure/SDK/configuration/race cases. The `recovery-jitter-padding` version marker
+keeps exact old deadlines for legacy histories. This is operational recovery
+coordination, never identity camouflage or a claim of faster upstream service.
+
+## 23. Full scale and physical lifecycle acceptance
+
+The combined acknowledgement/jitter-default-zero runtime passes both unchanged
+four-shard owned load profiles. No inference requests were grouped.
+
+- `tmp/cpa-ack-jitter-1000.json` passes. Numeric report
+  `tmp/cpa-mixed-1000-1101186.json` records 33.059 seconds, exactly 1,000 separate
+  native/validated-result/ledger identities and 800 attempt workflows; no never-
+  sent attempts or ordinary errors. Claim p95/max are 664.966/861.102 ms.
+- `tmp/cpa-ack-jitter-10000.json` passes. Numeric report
+  `tmp/cpa-mixed-10000-1125135.json` records 474.169 seconds including final result
+  collection/diagnostics, exactly 10,000 native calls/distinct validated results/
+  settled ledger attempts and 9,000 independent attempt workflows. There are zero
+  never-sent, unconfirmed, ordinary-error or leaked permits; nine pool runs carry
+  continuation state, whose final empty snapshot is 1,248 bytes. Native overlap
+  peaks at six against the unchanged 128 cap. Heap/goroutine samples peak at
+  145,494,752 bytes and 5,203, passing the unchanged resource assertions.
+  Grant-to-claim p95/max are 1,182.286/3,150.629 ms. All 9,000 durable and 1,000
+  ordinary outcomes are positively stopped/settled completed. Logical durable
+  claim/settlement signal calls are 874/1,215. Cleanup errors/warnings are empty.
+
+Frozen runtime/load-fixture hashes are in `tmp/cpa-ack-jitter-load-source.json`.
+The subsequent physical-fault helpers are test-only and are not shipped in the
+runtime image; they change neither workload assertions nor runtime code.
+
+TEST-530 now launches only an owned worker child with a private bootstrap file
+and a clean environment. After actual native TLS HTTP entry, SIGKILL plus
+Process.Wait prove physical death. Compatible control restarts and retains a
+terminal unconfirmed output with no replay/artifact/stop invention. Capacity is
+retained until explicit same-owner stop backed by that OS exit proof; revision
+advances without changing public terminal bytes. No shared process is killed.
+
+TEST-531 delays the real Garage write after a validated native response, advances
+only the owned ledger's resolved deadline to expiry, and requires authoritative
+unconfirmed settlement before releasing storage. The genuine same-owner completed
+artifact then exists but cannot replace terminal inference. Actual owner stop
+advances only its revision; public result bytes and one native/ordinal remain.
+`tmp/cpa-process-late-first.json` accepts both real Temporal/PostgreSQL/Garage/
+HTTP/process cases with empty cleanup. The full canonical tracks are separate.
+
+All ten fast tasks pass in `tmp/cpa-ack-jitter-final-fast.log` (authoritative
+receipt `tmp/test-feedback/runner-1793470883541-1218466-a01d002bcd6f969d.json`).
+`tmp/cpa-ack-jitter-final-integration-race.json` accepts the full canonical SQL/
+race track with empty cleanup. Full current-source Temporal/replay is recorded
+when terminal. No browser, public provider, deployment or production promotion
+has occurred at this checkpoint.
+
+
+### 23.1. Full current-source verification
+
+`tmp/cpa-ack-jitter-final-temporal.json` accepts the canonical real-service suite
+in 54.031 seconds, including physical worker death, late real artifact, history
+replay, lost start acknowledgement, blocked persistence and existing rollover/
+ordinary-compatibility cases. The canonical SQL/race gate accepts in 87.739
+seconds. Both cleanup error/warning lists are empty. The full fast gate accepts
+all ten tasks as recorded above. No required assertion/lease/deadline was relaxed.
+
+## 24. Remaining nonproduction rollout
+
+P6 is still open. Read-only host inspection confirms existing shared PostgreSQL,
+Temporal and HLLM Garage administrative paths; normal branch previews lack the
+worker/Garage setup. The concrete isolated API/worker preparation, credential/
+data boundaries, immutable image and separately opted-in CPA campaign are in
+`plans/implementation/cpa-nonproduction-qualification-2026-10-31.md`. No shared
+service/data change, new infrastructure credential, provider call or deployment
+has occurred merely by preparing that plan.

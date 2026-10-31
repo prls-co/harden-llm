@@ -19,11 +19,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -32,6 +34,7 @@ import (
 	hardenllm "github.com/prls-co/harden-llm"
 	contract "github.com/prls-co/harden-llm/api"
 	"github.com/prls-co/harden-llm/internal/integrationtest"
+	"github.com/prls-co/harden-llm/internal/livecapacity"
 	"github.com/prls-co/harden-llm/stateful"
 	"github.com/prls-co/harden-llm/stateful/batch"
 	"go.temporal.io/api/enums/v1"
@@ -57,6 +60,7 @@ type temporalBatchFixture struct {
 	claimSignalCalls         atomic.Int64
 	settlementSignalCalls    atomic.Int64
 	ctx                      context.Context
+	processSettings          fixtureProcessWorkerSettings
 }
 
 // Count logical durable SignalWorkflow calls, not SDK transport retry attempts.
@@ -154,7 +158,8 @@ func newTemporalBatchFixtureWithTemporal(t *testing.T, throttle bool, gate func(
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.temporal, _ = integrationtest.TemporalLease(t)
+	var namespace string
+	f.temporal, namespace = integrationtest.TemporalLease(t)
 	activityTemporal := f.temporal
 	if wrap != nil {
 		activityTemporal = wrap(activityTemporal)
@@ -175,6 +180,7 @@ func newTemporalBatchFixtureWithTemporal(t *testing.T, throttle bool, gate func(
 		}
 		return core.Call(ctx, r)
 	}}
+	f.processSettings = fixtureProcessWorkerSettings{DSN: dsn, Artifacts: stateful.ArtifactOptions{Endpoint: garage.Endpoint, Bucket: garage.Bucket, Region: garage.Region, AccessKeyID: garage.AccessKeyID, SecretAccessKey: garage.SecretAccessKey}, Endpoint: os.Getenv("HARDEN_LLM_TEST_TEMPORAL_ENDPOINT"), Namespace: namespace, Queue: f.queue, PoolID: f.activities.PoolID, ProviderURL: provider.URL, Certificate: provider.Certificate().Raw}
 	startFixtureWorker(t, f)
 	t.Cleanup(func() {
 		if f.worker != nil {
@@ -1381,6 +1387,315 @@ func TestTemporalBatchPersistenceBlockRetriesMetadataWithoutInference(t *testing
 	retained, err := store.ReadAttempts(f.ctx, f.activities.PoolID, []string{permit})
 	if err != nil || len(retained) != 1 || retained[0].ClaimID != claim || retained[0].Ordinal != 1 || retained[0].State != "settled" || retained[0].StoppedAt == nil || retained[0].Observation == nil || retained[0].Observation.Outcome.Kind != "completed" {
 		t.Fatal("persistence recovery changed immutable ownership/result", err, retained)
+	}
+	assertFixturePoolSettled(t, f, 1)
+}
+
+// The parent owns every service lease and this private bootstrap file. The
+// child inherits no user/provider environment and creates no additional leases.
+type fixtureProcessWorkerSettings struct {
+	DSN, Endpoint, Namespace, Queue, PoolID, ProviderURL, ReadyFile string
+	Certificate                                                     []byte
+	Artifacts                                                       stateful.ArtifactOptions
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-530
+func TestTemporalBatchOwnedWorkerProcessFixture(t *testing.T) {
+	path := os.Getenv("HLLM_OWNED_WORKER_BOOTSTRAP")
+	if path == "" {
+		return // Helper is launched only by the real process-death case below.
+	}
+	raw, err := os.ReadFile(path)
+	var cfg fixtureProcessWorkerSettings
+	if err != nil || json.Unmarshal(raw, &cfg) != nil {
+		t.Fatal("invalid owned worker bootstrap")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, cfg.DSN)
+	if err != nil {
+		t.Fatal("owned worker database initialization failed")
+	}
+	defer pool.Close()
+	c, err := client.DialContext(ctx, client.Options{HostPort: cfg.Endpoint, Namespace: cfg.Namespace})
+	if err != nil {
+		t.Fatal("owned worker Temporal initialization failed")
+	}
+	defer c.Close()
+	artifacts, err := stateful.NewArtifactStore(cfg.Artifacts)
+	if err != nil {
+		t.Fatal("owned worker artifact initialization failed")
+	}
+	cert, err := x509.ParseCertificate(cfg.Certificate)
+	if err != nil {
+		t.Fatal("owned worker fixture certificate invalid")
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(cert)
+	core, err := stateful.NewClient(stateful.ClientOptions{Connections: []hardenllm.Connection{{ID: "cpa", Provider: "cpa", Protocol: "responses", BaseURL: cfg.ProviderURL + "/v1", APIKey: "synthetic-cpa-key"}}, DefaultConnection: "cpa", EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: roots}}})
+	if err != nil {
+		t.Fatal("owned worker native client initialization failed")
+	}
+	policy := batch.DefaultPolicy()
+	policy.Concurrency, policy.WindowRequests = 1, 0
+	a := &batch.Activities{Store: &batch.PostgresStore{Pool: pool}, Artifacts: artifacts, Temporal: c, PoolID: cfg.PoolID, TaskQueue: cfg.Queue, Policy: policy, Encode: EncodeBatchResponse, Execute: func(ctx context.Context, _ string, request hardenllm.Request) (hardenllm.Result, error) {
+		return core.Call(ctx, request)
+	}}
+	w, err := batch.NewWorker(c, cfg.Queue, a)
+	if err != nil || w.Start() != nil {
+		t.Fatal("owned worker startup failed")
+	}
+	defer w.Stop()
+	if err := os.WriteFile(cfg.ReadyFile, []byte("ready\n"), 0600); err != nil {
+		t.Fatal("owned worker readiness acknowledgement failed")
+	}
+	<-ctx.Done() // Emergency bound only; the parent must SIGKILL this process.
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-530
+func TestTemporalBatchKilledWorkerRetainsUnknownUntilAuditedStop(t *testing.T) {
+	t.Parallel()
+	entered := make(chan struct{})
+	var enteredOnce sync.Once
+	f := newTemporalBatchFixtureWithGate(t, false, func(ctx context.Context, _ string) {
+		enteredOnce.Do(func() { close(entered) })
+		<-ctx.Done() // No response can finish while the child transport is alive.
+	})
+	f.worker.Stop()
+	f.worker = nil
+	cfg := f.processSettings
+	cfg.ReadyFile = filepath.Join(t.TempDir(), "worker-ready")
+	configPath := filepath.Join(t.TempDir(), "worker.json")
+	raw, err := json.Marshal(cfg)
+	if err != nil || os.WriteFile(configPath, raw, 0600) != nil {
+		t.Fatal("cannot create private owned-worker bootstrap")
+	}
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command(binary, "-test.run=^TestTemporalBatchOwnedWorkerProcessFixture$", "-test.timeout=100s")
+	command.Env = []string{"HLLM_OWNED_WORKER_BOOTSTRAP=" + configPath}
+	command.Stdout, command.Stderr = io.Discard, io.Discard
+	if err := command.Start(); err != nil {
+		t.Fatal("cannot start test-owned worker process")
+	}
+	done := make(chan error, 1)
+	go func() { done <- command.Wait() }()
+	waited := false
+	t.Cleanup(func() {
+		if !waited {
+			_ = command.Process.Kill()
+			<-done
+		}
+	})
+	ready, stopReady := context.WithTimeout(f.ctx, 15*time.Second)
+	defer stopReady()
+	tick := time.NewTicker(50 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		if data, err := os.ReadFile(cfg.ReadyFile); err == nil && string(data) == "ready\n" {
+			break
+		}
+		select {
+		case <-done:
+			waited = true
+			t.Fatal("test-owned worker exited before readiness")
+		case <-ready.Done():
+			t.Fatal("test-owned worker did not become ready", ready.Err())
+		case <-tick.C:
+		}
+	}
+	startFixtureV2Pool(t, f, 1)
+	var nativeRequest map[string]any
+	if err := json.Unmarshal(livecapacity.BatchRequestBody("nonce-0000", false), &nativeRequest); err != nil {
+		t.Fatal(err)
+	}
+	nativeRequest["harden"] = map[string]any{"timeout_ms": 10000}
+	manifest, _ := json.Marshal(map[string]any{"items": []map[string]any{{"custom_id": "nonce-0000", "request": nativeRequest}}})
+	request, _ := http.NewRequestWithContext(f.ctx, http.MethodPost, f.server.URL+"/v1/jobs", bytes.NewReader(manifest))
+	request.Header.Set("Authorization", "Bearer "+f.key)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "owned-process-death")
+	response, err := f.server.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, readErr := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	var job batch.Status
+	if readErr != nil || response.StatusCode != http.StatusAccepted || json.Unmarshal(body, &job) != nil {
+		t.Fatal("process-death job was not accepted", response.StatusCode, readErr)
+	}
+	select {
+	case <-entered:
+	case <-f.ctx.Done():
+		t.Fatal("child worker never entered native HTTP", f.ctx.Err())
+	}
+	store := f.activities.Store.(*batch.PostgresStore)
+	var permit, claim string
+	if err := store.Pool.QueryRow(f.ctx, `SELECT permit_id::text,claim_id::text FROM batch_attempts WHERE job_id=$1`, job.JobID).Scan(&permit, &claim); err != nil || f.active.Load() != 1 {
+		t.Fatal("native execution was not active before killing its owner", err, f.active.Load())
+	}
+	if err := command.Process.Kill(); err != nil {
+		t.Fatal("cannot kill the test-owned worker", err)
+	}
+	waitErr := <-done
+	waited = true
+	status, ok := command.ProcessState.Sys().(syscall.WaitStatus)
+	if waitErr == nil || !ok || !status.Signaled() || status.Signal() != syscall.SIGKILL {
+		t.Fatal("worker termination lacks actual SIGKILL/Wait proof")
+	}
+	// Resume compatible control/reconciliation in another process, but withhold
+	// stop proof until the immutable unconfirmed inference outcome is retained.
+	startFixtureWorker(t, f)
+	finished := f.wait(t, job.JobID, func(s batch.Status) bool { return s.Counts.Done() })
+	if finished.Counts.Succeeded != 0 || finished.Counts.Failed != 1 || f.calls.Load() != 1 {
+		t.Fatal("process death replayed inference or invented a successful result", finished.Counts, f.calls.Load())
+	}
+	retained, err := store.ReadAttempts(f.ctx, f.activities.PoolID, []string{permit})
+	if err != nil || len(retained) != 1 || retained[0].State != "settled" || retained[0].StoppedAt != nil || retained[0].Observation == nil || retained[0].Observation.Outcome.Kind != "unconfirmed" || retained[0].Observation.Outcome.ArtifactID != "" {
+		t.Fatal("missing finalizer invented transport stop or a confirmed artifact", err, retained)
+	}
+	unknownCtx, stopUnknown := context.WithTimeout(f.ctx, 10*time.Second)
+	defer stopUnknown()
+	for {
+		value, err := f.temporal.QueryWorkflow(unknownCtx, "hllm-cpa-pool-v1/"+f.activities.PoolID, "", "state")
+		var blocked batch.PoolState
+		if err != nil || value.Get(&blocked) != nil || len(blocked.Outstanding) != 1 || blocked.Outstanding[0].ID != permit || blocked.CanGrant(time.Now()) {
+			t.Fatal("dead worker's unresolved transport released capacity without audited proof", err, blocked)
+		}
+		if blocked.Outstanding[0].AwaitingStop {
+			break
+		}
+		select {
+		case <-unknownCtx.Done():
+			t.Fatal("pool never applied the retained unknown result", unknownCtx.Err())
+		case <-tick.C:
+		}
+	}
+	var before bytes.Buffer
+	if err := f.jobs.WriteResults(f.ctx, f.scope, job.JobID, &before); err != nil {
+		t.Fatal(err)
+	}
+	var result batch.Result
+	if json.Unmarshal(bytes.TrimSpace(before.Bytes()), &result) != nil || result.Error == nil || len(result.Response) != 0 {
+		t.Fatal("unknown process outcome exposed an invented native result")
+	}
+	// This is explicit test-owned operator resolution backed by Process.Wait;
+	// production must never derive it from a heartbeat, timeout or lease alone.
+	stopped, err := store.MarkLocalStop(f.ctx, permit, claim, time.Now().UTC())
+	if err != nil || stopped.SettlementRevision != retained[0].SettlementRevision+1 || stopped.Observation.Outcome.Kind != "unconfirmed" {
+		t.Fatal("audited stop changed immutable inference outcome", err, stopped)
+	}
+	if err := f.activities.NotifySettlement(f.ctx, stopped); err != nil {
+		t.Fatal(err)
+	}
+	assertFixturePoolSettled(t, f, 1)
+	var after bytes.Buffer
+	if err := f.jobs.WriteResults(f.ctx, f.scope, job.JobID, &after); err != nil || !bytes.Equal(before.Bytes(), after.Bytes()) || f.calls.Load() != 1 {
+		t.Fatal("audited stop replayed inference or rewrote the public terminal result", err, f.calls.Load())
+	}
+}
+
+type fixtureDelayedArtifact struct {
+	batch.Artifacts
+	entered, release, committed chan struct{}
+}
+
+func (a *fixtureDelayedArtifact) PutBatchResult(ctx context.Context, scope, jobID, id string, raw []byte) error {
+	close(a.entered)
+	select {
+	case <-a.release:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	if err := a.Artifacts.PutBatchResult(ctx, scope, jobID, id, raw); err != nil {
+		return err
+	}
+	close(a.committed)
+	return nil
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-531
+func TestTemporalBatchLateArtifactCannotReplaceExpiredTerminalOutcome(t *testing.T) {
+	t.Parallel()
+	f := newTemporalBatchFixture(t, false)
+	// Replace the effect only after its old worker has fully stopped, before
+	// any pool/job starts. The real Garage client and prefix owner are retained.
+	f.worker.Stop()
+	f.worker = nil
+	delayed := &fixtureDelayedArtifact{Artifacts: f.activities.Artifacts, entered: make(chan struct{}), release: make(chan struct{}), committed: make(chan struct{})}
+	var release sync.Once
+	defer release.Do(func() { close(delayed.release) })
+	f.activities.Artifacts = delayed
+	startFixtureWorker(t, f)
+	startFixtureV2Pool(t, f, 1)
+	job, _ := f.submit(t, 1)
+	select {
+	case <-delayed.entered:
+	case <-f.ctx.Done():
+		t.Fatal("validated native result never reached the delayed real artifact effect", f.ctx.Err())
+	}
+	store := f.activities.Store.(*batch.PostgresStore)
+	var permit, claim, workflowID string
+	if err := store.Pool.QueryRow(f.ctx, `SELECT permit_id::text,claim_id::text,workflow_id FROM batch_attempts WHERE job_id=$1`, job.JobID).Scan(&permit, &claim, &workflowID); err != nil {
+		t.Fatal(err)
+	}
+	// Advance only this test-owned ledger's resolved deadline to the expired
+	// finalization boundary. No live timeout or accepted request is extended.
+	if _, err := store.Pool.Exec(f.ctx, `UPDATE batch_attempts SET generation_deadline=now()-interval '31 seconds' WHERE permit_id=$1`, permit); err != nil {
+		t.Fatal(err)
+	}
+	// A concurrent pool read may win the metadata settlement. Either way, only
+	// a positive authoritative terminal read below permits releasing storage.
+	_, _ = f.activities.ReconcileAttempt(f.ctx, batch.AttemptReference{PoolID: f.activities.PoolID, PermitID: permit})
+	terminal := f.wait(t, job.JobID, func(s batch.Status) bool { return s.Counts.Done() })
+	before, err := store.ReadAttempts(f.ctx, f.activities.PoolID, []string{permit})
+	if err != nil || terminal.Counts.Failed != 1 || len(before) != 1 || before[0].State != "settled" || before[0].StoppedAt != nil || before[0].Observation == nil || before[0].Observation.Outcome.Kind != "unconfirmed" {
+		t.Fatal("expired result was not authoritative before the late artifact", err, terminal.Counts, before)
+	}
+	var publicBefore bytes.Buffer
+	if err := f.jobs.WriteResults(f.ctx, f.scope, job.JobID, &publicBefore); err != nil {
+		t.Fatal(err)
+	}
+	release.Do(func() { close(delayed.release) })
+	select {
+	case <-delayed.committed:
+	case <-f.ctx.Done():
+		t.Fatal("late real Garage write never committed", f.ctx.Err())
+	}
+	if err := f.temporal.GetWorkflow(f.ctx, workflowID, "").Get(f.ctx, nil); err != nil {
+		t.Fatal("attempt did not reconcile the immutable terminal result", err)
+	}
+	reader, err := delayed.OpenBatchResult(f.ctx, f.scope, job.JobID, "attempt-"+permit+".json")
+	if err != nil {
+		t.Fatal("late object did not exist in real Garage", err)
+	}
+	raw, readErr := io.ReadAll(io.LimitReader(reader, 1<<20))
+	_ = reader.Close()
+	var artifact struct {
+		PermitID    string                   `json:"permit_id"`
+		ClaimID     string                   `json:"claim_id"`
+		Observation batch.AttemptObservation `json:"observation"`
+		Response    json.RawMessage          `json:"response"`
+	}
+	if readErr != nil || json.Unmarshal(raw, &artifact) != nil || artifact.PermitID != permit || artifact.ClaimID != claim || artifact.Observation.Outcome.Kind != "completed" {
+		t.Fatal("late artifact did not retain the genuine original result/owner")
+	}
+	var native struct {
+		OutputText string `json:"output_text"`
+	}
+	if json.Unmarshal(artifact.Response, &native) != nil || livecapacity.ValidateBatchOutput("nonce-0000", native.OutputText, false) != nil {
+		t.Fatal("late artifact did not retain the validated native output")
+	}
+	after, err := store.ReadAttempts(f.ctx, f.activities.PoolID, []string{permit})
+	if err != nil || len(after) != 1 || after[0].Observation == nil || after[0].Observation.Outcome.Kind != "unconfirmed" || after[0].StoppedAt == nil || after[0].Ordinal != 1 || after[0].SettlementRevision != before[0].SettlementRevision+1 {
+		t.Fatal("late artifact or stop proof rewrote the terminal result", err, after)
+	}
+	var publicAfter bytes.Buffer
+	if err := f.jobs.WriteResults(f.ctx, f.scope, job.JobID, &publicAfter); err != nil || !bytes.Equal(publicBefore.Bytes(), publicAfter.Bytes()) || f.calls.Load() != 1 {
+		t.Fatal("late artifact was promoted or inference replayed", err, f.calls.Load())
 	}
 	assertFixturePoolSettled(t, f, 1)
 }

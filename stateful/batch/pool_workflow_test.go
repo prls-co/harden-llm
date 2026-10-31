@@ -461,3 +461,42 @@ func TestPoolPolicyChangesPreserveActivePermitsAndRestrictions(t *testing.T) {
 		})
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-529
+func TestPoolRecoveryJitterVersionKeepsLegacyDeadlineAndRecordedChoice(t *testing.T) {
+	t.Parallel()
+	for _, version := range []workflow.Version{workflow.DefaultVersion, 1} {
+		t.Run(fmt.Sprint(version), func(t *testing.T) {
+			var suite testsuite.WorkflowTestSuite
+			env := suite.NewTestWorkflowEnvironment()
+			at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+			env.SetStartTime(at)
+			env.OnGetVersion("recovery-jitter-padding", workflow.DefaultVersion, 1).Return(version)
+			var a Activities
+			env.RegisterActivity(&a)
+			policy := DefaultPolicy()
+			policy.RecoveryJitterMS, policy.Concurrency = 1000, 1
+			state := NewPoolState("pool", 2, policy)
+			state.RecoveryJitterVersion = 0 // Retained input predates this feature.
+			r, err := state.Grant(at, poolReady(0, at))
+			if err != nil {
+				t.Fatal(err)
+			}
+			state.AcknowledgeStarts([]AttemptStartResult{{PermitID: r.PermitID, Started: true}})
+			env.OnActivity(a.InitializePool, mock.Anything, mock.Anything).Return(nil)
+			env.OnActivity(a.PublishPool, mock.Anything, mock.Anything).Return(PublicationPage{}, nil).Maybe()
+			env.OnActivity(a.ReadPool, mock.Anything, mock.Anything).Return([]Attempt{jitterRefusal(r, at, 2000)}, nil).Once()
+			env.RegisterDelayedCallback(func() { env.SignalWorkflow("continue", true) }, time.Second)
+			env.ExecuteWorkflow(PoolWorkflow, state)
+			carried := continuedPoolState(t, env)
+			want := at.Add(2 * time.Second)
+			if version == 1 {
+				want = want.Add(745 * time.Millisecond)
+			}
+			if !carried.Controller.NextEligible.Equal(want) || (carried.RecoveryPadding != nil) != (version == 1) || carried.RecoveryJitterVersion != max(0, int(version)) {
+				t.Fatal("history gate changed the recovery deadline or dropped its chosen padding", carried.Controller.NextEligible, carried.RecoveryPadding, version)
+			}
+			env.AssertExpectations(t)
+		})
+	}
+}

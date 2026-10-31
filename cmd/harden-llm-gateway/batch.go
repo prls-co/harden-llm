@@ -68,7 +68,7 @@ func loadBatchSettings(getenv func(string) string, connections []hardenllm.Conne
 	for _, field := range []struct {
 		name string
 		dest *int
-	}{{"CONCURRENCY", &s.policy.Concurrency}, {"BURST", &s.policy.Burst}, {"START_RATE", &s.policy.StartRate}, {"MAX_START_RATE", &s.policy.MaximumRate}, {"WINDOW_REQUESTS", &s.policy.WindowRequests}} {
+	}{{"CONCURRENCY", &s.policy.Concurrency}, {"BURST", &s.policy.Burst}, {"START_RATE", &s.policy.StartRate}, {"MAX_START_RATE", &s.policy.MaximumRate}, {"WINDOW_REQUESTS", &s.policy.WindowRequests}, {"RECOVERY_JITTER_MS", &s.policy.RecoveryJitterMS}} {
 		if raw := strings.TrimSpace(getenv("HARDEN_LLM_BATCH_" + field.name)); raw != "" {
 			n, e := strconv.Atoi(raw)
 			if e != nil {

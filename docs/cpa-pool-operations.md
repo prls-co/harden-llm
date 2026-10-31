@@ -159,7 +159,31 @@ workers before accepting new attempts; drain pending new activity types before
 returning to an older binary. Pool readback remains metadata-only and does not
 recursively notify itself per reconciled row.
 
-Before declaring the full #134 feature delivered, complete remaining
-recovery/timing qualification, mixed 1,000/10,000-call tests and selected
-environment/CPA acceptance. Browser layout, public-provider capacity and deployment
+The current acknowledgement/jitter checkpoint passes local recovery/fault and
+strict mixed 1,000/10,000-call acceptance. Before declaring the full #134 feature
+delivered, publish and qualify that exact source in the selected nonproduction
+environment, then complete the separately bounded CPA campaign. Browser layout, public-provider capacity and deployment
 are not established by these source instructions or synthetic-provider tests.
+
+
+## 6. Optional recovery padding and acknowledgement confirmation
+
+`HARDEN_LLM_BATCH_RECOVERY_JITTER_MS` defaults to zero and accepts only 0–1,000.
+When enabled on V2, one deterministic choice pads a newly scheduled recovery
+floor. The pool records floor/until in its continuation state, so more rejected
+calls, policy changes and continuation do not redraw or cumulatively add padding.
+The version-one SHA-256 seed includes pool, episode, probe, policy revision and
+UTC floor. Legacy histories retain unpadded decisions behind a version marker.
+A successful probe clears the choice; normal native dispatch gets no jitter.
+Diagnostics include `recovery_floor`, `recovery_jitter_ms` and the actual
+`next_eligible_at`. This is recovery coordination, not traffic camouflage.
+
+A lost claim/dispatch write acknowledgement may use at most two metadata reads
+within a two-second phase under the earlier caller/start/generation deadline.
+The write itself is not retried. Positive proof matches this invocation's fresh
+owner, captured reservation and newly written timestamps, with current pool and
+ordinary-owner guards. Invalid/absent/foreign/terminal/stopped/expired observations
+fail closed immediately; only failed read transactions may retry once. A prior
+dispatch intent never becomes permission for another invocation. Persistent
+uncertainty keeps the existing never-entry/unconfirmed cleanup, without inference
+replay or quota-budget reset. SQL statement/transaction budgets remain unchanged.

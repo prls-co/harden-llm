@@ -21,6 +21,10 @@ type PoolPermit struct {
 	AwaitingStop bool
 	Claimed      bool `json:",omitempty"`
 }
+type recoveryPadding struct {
+	Floor time.Time
+	Until time.Time
+}
 type PoolState struct {
 	PoolID                       string
 	Generation                   int64
@@ -44,14 +48,16 @@ type PoolState struct {
 	PublicationAt                time.Time
 	PublicationReason            string
 	PublicationNext              *time.Time
-	RequestRetirements           []string `json:",omitempty"`
-	CoalesceDispatchFailures     bool     `json:",omitempty"`
-	PendingClaimLimit            int      `json:",omitempty"`
-	CoalesceTransientPublication bool     `json:",omitempty"`
+	RequestRetirements           []string         `json:",omitempty"`
+	CoalesceDispatchFailures     bool             `json:",omitempty"`
+	PendingClaimLimit            int              `json:",omitempty"`
+	CoalesceTransientPublication bool             `json:",omitempty"`
+	RecoveryJitterVersion        int              `json:",omitempty"`
+	RecoveryPadding              *recoveryPadding `json:",omitempty"`
 }
 
 func NewPoolState(pool string, generation int64, policy Policy) PoolState {
-	return PoolState{PoolID: pool, Generation: generation, Controller: NewController(policy), PolicyRevision: 1, Episode: 1, WindowID: 1, DispatchBackoff: 2 * time.Second, CoalesceDispatchFailures: true, PendingClaimLimit: pendingClaimLimit, CoalesceTransientPublication: true}
+	return PoolState{PoolID: pool, Generation: generation, Controller: NewController(policy), PolicyRevision: 1, Episode: 1, WindowID: 1, DispatchBackoff: 2 * time.Second, CoalesceDispatchFailures: true, PendingClaimLimit: pendingClaimLimit, CoalesceTransientPublication: true, RecoveryJitterVersion: 1}
 }
 
 func (s PoolState) pendingClaimsFull() bool {
@@ -246,6 +252,7 @@ func (s *PoolState) applyOutcome(now time.Time, a Attempt) {
 		return
 	}
 	wasCooling := c.Cooling
+	previousEligible := c.NextEligible
 	reserved := c.WindowStart.Add(-time.Nanosecond)
 	if currentWindow {
 		reserved = c.WindowStart
@@ -260,6 +267,7 @@ func (s *PoolState) applyOutcome(now time.Time, a Attempt) {
 	if !wasCooling && c.Cooling {
 		s.Episode++
 	}
+	s.padRecoveryFloor(previousEligible)
 	if probe && !c.Probing {
 		s.ProbeID = ""
 	}
@@ -273,7 +281,7 @@ func (s *PoolState) AcknowledgeStarts(results []AttemptStartResult) {
 }
 func (s *PoolState) Snapshot() ([]byte, error) {
 	raw, err := json.Marshal(s)
-	if err != nil || s.PendingClaimLimit < 0 || s.PendingClaimLimit > maximumStartIntents || len(raw) >= maximumPoolSnapshot || len(s.StartIntents) > maximumStartIntents || len(s.Outstanding)+len(s.RequestRetirements) > 1000 {
+	if err != nil || !s.validRecoveryPadding() || s.PendingClaimLimit < 0 || s.PendingClaimLimit > maximumStartIntents || len(raw) >= maximumPoolSnapshot || len(s.StartIntents) > maximumStartIntents || len(s.Outstanding)+len(s.RequestRetirements) > 1000 {
 		return nil, ErrUnavailable
 	}
 	return raw, nil

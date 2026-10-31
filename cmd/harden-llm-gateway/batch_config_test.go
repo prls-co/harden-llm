@@ -58,3 +58,18 @@ func TestBatchSettingsRequireExplicitSelfHostedDependencies(t *testing.T) {
 		t.Fatal("unsafe Temporal address diagnostics", err)
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-529
+func TestBatchRecoveryJitterDefaultsToZeroAndHasExplicitBounds(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{"", "0", "1000", "-1", "1001", "not-a-number"} {
+		t.Run(raw, func(t *testing.T) {
+			env := map[string]string{"HARDEN_LLM_BATCH_ENABLED": "true", "HARDEN_LLM_TEMPORAL_ADDRESS": "temporal:7233", "HARDEN_LLM_TEMPORAL_NAMESPACE": "test", "HARDEN_LLM_BATCH_POOL_ID": "test-pool", "HARDEN_LLM_BATCH_UPSTREAM": "cpa", "HARDEN_LLM_BATCH_RECOVERY_JITTER_MS": raw}
+			s, err := loadBatchSettings(func(k string) string { return env[k] }, []hardenllm.Connection{{ID: "cpa", Provider: "cpa", Protocol: "responses"}})
+			valid := raw == "" || raw == "0" || raw == "1000"
+			if (err == nil) != valid || (valid && s.policy.RecoveryJitterMS != map[string]int{"": 0, "0": 0, "1000": 1000}[raw]) {
+				t.Error("recovery padding setting ignored default/bounds", raw, s.policy.RecoveryJitterMS, err)
+			}
+		})
+	}
+}

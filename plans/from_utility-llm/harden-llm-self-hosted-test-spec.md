@@ -2479,3 +2479,31 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
 - Oracle: Hold only the test invocation ledger row after confirmed native HTTP entry. Release HTTP while its local-stop/observation/settlement writes are blocked. Require a positively bound Garage artifact and real Temporal finalization retry before releasing the row. The retained observation then settles once, returns one validated result, keeps the original claim/ordinal, and releases pool capacity with exactly one provider HTTP call. The database, native HTTP, Temporal retry, artifact and recovery are real; no inference is replayed.
+
+### TEST-528: Same-invocation acknowledgement readback without repeated writes
+
+- Coverage gate: `integration`.
+- Tier: T3; `stateful/batch/acknowledgement_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Commit a real claim/dispatch intent, lose its acknowledgement and abort the first readback transaction with a real SQL error. A bounded read-only retry can confirm only this invocation's fresh owner/new intent, producing one native HTTP call, artifact and ledger ordinal without repeating the write. A recorded prior intent, foreign/absent/terminal/stopped/expired/fenced ownership or persistent failed readback cannot authorize native entry; activity redelivery remains non-authorizing. Existing permanent unknown-COMMIT/no-provider oracles remain.
+
+### TEST-529: Optional deterministic recovery padding and history compatibility
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `stateful/batch/recovery_jitter_test.go`, `stateful/batch/pool_workflow_test.go`, `cmd/harden-llm-gateway/batch_config_test.go`.
+- Command: `go test -race ./stateful/batch ./cmd/harden-llm-gateway -run '^TestRecoveryJitter|^TestPoolRecoveryJitter|^TestBatchRecoveryJitter' -count=1`.
+- Oracle: Recovery jitter defaults to zero, accepts only 0–1,000 ms, never changes ordinary dispatch pacing or shortens trusted/fallback floors, and selects padding once per new scheduled deadline. A fixed SHA-256 vector freezes version-one behavior; continuation/config changes preserve a recorded choice. A successful probe clears padding and single-probe/cap rules remain. Snapshot checks reject corrupt choices; SDK version markers retain exact legacy deadlines. The explicit configuration is shared by API/worker Compose without adding credentials or services.
+
+### TEST-530: Actual worker-process death after native HTTP entry
+
+- Coverage gate: `integration`.
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Launch only a test-owned worker with private bootstrap and a clean environment against owned Temporal/PostgreSQL/Garage and local TLS HTTP. After confirmed native entry, SIGKILL and Process.Wait prove actual death. Restart compatible control; require a terminal unconfirmed result with no native replay or invented artifact/stop and retain capacity. Only explicit audited same-owner stop backed by that exit proof releases capacity, preserving identical public terminal bytes and one provider call. No shared worker/process is killed, and no heartbeat/lease is treated as stop proof.
+
+### TEST-531: Real late artifact after authoritative expiry settlement
+
+- Coverage gate: `integration`.
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Let actual native HTTP produce a validated result, then delay its real Garage write. Advance only the owned ledger's resolved deadline to expiry; require authoritative terminal unconfirmed settlement before releasing storage. The genuine same-owner completed artifact must exist afterward, but the public result remains byte-identical unconfirmed, inference stays one call/ordinal, and actual owner stop advances only its settlement revision and releases capacity. No late object can promote or overwrite terminal inference.

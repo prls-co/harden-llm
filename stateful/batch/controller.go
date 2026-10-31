@@ -8,20 +8,21 @@ import (
 )
 
 type Policy struct {
-	Concurrency    int
-	Burst          int
-	StartRate      int
-	MaximumRate    int
-	RefillEstimate time.Duration
-	WindowRequests int
-	WindowDuration time.Duration
+	Concurrency      int
+	Burst            int
+	StartRate        int
+	MaximumRate      int
+	RefillEstimate   time.Duration
+	WindowRequests   int
+	WindowDuration   time.Duration
+	RecoveryJitterMS int `json:",omitempty"`
 }
 
 func DefaultPolicy() Policy {
 	return Policy{Concurrency: 128, Burst: 200, StartRate: 100, MaximumRate: 200, RefillEstimate: 61 * time.Second, WindowRequests: 200, WindowDuration: 61 * time.Second}
 }
 func (p Policy) Validate() error {
-	if p.Concurrency < 1 || p.Concurrency > 1000 || p.Burst < 1 || p.Burst > 1000 || p.StartRate < 1 || p.MaximumRate < p.StartRate || p.MaximumRate > 1000 || p.RefillEstimate < time.Second || p.RefillEstimate > time.Hour {
+	if p.Concurrency < 1 || p.Concurrency > 1000 || p.Burst < 1 || p.Burst > 1000 || p.StartRate < 1 || p.MaximumRate < p.StartRate || p.MaximumRate > 1000 || p.RefillEstimate < time.Second || p.RefillEstimate > time.Hour || p.RecoveryJitterMS < 0 || p.RecoveryJitterMS > 1000 {
 		return fmt.Errorf("batch: invalid admission policy")
 	}
 	if p.WindowRequests < 0 || p.WindowRequests > 1000 || (p.WindowRequests > 0 && (p.WindowDuration < time.Second || p.WindowDuration > time.Hour)) {

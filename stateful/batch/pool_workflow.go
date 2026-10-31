@@ -132,6 +132,9 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 	if workflow.GetVersion(ctx, "coalesced-pool-publication", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
 		state.CoalesceTransientPublication = true
 	}
+	if workflow.GetVersion(ctx, "recovery-jitter-padding", workflow.DefaultVersion, 1) != workflow.DefaultVersion {
+		state.RecoveryJitterVersion = 1
+	}
 	identity := PoolIdentity{PoolID: state.PoolID, Generation: state.Generation}
 	initCtx := workflow.WithActivityOptions(ctx, attemptMetadataOptions())
 	metaCtx := workflow.WithActivityOptions(ctx, poolMetadataOptions(5*time.Second))
@@ -173,10 +176,12 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 			if resume {
 				state.Controller.Paused = false
 				if !state.Controller.Probing {
+					previousEligible := state.Controller.NextEligible
 					state.Controller.Cooling = true
 					state.Controller.NextEligible = maxTime(state.Controller.NextEligible, workflow.Now(ctx))
 					state.Episode++
 					state.ProbeID = ""
+					state.padRecoveryFloor(previousEligible)
 				}
 			}
 		}
@@ -349,7 +354,12 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 					publicationRequest = PoolPublication{PoolID: state.PoolID, Generation: state.Generation, Reason: reason, Next: next, After: state.PublicationAfter, Limit: 128}
 					publication = workflow.ExecuteActivity(metaCtx, a.PublishPool, publicationRequest)
 					if changed {
-						workflow.GetLogger(ctx).Info("pool waiting state changed", "pool_id", state.PoolID, "reason", reason, "next_eligible_at", next, "outstanding", len(state.Outstanding), "pending_starts", len(state.StartIntents), "window_id", state.WindowID, "window_starts", state.Controller.WindowStarts, "window_anchored", state.WindowAnchored, "episode", state.Episode, "policy_revision", state.PolicyRevision, "launch_rate", state.Controller.Rate)
+						var floor *time.Time
+						var paddingMS int64
+						if p := state.RecoveryPadding; p != nil {
+							floor, paddingMS = &p.Floor, p.Until.Sub(p.Floor).Milliseconds()
+						}
+						workflow.GetLogger(ctx).Info("pool waiting state changed", "pool_id", state.PoolID, "reason", reason, "next_eligible_at", next, "recovery_floor", floor, "recovery_jitter_ms", paddingMS, "outstanding", len(state.Outstanding), "pending_starts", len(state.StartIntents), "window_id", state.WindowID, "window_starts", state.Controller.WindowStarts, "window_anchored", state.WindowAnchored, "episode", state.Episode, "policy_revision", state.PolicyRevision, "launch_rate", state.Controller.Rate)
 					}
 				}
 			}
