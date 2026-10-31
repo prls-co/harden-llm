@@ -44,9 +44,35 @@ type Activities struct {
 }
 
 func (a *Activities) Enqueue(ctx context.Context, j JobRef) error {
-	_, err := a.Temporal.SignalWithStartWorkflow(ctx, "hllm-cpa-pool-v1/"+a.PoolID, enqueueSignal, j, client.StartWorkflowOptions{TaskQueue: a.TaskQueue, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE}, DispatcherWorkflowName, DispatcherState{Controller: NewController(a.Policy)})
+	store, ok := a.Store.(QueueStore)
+	if !ok || a.Temporal == nil {
+		return ErrUnavailable
+	}
+	marker, err := store.PoolGeneration(ctx, a.PoolID)
+	if errors.Is(err, ErrNotFound) {
+		if err := store.EnsurePool(ctx, a.PoolID, 1); err != nil {
+			return err
+		}
+		marker, err = store.PoolGeneration(ctx, a.PoolID)
+	}
+	if err != nil {
+		return err
+	}
+	if err := store.AttachJob(ctx, a.PoolID, marker.Generation, j); err != nil {
+		return err
+	}
+	name := DispatcherWorkflowName
+	var input interface{} = DispatcherState{Controller: NewController(a.Policy)}
+	reuse := enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE
+	if marker.Generation >= 2 {
+		name = PoolWorkflowName
+		input = NewPoolState(a.PoolID, marker.Generation, a.Policy)
+		reuse = enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE
+	}
+	_, err = a.Temporal.SignalWithStartWorkflow(ctx, "hllm-cpa-pool-v1/"+a.PoolID, enqueueSignal, j, client.StartWorkflowOptions{TaskQueue: a.TaskQueue, WorkflowIDReusePolicy: reuse}, name, input)
 	return err
 }
+
 func (a *Activities) Status(ctx context.Context, j JobRef) (Status, error) {
 	return a.Store.Status(ctx, j.Scope, j.JobID)
 }

@@ -38,6 +38,10 @@ type PoolState struct {
 	DispatchBackoff      time.Duration
 	Quiescing            bool
 	PersistenceWait      bool
+	PublicationAfter     int64
+	PublicationAt        time.Time
+	PublicationReason    string
+	PublicationNext      *time.Time
 }
 
 func NewPoolState(pool string, generation int64, policy Policy) PoolState {
@@ -186,6 +190,9 @@ func (s *PoolState) applyOutcome(now time.Time, a Attempt) {
 	restricted := out.Kind == "policy" || out.Admission == "restricted"
 	throttle := out.Kind == "rejected" || out.Admission == "throttled" || out.RetryAfterMS > 0
 	if throttle && !restricted && a.Epoch < s.Episode && !c.Cooling {
+		if out.Kind == "rejected" && currentWindow && c.WindowStarts > 0 {
+			c.WindowStarts--
+		}
 		return
 	}
 	if probe && out.Kind == "completed" && now.Before(c.NextEligible) {

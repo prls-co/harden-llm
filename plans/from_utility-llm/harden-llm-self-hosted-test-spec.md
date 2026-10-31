@@ -2312,3 +2312,59 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
 - Oracle: Owned real Temporal/PostgreSQL/Garage plus the production root/native HTTP/SSE and result projection retain one held native call across a changed pool run ID. Another job completes using the other available slot while the held call remains active. Exactly four globally distinct requests/results, peak overlap at most two, no lost outstanding permits and sequence preserved across continuation. The fixture explicitly registers manifests with V2; default enqueue/handoff adoption is a separate gate.
+
+### TEST-508: CPA status publication and job-coalesced heartbeats
+
+- Type / verifies: integration; issue #134 phases P1/P3.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/pool_progress_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: PostgreSQL publication pages are bounded, pool/generation scoped and do not change item counts/progress. Identical five-second ticks coalesce; a real gate transition changes reason without fabricating progress or refreshing a recent heartbeat. Provider byte progress and liveness remain distinct and require the invocation's exact claim.
+
+### TEST-509: CPA waiting projection and publication lifecycle
+
+- Type / verifies: unit; issue #134 phases P1/P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/pool_progress_test.go`, `stateful/batch/pool_workflow_test.go`.
+- Command: `go test ./stateful/batch -run '^TestPoolWaiting|^TestPoolWorkflow' -count=1`.
+- Oracle: Waiting causes derive from actual pool gates. Unanchored windows, active recovery probes and uncertain execution do not invent an ETA. A restricted pool pages status and emits five-second liveness without any provider work; cursor and restrictions survive continuation.
+
+### TEST-510: CPA legacy authority handoff at the SQL fence
+
+- Type / verifies: integration; issue #134 phases P0/P4.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/handoff_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Active legacy execution and unknown local-stop evidence block generation transfer without mutation. A drained handoff is repeat-safe, preserves accepted zero/180-second snapshots and artifacts, and fences obsolete grants. Empty bootstrap cannot reset existing authority/data.
+
+### TEST-511: CPA V1 drain protocol and carried V2 controller
+
+- Type / verifies: unit; issue #134 phase P4.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/workflows_test.go`, `stateful/batch/handoff_test.go`.
+- Command: `go test ./stateful/batch -run '^TestDispatcherDrainsOwnedExecution|^TestDispatcherReplays' -count=1`.
+- Oracle: The namespaced upgrade signal stops new V1 grants and waits for its owned provider activity/settlement before continuing the same identity into V2. Controller window budget and monotonic sequence survive. Retained V1 histories still replay.
+
+### TEST-512: CPA real handoff, compatible enqueue and cooldown restart
+
+- Type / verifies: integration; issue #134 phases P3/P4.
+- Coverage gate: `release`.
+- Location: `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Real Temporal/PostgreSQL/Garage and native HTTP validate V1 quiesce/drain, immutable accepted work, mixed legacy/new artifact downloads and future API submissions routed into V2. Empty initialization invokes no provider. V2 reports actual throttling/eligibility/heartbeat, survives worker restart in cooldown and completes 24 items in exactly 25 provider requests with overlap <=2.
+
+### TEST-513: Claimed CPA execution survives job expiry during finalization
+
+- Type / verifies: integration; issue #134 phases P1/P4.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/finalization_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Expiry cannot overwrite an item owned by a current permit. Its positively completed attempt can still settle once. V2 status exposes the original execution deadline and a separate 30-second metadata finalization deadline without extending provider execution.
+
+### TEST-514: CPA job lifecycle waits for owned finalization
+
+- Type / verifies: unit; issue #134 phases P1/P4.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/workflows_test.go`.
+- Command: `go test ./stateful/batch -run '^TestBatchWorkflow' -count=1`.
+- Oracle: The job lifecycle expires never-started work once at its execution deadline, then observes claimed-attempt finalization without scheduling inference or resetting deadlines. Historical workflow version behavior remains available; the queued-expiry fixture reflects the mutation proved at the SQL boundary.

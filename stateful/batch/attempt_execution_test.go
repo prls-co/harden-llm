@@ -322,3 +322,17 @@ func TestInvocationBoundsDiagnosticMetadata(t *testing.T) {
 		t.Fatal("safe bounded correlation was lost")
 	}
 }
+
+func TestInvocationSeparatesRetryWaitFromFirstQueueWait(t *testing.T) {
+	t.Parallel()
+	a, s, _ := invocationFixture()
+	s.item.Outcome.Kind = "rejected"
+	s.item.ReadyAt = time.Now().Add(-12 * time.Second)
+	a.Execute = func(context.Context, string, hardenllm.Request) (hardenllm.Result, error) {
+		return hardenllm.Result{}, &hardenllm.ProviderError{Status: 500}
+	}
+	out, err := a.InvokeAttempt(context.Background(), s.attempt.PermitID)
+	if err != nil || out.Observation == nil || out.Observation.Outcome.RetryWaitMS < 11000 || out.Observation.Outcome.QueueMS != 0 || out.Observation.Outcome.DurationMS < 0 {
+		t.Fatal("retry wait was labeled as fresh queue wait", out, err)
+	}
+}

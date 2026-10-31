@@ -109,8 +109,16 @@ func runGatewayRuntime(ctx context.Context, stdout, stderr io.Writer, getenv fun
 		}
 		defer worker.Stop()
 		telemetryRuntime.Logger().InfoContext(ctx, "batch worker started", "namespace", config.batch.namespace, "task_queue", config.batch.taskQueue, "pool_id", config.batch.poolID)
-		<-ctx.Done()
-		return nil
+		var failures <-chan error
+		if owned, ok := worker.(interface{ Errors() <-chan error }); ok {
+			failures = owned.Errors()
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case err := <-failures:
+			return safeStartupError(redactor, "batch worker failed", err)
+		}
 	}
 	telemetry, err := gateway.NewTelemetry(telemetryRuntime.TracerProvider(), telemetryRuntime.MeterProvider())
 	if err != nil {

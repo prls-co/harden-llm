@@ -111,6 +111,7 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 		return err
 	}
 	var a *Activities
+	publishStatus := workflow.GetVersion(ctx, "pool-status-publication", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	identity := PoolIdentity{PoolID: state.PoolID, Generation: state.Generation}
 	initCtx := workflow.WithActivityOptions(ctx, attemptMetadataOptions())
 	metaCtx := workflow.WithActivityOptions(ctx, poolMetadataOptions(5*time.Second))
@@ -121,14 +122,22 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 	policies := workflow.GetSignalChannel(ctx, "policy")
 	continuations := workflow.GetSignalChannel(ctx, "continue")
 	quiesces := workflow.GetSignalChannel(ctx, "quiesce")
+	oldUpgrades := workflow.GetSignalChannel(ctx, legacyUpgradeSignal)
+	oldQuiesces := workflow.GetSignalChannel(ctx, legacyQuiesceSignal)
 	var starters []poolStarterFuture
 	var reads []workflow.Future
-	var selection, readiness workflow.Future
+	var selection, readiness, publication workflow.Future
+	var publicationRequest PoolPublication
 	var ready []ReadyItem
 	now := workflow.Now(ctx)
 	nextRead, nextQueue, nextStart := now, now, now
 	forceContinue, urgentRead, readFailed := false, false, false
 	drain := func() {
+		var obsolete bool
+		for oldUpgrades.ReceiveAsync(&obsolete) {
+		}
+		for oldQuiesces.ReceiveAsync(&obsolete) {
+		}
 		var job JobRef
 		for wakes.ReceiveAsync(&job) {
 			nextQueue = workflow.Now(ctx)
@@ -260,7 +269,32 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 			}
 			readiness = nil
 		}
-		if forceContinue && len(starters) == 0 && len(reads) == 0 && selection == nil && readiness == nil {
+		if publication != nil && publication.IsReady() {
+			var page PublicationPage
+			if err := publication.Get(ctx, &page); err != nil {
+				state.PublicationAt = now
+				state.PublicationAfter = 0
+				state.PublicationReason = publicationRequest.Reason
+				state.PublicationNext = publicationRequest.Next
+				workflow.GetLogger(ctx).Warn("pool status publication unavailable")
+			} else {
+				reason, next := state.Waiting(now)
+				state.PublicationReason = publicationRequest.Reason
+				state.PublicationNext = publicationRequest.Next
+				if reason != publicationRequest.Reason || !sameOptionalTime(next, publicationRequest.Next) {
+					state.PublicationAfter = 0
+					state.PublicationAt = time.Time{}
+				} else if page.More {
+					state.PublicationAfter = page.After
+					state.PublicationAt = time.Time{}
+				} else {
+					state.PublicationAfter = 0
+					state.PublicationAt = now
+				}
+			}
+			publication = nil
+		}
+		if forceContinue && len(starters) == 0 && len(reads) == 0 && selection == nil && readiness == nil && publication == nil {
 			// No yielding operation after this drain. Lost notices/wakes are backed by
 			// ledger/manifests; restrictions and all grant/start identities are carried.
 			drain()
@@ -270,6 +304,20 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 			return workflow.NewContinueAsNewError(ctx, PoolWorkflowName, state)
 		}
 		if !forceContinue {
+			if publishStatus && publication == nil {
+				reason, next := state.Waiting(now)
+				changed := reason != state.PublicationReason || !sameOptionalTime(next, state.PublicationNext)
+				if changed || state.PublicationAt.IsZero() || !now.Before(state.PublicationAt.Add(5*time.Second)) {
+					if changed {
+						state.PublicationAfter = 0
+					}
+					publicationRequest = PoolPublication{PoolID: state.PoolID, Generation: state.Generation, Reason: reason, Next: next, After: state.PublicationAfter, Limit: 128}
+					publication = workflow.ExecuteActivity(metaCtx, a.PublishPool, publicationRequest)
+					if changed {
+						workflow.GetLogger(ctx).Info("pool waiting state changed", "pool_id", state.PoolID, "reason", reason, "next_eligible_at", next, "outstanding", len(state.Outstanding), "pending_starts", len(state.StartIntents), "window_id", state.WindowID, "window_starts", state.Controller.WindowStarts, "window_anchored", state.WindowAnchored, "episode", state.Episode, "policy_revision", state.PolicyRevision, "launch_rate", state.Controller.Rate)
+					}
+				}
+			}
 			if len(reads) == 0 && len(state.Outstanding) > 0 && (urgentRead || !now.Before(nextRead)) {
 				ids := make([]string, len(state.Outstanding))
 				for i, p := range state.Outstanding {
@@ -342,7 +390,7 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 			delay = min(delay, nextStart.Sub(now))
 		}
 		selector := workflow.NewSelector(ctx)
-		for _, channel := range []workflow.ReceiveChannel{wakes, notices, resumes, policies, continuations, quiesces} {
+		for _, channel := range []workflow.ReceiveChannel{wakes, notices, resumes, policies, continuations, quiesces, oldUpgrades, oldQuiesces} {
 			selector.AddReceive(channel, func(workflow.ReceiveChannel, bool) {})
 		}
 		for _, pending := range starters {
@@ -357,6 +405,9 @@ func PoolWorkflow(ctx workflow.Context, state PoolState) error {
 		if readiness != nil {
 			selector.AddFuture(readiness, func(workflow.Future) {})
 		}
+		if publication != nil {
+			selector.AddFuture(publication, func(workflow.Future) {})
+		}
 		timerCtx, cancel := workflow.WithCancel(ctx)
 		selector.AddFuture(workflow.NewTimer(timerCtx, delay), func(workflow.Future) {})
 		selector.Select(ctx)
@@ -368,4 +419,8 @@ func maxTime(a, b time.Time) time.Time {
 		return a
 	}
 	return b
+}
+
+func sameOptionalTime(a, b *time.Time) bool {
+	return a == nil && b == nil || a != nil && b != nil && a.Equal(*b)
 }

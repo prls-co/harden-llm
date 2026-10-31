@@ -151,7 +151,7 @@ func ledgerError(err error) error {
 	if err == nil {
 		return nil
 	}
-	for _, known := range []error{ErrGenerationFenced, ErrClaimOwned, ErrClaimUnconfirmed, ErrSettlementConflict, ErrConflict, ErrNotFound} {
+	for _, known := range []error{ErrLegacyExecutionUnresolved, ErrGenerationFenced, ErrClaimOwned, ErrClaimUnconfirmed, ErrSettlementConflict, ErrConflict, ErrNotFound} {
 		if errors.Is(err, known) {
 			return known
 		}

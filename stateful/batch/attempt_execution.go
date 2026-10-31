@@ -131,9 +131,14 @@ func (a *Activities) InvokeAttempt(ctx context.Context, id string) (returned Inv
 	request.Progress = progress
 	stopProgress := a.attemptHeartbeat(ctx, claimed, progress)
 	defer stopProgress()
-	started := time.Now().UTC()
+	providerStarted := time.Now()
+	started := providerStarted.UTC()
 	deadline, _ := callCtx.Deadline()
 	observation.Outcome = Outcome{Kind: "unconfirmed", Attempt: item.Attempt + 1, StartedAt: &started, QueueMS: max(0, started.Sub(item.ReadyAt).Milliseconds()), GenerationBudgetMS: claimed.BudgetMS, GenerationDeadline: &deadline}
+	if item.Outcome.Kind == "rejected" {
+		observation.Outcome.RetryWaitMS = observation.Outcome.QueueMS
+		observation.Outcome.QueueMS = 0
+	}
 	if a.Logger != nil {
 		a.Logger.InfoContext(ctx, "independent provider invocation started", "permit_id", id, "job_id", claimed.Ref.JobID, "item", claimed.Ref.Index, "generation_budget_ms", claimed.BudgetMS, "generation_deadline_at", deadline, "started_at", started)
 	}
@@ -143,7 +148,7 @@ func (a *Activities) InvokeAttempt(ctx context.Context, id string) (returned Inv
 	finalizationDeadline = minTime(claimed.executionDeadline().Add(attemptFinalizationGrace), finished.Add(attemptFinalizationGrace))
 	observation.LocalStopped = true // Execute has returned, not a lease/heartbeat inference.
 	observation.Outcome.FinishedAt = &finished
-	observation.Outcome.DurationMS = finished.Sub(started).Milliseconds()
+	observation.Outcome.DurationMS = time.Since(providerStarted).Milliseconds()
 	copyAttemptDiagnostics(&observation.Outcome, result)
 	if executionErr != nil {
 		observation.Outcome.Kind, observation.Outcome.Error, observation.Outcome.RetryAfterMS = classifyGenerationError(executionErr, result)
@@ -256,7 +261,11 @@ func (a *Activities) attemptHeartbeat(ctx context.Context, attempt Attempt, prog
 				if activity.IsActivity(ctx) {
 					activity.RecordHeartbeat(ctx, map[string]any{"permitId": attempt.PermitID, "receivedBytes": received})
 				}
-				_ = a.Store.Heartbeat(ctx, attempt.Ref, changed)
+				if store, ok := a.Store.(PoolProgressStore); ok {
+					_ = store.HeartbeatAttempt(ctx, attempt, changed)
+				} else {
+					_ = a.Store.Heartbeat(ctx, attempt.Ref, changed)
+				}
 				changed = false
 			}
 		}

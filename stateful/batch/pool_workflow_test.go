@@ -33,6 +33,7 @@ func TestPoolWorkflowContinuesWithActiveAttemptAndStartsIndependentWork(t *testi
 	env := suite.NewTestWorkflowEnvironment()
 	var a Activities
 	env.RegisterActivity(&a)
+	env.OnActivity(a.PublishPool, mock.Anything, mock.Anything).Return(PublicationPage{}, nil).Maybe()
 	state := NewPoolState("pool", 2, DefaultPolicy())
 	started := env.Now()
 	first := poolReady(0, started)
@@ -87,6 +88,7 @@ func TestPoolWorkflowRetainsUnknownStartsAndRestrictionsAcrossContinuation(t *te
 	env := suite.NewTestWorkflowEnvironment()
 	var a Activities
 	env.RegisterActivity(&a)
+	env.OnActivity(a.PublishPool, mock.Anything, mock.Anything).Return(PublicationPage{}, nil).Maybe()
 	p := DefaultPolicy()
 	p.Concurrency = 1
 	state := NewPoolState("pool", 2, p)
@@ -115,6 +117,7 @@ func TestPoolWorkflowCanContinueDuringMetadataInitializationOutage(t *testing.T)
 	env.SetTestTimeout(time.Second)
 	var a Activities
 	env.RegisterActivity(&a)
+	env.OnActivity(a.PublishPool, mock.Anything, mock.Anything).Return(PublicationPage{}, nil).Maybe()
 	state := NewPoolState("pool", 2, DefaultPolicy())
 	state.Controller.Paused = true
 	env.OnActivity(a.InitializePool, mock.Anything, mock.Anything).Return(ErrUnavailable)
@@ -137,6 +140,7 @@ func TestPoolWorkflowWakesAtRecoveryFloorWithoutFiveSecondRounding(t *testing.T)
 	env := suite.NewTestWorkflowEnvironment()
 	var a Activities
 	env.RegisterActivity(&a)
+	env.OnActivity(a.PublishPool, mock.Anything, mock.Anything).Return(PublicationPage{}, nil).Maybe()
 	state := NewPoolState("pool", 2, DefaultPolicy())
 	started := env.Now()
 	state.Controller.Cooling = true
@@ -155,6 +159,39 @@ func TestPoolWorkflowWakesAtRecoveryFloorWithoutFiveSecondRounding(t *testing.T)
 	_ = continuedPoolState(t, env)
 	if calls != 1 {
 		t.Fatal("recovery timer did not inspect eligible work", calls)
+	}
+	env.AssertExpectations(t)
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-509
+func TestPoolWorkflowPublishesWaitingAndHeartbeatsWithoutProviderWork(t *testing.T) {
+	t.Parallel()
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(&a)
+	state := NewPoolState("pool", 2, DefaultPolicy())
+	state.Controller.Paused = true
+	env.OnActivity(a.InitializePool, mock.Anything, mock.Anything).Return(nil)
+	calls := 0
+	env.OnActivity(a.PublishPool, mock.Anything, mock.Anything).Return(func(ctx context.Context, p PoolPublication) (PublicationPage, error) {
+		calls++
+		if p.Reason != "account_restricted" || p.Next != nil || p.Limit != 128 {
+			t.Error("publication invented wait/progress or unbounded page", p)
+		}
+		if calls == 1 {
+			return PublicationPage{After: 17, More: true, Updated: 128}, nil
+		}
+		if calls == 2 && p.After != 17 {
+			t.Error("publication lost page cursor", p)
+		}
+		return PublicationPage{After: p.After, Updated: 1}, nil
+	})
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow("continue", true) }, 6*time.Second)
+	env.ExecuteWorkflow(PoolWorkflow, state)
+	continued := continuedPoolState(t, env)
+	if calls != 3 || !continued.Controller.Paused {
+		t.Fatal("waiting/heartbeat publication missing or coupled to provider work", calls, continued)
 	}
 	env.AssertExpectations(t)
 }

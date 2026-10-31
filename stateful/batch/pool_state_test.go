@@ -170,3 +170,25 @@ func TestPoolStateNeverSentBackpressureAndSnapshotBound(t *testing.T) {
 		t.Fatal("worker unavailability treated as provider throttle or reopened without readiness", small)
 	}
 }
+
+func TestPoolStateOldEpisodeRefusalRefundsOnlyItsCurrentWindow(t *testing.T) {
+	t.Parallel()
+	now := time.Unix(1000, 0)
+	s := NewPoolState("pool", 2, DefaultPolicy())
+	throttled, _ := s.Grant(now, poolReady(0, now))
+	old, _ := s.Grant(now, poolReady(1, now))
+	first := poolSettlement(throttled, now, "unconfirmed", true)
+	first.Observation.Outcome.Admission = "throttled"
+	first.Observation.Outcome.RetryAfterMS = 2000
+	s.Observe(now, first)
+	probe, err := s.Grant(now.Add(2*time.Second), poolReady(2, now))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Observe(now.Add(3*time.Second), poolSettlement(probe, now.Add(3*time.Second), "completed", true))
+	before := s.Controller.WindowStarts
+	s.Observe(now.Add(4*time.Second), poolSettlement(old, now.Add(4*time.Second), "rejected", true))
+	if s.Controller.WindowStarts != before-1 || s.Controller.Cooling {
+		t.Fatal("old episode refusal lost valid window credit or reset recovery", before, s.Controller)
+	}
+}

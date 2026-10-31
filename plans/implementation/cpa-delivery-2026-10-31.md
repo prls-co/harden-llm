@@ -394,3 +394,97 @@ the request-bound ordinary adapter, broader real lifecycle faults and mixed
 1,000/10,000-call qualification, then environment and bounded CPA acceptance.
 No application/provider configuration, deployment, public inference or browser
 was performed. The complete #134 plan remains active.
+
+## 14. Runtime publication, failure ownership and V1 handoff
+
+This checkpoint builds on `cd4c210` and keeps the full #134 goal active. Source
+now has an explicit `batch-upgrade` operation; no selected environment has been
+upgraded or deployed by this work.
+
+Implemented runtime boundaries:
+
+- Pending-job status publication is pool/generation scoped and paged (128 rows).
+  Five-second liveness updates coalesce; actual gate transitions update their
+  cause without inventing execution progress. Provider progress requires its
+  exact invocation claim and coalesces per job. No prompt/output/history data
+  enters publication. Versioned V2 publication preserves older workflow paths.
+- Waiting reasons distinguish dispatch/capacity, worker readiness, account or
+  provider restriction, estimated-window admission, persistence, rollover and
+  unresolved execution. Unknown eligibility has no fabricated next-attempt time.
+- Native durations use Go's monotonic measurement. A retained explicit refusal
+  attributes the next attempt's waiting interval to retry wait, not first queue
+  delay. A stale-episode refusal can refund its own current window credit without
+  resetting the recovered episode; terminal/ambiguous inference still cannot.
+- Fatal SDK worker errors are retained once, stop both owned queues and reach
+  Start/Run owners. The gateway process returns a failure for its supervisor.
+  Startup/shutdown are serialized so a fatal error during failed startup cannot
+  stop a provider twice or stop a control worker that never started.
+- Namespaced V1 controls quiesce grants and drain owned activities/settlement.
+  Remaining jobs attach to SQL, then an additive generation fence advances into
+  the V2 type using the same stable workflow ID. Controller window/restrictions
+  and the monotonic sequence survive. Unresolved legacy activity failure blocks
+  transfer without rewriting its outcome or replaying inference.
+- Compatible Enqueue attaches a manifest before signaling, resolves the retained
+  generation and cannot restart a closed V2 authority under a replacement ID.
+  New V2 consumes obsolete upgrade controls crossing the boundary harmlessly.
+- `batch-upgrade` queries live ownership and verifies the matching SQL generation.
+  A read-only emptiness check permits initializing an empty Temporal authority
+  before its marker is created; uncertain initial start retries the same ID.
+  Existing state with a missing/terminated authority is not cold-started. The
+  local command prints five-second progress and cannot cancel accepted work.
+- Job expiry excludes current-permit items. Versioned job lifecycles expire
+  unowned work once, then observe claimed finalization without scheduling inference.
+  V2 exposes optional execution/finalization deadlines, retaining the old deadline
+  field and its meaning. Cleanup allowance never extends provider execution.
+
+Regression evidence:
+
+- `tmp/cpa-worker-fatal-red.log` exposed an incomplete test fixture; it is not the
+  fatal-callback regression. Corrected `tmp/cpa-worker-fatal-callback-red.log`
+  proved missing lifecycle ownership; `tmp/cpa-worker-start-fatal-red.log` proved
+  double-stop/unstarted-stop on fatal failed startup. Corrected race tests pass.
+- `tmp/cpa-pool-wait-projection-red.log`, `tmp/cpa-pool-progress-red.json`, and
+  `tmp/cpa-pool-publication-workflow-red.log` failed on absent waiting/publication
+  before implementation. Real SQL now proves bounded scoped updates, exact-claim
+  progress fencing, five-second coalescing and no fabricated last-progress time.
+- `tmp/cpa-pool-stale-credit-red.log` proved a valid current-window refund was
+  lost after episode recovery; refund and episode adaptation are now separate.
+- `tmp/cpa-legacy-handoff-red.json` and
+  `tmp/cpa-legacy-handoff-workflow-red.log` failed before handoff implementation.
+  SQL rejects active/unresolved legacy work, preserves zero/180-second snapshots
+  and artifacts, and acknowledges repeated metadata transfer without a reset.
+- `tmp/cpa-finalization-red.json` proved expiry overwrote a claimed item and status
+  omitted separate deadlines. `tmp/cpa-finalization-workflow-red.log` proved the
+  lifecycle ended before claimed finalization. All owner/SQL regressions pass.
+  The old queued-expiry fixture now reflects the actual expired-row mutation;
+  the original expiry-call/final-outcome assertions are preserved and strengthened.
+
+Final local gates:
+
+- `tmp/cpa-runtime-complete-fast.log`: all ten fast tasks accepted, clean cleanup.
+- `tmp/cpa-runtime-complete-integration-race.log`: canonical backend real-service
+  integration/race accepted, clean cleanup.
+- `tmp/cpa-runtime-full-temporal.json`: canonical real Temporal/PostgreSQL/Garage
+  suite accepted, clean cleanup. Retained V1 1,000-call/restart cases still pass.
+- The new real handoff case starts via the ordinary durable-job API, holds one
+  V1 native call, observes quiescing with no extra grants, then releases it. The
+  same workflow identity advances to V2, finishes remaining accepted work, reads
+  mixed legacy/new result artifacts and routes a later API job into V2. Exactly
+  four provider requests/results, peak overlap <=1; no test-only enqueue adapter.
+- Empty authority initialization makes zero provider calls. A real V2 cooldown
+  survives worker Stop/Start and completes 24 items with exactly 25 provider calls
+  (one explicit refusal) and overlap <=2, retaining its eligibility timestamp.
+- Real V2 rollover/replay and separate provider/control worker cases remain in
+  the suite. Catalog IDs TEST-508..514 own the new distinct boundaries. Static
+  ownership/registration and whitespace checks pass without weakening guards.
+
+Operator instructions are in `docs/cpa-pool-operations.md`. No deployment,
+provider configuration change, real CPA inference, browser or production
+promotion occurred. New-head hosted checks remain separate from these local gates.
+
+Remaining full-plan work includes optional bounded recovery jitter, first-claim
+latency/resource qualification and remaining lost-ack/process/artifact faults,
+the ordinary request-bound per-dispatch adapter and its status/cancellation/
+retention integration, mixed 1,000/10,000-call verification, and the selected
+environment plus explicitly bounded CPA acceptance. The batch runtime checkpoint
+must not be presented as closing the ordinary-call admission bypass.

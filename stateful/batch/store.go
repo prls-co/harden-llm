@@ -135,7 +135,14 @@ func (s *PostgresStore) Status(ctx context.Context, scope, id string) (v Status,
 		return v, ErrNotFound
 	}
 	err = s.transaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		e := tx.QueryRow(ctx, `SELECT id::text,created_at,deadline,last_heartbeat,last_progress,waiting_reason,next_attempt_at FROM batch_jobs WHERE api_key_hash=$1 AND id=$2`, scope, id).Scan(&v.JobID, &v.CreatedAt, &v.Deadline, &v.LastWorkerHeartbeat, &v.LastProgressAt, &v.WaitingReason, &v.NextAttemptAt)
+		var generation int64
+		e := tx.QueryRow(ctx, `SELECT id::text,created_at,deadline,last_heartbeat,last_progress,waiting_reason,next_attempt_at,COALESCE((SELECT generation FROM batch_pool_generations p WHERE p.pool_id=batch_jobs.pool_id),1) FROM batch_jobs WHERE api_key_hash=$1 AND id=$2`, scope, id).Scan(&v.JobID, &v.CreatedAt, &v.Deadline, &v.LastWorkerHeartbeat, &v.LastProgressAt, &v.WaitingReason, &v.NextAttemptAt, &generation)
+		if generation >= 2 {
+			execution := v.Deadline
+			finalization := execution.Add(attemptFinalizationGrace)
+			v.ExecutionDeadline = &execution
+			v.FinalizationDeadline = &finalization
+		}
 		if errors.Is(e, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -151,6 +158,10 @@ func (s *PostgresStore) Status(ctx context.Context, scope, id string) (v Status,
 	}
 	if v.WaitingReason != "" && v.Counts.Active == 0 {
 		v.Status = "waiting"
+	}
+	if v.ExecutionDeadline != nil && !time.Now().Before(*v.ExecutionDeadline) && !v.Counts.Done() {
+		v.WaitingReason = "persistence_wait"
+		v.NextAttemptAt = nil
 	}
 	if v.Counts.Done() {
 		v.Status = "completed"
@@ -261,7 +272,7 @@ func (s *PostgresStore) Expire(ctx context.Context, j JobRef) error {
 		if e := tx.QueryRow(ctx, `SELECT id::text FROM batch_jobs WHERE api_key_hash=$1 AND id=$2 FOR UPDATE`, j.Scope, j.JobID).Scan(&lock); e != nil {
 			return e
 		}
-		_, e := tx.Exec(ctx, `UPDATE batch_items SET state='failed',outcome=$3 WHERE api_key_hash=$1 AND job_id=$2 AND state NOT IN ('succeeded','failed')`, j.Scope, j.JobID, raw)
+		_, e := tx.Exec(ctx, `UPDATE batch_items SET state='failed',outcome=$3 WHERE api_key_hash=$1 AND job_id=$2 AND state NOT IN ('succeeded','failed') AND current_permit IS NULL`, j.Scope, j.JobID, raw)
 		if e != nil {
 			return e
 		}

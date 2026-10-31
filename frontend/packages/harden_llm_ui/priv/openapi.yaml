@@ -898,6 +898,14 @@ components:
         deadline:
           type: string
           format: date-time
+        execution_deadline:
+          type: string
+          format: date-time
+          description: V2 execution deadline; identical to deadline, not extended by finalization.
+        finalization_deadline:
+          type: string
+          format: date-time
+          description: V2 bounded metadata allowance after execution ends; never authorizes another inference.
         observed_at:
           type: string
           format: date-time
@@ -919,6 +927,12 @@ components:
           - provider_throttled
           - admission_window
           - account_restricted
+          - dispatch_pending
+          - workflow_rollover
+          - persistence_wait
+          - worker_unavailable
+          - unresolved_execution
+          - pool_capacity
         status_url:
           type: string
           pattern: ^/v1/jobs/[0-9a-f-]+$

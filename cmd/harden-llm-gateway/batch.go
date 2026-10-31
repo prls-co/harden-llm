@@ -17,6 +17,8 @@ import (
 	"github.com/prls-co/harden-llm/internal/gateway/httpapi"
 	"github.com/prls-co/harden-llm/stateful"
 	"github.com/prls-co/harden-llm/stateful/batch"
+	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 )
@@ -165,4 +167,63 @@ func runBatchPolicy(ctx context.Context, stdout io.Writer, getenv func(string) s
 		return errors.New("batch: policy signal was not acknowledged; inspect the configured dispatcher")
 	}
 	return json.NewEncoder(stdout).Encode(map[string]any{"status": "policy_signal_acknowledged", "pool_id": c.batch.poolID, "policy": c.batch.policy})
+}
+
+// runBatchUpgrade changes only HLLM scheduling metadata/workflow ownership.
+// It performs no provider probe, inference, DDL or accepted-manifest rewrite.
+func runBatchUpgrade(ctx context.Context, stdout io.Writer, getenv func(string) string) error {
+	config, err := loadServerConfig(getenv)
+	if err != nil {
+		return err
+	}
+	if !config.batch.enabled {
+		return errors.New("batch upgrade requires HARDEN_LLM_BATCH_ENABLED=true")
+	}
+	bounded, stop := context.WithTimeout(ctx, 20*time.Minute)
+	defer stop()
+	pool, err := openReferencePool(bounded, config.reference)
+	if err != nil || pool == nil {
+		return errors.New("batch: PostgreSQL must be configured before upgrade")
+	}
+	defer pool.Close()
+	store := &batch.PostgresStore{Pool: pool}
+	control, err := client.DialContext(bounded, client.Options{HostPort: config.batch.address, Namespace: config.batch.namespace})
+	if err != nil {
+		return errors.New("batch: cannot connect to self-hosted Temporal")
+	}
+	defer control.Close()
+	id := "hllm-cpa-pool-v1/" + config.batch.poolID
+	_, err = control.DescribeWorkflowExecution(bounded, id, "")
+	var missing *serviceerror.NotFound
+	if errors.As(err, &missing) {
+		err := store.CheckEmptyPoolBootstrap(bounded)
+		if err != nil {
+			return errors.New("batch: refusing to reset existing batch or pool state; inspect the selected namespace and database")
+		}
+		_, err = control.SignalWithStartWorkflow(bounded, id, "enqueue", batch.JobRef{}, client.StartWorkflowOptions{TaskQueue: config.batch.taskQueue, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE}, batch.DispatcherWorkflowName, batch.DispatcherState{Controller: batch.NewController(config.batch.policy)})
+		var exists *serviceerror.WorkflowExecutionAlreadyStarted
+		if err != nil && !errors.As(err, &exists) {
+			return errors.New("batch: initial pool start is unconfirmed; inspect the same workflow identity before retrying")
+		}
+	} else if err != nil {
+		return errors.New("batch: cannot inspect pool workflow")
+	}
+	if stdout == nil {
+		stdout = io.Discard
+	}
+	encoder := json.NewEncoder(stdout)
+	state, err := batch.WaitPoolUpgrade(bounded, control, config.batch.poolID, func(progress batch.UpgradeProgress) {
+		_ = encoder.Encode(map[string]any{"status": "waiting_for_v1_drain", "pool_id": progress.PoolID, "active": progress.Active, "unresolved": progress.Unresolved, "quiescing": progress.Quiescing})
+	})
+	if errors.Is(err, batch.ErrLegacyExecutionUnresolved) {
+		return errors.New("batch: legacy execution has no positive local-stop evidence; pool remains quiesced")
+	}
+	if err != nil {
+		return errors.New("batch: upgrade wait ended without confirmation; accepted work remains owned by the same workflow")
+	}
+	marker, err := store.PoolGeneration(bounded, config.batch.poolID)
+	if err != nil || marker.Generation != state.Generation || marker.Mode != "active" {
+		return errors.New("batch: workflow/database generation readback does not confirm ownership")
+	}
+	return encoder.Encode(map[string]any{"status": "v2_ready", "pool_id": state.PoolID, "generation": state.Generation, "outstanding": len(state.Outstanding)})
 }

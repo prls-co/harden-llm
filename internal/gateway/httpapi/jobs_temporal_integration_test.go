@@ -345,20 +345,7 @@ func TestTemporalBatchWorkerRestartDuringCooldown(t *testing.T) {
 }
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-507
-// Only the test bootstrap opts into V2; the legacy enqueue/handoff switch is a
-// separate acceptance requirement. All inference/SQL/Garage/Temporal are real.
-type poolRegisteredStarter struct {
-	store batch.QueueStore
-	pool  string
-	next  batch.Starter
-}
-
-func (s poolRegisteredStarter) Start(ctx context.Context, job batch.JobRef) error {
-	if err := s.store.AttachJob(ctx, s.pool, 2, job); err != nil {
-		return err
-	}
-	return s.next.Start(ctx, job)
-}
+// V2 enqueue uses the persisted generation; the initial empty authority is test setup.
 func TestTemporalBatchV2SlowCallSurvivesRolloverAndOtherJobFinishes(t *testing.T) {
 	t.Parallel()
 	entered, release := make(chan struct{}), make(chan struct{})
@@ -385,7 +372,6 @@ func TestTemporalBatchV2SlowCallSurvivesRolloverAndOtherJobFinishes(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.jobs.Starter = poolRegisteredStarter{store: store, pool: f.activities.PoolID, next: f.jobs.Starter}
 	first, raw := f.submit(t, 2)
 	select {
 	case <-entered:
@@ -486,4 +472,162 @@ func TestTemporalBatchV2SlowCallSurvivesRolloverAndOtherJobFinishes(t *testing.T
 		}
 	}
 
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-512
+func TestTemporalBatchV1HandoffDrainsAndRoutesFutureJobsToV2(t *testing.T) {
+	t.Parallel()
+	entered, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	defer once.Do(func() { close(release) })
+	f := newTemporalBatchFixtureWithGate(t, false, func(ctx context.Context, nonce string) {
+		if nonce == "nonce-0000" {
+			close(entered)
+			select {
+			case <-release:
+			case <-ctx.Done():
+			}
+		}
+	})
+	f.activities.Policy.Concurrency = 1
+	f.activities.Policy.Burst = 2
+	first, raw := f.submit(t, 2)
+	select {
+	case <-entered:
+	case <-f.ctx.Done():
+		t.Fatal("legacy provider did not start", f.ctx.Err())
+	}
+	poolID := "hllm-cpa-pool-v1/" + f.activities.PoolID
+	upgraded := make(chan error, 1)
+	go func() {
+		_, err := batch.WaitPoolUpgrade(f.ctx, f.temporal, f.activities.PoolID, func(p batch.UpgradeProgress) {
+			t.Logf("handoff still running: active=%d unresolved=%d quiescing=%v", p.Active, p.Unresolved, p.Quiescing)
+		})
+		upgraded <- err
+	}()
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		encoded, err := f.temporal.QueryWorkflow(f.ctx, poolID, "", "state")
+		if err == nil {
+			var state batch.DispatcherState
+			if err := encoded.Get(&state); err != nil {
+				t.Fatal(err)
+			}
+			if state.Quiescing {
+				if state.Active != 1 || f.calls.Load() != 1 {
+					t.Fatal("V1 did not stop grants while draining", state.Active, f.calls.Load())
+				}
+				break
+			}
+		}
+		select {
+		case <-f.ctx.Done():
+			t.Fatal("quiesce was not observed", f.ctx.Err())
+		case <-ticker.C:
+		}
+	}
+	select {
+	case err := <-upgraded:
+		t.Fatal("handoff completed before local provider returned", err)
+	default:
+	}
+	once.Do(func() { close(release) })
+	select {
+	case err := <-upgraded:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-f.ctx.Done():
+		t.Fatal("drained handoff did not finish", f.ctx.Err())
+	}
+	completed := f.wait(t, first.JobID, func(s batch.Status) bool { return s.Counts.Done() })
+	if completed.Counts.Succeeded != 2 || f.calls.Load() != 2 || f.peak.Load() > 1 {
+		t.Fatal("handoff lost or repeated accepted inference", completed.Counts, f.calls.Load(), f.peak.Load())
+	}
+	f.assertResults(t, first.JobID, 2)
+	nextRaw := bytes.ReplaceAll(bytes.ReplaceAll(raw, []byte("nonce-0000"), []byte("nonce-0002")), []byte("nonce-0001"), []byte("nonce-0003"))
+	request, _ := http.NewRequestWithContext(f.ctx, "POST", f.server.URL+"/v1/jobs", bytes.NewReader(nextRaw))
+	request.Header.Set("Authorization", "Bearer "+f.key)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "after-real-handoff")
+	response, err := f.server.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != 202 {
+		t.Fatal("future job not accepted", response.StatusCode, string(body))
+	}
+	var next batch.Status
+	if err := json.Unmarshal(body, &next); err != nil {
+		t.Fatal(err)
+	}
+	done := f.wait(t, next.JobID, func(s batch.Status) bool { return s.Counts.Done() })
+	if done.Counts.Succeeded != 2 || f.calls.Load() != 4 {
+		t.Fatal("delayed/new enqueue restarted V1 or duplicated inference", done.Counts, f.calls.Load())
+	}
+	f.assertResults(t, next.JobID, 2)
+	description, err := f.temporal.DescribeWorkflowExecution(f.ctx, poolID, "")
+	if err != nil || description.WorkflowExecutionInfo.Type.Name != batch.PoolWorkflowName {
+		t.Fatal("stable pool identity did not remain V2", err)
+	}
+	marker, err := f.activities.Store.(batch.ExecutionStore).PoolGeneration(f.ctx, f.activities.PoolID)
+	if err != nil || marker.Generation != 2 {
+		t.Fatal("generation handoff missing", marker, err)
+	}
+}
+func TestTemporalBatchEmptyUpgradeStartsNoInference(t *testing.T) {
+	t.Parallel()
+	f := newTemporalBatchFixture(t, false)
+	store := f.activities.Store.(*batch.PostgresStore)
+	if err := store.CheckEmptyPoolBootstrap(f.ctx); err != nil {
+		t.Fatal(err)
+	}
+	id := "hllm-cpa-pool-v1/" + f.activities.PoolID
+	if _, err := f.temporal.SignalWithStartWorkflow(f.ctx, id, "enqueue", batch.JobRef{}, client.StartWorkflowOptions{TaskQueue: f.queue, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE}, batch.DispatcherWorkflowName, batch.DispatcherState{Controller: batch.NewController(f.activities.Policy)}); err != nil {
+		t.Fatal(err)
+	}
+	state, err := batch.WaitPoolUpgrade(f.ctx, f.temporal, f.activities.PoolID, nil)
+	if err != nil || state.Generation != 2 || state.Sequence != 0 || f.calls.Load() != 0 || len(state.Outstanding) != 0 {
+		t.Fatal("empty bootstrap performed inference or lost ownership", state, err, f.calls.Load())
+	}
+	if err := store.CheckEmptyPoolBootstrap(f.ctx); err == nil {
+		t.Fatal("bootstrap allowed existing authority to be reset")
+	}
+}
+
+func TestTemporalBatchV2ReportsCooldownAndSurvivesWorkerRestart(t *testing.T) {
+	t.Parallel()
+	f := newTemporalBatchFixture(t, true)
+	store := f.activities.Store.(batch.ExecutionStore)
+	if err := store.EnsurePool(f.ctx, f.activities.PoolID, 2); err != nil {
+		t.Fatal(err)
+	}
+	id := "hllm-cpa-pool-v1/" + f.activities.PoolID
+	if _, err := f.temporal.ExecuteWorkflow(f.ctx, client.StartWorkflowOptions{ID: id, TaskQueue: f.queue, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE}, batch.PoolWorkflowName, batch.NewPoolState(f.activities.PoolID, 2, f.activities.Policy)); err != nil {
+		t.Fatal(err)
+	}
+	job, _ := f.submit(t, 24)
+	waiting := f.wait(t, job.JobID, func(s batch.Status) bool { return s.WaitingReason == "provider_throttled" && s.Counts.Active == 0 })
+	if waiting.NextAttemptAt == nil || waiting.LastWorkerHeartbeat == nil {
+		t.Fatal("cooldown lacks truthful waiting/heartbeat", waiting)
+	}
+	floor := *waiting.NextAttemptAt
+	f.worker.Stop()
+	f.worker = nil
+	paused, err := f.jobs.Status(f.ctx, f.scope, job.JobID)
+	if err != nil || paused.NextAttemptAt == nil || !paused.NextAttemptAt.Equal(floor) {
+		t.Fatal("worker stop erased cooldown", paused, err)
+	}
+	startFixtureWorker(t, f)
+	finished := f.wait(t, job.JobID, func(s batch.Status) bool { return s.Counts.Done() })
+	if finished.Counts.Succeeded != 24 || f.calls.Load() != 25 || f.peak.Load() > 2 {
+		t.Fatal("V2 restart replayed inference or lost jobs", finished.Counts, f.calls.Load(), f.peak.Load())
+	}
+	f.assertResults(t, job.JobID, 24)
 }
