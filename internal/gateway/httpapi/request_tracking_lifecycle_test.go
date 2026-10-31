@@ -3,11 +3,13 @@ package httpapi
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-493
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -577,5 +579,28 @@ func TestRequestTrackingStructuredAndToolResponses(t *testing.T) {
 	}
 	if count.Load() != 4 {
 		t.Fatal("tracking introduced repair/replay", count.Load())
+	}
+}
+
+func TestRequestTrackingLogsExcludeCallerHeaders(t *testing.T) {
+	t.Parallel()
+	var count atomic.Int32
+	api := newContractAPI(t, trackingProvider(t, &count))
+	var logs bytes.Buffer
+	api.logger = slog.New(slog.NewJSONHandler(&logs, nil))
+	api.tracking = trackingStoreStub{reserve: func(context.Context, string, stateful.TrackingRecord) error { return nil }, update: func(context.Context, string, stateful.TrackingRecord) error {
+		return errors.New("private-storage-error-sentinel")
+	}}
+	id := "a60f21da-604f-4fe3-a039-23382ec6b313"
+	if w := trackedRequest(api, id); w.Code != 200 {
+		t.Fatal("tracking failed", w.Code)
+	}
+	for _, secret := range []string{id, proxyTestToken, "synthetic-upstream-secret", "private-storage-error-sentinel", "hello", "fixture answer"} {
+		if strings.Contains(logs.String(), secret) {
+			t.Fatal("tracking logs retained caller/provider data")
+		}
+	}
+	if !strings.Contains(logs.String(), `"call_id"`) || !strings.Contains(logs.String(), `"elapsed_ms"`) {
+		t.Fatal("server correlation/timing diagnostics missing")
 	}
 }

@@ -7,7 +7,8 @@ hyphenated, nonnil UUID to `POST /v1/responses` or
 `POST /v1/chat/completions`. Normal request bodies, completion JSON, final-only
 SSE, errors, cache identity and inference/recovery policy stay unchanged.
 Requests without this header allocate no tracking collector and issue no
-tracking SQL. The header is never forwarded to the provider.
+tracking SQL. The header is never forwarded to the provider or written to diagnostic logs;
+logs use server-generated call/trace correlation.
 
 Keep the original POST connection open to receive its result. On another
 connection, send `GET /v1/requests/{trackingID}` with the same HLLM bearer key.
