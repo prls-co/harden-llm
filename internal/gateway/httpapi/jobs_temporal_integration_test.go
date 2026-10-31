@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -52,6 +53,10 @@ type temporalBatchFixture struct {
 }
 
 func newTemporalBatchFixture(t *testing.T, throttle bool) *temporalBatchFixture {
+	t.Helper()
+	return newTemporalBatchFixtureWithGate(t, throttle, nil)
+}
+func newTemporalBatchFixtureWithGate(t *testing.T, throttle bool, gate func(context.Context, string)) *temporalBatchFixture {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	t.Cleanup(cancel)
@@ -101,6 +106,9 @@ func newTemporalBatchFixture(t *testing.T, throttle bool) *temporalBatchFixture 
 			t.Error("native one-generation request contract failed")
 			w.WriteHeader(400)
 			return
+		}
+		if gate != nil {
+			gate(r.Context(), nonce)
 		}
 		writePresetNativeResponse(w, r, body, fmt.Sprintf(`{"nonce":%q}`, nonce))
 	}))
@@ -334,4 +342,148 @@ func TestTemporalBatchWorkerRestartDuringCooldown(t *testing.T) {
 			t.Fatal("write replay fixture", writeErr, closeErr)
 		}
 	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-507
+// Only the test bootstrap opts into V2; the legacy enqueue/handoff switch is a
+// separate acceptance requirement. All inference/SQL/Garage/Temporal are real.
+type poolRegisteredStarter struct {
+	store batch.QueueStore
+	pool  string
+	next  batch.Starter
+}
+
+func (s poolRegisteredStarter) Start(ctx context.Context, job batch.JobRef) error {
+	if err := s.store.AttachJob(ctx, s.pool, 2, job); err != nil {
+		return err
+	}
+	return s.next.Start(ctx, job)
+}
+func TestTemporalBatchV2SlowCallSurvivesRolloverAndOtherJobFinishes(t *testing.T) {
+	t.Parallel()
+	entered, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	defer once.Do(func() { close(release) })
+	f := newTemporalBatchFixtureWithGate(t, false, func(ctx context.Context, nonce string) {
+		if nonce == "nonce-0000" {
+			close(entered)
+			select {
+			case <-release:
+			case <-ctx.Done():
+			}
+		}
+	})
+	store := f.activities.Store.(batch.QueueStore)
+	if err := store.EnsurePool(f.ctx, f.activities.PoolID, 2); err != nil {
+		t.Fatal(err)
+	}
+	policy := f.activities.Policy
+	policy.Concurrency = 2
+	policy.Burst = 2
+	poolID := "hllm-cpa-pool-v1/" + f.activities.PoolID
+	initial, err := f.temporal.ExecuteWorkflow(f.ctx, client.StartWorkflowOptions{ID: poolID, TaskQueue: f.queue, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE}, batch.PoolWorkflowName, batch.NewPoolState(f.activities.PoolID, 2, policy))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.jobs.Starter = poolRegisteredStarter{store: store, pool: f.activities.PoolID, next: f.jobs.Starter}
+	first, raw := f.submit(t, 2)
+	select {
+	case <-entered:
+	case <-f.ctx.Done():
+		t.Fatal("first native call never entered", f.ctx.Err())
+	}
+	if err := f.temporal.SignalWorkflow(f.ctx, poolID, "", "continue", true); err != nil {
+		t.Fatal(err)
+	}
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	changed := false
+	for !changed {
+		select {
+		case <-f.ctx.Done():
+			t.Fatal("pool failed to continue while native call remained active", f.ctx.Err())
+		case <-ticker.C:
+			described, err := f.temporal.DescribeWorkflowExecution(f.ctx, poolID, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			changed = described.WorkflowExecutionInfo.Execution.RunId != initial.GetRunID()
+		}
+	}
+	secondRaw := bytes.ReplaceAll(bytes.ReplaceAll(raw, []byte("nonce-0000"), []byte("nonce-0002")), []byte("nonce-0001"), []byte("nonce-0003"))
+	request, _ := http.NewRequestWithContext(f.ctx, http.MethodPost, f.server.URL+"/v1/jobs", bytes.NewReader(secondRaw))
+	request.Header.Set("Authorization", "Bearer "+f.key)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "after-rollover")
+	response, err := f.server.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, readErr := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if response.StatusCode != http.StatusAccepted {
+		t.Fatal("second job not accepted", response.StatusCode, string(body))
+	}
+	var second batch.Status
+	if err := json.Unmarshal(body, &second); err != nil {
+		t.Fatal(err)
+	}
+	finished := f.wait(t, second.JobID, func(s batch.Status) bool { return s.Counts.Done() })
+	if finished.Counts.Succeeded != 2 || f.active.Load() != 1 || f.calls.Load() != 4 || f.peak.Load() > 2 {
+		t.Fatal("other job stalled, exceeded cap or replayed while slow call active", finished.Counts, f.active.Load(), f.calls.Load(), f.peak.Load())
+	}
+	stillActive, err := f.jobs.Status(f.ctx, f.scope, first.JobID)
+	if err != nil || stillActive.Counts.Active != 1 {
+		t.Fatal("rollover lost original execution", err, stillActive.Counts)
+	}
+	once.Do(func() { close(release) })
+	completed := f.wait(t, first.JobID, func(s batch.Status) bool { return s.Counts.Done() })
+	if completed.Counts.Succeeded != 2 || f.calls.Load() != 4 {
+		t.Fatal("original call was lost or repeated", completed.Counts, f.calls.Load())
+	}
+	f.assertResults(t, first.JobID, 2)
+	f.assertResults(t, second.JobID, 2)
+	for {
+		encoded, err := f.temporal.QueryWorkflow(f.ctx, poolID, "", "state")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var state batch.PoolState
+		if err := encoded.Get(&state); err != nil {
+			t.Fatal(err)
+		}
+		if len(state.Outstanding) == 0 {
+			if state.Sequence != 4 {
+				t.Fatal("rollover reset sequence", state.Sequence)
+			}
+			break
+		}
+		select {
+		case <-f.ctx.Done():
+			t.Fatal("settled permits leaked", f.ctx.Err())
+		case <-ticker.C:
+		}
+	}
+	f.worker.Stop()
+	f.worker = nil
+	replayer := worker.NewWorkflowReplayer()
+	replayer.RegisterWorkflowWithOptions(batch.PoolWorkflow, workflow.RegisterOptions{Name: batch.PoolWorkflowName})
+	for _, runID := range []string{initial.GetRunID(), ""} {
+		history := &historypb.History{}
+		events := f.temporal.GetWorkflowHistory(f.ctx, poolID, runID, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+		for events.HasNext() {
+			event, err := events.Next()
+			if err != nil {
+				t.Fatal(err)
+			}
+			history.Events = append(history.Events, event)
+		}
+		if err := replayer.ReplayWorkflowHistory(nil, history); err != nil {
+			t.Fatal("real V2 pool history cannot replay", runID, err)
+		}
+	}
+
 }

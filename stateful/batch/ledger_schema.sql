@@ -5,6 +5,12 @@ CREATE TABLE IF NOT EXISTS batch_pool_generations (
  revision bigint NOT NULL DEFAULT 1 CHECK(revision>0),
  updated_at timestamptz NOT NULL
 );
+CREATE TABLE IF NOT EXISTS batch_pool_scope_cursors (
+ pool_id text NOT NULL REFERENCES batch_pool_generations(pool_id),
+ api_key_hash text NOT NULL CHECK(api_key_hash ~ '^[0-9a-f]{64}$'),
+ last_job_sequence bigint NOT NULL CHECK(last_job_sequence>=0),
+ PRIMARY KEY(pool_id,api_key_hash)
+);
 ALTER TABLE batch_jobs ADD COLUMN IF NOT EXISTS pool_id text NOT NULL DEFAULT '';
 ALTER TABLE batch_jobs ADD COLUMN IF NOT EXISTS enqueue_sequence bigserial;
 ALTER TABLE batch_items ADD COLUMN IF NOT EXISTS reservation_ordinal bigint NOT NULL DEFAULT 0 CHECK(reservation_ordinal>=0);
@@ -38,6 +44,7 @@ CREATE TABLE IF NOT EXISTS batch_attempts (
  settlement_revision bigint NOT NULL DEFAULT 0 CHECK(settlement_revision>=0),
  observation jsonb CHECK(jsonb_typeof(observation)='object' AND octet_length(observation::text)<=65536),
  generation_deadline timestamptz,
+ admission_window bigint NOT NULL DEFAULT 0 CHECK(admission_window>=0),
  UNIQUE(pool_id,sequence),
  UNIQUE(api_key_hash,job_id,item_index,ordinal),
  FOREIGN KEY(api_key_hash,job_id,item_index) REFERENCES batch_items(api_key_hash,job_id,item_index),
@@ -47,6 +54,7 @@ CREATE TABLE IF NOT EXISTS batch_attempts (
  CHECK(state<>'settled' OR (settlement_revision>0 AND observation IS NOT NULL))
 );
 ALTER TABLE batch_attempts ADD COLUMN IF NOT EXISTS generation_deadline timestamptz;
+ALTER TABLE batch_attempts ADD COLUMN IF NOT EXISTS admission_window bigint NOT NULL DEFAULT 0 CHECK(admission_window>=0);
 CREATE UNIQUE INDEX IF NOT EXISTS batch_attempts_unsettled_item ON batch_attempts(api_key_hash,job_id,item_index) WHERE kind='job' AND state<>'settled';
 CREATE UNIQUE INDEX IF NOT EXISTS batch_attempts_ordinary_request ON batch_attempts(pool_id,api_key_hash,request_id) WHERE kind='ordinary';
 CREATE INDEX IF NOT EXISTS batch_attempts_pool_unsettled ON batch_attempts(pool_id,state,permit_id);

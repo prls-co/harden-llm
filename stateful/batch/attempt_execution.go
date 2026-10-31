@@ -123,6 +123,8 @@ func (a *Activities) InvokeAttempt(ctx context.Context, id string) (returned Inv
 	}
 	callCtx, cancel := context.WithDeadline(ctx, claimed.executionDeadline())
 	defer cancel()
+	stopShutdownWatch := watchProviderShutdown(ctx, cancel)
+	defer stopShutdownWatch()
 	progress := make(chan hardenllm.ProgressEvent, 8)
 	request := item.Item.Generation.Request()
 	request.Origin = hardenllm.Origin{Client: "harden-llm-batch", JobID: claimed.Ref.JobID}
@@ -192,6 +194,23 @@ func (a *Activities) InvokeAttempt(ctx context.Context, id string) (returned Inv
 		}
 	}
 	return returned, nil
+}
+
+func watchProviderShutdown(ctx context.Context, cancel context.CancelFunc) func() {
+	if !activity.IsActivity(ctx) {
+		return func() {}
+	}
+	stop, joined := make(chan struct{}), make(chan struct{})
+	shutdown := activity.GetWorkerStopChannel(ctx)
+	go func() {
+		defer close(joined)
+		select {
+		case <-shutdown:
+			cancel()
+		case <-stop:
+		}
+	}()
+	return func() { close(stop); <-joined }
 }
 func copyAttemptDiagnostics(out *Outcome, result hardenllm.Result) {
 	for _, attempt := range result.Attempts {

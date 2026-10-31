@@ -15,7 +15,6 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
-	"go.temporal.io/sdk/workflow"
 )
 
 type TemporalStarter struct {
@@ -219,17 +218,7 @@ func classifyAttemptError(err error) (kind string, problem *ItemError, delay int
 }
 
 func NewWorker(c client.Client, queue string, a *Activities) (worker.Worker, error) {
-	if c == nil || queue == "" || a == nil || a.Store == nil || a.Artifacts == nil || a.Execute == nil || a.Encode == nil || a.PoolID == "" {
-		return nil, ErrUnavailable
-	}
-	if err := a.Policy.Validate(); err != nil {
-		return nil, err
-	}
-	w := worker.New(c, queue, worker.Options{MaxConcurrentActivityExecutionSize: a.Policy.Concurrency + 16, WorkerStopTimeout: 15 * time.Second, DisableRegistrationAliasing: true})
-	w.RegisterWorkflowWithOptions(BatchWorkflow, workflow.RegisterOptions{Name: BatchWorkflowName})
-	w.RegisterWorkflowWithOptions(DispatcherWorkflow, workflow.RegisterOptions{Name: DispatcherWorkflowName})
-	w.RegisterActivity(a)
-	return w, nil
+	return newWorkers(c, queue, a, worker.New)
 }
 
 func classifyGenerationError(err error, result hardenllm.Result) (string, *ItemError, int64) {

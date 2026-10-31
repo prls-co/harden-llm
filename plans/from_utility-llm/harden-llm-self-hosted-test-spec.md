@@ -2272,3 +2272,43 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/batch/attempt_execution_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-integration`.
 - Oracle: Real SQL plus local HTTP recovers a bound stored result after losing the provider return and observation acknowledgement. Redelivery cannot execute; exactly one HTTP request and one succeeded item survive. The result endpoint returns the original response, never the internal artifact envelope, after verifying the authoritative ledger owner and scoped item identity.
+
+### TEST-503: Bounded CPA queue selection and scope/job fairness
+
+- Type / verifies: integration; issue #134 phase P3.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/queue_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Real SQL rotates key scopes first and each scope's jobs second, with FIFO items. More jobs cannot buy a key more global turns. Cursor ownership survives another activity/store instance, selection returns no input payload and mints no permit, and expired/active/unpersisted-intent items cannot be selected. Stale generations and oversized pages reject.
+
+### TEST-504: CPA pool state, admission epochs and bounded continuation
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/pool_state_test.go`.
+- Command: `go test ./stateful/batch -run '^TestPoolState' -count=1`.
+- Oracle: Windows anchor on confirmed claims using pool receipt time; unconfirmed starts never refill automatically. Settlement applies once; capacity needs positive local stop. Only the current probe reopens at adapted pace, preserving its new dispatch origin. Terminal throttling does not refund credits. Never-sent work requires independent worker readiness without halving CPA pace. A 1,000-outstanding-permit snapshot is below 256 KiB and retains identities/sequence; no historical job list grows in the snapshot.
+
+### TEST-505: CPA pool Temporal continuation and metadata recovery
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/pool_workflow_test.go`.
+- Command: `go test ./stateful/batch -run '^TestPoolWorkflow' -count=1`.
+- Oracle: Pool continuation carries active independent attempts, unknown start intents and restrictions without draining inference. Initialization outage cannot indefinitely prevent continuation. Recovery uses the exact eligible timer rather than rounding an empty local queue to the generic poll interval. All metadata failures retain grant identity.
+
+### TEST-506: CPA provider/control worker ownership and shutdown
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/workers_test.go`.
+- Command: `go test ./stateful/batch -run '^TestWorkers' -count=1`.
+- Oracle: Independent inference and readiness use a separate provider task queue within the same worker lifecycle. V1 workflow/activity registrations remain available. Failed control startup stops the owned provider worker, normal shutdown stops both once, and worker shutdown cancels the provider context before local-stop evidence is recorded.
+
+### TEST-507: Real CPA pool rollover with an active native HTTP call
+
+- Type / verifies: integration; issue #134 phases P3/P4.
+- Coverage gate: `release`.
+- Location: `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Owned real Temporal/PostgreSQL/Garage plus the production root/native HTTP/SSE and result projection retain one held native call across a changed pool run ID. Another job completes using the other available slot while the held call remains active. Exactly four globally distinct requests/results, peak overlap at most two, no lost outstanding permits and sequence preserved across continuation. The fixture explicitly registers manifests with V2; default enqueue/handoff adoption is a separate gate.

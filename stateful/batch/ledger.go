@@ -32,6 +32,7 @@ type Reservation struct {
 	StartBy        time.Time
 	Deadline       time.Time
 	BudgetMS       int64
+	WindowID       int64
 	Epoch          int64
 	PolicyRevision int64
 	Probe          bool

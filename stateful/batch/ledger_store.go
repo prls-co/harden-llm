@@ -17,13 +17,13 @@ import (
 //go:embed ledger_schema.sql
 var ledgerSchema string
 
-const attemptColumns = `permit_id::text,pool_id,generation,sequence,api_key_hash,kind,job_id::text,item_index,request_id::text,workflow_id,granted_at,start_by,execution_deadline,budget_ms,admission_epoch,policy_revision,probe,ordinal,state,claim_id::text,claimed_at,dispatch_at,local_stopped_at,settlement_revision,observation,generation_deadline`
+const attemptColumns = `permit_id::text,pool_id,generation,sequence,api_key_hash,kind,job_id::text,item_index,request_id::text,workflow_id,granted_at,start_by,execution_deadline,budget_ms,admission_epoch,policy_revision,probe,ordinal,state,claim_id::text,claimed_at,dispatch_at,local_stopped_at,settlement_revision,observation,generation_deadline,admission_window`
 
 func applyLedgerSchema(ctx context.Context, tx pgx.Tx) error {
 	if _, err := tx.Exec(ctx, ledgerSchema); err != nil {
 		return err
 	}
-	for _, table := range []string{"batch_pool_generations", "batch_attempts"} {
+	for _, table := range []string{"batch_pool_generations", "batch_attempts", "batch_pool_scope_cursors"} {
 		start := strings.Index(ledgerSchema, "CREATE TABLE IF NOT EXISTS "+table+" (")
 		end := strings.Index(ledgerSchema[start:], "\n);") + start + 2
 		ddl := strings.Replace(ledgerSchema[start:end], "CREATE TABLE IF NOT EXISTS "+table, "CREATE TEMP TABLE expected_"+table, 1)
@@ -83,6 +83,13 @@ func applyLedgerSchema(ctx context.Context, tx pgx.Tx) error {
 	}
 	if !reflect.DeepEqual(foreignKeys, []string{"FOREIGN KEY (api_key_hash, job_id, item_index) REFERENCES batch_items(api_key_hash, job_id, item_index)", "FOREIGN KEY (pool_id) REFERENCES batch_pool_generations(pool_id)"}) {
 		return errors.New("batch: incompatible execution ledger foreign keys; operator action required")
+	}
+	var cursorForeignKeys []string
+	if err := tx.QueryRow(ctx, `SELECT array_agg(pg_get_constraintdef(oid) ORDER BY pg_get_constraintdef(oid)) FROM pg_constraint WHERE conrelid='batch_pool_scope_cursors'::regclass AND contype='f'`).Scan(&cursorForeignKeys); err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(cursorForeignKeys, []string{"FOREIGN KEY (pool_id) REFERENCES batch_pool_generations(pool_id)"}) {
+		return errors.New("batch: incompatible scope cursor foreign key; operator action required")
 	}
 	for _, column := range []struct {
 		table, name, kind string
@@ -245,7 +252,7 @@ func scanAttempt(row pgx.Row) (Attempt, error) {
 	var job, request, claim *string
 	var index *int
 	var raw []byte
-	err := row.Scan(&a.PermitID, &a.PoolID, &a.Generation, &a.Sequence, &a.Ref.Scope, &a.Kind, &job, &index, &request, &a.WorkflowID, &a.GrantedAt, &a.StartBy, &a.Deadline, &a.BudgetMS, &a.Epoch, &a.PolicyRevision, &a.Probe, &a.Ordinal, &a.State, &claim, &a.ClaimedAt, &a.DispatchedAt, &a.StoppedAt, &a.SettlementRevision, &raw, &a.GenerationDeadline)
+	err := row.Scan(&a.PermitID, &a.PoolID, &a.Generation, &a.Sequence, &a.Ref.Scope, &a.Kind, &job, &index, &request, &a.WorkflowID, &a.GrantedAt, &a.StartBy, &a.Deadline, &a.BudgetMS, &a.Epoch, &a.PolicyRevision, &a.Probe, &a.Ordinal, &a.State, &claim, &a.ClaimedAt, &a.DispatchedAt, &a.StoppedAt, &a.SettlementRevision, &raw, &a.GenerationDeadline, &a.WindowID)
 	if err != nil {
 		return a, err
 	}
@@ -390,7 +397,7 @@ func (s *PostgresStore) reserveAttempt(ctx context.Context, r Reservation, opts 
 		} else {
 			request = r.RequestID
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO batch_attempts(permit_id,pool_id,generation,sequence,api_key_hash,kind,job_id,item_index,request_id,workflow_id,granted_at,start_by,execution_deadline,budget_ms,admission_epoch,policy_revision,probe,ordinal,state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'reserved')`, r.PermitID, r.PoolID, r.Generation, r.Sequence, r.Ref.Scope, r.Kind, job, index, request, r.WorkflowID, r.GrantedAt, r.StartBy, r.Deadline, r.BudgetMS, r.Epoch, r.PolicyRevision, r.Probe, ordinal)
+		_, err = tx.Exec(ctx, `INSERT INTO batch_attempts(permit_id,pool_id,generation,sequence,api_key_hash,kind,job_id,item_index,request_id,workflow_id,granted_at,start_by,execution_deadline,budget_ms,admission_epoch,policy_revision,probe,ordinal,state,admission_window) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'reserved',$19)`, r.PermitID, r.PoolID, r.Generation, r.Sequence, r.Ref.Scope, r.Kind, job, index, request, r.WorkflowID, r.GrantedAt, r.StartBy, r.Deadline, r.BudgetMS, r.Epoch, r.PolicyRevision, r.Probe, ordinal, r.WindowID)
 		if err != nil {
 			return err
 		}

@@ -304,3 +304,93 @@ request-status SQL/HTTP/TCP/race cases with empty cleanup errors/warnings.
 The existing cheap TEST-466 already covers the shared acquisition-budget invariant.
 
 The remaining shared-admission work belongs to #134 and is not a status blocker.
+
+## 13. Fair pool scheduling and real rollover checkpoint
+
+The new V2 pool owns grants while independent attempt workflows own inference.
+The running gateway's default enqueue path is still V1; production adoption is
+not inferred from these new registrations or from this test bootstrap.
+
+Implemented:
+
+- Bounded SQL pages rotate across validated key scopes, then each scope's jobs,
+  then FIFO items. Scope/job cursors persist in the existing HLLM PostgreSQL
+  schema; returned pages contain references, budgets and timing only. Selection
+  cannot reserve capacity or return an active/expired/unpersisted-intent item.
+- Compact outstanding-permit identities and at most 64 pending start intents
+  survive pool continuation. A 1,000-outstanding-permit pure-state case verifies
+  a snapshot below 256 KiB; it is not a 1,000-provider V2 load result.
+- Admission windows are identified separately from cooling episodes. Initial
+  grants cannot mint a fresh quota window until a claim is positively observed;
+  the first receipt anchors it without trusting the worker's wall clock. Only
+  own-window refusals/never-sent work refund credit. Terminal throttling does not.
+- Pool settlement applies once, keeps unresolved local execution in capacity,
+  and carries current probe identity/restrictions through CAN. Successful probes
+  keep their own new episode origin. Never-sent work uses a separate bounded
+  worker-readiness gate, without halving CPA pace.
+- Metadata starters run asynchronously in batches of 16, with at most four
+  batches in flight. Periodic/notice-triggered bounded ledger pages catch lost
+  completions; failed reads pause grants rather than replacing inference.
+- Control and provider task queues run inside one worker lifecycle. The V1
+  registrations remain available for explicit drain/handoff; V2 provider work
+  is registered only on the provider activity queue. Startup failure rolls back
+  the owned provider worker; normal Stop stops both once. The provider watches
+  worker shutdown, cancels its context, and records local stop only after Execute
+  returns. Metadata/artifact cleanup retains its bounded finalization allowance.
+
+Failures retained before corrections:
+
+- `tmp/cpa-queue-red.json`, `tmp/cpa-pool-state-red.log`, and
+  `tmp/cpa-pool-workflow-red.log`: runtime assertions failed before implementation.
+- Initial outage RED used the SDK inactivity timeout, which does not bound a
+  workflow making endless virtual retry progress. That owned test process was
+  identified by its exact test name/package cwd and terminated; no service or
+  provider mutation occurred. The corrected bounded virtual-time oracle failed
+  in `tmp/cpa-pool-init-outage-bounded-red.log`: initialization ignored a queued
+  continuation. The pool now drains controls between bounded metadata attempts.
+- `tmp/cpa-pool-recovery-timer-red.log`: empty local readiness rounded a two-second
+  recovery floor to the generic five-second poll. Eligibility now arms its own
+  earliest timer even when a local ready page is empty.
+- `tmp/cpa-pool-probe-origin-red.log`: reopening retained the old episode's origin;
+  current probe receipt is now preserved and used for the next open episode.
+- `tmp/cpa-worker-stop-red.log`: shutdown did not cancel the provider context.
+  The worker-stop watcher now requests cancellation and joins before finalization.
+- The first broad fast/integration checks rejected a new Temporal test-file
+  location. The test was moved into the already approved
+  `jobs_temporal_integration_test.go`; the boundary guard was unchanged.
+- A simultaneously launched second Docker track expired waiting for the daemon
+  lock before test execution (`tmp/cpa-pool-full-temporal.json`). Its handle was
+  terminal, with no test/provider work or cleanup error. Docker tracks were then
+  run sequentially; this failure is not counted as acceptance.
+
+Acceptance:
+
+- `tmp/cpa-pool-boundary-fixed-fast.log`: all ten fast tasks accepted; clean cleanup.
+- `tmp/cpa-pool-boundary-fixed-integration-race.log`: canonical backend real-service
+  integration/race gate accepted; clean cleanup, including SQL fairness/claims,
+  additive schema and retained request-status boundaries.
+- `tmp/cpa-pool-workers-final-race.log`: pool state/workflows, worker ownership and
+  shutdown races plus retained V1 offline history replay passed.
+- `tmp/cpa-pool-full-temporal-boundary-fixed.json`: canonical real Temporal suite
+  accepted with no cleanup errors/warnings. It includes the retained V1 1,000-call
+  and cooldown/restart cases, plus the new V2 real rollover case. Whole-task wall
+  time was 70,670 ms, CPU 25,500 ms and peak RSS 699.0 MiB, including compilation,
+  setup and all cases; these are not server-only or CPA throughput measurements.
+- The V2 case uses real Temporal/PostgreSQL/Garage, the production core/native
+  HTTP/SSE encoder and authenticated NDJSON results. A held native connection
+  survives a changed pool Run ID; another two-item job completes in the remaining
+  slot while that original connection stays active. Four distinct requests and
+  four validated results, peak overlap <=2, no leaked permits and sequence=4.
+  Both the old and continued real pool histories replay successfully.
+- The fixture explicitly attaches manifests to V2 before the unchanged job
+  lifecycle enqueues them. This is an owned test bootstrap, not proof that the
+  gateway's default enqueue path has switched or that V1 adoption is complete.
+
+Next required work remains concrete: coalesced waiting/heartbeat publication,
+retry-wait and monotonic-duration diagnostics, fatal worker error propagation,
+explicit V1 quiesce/drain/generation handoff and compatible enqueue routing,
+execution/finalization deadline contract, optional bounded recovery jitter,
+the request-bound ordinary adapter, broader real lifecycle faults and mixed
+1,000/10,000-call qualification, then environment and bounded CPA acceptance.
+No application/provider configuration, deployment, public inference or browser
+was performed. The complete #134 plan remains active.
