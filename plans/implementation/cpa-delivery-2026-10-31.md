@@ -287,3 +287,20 @@ mailbox polling, generation adoption, the ordinary adapter, and real-stack
 rollover/fault/scale/environment acceptance remain open. New invocation artifact
 fault cases use an owned artifact double; real Garage/Temporal fault acceptance
 remains a separate P4 gate. No provider inference/deployment/browser was run.
+
+## 12. Status implementation checklist reconciliation
+
+Runtime at `0ef61e3` passed hosted fast checks, CodeQL analyses and security
+summary. Audit of the original P0-P9 tasks and RS-01..RS-17 cases is now recorded
+in the status plan. P9.6 remains explicitly conditional/unperformed: no deployment
+has been undertaken. This is a local implementation/readiness conclusion only.
+
+The final audit adds a test for the actual reserve/update/lookup entrypoints when
+both connections in the owned PostgreSQL pool are held. Each earlier caller
+deadline maps to unavailable; neither registration nor update commits. The
+original row remains running at its original revision, and the unsuccessful
+new ID remains absent. `tmp/status-final-acquisition-audit-race.json` accepts all
+request-status SQL/HTTP/TCP/race cases with empty cleanup errors/warnings.
+The existing cheap TEST-466 already covers the shared acquisition-budget invariant.
+
+The remaining shared-admission work belongs to #134 and is not a status blocker.
