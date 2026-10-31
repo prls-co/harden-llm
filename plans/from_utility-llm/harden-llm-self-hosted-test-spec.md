@@ -2384,3 +2384,27 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/batch/request_pool_test.go`.
 - Command: `go test -race ./stateful/batch -run '^TestPoolRequest|^TestRequestStarter|^TestPoolWorkflowRetires' -count=1`.
 - Oracle: Ordinary grants consume the existing shared cap/window, retain separate same-scope request identities and refund only positively never-sent work. Their metadata starter cannot spawn a durable provider workflow. Pool settlement acknowledgements retry without inference, retire only positively stopped/applied requests and carry unresolved execution across continuation.
+
+### TEST-517: Ordinary CPA per-dispatch adapter and uncertainty
+
+- Type / verifies: unit; issue #134 phase P5.
+- Coverage gate: `fast`.
+- Location: `stateful/cpa_admission_test.go`, `internal/gateway/httpapi/ordinary_admission_test.go`.
+- Command: `go test -race ./stateful ./internal/gateway/httpapi -run '^TestCPAAdmission|^TestOrdinaryAdmission' -count=1`.
+- Oracle: Ordinary managed CPA requests cannot bypass unavailable admission. Retry/repair dispatches retain the selected model/options, one logical execution ID, distinct permits/owners/ordinals and the original deadline. Queued cancellation never enters the provider; metadata uncertainty cannot repeat inference; panic never invents transport stop. Post-entry transport/partial-output uncertainty is not automatically retried and sends additive SDK retry suppression without changing OpenAI HTTP status or trusted retry floors. Unmanaged providers and model discovery bypass CPA admission; waiting/polling does not fabricate native entry, progress or ETA.
+
+### TEST-518: Additive ordinary-admission status schema migration
+
+- Type / verifies: integration; issues #134/#136.
+- Coverage gate: `integration`.
+- Location: `stateful/cpa_admission_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Only the exact retained legacy tracking schema migrates to additive admission stage/reasons. Accepted invocation owner, status, deadline and unrelated data survive; repeated schema application is stable. Admission waiting with unknown eligibility stores and returns no fabricated ETA. Existing incompatible-schema rejection remains required.
+
+### TEST-519: Real ordinary and durable CPA shared admission
+
+- Type / verifies: integration; issue #134 phase P5.
+- Coverage gate: `release`.
+- Location: `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Real Temporal/PostgreSQL/Garage and native HTTP share one cap across a held durable call and two authenticated ordinary scopes. Waiting lookup respects key isolation and actual pool capacity. A queued timeout cannot later infer. Both ordinary OpenAI endpoints preserve completed JSON/SSE behavior. Warm cache bypasses permits; ordinary execution creates no batch manifest or reference history. Actual native request counts/overlap, immutable metadata settlement and the existing durable result boundary remain checked. This is a bounded compatibility case, not 1,000/10,000-call or live CPA throughput acceptance.

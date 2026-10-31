@@ -11,6 +11,7 @@ import (
 
 type HistoryConfig struct{ Enabled bool }
 type Config struct {
+	Admission                  *CPAAdmission
 	Client                     ClientOptions
 	Pool                       *pgxpool.Pool
 	Presets                    Catalog
@@ -32,6 +33,13 @@ type Service struct {
 }
 
 func NewService(config Config) (*Service, error) {
+	if config.Admission != nil {
+		copy := *config.Admission
+		if err := copy.validate(); err != nil {
+			return nil, err
+		}
+		config.Admission = &copy
+	}
 	if config.CacheTTL == 0 {
 		config.CacheTTL = defaultCacheTTL
 	}
@@ -66,7 +74,7 @@ func (s *Service) ClientForKey(hash string) (*hardenllm.Client, error) {
 	if !validKeyHash(hash) {
 		return nil, &OperationError{Code: "invalid_api_key", Message: "An authenticated access-key scope is required."}
 	}
-	options := s.effects
+	options := s.scopedEffects(hash)
 	options.Cache = newPostgresCache(s.config.Pool, hash, credentialNamespace(options.Connections, nil), s.config.CacheTTL, s.now)
 	return hardenllm.New(options)
 }

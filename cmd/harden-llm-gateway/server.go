@@ -80,7 +80,22 @@ func runGatewayRuntime(ctx context.Context, stdout, stderr io.Writer, getenv fun
 		return safeStartupError(redactor, "configure reference presets", err)
 	}
 	artifacts, artifactDiagnostic := referenceArtifacts(config.reference)
-	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{
+	jobs, activities, temporalClient, err := configureBatch(startupContext, config, pool, artifacts, telemetryRuntime)
+	if err != nil {
+		return safeStartupError(redactor, "configure durable batches", err)
+	}
+	if temporalClient != nil {
+		defer temporalClient.Close()
+	}
+	var admission *stateful.CPAAdmission
+	if config.batch.enabled {
+		for _, connection := range config.connections {
+			if connection.ID == config.batch.upstream {
+				admission = &stateful.CPAAdmission{Store: &batch.PostgresStore{Pool: pool}, Signals: batch.TemporalRequestSignals{Client: temporalClient}, PoolID: config.batch.poolID, Endpoint: connection.BaseURL, Logger: telemetryRuntime.Logger()}
+			}
+		}
+	}
+	service, err := stateful.NewService(stateful.Config{Admission: admission, Client: stateful.ClientOptions{
 		Connections: config.connections, DefaultConnection: config.defaultConnection,
 		EndpointPolicy: hardenllm.EndpointPolicy{
 			AllowedHosts: config.allowedHosts, PrivateAllowedHosts: config.privateAllowedHosts,
@@ -91,13 +106,6 @@ func runGatewayRuntime(ctx context.Context, stdout, stderr io.Writer, getenv fun
 	}, Pool: pool, Presets: presets, Vault: config.reference.vault, History: stateful.HistoryConfig{Enabled: config.reference.historyEnabled}, CacheTTL: config.reference.cacheTTL, Artifacts: artifacts, ArtifactConfigurationError: artifactDiagnostic})
 	if err != nil {
 		return safeStartupError(redactor, "configure shared proxy client", err)
-	}
-	jobs, activities, temporalClient, err := configureBatch(startupContext, config, pool, artifacts, telemetryRuntime)
-	if err != nil {
-		return safeStartupError(redactor, "configure durable batches", err)
-	}
-	if temporalClient != nil {
-		defer temporalClient.Close()
 	}
 	if workerOnly {
 		worker, err := batch.NewWorker(temporalClient, config.batch.taskQueue, activities)

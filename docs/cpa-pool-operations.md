@@ -9,8 +9,9 @@ type becomes `HLLMCPAPoolV2`. Control uses the configured task queue; provider
 activities use that queue with `/provider` appended, in the same worker process.
 
 This document describes source capabilities, not a deployed feature. Ordinary
-OpenAI generation still needs the request-bound admission adapter in issue #134;
-status lookup in issue #136 does not supply durable waiting or result retrieval.
+OpenAI generation now uses the same V2 pool when batch admission is enabled and
+the connection uses the configured CPA origin. Status lookup in issue #136 does
+not supply durable waiting or result retrieval.
 The 200-start/61-second default is an operating estimate, not a provider guarantee.
 No CPA upgrade is required by this implementation.
 
@@ -29,6 +30,11 @@ No CPA upgrade is required by this implementation.
 5. Start the compatible worker with its existing `worker` command. It retains V1
    registrations and adds V2 workflows/provider queue handling. It does not call
    a real provider as a startup or deployment probe.
+6. Enabling `HARDEN_LLM_BATCH_ENABLED=true` also enables ordinary admission for
+   the configured upstream's CPA origin across aliases, paths and key scopes.
+   The original selected model/settings stay intact. Upgrade to active V2 before
+   serving managed ordinary calls: absent/V1/quiesced authority fails closed.
+   Other provider origins and model discovery bypass this CPA pool.
 
 ## 3. Upgrade or initialize the scheduling authority
 
@@ -76,7 +82,8 @@ pending dispatch, worker unavailability, persistence wait, workflow rollover,
 unresolved execution and occupied pool capacity.
 
 Heartbeat and actual progress are separate. Pool publication pages update only
-pending jobs in their own pool; provider progress requires its invocation claim.
+pending jobs and ordinary waiters in their own pool; provider progress requires
+its invocation claim.
 Identical updates coalesce within five seconds. Heartbeat/polling never invent
 byte progress, percentage complete or a result ETA. `next_attempt_at` is a known
 eligibility floor; it may be absent when no such time is established.
@@ -90,6 +97,16 @@ Missing positive local stop retains capacity and can pause future admission.
 
 The original ordinary OpenAI request deadline remains 60 seconds. A tracking
 lookup cannot extend it. Multi-minute callers explicitly choose durable jobs.
+
+Ordinary requests acquire a separate permit for every concrete generation,
+transport retry or repair dispatch. Cache hits bypass generation admission.
+They retain ordinary JSON/SSE responses; no request becomes a job or returns
+`202` automatically. Tracked queued calls expose `stage=admission_wait`, actual
+pool reasons and nullable eligibility. Native entry starts only after admission.
+Post-entry transport failure or partial refusal remains unconfirmed and suppresses
+automatic core/compatible-SDK replay (`x-should-retry: false`). Explicit pre-output
+refusals retain trusted retry floors. Local metadata cleanup is bounded separately
+and cannot extend provider execution or replace a known response.
 
 ## 5. Verification and outstanding acceptance
 
@@ -108,11 +125,11 @@ coalesce and cannot resurrect an expired owner.
 Waiter metadata expires 24 hours after its accepted request deadline. Cleanup
 uses bounded pages and removes settled permit metadata only after the pool has
 applied that settlement and positive local-stop evidence exists. Unknown active
-claims remain retained rather than being freed by a metadata TTL. The HTTP
-provider adapter is still outstanding, so these primitives do not yet govern
-ordinary gateway inference.
+claims remain retained rather than being freed by a metadata TTL. The ordinary
+stateful provider adapter uses these records directly; it creates no durable
+request inference workflow, batch manifest or result artifact.
 
-Before declaring the full #134 feature delivered, complete the ordinary adapter,
-remaining recovery/timing qualification, mixed 1,000/10,000-call tests and selected
+Before declaring the full #134 feature delivered, complete remaining
+recovery/timing qualification, mixed 1,000/10,000-call tests and selected
 environment/CPA acceptance. Browser layout, public-provider capacity and deployment
 are not established by these source instructions or synthetic-provider tests.

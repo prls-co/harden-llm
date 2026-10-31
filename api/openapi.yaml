@@ -709,8 +709,8 @@ components:
         id: {$ref: '#/components/schemas/TrackingUUID'}
         endpoint: {type: string, enum: [/v1/responses, /v1/chat/completions]}
         status: {type: string, enum: [running, waiting, completed, failed, cancelled, unconfirmed]}
-        stage: {type: [string, 'null'], enum: [preparing, provider_attempt, validation, retry_wait, response_projection, null]}
-        reason: {type: [string, 'null'], enum: [provider_throttled, retry_backoff, execution_unobserved, null]}
+        stage: {type: [string, 'null'], enum: [preparing, provider_attempt, validation, retry_wait, response_projection, admission_wait, null]}
+        reason: {type: [string, 'null'], enum: [provider_throttled, retry_backoff, execution_unobserved, admission_window, account_restricted, dispatch_pending, workflow_rollover, persistence_wait, worker_unavailable, unresolved_execution, pool_capacity, null]}
         created_at: {type: string, format: date-time}
         deadline_at: {type: string, format: date-time}
         retention_expires_at: {type: string, format: date-time}

@@ -2,7 +2,7 @@
 
 - Document: `PLAN-HLLM-CPA-EXECUTION-002`.
 - Date: 2026-10-18.
-- Status: implementation design; proposed changes and acceptance gates below are not implemented or deployed by this document.
+- Status: implementation in progress in PR #141, stacked on request-status PR #140. Current source/verification checkpoints are in `plans/implementation/cpa-delivery-2026-10-31.md`; remaining acceptance gates and deployment are not established by this design document.
 - Owner: Harden-LLM for orchestration, persistence, API and client behavior; CLIProxyAPI-setup for CPA configuration and upstream instrumentation; Agent Platform for existing shared-service provisioning.
 - Tracking: [implementation issue #134](https://github.com/prls-co/harden-llm/issues/134).
 - Compatibility requirement: preserve existing OpenAI-compatible endpoints and wire contracts; `/v1/jobs` is an optional durable extension, not a mandatory client migration.

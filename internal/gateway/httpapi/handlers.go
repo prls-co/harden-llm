@@ -330,6 +330,11 @@ func (api *API) execute(parent context.Context, connection string, cache hardenl
 }
 
 func (api *API) writeCallError(writer http.ResponseWriter, err error, result hardenllm.Result, diagnostics bool) {
+	var uncertain interface{ InferenceUnconfirmed() bool }
+	var uncertainProvider *hardenllm.ProviderError
+	if (errors.As(err, &uncertain) && uncertain.InferenceUnconfirmed()) || (errors.As(err, &uncertainProvider) && uncertainProvider.Code == "execution_unconfirmed") {
+		writer.Header().Set("x-should-retry", "false")
+	}
 	status := http.StatusBadGateway
 	typeName, code, message := "server_error", "upstream_error", "The upstream request could not be completed."
 	var parameter any

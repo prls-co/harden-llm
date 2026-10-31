@@ -133,7 +133,7 @@ func (s *Service) Run(ctx context.Context, hash string, input RunInput) (output 
 		resolved, callErr = s.resolveRun(callCtx, hash, input)
 	}
 	if callErr == nil {
-		options := s.effects
+		options := s.scopedEffects(hash)
 		options.Connections = resolved.connections
 		options.DefaultConnection = "generation"
 		options.Cache = newPostgresCache(s.config.Pool, hash, resolved.cacheNamespace, s.config.CacheTTL, s.now)

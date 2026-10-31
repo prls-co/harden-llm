@@ -61,6 +61,34 @@ func (s *TrackingSession) Attempt(n int) {
 		s.changed()
 	}
 }
+
+// AdmissionWait reports an observed pool gate. Unknown eligibility remains nil;
+// polling the same gate never fabricates progress or marks native execution.
+func (s *TrackingSession) AdmissionWait(reason string, next *time.Time) {
+	switch reason {
+	case "provider_throttled", "admission_window", "account_restricted", "dispatch_pending", "workflow_rollover", "persistence_wait", "worker_unavailable", "unresolved_execution", "pool_capacity":
+	default:
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.record.FinishedAt != nil {
+		return
+	}
+	sameNext := s.record.NextAttemptAt == nil && next == nil || s.record.NextAttemptAt != nil && next != nil && s.record.NextAttemptAt.Equal(*next)
+	if s.record.Status == "waiting" && s.record.Stage != nil && *s.record.Stage == "admission_wait" && s.record.Reason != nil && *s.record.Reason == reason && sameNext {
+		return
+	}
+	stage := "admission_wait"
+	s.record.Status, s.record.Stage, s.record.Reason = "waiting", &stage, &reason
+	s.record.NextAttemptAt = nil
+	if next != nil {
+		copy := next.UTC()
+		s.record.NextAttemptAt = &copy
+	}
+	s.epoch++
+	s.changed()
+}
 func (s *TrackingSession) Wait(reason string, delay time.Duration) func() {
 	s.mu.Lock()
 	if s.record.FinishedAt != nil {

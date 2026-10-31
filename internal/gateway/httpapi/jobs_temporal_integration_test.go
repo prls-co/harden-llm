@@ -41,15 +41,17 @@ import (
 )
 
 type temporalBatchFixture struct {
-	server              *httptest.Server
-	key, scope          string
-	jobs                *batch.Service
-	activities          *batch.Activities
-	temporal            client.Client
-	queue               string
-	worker              worker.Worker
-	calls, active, peak atomic.Int32
-	ctx                 context.Context
+	nativeStreamExpectations sync.Map
+	clientOptions            stateful.ClientOptions
+	server                   *httptest.Server
+	key, scope               string
+	jobs                     *batch.Service
+	activities               *batch.Activities
+	temporal                 client.Client
+	queue                    string
+	worker                   worker.Worker
+	calls, active, peak      atomic.Int32
+	ctx                      context.Context
 }
 
 func newTemporalBatchFixture(t *testing.T, throttle bool) *temporalBatchFixture {
@@ -102,7 +104,11 @@ func newTemporalBatchFixtureWithGate(t *testing.T, throttle bool, gate func(cont
 		}
 		raw, _ := json.Marshal(body)
 		nonce := noncePattern.FindString(string(raw))
-		if r.URL.Path != "/v1/responses" || r.Header.Get("Authorization") != "Bearer synthetic-cpa-key" || body["stream"] != true || body["model"] != "gpt-6-luna" || nonce == "" {
+		streamOK := body["stream"] == true
+		if expected, ordinary := f.nativeStreamExpectations.Load(nonce); ordinary {
+			streamOK = body["stream"] == expected || (expected == false && body["stream"] == nil)
+		}
+		if r.URL.Path != "/v1/responses" || r.Header.Get("Authorization") != "Bearer synthetic-cpa-key" || !streamOK || body["model"] != "gpt-6-luna" || nonce == "" {
 			t.Error("native one-generation request contract failed")
 			w.WriteHeader(400)
 			return
@@ -115,7 +121,8 @@ func newTemporalBatchFixtureWithGate(t *testing.T, throttle bool, gate func(cont
 	t.Cleanup(provider.Close)
 	roots := x509.NewCertPool()
 	roots.AddCert(provider.Certificate())
-	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{Connections: []hardenllm.Connection{{ID: "cpa", Provider: "cpa", Protocol: "responses", BaseURL: provider.URL + "/v1", APIKey: "synthetic-cpa-key"}}, DefaultConnection: "cpa", EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: roots}, MaxConnsPerHost: 128}}})
+	f.clientOptions = stateful.ClientOptions{Connections: []hardenllm.Connection{{ID: "cpa", Provider: "cpa", Protocol: "responses", BaseURL: provider.URL + "/v1", APIKey: "synthetic-cpa-key"}}, DefaultConnection: "cpa", EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: roots}, MaxConnsPerHost: 128}}
+	service, err := stateful.NewService(stateful.Config{Client: f.clientOptions})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -630,4 +637,279 @@ func TestTemporalBatchV2ReportsCooldownAndSurvivesWorkerRestart(t *testing.T) {
 		t.Fatal("V2 restart replayed inference or lost jobs", finished.Counts, f.calls.Load(), f.peak.Load())
 	}
 	f.assertResults(t, job.JobID, 24)
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-519
+func enableFixtureOrdinaryAdmission(t *testing.T, f *temporalBatchFixture) {
+	t.Helper()
+	store := f.activities.Store.(*batch.PostgresStore)
+	if err := stateful.ApplySchema(f.ctx, store.Pool); err != nil {
+		t.Fatal(err)
+	}
+	service, err := stateful.NewService(stateful.Config{Client: f.clientOptions, Pool: store.Pool, Admission: &stateful.CPAAdmission{Store: store, Signals: batch.TemporalRequestSignals{Client: f.temporal}, PoolID: f.activities.PoolID, Endpoint: f.clientOptions.Connections[0].BaseURL}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	api, err := New(Config{APIKeys: []string{f.key, strings.Repeat("other-synthetic-key-", 3)}, Service: service, Jobs: f.jobs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.server.Close()
+	f.server = httptest.NewServer(api.Handler())
+	t.Cleanup(f.server.Close)
+}
+func startFixtureV2Pool(t *testing.T, f *temporalBatchFixture, cap int) {
+	t.Helper()
+	store := f.activities.Store.(batch.QueueStore)
+	if err := store.EnsurePool(f.ctx, f.activities.PoolID, 2); err != nil {
+		t.Fatal(err)
+	}
+	policy := f.activities.Policy
+	policy.Concurrency = cap
+	policy.Burst = cap
+	_, err := f.temporal.ExecuteWorkflow(f.ctx, client.StartWorkflowOptions{ID: "hllm-cpa-pool-v1/" + f.activities.PoolID, TaskQueue: f.queue, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE}, batch.PoolWorkflowName, batch.NewPoolState(f.activities.PoolID, 2, policy))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+type ordinaryHTTPResult struct {
+	status      int
+	contentType string
+	body        []byte
+	err         error
+}
+
+func ordinaryFixtureCall(ctx context.Context, f *temporalBatchFixture, path, nonce, tracking, cache string, stream bool, timeout int64) ordinaryHTTPResult {
+	return ordinaryFixtureCallAs(ctx, f, f.key, path, nonce, tracking, cache, stream, timeout)
+}
+func ordinaryFixtureCallAs(ctx context.Context, f *temporalBatchFixture, key, path, nonce, tracking, cache string, stream bool, timeout int64) ordinaryHTTPResult {
+	// Ordinary frontend SSE projects the completed result; it does not opt the
+	// native provider into streaming. Jobs separately require native streaming.
+	f.nativeStreamExpectations.Store(nonce, false)
+	harden := map[string]any{"cache": cache}
+	if timeout > 0 {
+		harden["timeout_ms"] = timeout
+	}
+	body := map[string]any{"model": "gpt-6-luna", "stream": stream, "harden": harden}
+	if path == "/v1/responses" {
+		body["input"] = "Return " + nonce + " as a JSON nonce object."
+	} else {
+		body["messages"] = []map[string]any{{"role": "user", "content": "Return " + nonce + " as a JSON nonce object."}}
+	}
+	raw, _ := json.Marshal(body)
+	r, _ := http.NewRequestWithContext(ctx, http.MethodPost, f.server.URL+path, bytes.NewReader(raw))
+	r.Header.Set("Authorization", "Bearer "+key)
+	r.Header.Set("Content-Type", "application/json")
+	if tracking != "" {
+		r.Header.Set(trackingHeader, tracking)
+	}
+	response, err := f.server.Client().Do(r)
+	if err != nil {
+		return ordinaryHTTPResult{err: err}
+	}
+	defer response.Body.Close()
+	payload, err := io.ReadAll(response.Body)
+	return ordinaryHTTPResult{status: response.StatusCode, contentType: response.Header.Get("Content-Type"), body: payload, err: err}
+}
+func waitOrdinaryTracking(t *testing.T, f *temporalBatchFixture, id string, predicate func(stateful.RequestStatus) bool) stateful.RequestStatus {
+	return waitOrdinaryTrackingAs(t, f, f.key, id, predicate)
+}
+func waitOrdinaryTrackingAs(t *testing.T, f *temporalBatchFixture, key, id string, predicate func(stateful.RequestStatus) bool) stateful.RequestStatus {
+	t.Helper()
+	bounded, cancel := context.WithTimeout(f.ctx, 15*time.Second)
+	defer cancel()
+	tick := time.NewTicker(50 * time.Millisecond)
+	defer tick.Stop()
+	var last stateful.RequestStatus
+	for {
+		r, _ := http.NewRequestWithContext(bounded, http.MethodGet, f.server.URL+"/v1/requests/"+id, nil)
+		r.Header.Set("Authorization", "Bearer "+key)
+		response, err := f.server.Client().Do(r)
+		if err == nil {
+			raw, _ := io.ReadAll(response.Body)
+			response.Body.Close()
+			if response.StatusCode == 200 {
+				if err := contract.Validate("RequestStatus", raw); err != nil {
+					t.Fatal("admission lookup violates OpenAPI", err, string(raw))
+				}
+				if err := json.Unmarshal(raw, &last); err != nil {
+					t.Fatal(err)
+				}
+				if predicate(last) {
+					return last
+				}
+			} else if response.StatusCode != 404 {
+				t.Fatal("tracking lookup failed", response.StatusCode, string(raw))
+			}
+		}
+		select {
+		case <-bounded.Done():
+			t.Fatal("waiting for ordinary tracking", last, bounded.Err())
+			return last
+		case <-tick.C:
+		}
+	}
+}
+
+func TestTemporalBatchOrdinaryShareAdmissionAndKeepOpenAIWire(t *testing.T) {
+	t.Parallel()
+	entered, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	defer once.Do(func() { close(release) })
+	f := newTemporalBatchFixtureWithGate(t, false, func(ctx context.Context, nonce string) {
+		if nonce == "nonce-0000" {
+			close(entered)
+			select {
+			case <-release:
+			case <-ctx.Done():
+			}
+		}
+	})
+	enableFixtureOrdinaryAdmission(t, f)
+	startFixtureV2Pool(t, f, 1)
+	job, _ := f.submit(t, 1)
+	select {
+	case <-entered:
+	case <-f.ctx.Done():
+		t.Fatal(f.ctx.Err())
+	}
+	tracking := uuid.NewString()
+	pending := make(chan ordinaryHTTPResult, 1)
+	go func() {
+		pending <- ordinaryFixtureCall(f.ctx, f, "/v1/responses", "nonce-8000", tracking, "off", false, 0)
+	}()
+	waiting := waitOrdinaryTracking(t, f, tracking, func(v stateful.RequestStatus) bool {
+		return v.Status == "waiting" && v.Stage != nil && *v.Stage == "admission_wait" && v.Reason != nil && *v.Reason == "pool_capacity"
+	})
+	if f.calls.Load() != 1 || waiting.NextAttemptAt != nil || waiting.RetryAfterMS != nil {
+		t.Fatal("ordinary call bypassed job capacity or invented ETA", f.calls.Load(), waiting)
+	}
+	otherKey := strings.Repeat("other-synthetic-key-", 3)
+	otherTracking := uuid.NewString()
+	otherPending := make(chan ordinaryHTTPResult, 1)
+	go func() {
+		otherPending <- ordinaryFixtureCallAs(f.ctx, f, otherKey, "/v1/responses", "nonce-8300", otherTracking, "off", false, 0)
+	}()
+	waitOrdinaryTrackingAs(t, f, otherKey, otherTracking, func(v stateful.RequestStatus) bool {
+		return v.Status == "waiting" && v.Reason != nil && *v.Reason == "pool_capacity"
+	})
+	otherRequest, _ := http.NewRequestWithContext(f.ctx, http.MethodGet, f.server.URL+"/v1/requests/"+otherTracking, nil)
+	otherRequest.Header.Set("Authorization", "Bearer "+f.key)
+	otherResponse, otherErr := f.server.Client().Do(otherRequest)
+	if otherErr != nil {
+		t.Fatal(otherErr)
+	}
+	otherResponse.Body.Close()
+	if otherResponse.StatusCode != 404 || f.calls.Load() != 1 {
+		t.Fatal("cross-key status leaked or key scope multiplied provider capacity", otherResponse.StatusCode, f.calls.Load())
+	}
+	cancelID := uuid.NewString()
+	canceled := ordinaryFixtureCall(f.ctx, f, "/v1/responses", "nonce-8001", cancelID, "off", false, 150)
+	if canceled.err != nil || canceled.status != 504 || f.calls.Load() != 1 {
+		t.Fatal("expired queued call ran inference", canceled.status, string(canceled.body), canceled.err, f.calls.Load())
+	}
+	waitOrdinaryTracking(t, f, cancelID, func(v stateful.RequestStatus) bool {
+		return v.Status == "cancelled" && v.OutcomeConfirmed != nil && *v.OutcomeConfirmed
+	})
+	once.Do(func() { close(release) })
+	select {
+	case result := <-pending:
+		if result.err != nil || result.status != 200 || !strings.Contains(string(result.body), "nonce-8000") || !strings.Contains(result.contentType, "application/json") {
+			t.Fatal("ordinary result contract changed", result.status, string(result.body), result.err)
+		}
+	case <-f.ctx.Done():
+		t.Fatal(f.ctx.Err())
+	}
+	select {
+	case result := <-otherPending:
+		if result.err != nil || result.status != 200 || !strings.Contains(string(result.body), "nonce-8300") {
+			t.Fatal("second scope failed shared admission", result.status, string(result.body), result.err)
+		}
+	case <-f.ctx.Done():
+		t.Fatal(f.ctx.Err())
+	}
+	waitOrdinaryTracking(t, f, tracking, func(v stateful.RequestStatus) bool { return v.Status == "completed" })
+	f.wait(t, job.JobID, func(v batch.Status) bool { return v.Counts.Done() })
+	for i, path := range []string{"/v1/responses", "/v1/chat/completions"} {
+		for j, stream := range []bool{false, true} {
+			nonce := fmt.Sprintf("nonce-%04d", 8100+i*2+j)
+			result := ordinaryFixtureCall(f.ctx, f, path, nonce, "", "off", stream, 0)
+			if result.err != nil || result.status != 200 || !strings.Contains(string(result.body), nonce) {
+				t.Fatal("ordinary OpenAI result changed", path, stream, result.status, string(result.body), result.err)
+			}
+			if stream {
+				if !strings.Contains(result.contentType, "text/event-stream") {
+					t.Fatal("stream content type changed", result.contentType)
+				}
+				if path == "/v1/responses" && !strings.Contains(string(result.body), "response.completed") {
+					t.Fatal("completed Responses SSE missing")
+				}
+				if path == "/v1/chat/completions" && !strings.Contains(string(result.body), "[DONE]") {
+					t.Fatal("chat completion terminator missing")
+				}
+			}
+		}
+	}
+	cold := ordinaryFixtureCall(f.ctx, f, "/v1/responses", "nonce-8200", "", "cache", false, 0)
+	before := f.calls.Load()
+	var beforeWaiters int
+	store := f.activities.Store.(*batch.PostgresStore)
+	if err := store.Pool.QueryRow(f.ctx, "SELECT count(*) FROM batch_request_waiters").Scan(&beforeWaiters); err != nil {
+		t.Fatal(err)
+	}
+	warm := ordinaryFixtureCall(f.ctx, f, "/v1/responses", "nonce-8200", "", "cache", false, 0)
+	var afterWaiters int
+	if err := store.Pool.QueryRow(f.ctx, "SELECT count(*) FROM batch_request_waiters").Scan(&afterWaiters); err != nil {
+		t.Fatal(err)
+	}
+	if cold.err != nil || warm.err != nil || cold.status != 200 || warm.status != 200 || before != 8 || f.calls.Load() != before || beforeWaiters != afterWaiters {
+		t.Fatal("cache hit consumed admission or changed response", cold.status, warm.status, before, f.calls.Load(), beforeWaiters, afterWaiters, cold.err, warm.err)
+	}
+	var jobs, items, history, ordinaryUnstopped int
+	if err := store.Pool.QueryRow(f.ctx, `SELECT (SELECT count(*) FROM batch_jobs),(SELECT count(*) FROM batch_items),(SELECT count(*) FROM history),(SELECT count(*) FROM batch_attempts WHERE kind='ordinary' AND (state<>'settled' OR local_stopped_at IS NULL))`).Scan(&jobs, &items, &history, &ordinaryUnstopped); err != nil {
+		t.Fatal(err)
+	}
+	if jobs != 1 || items != 1 || history != 0 || ordinaryUnstopped != 0 || f.peak.Load() > 1 {
+		t.Fatal("ordinary calls retained results/history or exceeded global overlap", jobs, items, history, ordinaryUnstopped, f.peak.Load())
+	}
+}
+
+func TestTemporalBatchOrdinaryRefusalSharesCooldownAndRetryOwnership(t *testing.T) {
+	t.Parallel()
+	f := newTemporalBatchFixture(t, true)
+	enableFixtureOrdinaryAdmission(t, f)
+	startFixtureV2Pool(t, f, 2)
+	tracking := uuid.NewString()
+	ordinary := make(chan ordinaryHTTPResult, 1)
+	go func() {
+		ordinary <- ordinaryFixtureCall(f.ctx, f, "/v1/responses", "nonce-8400", tracking, "off", false, 0)
+	}()
+	waitOrdinaryTracking(t, f, tracking, func(v stateful.RequestStatus) bool {
+		return v.Status == "waiting" && v.Reason != nil && *v.Reason == "provider_throttled" && v.NextAttemptAt != nil
+	})
+	job, _ := f.submit(t, 1)
+	waiting := f.wait(t, job.JobID, func(v batch.Status) bool {
+		return v.WaitingReason == "provider_throttled" && v.Counts.Active == 0 && v.NextAttemptAt != nil
+	})
+	if f.calls.Load() != 1 || waiting.NextAttemptAt == nil {
+		t.Fatal("ordinary refusal did not cool the shared durable pool", f.calls.Load(), waiting)
+	}
+	select {
+	case result := <-ordinary:
+		if result.err != nil || result.status != 200 || !strings.Contains(string(result.body), "nonce-8400") {
+			t.Fatal("ordinary retry failed after shared cooldown", result.status, string(result.body), result.err)
+		}
+	case <-f.ctx.Done():
+		t.Fatal(f.ctx.Err())
+	}
+	f.wait(t, job.JobID, func(v batch.Status) bool { return v.Counts.Done() })
+	store := f.activities.Store.(*batch.PostgresStore)
+	var attempts, executions, minOrdinal, maxOrdinal int
+	if err := store.Pool.QueryRow(f.ctx, `SELECT count(*),count(DISTINCT execution_id),min(dispatch_ordinal),max(dispatch_ordinal) FROM batch_request_waiters WHERE api_key_hash=$1`, f.scope).Scan(&attempts, &executions, &minOrdinal, &maxOrdinal); err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 2 || executions != 1 || minOrdinal != 1 || maxOrdinal != 2 || f.calls.Load() != 3 || f.peak.Load() > 2 {
+		t.Fatal("shared retry reset identity or duplicated inference", attempts, executions, minOrdinal, maxOrdinal, f.calls.Load(), f.peak.Load())
+	}
 }

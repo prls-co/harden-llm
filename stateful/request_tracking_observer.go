@@ -27,14 +27,10 @@ func (o trackingObserver) StartRuntime(ctx context.Context, v hardenllm.CallObse
 	return o.next.StartRuntime(ctx, v)
 }
 func (o trackingObserver) StartProvider(ctx context.Context, t hardenllm.ObserverTarget, c string) (context.Context, func(bool, error)) {
-	if s := trackingSession(ctx); s != nil {
-		s.Phase("provider_attempt")
-	}
 	return o.next.StartProvider(ctx, t, c)
 }
 func (o trackingObserver) StartAttempt(ctx context.Context, t hardenllm.ObserverTarget, c string, n int) (context.Context, func(error)) {
 	if s := trackingSession(ctx); s != nil {
-		s.Phase("provider_attempt")
 		s.Attempt(n)
 	}
 	return o.next.StartAttempt(ctx, t, c, n)

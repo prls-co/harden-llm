@@ -559,3 +559,95 @@ entry diagnostics. Then complete the original lifecycle/timing faults, optional
 recovery jitter, mixed 1,000/10,000-call resource/count qualification and selected
 environment plus bounded CPA acceptance. No deployment, real CPA inference,
 browser run or production promotion occurred in this checkpoint.
+
+## 16. Ordinary provider admission and preserved OpenAI contracts
+
+This checkpoint builds on `199ba15` and closes the configured ordinary-call
+bypass in source. `HARDEN_LLM_BATCH_ENABLED=true` now composes ordinary managed
+CPA dispatches with the same pool used by durable jobs. Serving requires the
+explicit schema command and an active V2 authority; missing/V1/quiesced ownership
+fails closed. No selected environment has been changed by this checkpoint.
+
+Implemented boundaries:
+
+- The stateful concrete executor wraps each actual dispatch, preserving caller
+  model/options, native opaque request, cache operation identity and progress
+  callbacks. Every repair/transport retry gets a distinct request/owner/permit
+  and monotonic ordinal under one logical execution ID and original deadline.
+  Cache hits, model discovery and other provider origins bypass CPA admission.
+- Configured CPA origin matching covers connection aliases/paths, DNS case and
+  trailing-dot/default-port spelling; it never trusts an incoming pool/scope
+  selector. Service composition binds only the authenticated key scope.
+- The live caller enqueues bounded metadata, wakes the existing authority,
+  refreshes waiter liveness, claims its exact grant and confirms dispatch intent.
+  It rechecks context/deadline before native execution. Lost claim/dispatch/wake
+  acknowledgement cannot authorize inference; fresh-nonce cleanup is metadata
+  only. The adapter cannot start/reset a pool or start a durable request workflow.
+- Ordinary success settles metadata without artifacts/history or batch manifests.
+  Local stop is asserted only on a normal executor return, never inferred from
+  timeout/heartbeat/panic. Cleanup is bounded separately and cannot replay native
+  inference or replace a known response. Logs separate admission queue time from
+  monotonic native duration and preserve actual timing/usage uncertainty. V2
+  independent-attempt logs now include their retained `retry_wait_ms` field.
+- Explicit pre-output refusal retains caller retry policy and trusted floors.
+  Post-entry transport failure (including absent positive header-write evidence),
+  partial refusal and panic remain unconfirmed; automatic core replay is blocked.
+  Compatible SDKs receive additive `x-should-retry: false` for unconfirmed outcomes,
+  preserving existing OpenAI status/error shape and `Retry-After` rounding.
+- Tracking native-entry evidence now begins at the concrete effect after admission,
+  rather than at the earlier attempt observer. Queued cancellation is confirmed.
+  `admission_wait` projects actual pool reasons with nullable eligibility; identical
+  polling invents neither progress nor ETA. Existing JSON/final-only SSE remains.
+- The explicit schema command recognizes the exact retained legacy tracking DDL
+  before adding admission enums/checks. Accepted owner/status/deadline and unrelated
+  data remain unchanged; incompatible schema still requires operator action.
+- Temporal SDK ownership remains solely in the approved batch boundary. Stateful
+  composition uses a two-method metadata signal port; gateway code uses public
+  root types. No guard/allowlist was weakened. Profile Save/import probes retain
+  their existing bounded probe and now share configured CPA admission as well.
+
+Retained failures and final verification:
+
+- `tmp/cpa-ordinary-adapter-red.log` proved the original bypass: one native call,
+  zero queued requests despite admission being configured.
+- `tmp/cpa-ordinary-adapter-first-green.log` initially contained a compile error
+  from treating internal usage methods as fields; it was corrected before owner
+  verification and is not a successful gate receipt.
+- `tmp/cpa-ordinary-shared-temporal.json` exposed a fixture assumption that every
+  request was a batch request requiring native streaming. The oracle now retains
+  that exact rule for jobs and separately checks ordinary native defaults. Frontend
+  SSE still projects a completed result; the runtime was not changed to force
+  ordinary native streaming. `tmp/cpa-ordinary-shared-temporal-green.json` passed.
+- `tmp/cpa-ordinary-final-fast.log` and the corresponding first integration/race
+  log retained architecture-guard failures. SDK imports moved into batch and its
+  approved real-service test file, and gateway tests use public root categories.
+  `tmp/cpa-ordinary-final-boundaries.log` passes unchanged guards.
+- `tmp/cpa-ordinary-verified-owners.log` and verified fast/integration receipts
+  exposed a fault-test stub that did not invoke its configured wake error. The stub
+  now injects that failure; zero native calls remain the unchanged oracle.
+- `tmp/cpa-ordinary-published-owners.log`: focused adapter/HTTP race tests pass.
+- `tmp/cpa-ordinary-published-fast.log`: all ten fast tasks accepted; cleanup empty.
+- `tmp/cpa-ordinary-published-integration-race.log`: canonical full backend SQL/
+  real-service/race gate accepted; cleanup errors/warnings empty.
+- `tmp/cpa-ordinary-published-temporal.json`: canonical real Temporal/PostgreSQL/
+  Garage suite accepted, including both new ordinary cases and retained V1/V2
+  handoff/cooldown/rollover/history-replay oracles; cleanup empty.
+- The shared-cap case holds one durable native call while two authenticated
+  ordinary scopes wait behind the same cap. Cross-key tracking returns 404.
+  A third queued call expires without native entry. Both OpenAI endpoints pass
+  JSON and SSE; a warm cache hit creates no permit. Exactly eight native HTTP
+  requests total, peak overlap <=1, one batch manifest/item and zero history rows;
+  ordinary metadata has positive local stop/settlement without result artifacts.
+- The shared-cooldown case begins with an ordinary 429, observes its retry floor
+  and a durable job waiting under the same restriction, then completes both in
+  exactly three native HTTP requests. The ordinary retry retains one execution
+  identity with separate dispatch ordinals 1/2; peak overlap <=2.
+- TEST-517..519 registration and whitespace checks pass. Hosted checks on prior
+  `199ba15` passed; new-head hosted checks remain separate from local acceptance.
+
+The full #134 goal remains active. Next: mixed 1,000/10,000-call ID/count/resource
+qualification, remaining lifecycle/timing/fault cases, optional bounded recovery
+jitter, and selected-environment plus bounded real CPA acceptance. These bounded
+synthetic compatibility cases do not establish CPA quotas, token limits or live
+throughput. No deployment, real CPA inference, browser or production promotion
+occurred. Operator/status docs and the bundled OpenAPI reflect the new source.

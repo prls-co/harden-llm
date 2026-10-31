@@ -90,7 +90,7 @@ func (a *Activities) InvokeAttempt(ctx context.Context, id string) (returned Inv
 			if out.Error != nil {
 				code = out.Error.Code
 			}
-			a.Logger.InfoContext(ctx, "independent provider invocation observed", "permit_id", id, "job_id", claimed.Ref.JobID, "item", claimed.Ref.Index, "kind", out.Kind, "admission", out.Admission, "error_code", code, "native_entered", nativeEntered, "local_stopped", observation.LocalStopped, "generation_budget_ms", out.GenerationBudgetMS, "generation_deadline_at", out.GenerationDeadline, "started_at", out.StartedAt, "finished_at", out.FinishedAt, "generation_ms", out.DurationMS, "queue_ms", out.QueueMS, "headers_ms", out.HeadersMS, "first_output_ms", out.FirstOutputMS, "retry_after_ms", out.RetryAfterMS, "input_tokens", out.InputTokens, "output_tokens", out.OutputTokens, "reasoning_tokens", out.ReasoningTokens)
+			a.Logger.InfoContext(ctx, "independent provider invocation observed", "permit_id", id, "job_id", claimed.Ref.JobID, "item", claimed.Ref.Index, "kind", out.Kind, "admission", out.Admission, "error_code", code, "native_entered", nativeEntered, "local_stopped", observation.LocalStopped, "generation_budget_ms", out.GenerationBudgetMS, "generation_deadline_at", out.GenerationDeadline, "started_at", out.StartedAt, "finished_at", out.FinishedAt, "generation_ms", out.DurationMS, "retry_wait_ms", out.RetryWaitMS, "queue_ms", out.QueueMS, "headers_ms", out.HeadersMS, "first_output_ms", out.FirstOutputMS, "retry_after_ms", out.RetryAfterMS, "input_tokens", out.InputTokens, "output_tokens", out.OutputTokens, "reasoning_tokens", out.ReasoningTokens)
 		}
 	}()
 	neverSent := func(code string) (InvocationResult, error) {
