@@ -112,11 +112,11 @@ func (api *API) beginTrackedCall(w http.ResponseWriter, r *http.Request, timeout
 	return ctx, call, cancel, true
 }
 func (c *trackedCall) collect(ctx context.Context, deadline time.Time) {
+	defer close(c.done)
 	active := c.api.trackingActiveCollectors.Add(1)
 	defer c.api.trackingActiveCollectors.Add(-1)
 	for old := c.api.trackingPeakCollectors.Load(); active > old && !c.api.trackingPeakCollectors.CompareAndSwap(old, active); old = c.api.trackingPeakCollectors.Load() {
 	}
-	defer close(c.done)
 	ticks := c.ticks
 	if ticks == nil && c.api.trackingTicks != nil {
 		var stop func()

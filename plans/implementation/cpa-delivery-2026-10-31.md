@@ -154,3 +154,38 @@ Privacy fix local acceptance: `go test -race ./internal/gateway/httpapi -run
 '^TestRequestTracking' -count=1`, registration policy and whitespace passed;
 `tmp/status-header-privacy-fast.log` records all ten fast tasks accepted with
 no cleanup errors/warnings. Hosted CodeQL reanalysis remains a separate gate.
+
+## 9. Final status acceptance additions
+
+- Owned observer panic is rethrown after bounded unconfirmed metadata cleanup;
+  cleanup never calls the provider. Watchdog stops its ticker/collector without
+  inventing a terminal execution outcome or writing recovery work.
+- Collector completion now joins diagnostic-counter cleanup as well as its
+  ticker and metadata write.
+- Both endpoints exercise typed official-SDK structured outputs/function tools,
+  in addition to tracked JSON/SSE. A fixture using union JSON unmarshalling lost
+  a required schema; replacing that fixture assembly with the SDK's typed schema
+  builder preserved the original output/dispatch oracle.
+- Real POST A/GET B now proves same UUID independence across two valid keys,
+  byte-identical foreign/unknown 404s, two distinct scoped rows and exactly two
+  intended provider calls. Query failure is 503/unavailable rather than missing;
+  logical expiry hides rows before cleanup.
+- `tmp/status-final-acceptance-sql-race.json` accepted all request-status owner
+  cases against real PostgreSQL/HTTP/TCP with race detection and clean cleanup.
+- `tmp/status-acceptance-audit-fast.log` accepted all ten fast tasks. The broader
+  canonical integration-race task is running separately for the shared SQL
+  helper and existing storage holdouts; this is not a completed gate yet.
+- Hosted PR #140 at `6e0818b4782ba4b118625fec422e267ad98652ca`: both fast
+  jobs, CodeQL analyses and the CodeQL security summary passed. Hosted Docker,
+  browser and release tasks were skipped, not passed. Later audit additions
+  need their own pushed source identity and hosted checks.
+
+Final status gate results: canonical `make test-integration-race` accepted with
+empty cleanup errors/warnings (`tmp/status-full-integration-race.log`). The
+retention audit additionally proves live records and other-key expired records
+survive bounded cleanup (`tmp/status-audit-retention-sql-race.json`, accepted).
+These are local real-service/race results, independent of hosted skipped tasks.
+The implementation has no remaining known runtime defect from the recorded
+status acceptance cases; final checklist reconciliation/publication and separate
+rollout identity remain explicit. Issue #134's ledger/workflow/admission work is
+not covered or completed by these results.

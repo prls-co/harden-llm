@@ -141,7 +141,18 @@ func TestRequestTrackingStorage(t *testing.T) {
 			}
 			requested = r
 		}
+		live, _ := NewTrackingRecord(uuid.NewString(), "/v1/responses", now, now.Add(time.Minute))
+		if err := s.ReserveTracking(ctx, keyHashA, live); err != nil {
+			t.Fatal(err)
+		}
+		foreign, _ := NewTrackingRecord(uuid.NewString(), "/v1/responses", past, past.Add(time.Minute))
+		if err := s.ReserveTracking(ctx, keyHashB, foreign); err != nil {
+			t.Fatal(err)
+		}
 		s.now = time.Now
+		if _, err := s.LookupTracking(ctx, keyHashA, requested.ID); !errors.Is(err, ErrTrackingNotFound) {
+			t.Fatal("expired row visible before physical cleanup", err)
+		}
 		fresh, _ := NewTrackingRecord(requested.ID, "/v1/responses", now, now.Add(time.Minute))
 		if err := s.ReserveTracking(ctx, keyHashA, fresh); err != nil {
 			t.Fatal("requested expired ID blocked behind cleanup limit", err)
@@ -151,8 +162,14 @@ func TestRequestTrackingStorage(t *testing.T) {
 			t.Fatal("old nonce mutated replacement", err)
 		}
 		var n int
-		if err := p.QueryRow(ctx, "SELECT count(*) FROM request_tracking WHERE api_key_hash=$1", keyHashA).Scan(&n); err != nil || n != 6 {
+		if err := p.QueryRow(ctx, "SELECT count(*) FROM request_tracking WHERE api_key_hash=$1", keyHashA).Scan(&n); err != nil || n != 7 {
 			t.Fatal("cleanup was not bounded to 100 expired rows", n, err)
+		}
+		if _, err := s.LookupTracking(ctx, keyHashA, live.ID); err != nil {
+			t.Fatal("cleanup deleted live metadata", err)
+		}
+		if err := p.QueryRow(ctx, "SELECT count(*) FROM request_tracking WHERE api_key_hash=$1", keyHashB).Scan(&n); err != nil || n != 1 {
+			t.Fatal("cleanup crossed key scope", n, err)
 		}
 	})
 	t.Run("missing pool is unavailable", func(t *testing.T) {
@@ -174,6 +191,17 @@ func TestRequestTrackingStorage(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestRequestTrackingQueryFailure(t *testing.T) {
+	t.Parallel()
+	p, _ := referencePool(t, true)
+	s, _ := serviceFixture(t, p, nil)
+	id := uuid.NewString()
+	execSQL(t, p, "DROP TABLE request_tracking")
+	if _, err := s.LookupTracking(context.Background(), keyHashA, id); !errors.Is(err, ErrTrackingUnavailable) {
+		t.Fatal("query failure disguised as missing ID", err)
+	}
 }
 
 func TestRequestTrackingUnknownCommit(t *testing.T) {
