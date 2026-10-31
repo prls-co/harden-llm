@@ -20,9 +20,12 @@ existing matched bearer, never the request body. CPA pool identity comes from
 deployment configuration. All participating replicas must use the same
 namespace, task queue and pool ID. Queue service is round-robin across jobs,
 not a weighted allocation across clients; submitting more jobs can change a
-client's share. Ordinary HLLM `/v1/responses` calls, direct CPA clients and
-separate Temporal namespaces remain outside this admission authority. Route
-participating shared-account work through `/v1/jobs` to obtain the shared limit.
+client's share. With V2 admission enabled, ordinary HLLM generation, repair and
+retry calls to the configured CPA origin share the same authority with jobs.
+Ordinary calls remain request-bound; use `/v1/jobs` for durable multi-minute
+waits. Direct CPA clients and separate Temporal namespaces remain outside this
+authority. Route participating shared-account work through the same configured
+HLLM pool to obtain a shared limit.
 
 ## 2. Self-hosted configuration
 
