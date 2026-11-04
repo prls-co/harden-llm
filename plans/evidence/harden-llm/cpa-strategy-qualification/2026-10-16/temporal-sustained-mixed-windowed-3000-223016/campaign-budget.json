@@ -1,0 +1,26 @@
+{
+  "scope": "all pilot and main attempts; reported input+output plus conservative uncertain/active reserve",
+  "allowanceBeforeCase": 7422055,
+  "reportedTokens": 821576,
+  "uncertainAndActiveReserve": 0,
+  "guard": null,
+  "runnerExit": 0,
+  "observed": {
+    "reportedTokens": 821576,
+    "uncertainAttemptReserve": 0,
+    "activeAttemptReserve": 0,
+    "activeAttempts": 0,
+    "finishedAttemptsIncludingPilots": 3002,
+    "mainAttemptOutcomes": {
+      "completed": 3000
+    },
+    "finishedKindCounts": {
+      "completed": 3002,
+      "rejected": 0,
+      "failed": 0,
+      "policy": 0
+    },
+    "largestAttemptTokens": 2434
+  },
+  "reportedUsageIsNotNativeInternalUsage": true
+}

@@ -600,3 +600,120 @@ test("TEST-234 compares resolved physical network names and detects real members
   delete model.networks["shared-postgres"].name;
   assert.throws(compare, /resolved Compose network shared-postgres has no name/);
 });
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-260 TEST-450
+const batchWorker = "harden-llm-batch-worker";
+function batchApplyFixture(t, {existing = false, inspectFailure = false, listFailure = false, foreign = false, schemaExit = 0, change = () => {}} = {}) {
+  const release = "b".repeat(40);
+  const descriptor = candidateDescriptorFor(t, {desiredRelease: release});
+  descriptor.composeFiles.push("deploy/batch/compose.yml");
+  descriptor.services[batchWorker] = {
+    ...structuredClone(descriptor.services["harden-llm-gateway"]),
+    container: "harden-llm-harden-llm-batch-worker-1",
+    allowedDifferenceFields: ["environment", "image", "identity", "runtime", "stop-grace-period"],
+  };
+  descriptor.serviceEnvironmentOverrides[batchWorker] = {HARDEN_LLM_RELEASE: release};
+  descriptor.serviceImageOverrides[batchWorker] = "harden-llm-gateway:fixture";
+  const model = candidateComposeModel(descriptor.composeRoot, release);
+  const gateway = model.services["harden-llm-gateway"];
+  Object.assign(gateway.environment, {
+    HARDEN_LLM_BATCH_ENABLED: "true", HARDEN_LLM_TEMPORAL_ADDRESS: "temporal:7233",
+    HARDEN_LLM_TEMPORAL_NAMESPACE: "hllm-production", HARDEN_LLM_BATCH_TASK_QUEUE: "hllm-batch",
+    HARDEN_LLM_BATCH_POOL_ID: "production-cpa", HARDEN_LLM_BATCH_UPSTREAM: "cpa",
+    HARDEN_LLM_BATCH_CONCURRENCY: "128", HARDEN_LLM_ARTIFACT_ENDPOINT: "http://garage:3900",
+    HARDEN_LLM_ARTIFACT_BUCKET: "hllm-artifacts", CPA_API_KEY: "synthetic-upstream-token",
+  });
+  model.services[batchWorker] = {...structuredClone(gateway), command: ["worker"], healthcheck: {disable: true}, stop_grace_period: "2m0s"};
+  const worker = candidateRuntimeContainer({...descriptor.__candidateFixture, service: batchWorker});
+  worker.Config.Cmd = ["worker"];
+  worker.Config.Healthcheck = {Test: ["NONE"]};
+  worker.Config.StopTimeout = 120;
+  worker.Config.Env = Object.entries(gateway.environment).map(([k,v]) => `${k}=${v}`);
+  worker.State = {Status: "running"};
+  if (foreign) worker.Config.Labels["com.docker.compose.project"] = "another-owner";
+  change(model, descriptor, worker);
+  validateDescriptor(descriptor);
+  const calls = [];
+  const run = (_bin, args) => {
+    calls.push([...args]);
+    if (args.includes("config")) return {status: 0, stdout: JSON.stringify(model)};
+    if (args.includes("image")) return {status: 0, stdout: args.some(a => a.includes("org.opencontainers.image.version")) ? `${descriptor.__candidateFixture.image}|${release}\n` : `${descriptor.__candidateFixture.image}\n`};
+    if (args.includes("ls")) return {status: listFailure ? 1 : 0, stdout: existing ? descriptor.services[batchWorker].container + "\n" : "unrelated-container\n"};
+    if (args.includes("inspect")) return {status: !existing || inspectFailure ? 1 : 0, stdout: JSON.stringify([worker])};
+    if (args.includes("run")) return {status: schemaExit, stderr: "synthetic-upstream-token"};
+    if (args.includes("up")) { existing = true; return {status: 0}; }
+    throw new Error("unexpected test command");
+  };
+  return {descriptor, model, worker, run, calls, release};
+}
+
+test("TEST-260 batch overlay is an exact opt-in graph, not an arbitrary file extension", t => {
+  const f = batchApplyFixture(t);
+  for (const files of [
+    [...f.descriptor.composeFiles, "untrusted.yml"],
+    ["docker-compose.yml", "deploy/batch/compose.yml", "deploy/frontend/compose.frontend.yml"],
+    ["docker-compose.yml", "deploy/frontend/compose.frontend.yml"],
+  ]) assert.throws(() => validateDescriptor({...f.descriptor, composeFiles: files}), /approved graph|batch/);
+});
+
+test("TEST-450 first worker installation runs schema before only the explicitly selected worker", t => {
+  const f = batchApplyFixture(t);
+  assert.equal(runApply(f.descriptor, [batchWorker], f.run, {expectedRelease: f.release}).applied, true);
+  const mutations = f.calls.filter(a => a.includes("up") || a.includes("run"));
+  assert.equal(mutations.length, 2);
+  assert.deepEqual(mutations[0].slice(-6), ["run", "--rm", "--no-deps", "--pull", "never", "gateway-schema"]);
+  assert.deepEqual(mutations[1].slice(-1), [batchWorker]);
+  assert(mutations[1].includes("--no-deps"));
+  assert(!mutations[1].includes("harden-llm-gateway"));
+  assert.equal(runCheck(f.descriptor, {services: [batchWorker], expectedRelease: f.release, run: f.run}).differences.length, 0);
+  assert(!JSON.stringify(f.calls).includes("synthetic-upstream-token"));
+});
+
+for (const [name, options] of [
+  ["daemon inspection failure for an existing worker", {existing: true, inspectFailure: true}],
+  ["unavailable container listing", {listFailure: true}],
+  ["foreign Compose ownership", {existing: true, foreign: true}],
+  ["schema failure", {schemaExit: 1}],
+  ["different image reference", {change: m => m.services[batchWorker].image = "other:fixture"}],
+  ["different database", {change: m => m.services[batchWorker].environment.HARDEN_LLM_DATABASE_URL = "other"}],
+  ["different namespace", {change: m => m.services[batchWorker].environment.HARDEN_LLM_TEMPORAL_NAMESPACE = "other"}],
+  ["different policy", {change: m => m.services[batchWorker].environment.HARDEN_LLM_BATCH_CONCURRENCY = "64"}],
+  ["different upstream credential", {change: m => m.services[batchWorker].environment.CPA_API_KEY = "other"}],
+  ["different artifact authority", {change: m => m.services[batchWorker].environment.HARDEN_LLM_ARTIFACT_BUCKET = "other"}],
+]) test(`TEST-260 batch deployment rejects ${name} before worker startup`, t => {
+  const f = batchApplyFixture(t, options);
+  let error;
+  try { runApply(f.descriptor, [batchWorker], f.run, {expectedRelease: f.release}); } catch (e) { error = e; }
+  assert(error);
+  assert(!f.calls.some(a => a.includes("up")));
+  assert(!String(error).includes("synthetic-upstream-token"));
+});
+
+test("TEST-260 worker apply requires an explicit release and missing-runtime approval", t => {
+  const f = batchApplyFixture(t);
+  assert.throws(() => runApply(f.descriptor, [batchWorker], f.run), /expected.release/);
+  assert.equal(f.calls.length, 0);
+  f.descriptor.services[batchWorker].allowedDifferenceFields = ["environment", "image", "identity"];
+  assert.throws(() => runApply(f.descriptor, [batchWorker], f.run, {expectedRelease: f.release}), /unapproved difference/);
+  assert(!f.calls.some(a => a.includes("up") || a.includes("run")));
+});
+
+test("TEST-260 running worker uses its process health while gateway still requires HTTP health", t => {
+  const f = batchApplyFixture(t, {existing: true});
+  assert.deepEqual(runCheck(f.descriptor, {services: [batchWorker], expectedRelease: f.release, run: f.run}).differences, []);
+  f.worker.State.Status = "exited";
+  assert(runCheck(f.descriptor, {services: [batchWorker], expectedRelease: f.release, run: f.run}).differences.includes(`${batchWorker}.candidate.runtime-state`));
+  f.worker.State.Status = "running";
+  f.worker.Config.StopTimeout = 30;
+  assert(runCheck(f.descriptor, {services: [batchWorker], expectedRelease: f.release, run: f.run}).differences.includes(`${batchWorker}.stop-grace-period`));
+});
+
+test("TEST-234 multiple logical aliases for the same physical network compare once", t => {
+  const directory = fixtureDirectory(t);
+  const literal = privateFile(directory, "network.conf", "fixture");
+  const descriptor = descriptorFor(t);
+  const model = composeModel(directory, literal);
+  model.networks.temporal = {name: "harden-llm_default", external: true};
+  model.services.probe.networks.temporal = {};
+  assert.deepEqual(compareResolvedConfiguration(model, [{service: "probe", container: runtimeContainer(directory, literal)}], descriptor), []);
+});

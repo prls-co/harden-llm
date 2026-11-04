@@ -39,6 +39,7 @@ const (
 type serverConfig struct {
 	apiKeys   []string
 	reference referenceSettings
+	batch     batchSettings
 
 	listenAddress       string
 	connections         []hardenllm.Connection
@@ -137,6 +138,10 @@ func loadServerConfig(getenv func(string) string) (serverConfig, error) {
 	}
 	config.connections, config.defaultConnection, config.apiKeys = connections, defaultConnection, apiKeys
 	config.reference, err = loadReferenceSettings(getenv)
+	if err != nil {
+		return serverConfig{}, err
+	}
+	config.batch, err = loadBatchSettings(getenv, connections)
 	if err != nil {
 		return serverConfig{}, err
 	}

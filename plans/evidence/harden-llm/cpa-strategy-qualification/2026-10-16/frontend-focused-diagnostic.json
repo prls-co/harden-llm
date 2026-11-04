@@ -1,0 +1,18 @@
+{
+  "scope": "focused local real LiveView/Go/PostgreSQL diagnostic; no browser or paid provider",
+  "sourceSHA": "1c788aca9443a11d6fbe6b47eba1baa60eed32b4",
+  "accepted": true,
+  "report": "tmp/test-feedback/runner-1792191280094-727122-504ec934ba2687e2.json",
+  "reportSHA256": "a72a3952037af4b0f7a4a46b13ffb0a8162840fee9a178716c345f01d97431bb",
+  "tasks": [
+    {
+      "taskId": "frontend-gateway-workflows",
+      "status": 0,
+      "wallTimeMs": 255143
+    }
+  ],
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "originalAssertionUnchanged": true,
+  "finding": "Original draft-error assertion failure did not reproduce in the focused run. Added failure context does not constitute a behavior fix; cause remains unconfirmed. Original failed aggregate retained; full current-source aggregate verification still required."
+}

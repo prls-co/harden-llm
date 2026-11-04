@@ -1,0 +1,46 @@
+{
+  "fast": [
+    {
+      "report": "runner-1792118939453-3953464-82456095cd41e23a.json",
+      "accepted": true,
+      "taskCount": 10,
+      "firstFailure": null,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    {
+      "report": "runner-1792119632739-4036270-655d849ab25e75af.json",
+      "accepted": true,
+      "taskCount": 10,
+      "firstFailure": null,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    {
+      "report": "runner-1792120375239-4121904-983a67f86564cd2f.json",
+      "accepted": true,
+      "taskCount": 10,
+      "firstFailure": null,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    }
+  ],
+  "targetedRace": "go test -race ./internal/livecapacity -count=1 passed",
+  "vet": "go vet -tags=live ./internal/livecapacity ./cmd/harden-llm-cpabench passed",
+  "ordinaryHLLM1000AcceptanceQualified": false,
+  "browserRun": false,
+  "productionDeployment": false,
+  "sourceSHAs": [
+    "2b41ae8",
+    "6bdb21a",
+    "952b923"
+  ],
+  "hostedSourceSHA": "952b923943bfba09b4b99097c702ba95b45439f0",
+  "hostedRuns": [
+    38845581381,
+    38845577382
+  ],
+  "nativePublic1000Accepted": true,
+  "nativeLiteral1000Calls": true,
+  "nativeCallsCombinedAcrossAllRuns": 6317
+}

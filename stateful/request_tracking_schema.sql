@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS request_tracking (
  owner_id uuid NOT NULL CHECK (owner_id <> '00000000-0000-0000-0000-000000000000'),
  endpoint text NOT NULL CHECK (endpoint IN ('/v1/responses','/v1/chat/completions')),
  status text NOT NULL CHECK (status IN ('running','waiting','completed','failed','cancelled','unconfirmed')),
- stage text CHECK (stage IN ('preparing','provider_attempt','validation','retry_wait','response_projection')),
- reason text CHECK (reason IN ('provider_throttled','retry_backoff','execution_unobserved')),
+ stage text CHECK (stage IN ('preparing','provider_attempt','validation','retry_wait','response_projection','admission_wait')),
+ reason text CHECK (reason IN ('provider_throttled','retry_backoff','execution_unobserved','admission_window','account_restricted','dispatch_pending','workflow_rollover','persistence_wait','worker_unavailable','unresolved_execution','pool_capacity')),
  created_at timestamptz NOT NULL,
  deadline_at timestamptz NOT NULL CHECK (deadline_at > created_at),
  retention_expires_at timestamptz NOT NULL CHECK (retention_expires_at = deadline_at + interval '24 hours'),
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS request_tracking (
  outcome_confirmed boolean,
  CONSTRAINT request_tracking_pkey PRIMARY KEY (api_key_hash, tracking_id),
  CHECK ((status IN ('running','waiting') AND finished_at IS NULL AND outcome_confirmed IS NULL) OR (status IN ('completed','failed','cancelled','unconfirmed') AND finished_at IS NOT NULL AND outcome_confirmed IS NOT NULL)),
- CHECK ((status = 'waiting' AND stage = 'retry_wait' AND reason IN ('provider_throttled','retry_backoff') AND next_attempt_at IS NOT NULL) OR (status <> 'waiting' AND next_attempt_at IS NULL AND reason IS NULL)),
+ CHECK ((status = 'waiting' AND ((stage = 'retry_wait' AND reason IN ('provider_throttled','retry_backoff') AND next_attempt_at IS NOT NULL) OR (stage = 'admission_wait' AND reason IN ('provider_throttled','admission_window','account_restricted','dispatch_pending','workflow_rollover','persistence_wait','worker_unavailable','unresolved_execution','pool_capacity')))) OR (status <> 'waiting' AND next_attempt_at IS NULL AND reason IS NULL)),
  CHECK ((status = 'unconfirmed' AND outcome_confirmed = false) OR (status IN ('completed','failed','cancelled') AND outcome_confirmed = true) OR status IN ('running','waiting'))
 );
 CREATE INDEX IF NOT EXISTS request_tracking_expiry ON request_tracking(api_key_hash, retention_expires_at, tracking_id);

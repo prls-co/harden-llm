@@ -38,6 +38,7 @@ type EndpointPolicy struct {
 	ConnectTimeout        time.Duration
 	TLSHandshakeTimeout   time.Duration
 	ResponseHeaderTimeout time.Duration
+	MaxConnsPerHost       int
 }
 
 type endpointGuard struct {
@@ -275,12 +276,13 @@ func isRestrictedAddress(address netip.Addr) bool {
 }
 
 type safeRoundTripper struct {
-	guard          *endpointGuard
-	dial           func(context.Context, string, string) (net.Conn, error)
-	connectTimeout time.Duration
-	tlsConfig      *tls.Config
-	tlsTimeout     time.Duration
-	headerTimeout  time.Duration
+	guard           *endpointGuard
+	dial            func(context.Context, string, string) (net.Conn, error)
+	connectTimeout  time.Duration
+	tlsConfig       *tls.Config
+	tlsTimeout      time.Duration
+	headerTimeout   time.Duration
+	maxConnsPerHost int
 
 	mu         sync.Mutex
 	transports map[string]*http.Transport
@@ -296,6 +298,13 @@ func newSafeHTTPClient(policy EndpointPolicy) (*http.Client, error) {
 }
 
 func newSafeHTTPClientWithGuard(policy EndpointPolicy, guard *endpointGuard) (*http.Client, error) {
+	if policy.MaxConnsPerHost < 0 || policy.MaxConnsPerHost > 1000 {
+		return nil, errors.New("providers: MaxConnsPerHost must be from 0 through 1000")
+	}
+	connections := policy.MaxConnsPerHost
+	if connections == 0 {
+		connections = 128
+	}
 	if guard == nil {
 		return nil, errors.New("providers: endpoint guard is required")
 	}
@@ -325,7 +334,8 @@ func newSafeHTTPClientWithGuard(policy EndpointPolicy, guard *endpointGuard) (*h
 	transport := &safeRoundTripper{
 		guard: guard, dial: dial, tlsConfig: policy.TLSConfig,
 		connectTimeout: connectTimeout, tlsTimeout: tlsTimeout, headerTimeout: headerTimeout,
-		transports: make(map[string]*http.Transport),
+		maxConnsPerHost: connections,
+		transports:      make(map[string]*http.Transport),
 	}
 	return &http.Client{
 		Transport: transport,
@@ -402,7 +412,7 @@ func (transport *safeRoundTripper) transportFor(endpoint resolvedEndpoint) *http
 		IdleConnTimeout:       90 * time.Second,
 		MaxIdleConns:          256,
 		MaxIdleConnsPerHost:   32,
-		MaxConnsPerHost:       128,
+		MaxConnsPerHost:       transport.maxConnsPerHost,
 	}
 	transport.transports[key] = created
 	transport.order = append(transport.order, key)

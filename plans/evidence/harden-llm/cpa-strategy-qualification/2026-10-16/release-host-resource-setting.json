@@ -1,0 +1,28 @@
+{
+  "scope": "local release-run resource setting; does not change CPA admission or test assertions",
+  "observedAt": "2026-10-16T23:02:33.087964+00:00",
+  "globalResource": "shared 12-logical-CPU development host and its local disk",
+  "logicalCPUs": 12,
+  "GOMAXPROCS": 4,
+  "ERLSchedulers": 4,
+  "goIntegrationPackageSlots": 3,
+  "goIntegrationCommandUnchanged": true,
+  "previousConcurrentCPUTasks": 2,
+  "selectedConcurrentCPUTasks": 1,
+  "purpose": "Reduce concurrent compilation pressure while retaining every original case and short SQL deadline. This is a measured isolation choice, not proof of the earlier failure cause.",
+  "unchangedSQLSourceSHA256": "63a2537924b621f12c68789e85bc8ae7a404d48443187f59c0e60ef63c10c663",
+  "SQLSourceMatchesProduction90e42af": true,
+  "unchangedSQLLimits": {
+    "transactionMs": 600,
+    "statementMs": 500
+  },
+  "focusedStorageIntegrationAccepted": true,
+  "fullReleaseStatus": "passed",
+  "paidProviderUsed": false,
+  "CPAExperimentPolicyUnchanged": {
+    "concurrency": 128,
+    "windowRequests": 200,
+    "windowSeconds": 61
+  },
+  "acceptedReleaseSourceSHA": "edaea2a6c29c744e6cfec606954ae4dc090805e1"
+}

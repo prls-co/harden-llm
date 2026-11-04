@@ -48,7 +48,7 @@ defmodule HardenLlmWeb.GatewayWorkflowsTest do
         |> render_change(%{"run" => %{"selectedProfileId" => id}})
 
         render_settled(view, 10_000)
-        refute has_element?(view, "#draft-error"), id
+        refute has_element?(view, "#draft-error"), "#{id}: #{draft_error_text(view)}"
         {:ok, state} = Client.get_state(context)
         assert state["payload"]["selectedProfileId"] == id
         refute Map.has_key?(state["payload"]["profileEditor"], "apiKey")
@@ -256,5 +256,13 @@ defmodule HardenLlmWeb.GatewayWorkflowsTest do
     view |> form("#run-form") |> render_submit()
     render_settled(view, 10_000)
     view
+  end
+
+  defp draft_error_text(view) do
+    if has_element?(view, "#draft-error") do
+      view |> element("#draft-error") |> render()
+    else
+      "no draft error"
+    end
   end
 end

@@ -1,0 +1,18 @@
+{
+  "scope": "actual self-hosted Temporal/PostgreSQL/Garage with public CPA; no browser or official API",
+  "sourceSHA": "1c788aca9443a11d6fbe6b47eba1baa60eed32b4",
+  "sourceDirty": false,
+  "report": "tmp/test-feedback/runner-1792190975808-522354-7610782c00541d25.json",
+  "reportSHA256": "5302ebb5785088676bb72286f40ec2f66f9c3e465c7e5556f7d64a07f8c93ab9",
+  "selector": "live-cpa-batch",
+  "accepted": true,
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "tasks": [
+    {
+      "taskId": "live-cpa-batch",
+      "status": 0,
+      "wallTimeMs": 1159190
+    }
+  ]
+}

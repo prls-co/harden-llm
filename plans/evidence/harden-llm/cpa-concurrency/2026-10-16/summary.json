@@ -1,0 +1,1061 @@
+{
+  "observedAt": "2026-10-16T01:41:33.160656+00:00",
+  "runs": [
+    {
+      "directory": "local-steady-2rps-f1387fe",
+      "sourceSHA": "f1387fe4e53aa204b25d727564c1f85fa6e1474d",
+      "loopbackControl": true,
+      "minimumConcurrency": 1,
+      "maximumConcurrency": 16,
+      "minimumStartIntervalMs": 500,
+      "complete": true,
+      "stopReason": "ramp_failure",
+      "phases": [
+        {
+          "phase": "steady-16",
+          "dispatched": 176,
+          "completed": 175,
+          "outcomes": {
+            "completed": 175,
+            "unconfirmed": 1
+          },
+          "actualHTTPOverlap": 7,
+          "p50SuccessfulMs": 1256,
+          "p95SuccessfulMs": 3924,
+          "maxSuccessfulMs": 9339,
+          "firstStart": "2026-10-15T18:38:10.373196-07:00",
+          "lastFinish": "2026-10-15T18:39:45.580770-07:00",
+          "wallSeconds": 95.208,
+          "measuredStartRPS": 1.894,
+          "errors": [
+            {
+              "id": 62,
+              "kind": "unconfirmed",
+              "code": null,
+              "httpStatus": 0,
+              "durationMs": 60000,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:38:43.120252094-07:00",
+              "finishedAt": "2026-10-15T18:39:43.120671722-07:00"
+            }
+          ]
+        }
+      ],
+      "totalDispatched": 176,
+      "completed": 175,
+      "outcomes": {
+        "completed": 175,
+        "unconfirmed": 1
+      },
+      "rawEventsSHA256": "f0f2325b2d417bdd2d146f61b3efb92f9ef86f1856c15e44fc65eb8194c57238"
+    },
+    {
+      "directory": "local128-f1387fe",
+      "sourceSHA": "f1387fe4e53aa204b25d727564c1f85fa6e1474d",
+      "loopbackControl": true,
+      "minimumConcurrency": 128,
+      "maximumConcurrency": 128,
+      "minimumStartIntervalMs": 0,
+      "complete": true,
+      "stopReason": "ramp_failure",
+      "phases": [
+        {
+          "phase": "concurrency-128-wave-1",
+          "dispatched": 128,
+          "completed": 127,
+          "outcomes": {
+            "completed": 127,
+            "unconfirmed": 1
+          },
+          "actualHTTPOverlap": 128,
+          "p50SuccessfulMs": 1316,
+          "p95SuccessfulMs": 2136,
+          "maxSuccessfulMs": 3283,
+          "firstStart": "2026-10-15T18:35:10.160216-07:00",
+          "lastFinish": "2026-10-15T18:36:10.349672-07:00",
+          "wallSeconds": 60.189,
+          "measuredStartRPS": 426.439,
+          "errors": [
+            {
+              "id": 82,
+              "kind": "unconfirmed",
+              "code": null,
+              "httpStatus": 0,
+              "durationMs": 60000,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:35:10.349385599-07:00",
+              "finishedAt": "2026-10-15T18:36:10.349672708-07:00"
+            }
+          ]
+        }
+      ],
+      "totalDispatched": 128,
+      "completed": 127,
+      "outcomes": {
+        "completed": 127,
+        "unconfirmed": 1
+      },
+      "rawEventsSHA256": "c2c93d7b3979c7514f42ebb93155cd66bb567bc7a0c7e40bff71bbde31dbbefc"
+    },
+    {
+      "directory": "recovery-b0de2bb",
+      "sourceSHA": "b0de2bbc7f39e0664c26fdbdb313fe1c790c6b55",
+      "loopbackControl": false,
+      "minimumConcurrency": 64,
+      "maximumConcurrency": 64,
+      "minimumStartIntervalMs": 0,
+      "complete": true,
+      "stopReason": "",
+      "phases": [
+        {
+          "phase": "concurrency-64-wave-1",
+          "dispatched": 64,
+          "completed": 64,
+          "outcomes": {
+            "completed": 64
+          },
+          "actualHTTPOverlap": 64,
+          "p50SuccessfulMs": 1377,
+          "p95SuccessfulMs": 2694,
+          "maxSuccessfulMs": 3470,
+          "firstStart": "2026-10-15T18:22:46.680744-07:00",
+          "lastFinish": "2026-10-15T18:22:50.156363-07:00",
+          "wallSeconds": 3.476,
+          "measuredStartRPS": 982.303,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-64-wave-2",
+          "dispatched": 64,
+          "completed": 64,
+          "outcomes": {
+            "completed": 64
+          },
+          "actualHTTPOverlap": 64,
+          "p50SuccessfulMs": 1389,
+          "p95SuccessfulMs": 2615,
+          "maxSuccessfulMs": 5921,
+          "firstStart": "2026-10-15T18:22:55.171725-07:00",
+          "lastFinish": "2026-10-15T18:23:01.251149-07:00",
+          "wallSeconds": 6.079,
+          "measuredStartRPS": 164.055,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-64-wave-3",
+          "dispatched": 64,
+          "completed": 64,
+          "outcomes": {
+            "completed": 64
+          },
+          "actualHTTPOverlap": 64,
+          "p50SuccessfulMs": 1302,
+          "p95SuccessfulMs": 2392,
+          "maxSuccessfulMs": 4767,
+          "firstStart": "2026-10-15T18:23:06.262219-07:00",
+          "lastFinish": "2026-10-15T18:23:11.148736-07:00",
+          "wallSeconds": 4.887,
+          "measuredStartRPS": 433.302,
+          "errors": []
+        }
+      ],
+      "totalDispatched": 192,
+      "completed": 192,
+      "outcomes": {
+        "completed": 192
+      },
+      "rawEventsSHA256": "6eb133b20f18c3c35777af1f9835392b49da6104909c74aab1e9f72821ad7c9b"
+    },
+    {
+      "directory": "run-dffcc38",
+      "sourceSHA": "dffcc3818f7c2089006edb7af35ca737b3402cd5",
+      "loopbackControl": false,
+      "minimumConcurrency": 1,
+      "maximumConcurrency": 64,
+      "minimumStartIntervalMs": 0,
+      "complete": true,
+      "stopReason": "ramp_failure",
+      "phases": [
+        {
+          "phase": "concurrency-1-wave-1",
+          "dispatched": 1,
+          "completed": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "actualHTTPOverlap": 1,
+          "p50SuccessfulMs": 1848,
+          "p95SuccessfulMs": 1848,
+          "maxSuccessfulMs": 1848,
+          "firstStart": "2026-10-15T18:17:26.763416-07:00",
+          "lastFinish": "2026-10-15T18:17:28.611604-07:00",
+          "wallSeconds": 1.848,
+          "measuredStartRPS": null,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-1-wave-2",
+          "dispatched": 1,
+          "completed": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "actualHTTPOverlap": 1,
+          "p50SuccessfulMs": 1222,
+          "p95SuccessfulMs": 1222,
+          "maxSuccessfulMs": 1222,
+          "firstStart": "2026-10-15T18:17:33.621430-07:00",
+          "lastFinish": "2026-10-15T18:17:34.843651-07:00",
+          "wallSeconds": 1.222,
+          "measuredStartRPS": null,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-1-wave-3",
+          "dispatched": 1,
+          "completed": 1,
+          "outcomes": {
+            "completed": 1
+          },
+          "actualHTTPOverlap": 1,
+          "p50SuccessfulMs": 1116,
+          "p95SuccessfulMs": 1116,
+          "maxSuccessfulMs": 1116,
+          "firstStart": "2026-10-15T18:17:39.856038-07:00",
+          "lastFinish": "2026-10-15T18:17:40.972716-07:00",
+          "wallSeconds": 1.117,
+          "measuredStartRPS": null,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-2-wave-1",
+          "dispatched": 2,
+          "completed": 2,
+          "outcomes": {
+            "completed": 2
+          },
+          "actualHTTPOverlap": 2,
+          "p50SuccessfulMs": 1686,
+          "p95SuccessfulMs": 1686,
+          "maxSuccessfulMs": 1686,
+          "firstStart": "2026-10-15T18:17:45.983126-07:00",
+          "lastFinish": "2026-10-15T18:17:47.669654-07:00",
+          "wallSeconds": 1.687,
+          "measuredStartRPS": 3802.281,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-2-wave-2",
+          "dispatched": 2,
+          "completed": 2,
+          "outcomes": {
+            "completed": 2
+          },
+          "actualHTTPOverlap": 2,
+          "p50SuccessfulMs": 2248,
+          "p95SuccessfulMs": 2248,
+          "maxSuccessfulMs": 2248,
+          "firstStart": "2026-10-15T18:17:52.673617-07:00",
+          "lastFinish": "2026-10-15T18:17:54.922172-07:00",
+          "wallSeconds": 2.249,
+          "measuredStartRPS": 1858.736,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-2-wave-3",
+          "dispatched": 2,
+          "completed": 2,
+          "outcomes": {
+            "completed": 2
+          },
+          "actualHTTPOverlap": 2,
+          "p50SuccessfulMs": 1679,
+          "p95SuccessfulMs": 1679,
+          "maxSuccessfulMs": 1679,
+          "firstStart": "2026-10-15T18:17:59.929038-07:00",
+          "lastFinish": "2026-10-15T18:18:01.608815-07:00",
+          "wallSeconds": 1.68,
+          "measuredStartRPS": 2631.579,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-4-wave-1",
+          "dispatched": 4,
+          "completed": 4,
+          "outcomes": {
+            "completed": 4
+          },
+          "actualHTTPOverlap": 4,
+          "p50SuccessfulMs": 1409,
+          "p95SuccessfulMs": 1507,
+          "maxSuccessfulMs": 1507,
+          "firstStart": "2026-10-15T18:18:06.616951-07:00",
+          "lastFinish": "2026-10-15T18:18:08.123995-07:00",
+          "wallSeconds": 1.507,
+          "measuredStartRPS": 1464.844,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-4-wave-2",
+          "dispatched": 4,
+          "completed": 4,
+          "outcomes": {
+            "completed": 4
+          },
+          "actualHTTPOverlap": 4,
+          "p50SuccessfulMs": 1366,
+          "p95SuccessfulMs": 1576,
+          "maxSuccessfulMs": 1576,
+          "firstStart": "2026-10-15T18:18:13.131561-07:00",
+          "lastFinish": "2026-10-15T18:18:14.707884-07:00",
+          "wallSeconds": 1.576,
+          "measuredStartRPS": 2557.545,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-4-wave-3",
+          "dispatched": 4,
+          "completed": 4,
+          "outcomes": {
+            "completed": 4
+          },
+          "actualHTTPOverlap": 4,
+          "p50SuccessfulMs": 1456,
+          "p95SuccessfulMs": 1643,
+          "maxSuccessfulMs": 1643,
+          "firstStart": "2026-10-15T18:18:19.714908-07:00",
+          "lastFinish": "2026-10-15T18:18:21.361358-07:00",
+          "wallSeconds": 1.646,
+          "measuredStartRPS": 1020.755,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-8-wave-1",
+          "dispatched": 8,
+          "completed": 8,
+          "outcomes": {
+            "completed": 8
+          },
+          "actualHTTPOverlap": 8,
+          "p50SuccessfulMs": 1476,
+          "p95SuccessfulMs": 3156,
+          "maxSuccessfulMs": 3156,
+          "firstStart": "2026-10-15T18:18:26.368580-07:00",
+          "lastFinish": "2026-10-15T18:18:29.528104-07:00",
+          "wallSeconds": 3.16,
+          "measuredStartRPS": 1770.359,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-8-wave-2",
+          "dispatched": 8,
+          "completed": 8,
+          "outcomes": {
+            "completed": 8
+          },
+          "actualHTTPOverlap": 8,
+          "p50SuccessfulMs": 1339,
+          "p95SuccessfulMs": 1802,
+          "maxSuccessfulMs": 1802,
+          "firstStart": "2026-10-15T18:18:34.542416-07:00",
+          "lastFinish": "2026-10-15T18:18:36.344728-07:00",
+          "wallSeconds": 1.802,
+          "measuredStartRPS": 2049.18,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-8-wave-3",
+          "dispatched": 8,
+          "completed": 8,
+          "outcomes": {
+            "completed": 8
+          },
+          "actualHTTPOverlap": 8,
+          "p50SuccessfulMs": 1346,
+          "p95SuccessfulMs": 1640,
+          "maxSuccessfulMs": 1640,
+          "firstStart": "2026-10-15T18:18:41.358396-07:00",
+          "lastFinish": "2026-10-15T18:18:42.999787-07:00",
+          "wallSeconds": 1.641,
+          "measuredStartRPS": 2276.423,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-16-wave-1",
+          "dispatched": 16,
+          "completed": 16,
+          "outcomes": {
+            "completed": 16
+          },
+          "actualHTTPOverlap": 16,
+          "p50SuccessfulMs": 1375,
+          "p95SuccessfulMs": 2374,
+          "maxSuccessfulMs": 2374,
+          "firstStart": "2026-10-15T18:18:48.008586-07:00",
+          "lastFinish": "2026-10-15T18:18:50.384048-07:00",
+          "wallSeconds": 2.375,
+          "measuredStartRPS": 1503.157,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-16-wave-2",
+          "dispatched": 16,
+          "completed": 16,
+          "outcomes": {
+            "completed": 16
+          },
+          "actualHTTPOverlap": 16,
+          "p50SuccessfulMs": 1704,
+          "p95SuccessfulMs": 3426,
+          "maxSuccessfulMs": 3426,
+          "firstStart": "2026-10-15T18:18:55.397905-07:00",
+          "lastFinish": "2026-10-15T18:18:58.831904-07:00",
+          "wallSeconds": 3.434,
+          "measuredStartRPS": 903.56,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-16-wave-3",
+          "dispatched": 16,
+          "completed": 16,
+          "outcomes": {
+            "completed": 16
+          },
+          "actualHTTPOverlap": 16,
+          "p50SuccessfulMs": 1380,
+          "p95SuccessfulMs": 3670,
+          "maxSuccessfulMs": 3670,
+          "firstStart": "2026-10-15T18:19:03.838365-07:00",
+          "lastFinish": "2026-10-15T18:19:07.515545-07:00",
+          "wallSeconds": 3.677,
+          "measuredStartRPS": 1819.505,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-32-wave-1",
+          "dispatched": 32,
+          "completed": 32,
+          "outcomes": {
+            "completed": 32
+          },
+          "actualHTTPOverlap": 32,
+          "p50SuccessfulMs": 1343,
+          "p95SuccessfulMs": 1998,
+          "maxSuccessfulMs": 2239,
+          "firstStart": "2026-10-15T18:19:12.530303-07:00",
+          "lastFinish": "2026-10-15T18:19:14.771962-07:00",
+          "wallSeconds": 2.242,
+          "measuredStartRPS": 1113.306,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-32-wave-2",
+          "dispatched": 32,
+          "completed": 32,
+          "outcomes": {
+            "completed": 32
+          },
+          "actualHTTPOverlap": 32,
+          "p50SuccessfulMs": 1276,
+          "p95SuccessfulMs": 3103,
+          "maxSuccessfulMs": 5187,
+          "firstStart": "2026-10-15T18:19:19.778532-07:00",
+          "lastFinish": "2026-10-15T18:19:24.982071-07:00",
+          "wallSeconds": 5.204,
+          "measuredStartRPS": 1624.653,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-32-wave-3",
+          "dispatched": 32,
+          "completed": 32,
+          "outcomes": {
+            "completed": 32
+          },
+          "actualHTTPOverlap": 32,
+          "p50SuccessfulMs": 1503,
+          "p95SuccessfulMs": 3747,
+          "maxSuccessfulMs": 4687,
+          "firstStart": "2026-10-15T18:19:29.991854-07:00",
+          "lastFinish": "2026-10-15T18:19:34.683132-07:00",
+          "wallSeconds": 4.691,
+          "measuredStartRPS": 1042.367,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-64-wave-1",
+          "dispatched": 64,
+          "completed": 64,
+          "outcomes": {
+            "completed": 64
+          },
+          "actualHTTPOverlap": 64,
+          "p50SuccessfulMs": 1393,
+          "p95SuccessfulMs": 1971,
+          "maxSuccessfulMs": 2924,
+          "firstStart": "2026-10-15T18:19:39.691836-07:00",
+          "lastFinish": "2026-10-15T18:19:42.662102-07:00",
+          "wallSeconds": 2.97,
+          "measuredStartRPS": 904.717,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-64-wave-2",
+          "dispatched": 64,
+          "completed": 64,
+          "outcomes": {
+            "completed": 64
+          },
+          "actualHTTPOverlap": 64,
+          "p50SuccessfulMs": 1403,
+          "p95SuccessfulMs": 2516,
+          "maxSuccessfulMs": 3599,
+          "firstStart": "2026-10-15T18:19:47.668551-07:00",
+          "lastFinish": "2026-10-15T18:19:51.272666-07:00",
+          "wallSeconds": 3.604,
+          "measuredStartRPS": 1128.911,
+          "errors": []
+        },
+        {
+          "phase": "concurrency-64-wave-3",
+          "dispatched": 64,
+          "completed": 40,
+          "outcomes": {
+            "completed": 40,
+            "rejected": 24
+          },
+          "actualHTTPOverlap": 64,
+          "p50SuccessfulMs": 1304,
+          "p95SuccessfulMs": 3300,
+          "maxSuccessfulMs": 3773,
+          "firstStart": "2026-10-15T18:19:56.280000-07:00",
+          "lastFinish": "2026-10-15T18:20:22.798663-07:00",
+          "wallSeconds": 26.519,
+          "measuredStartRPS": 1287.238,
+          "errors": [
+            {
+              "id": 10,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 18057,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.286841803-07:00",
+              "finishedAt": "2026-10-15T18:20:14.343979735-07:00"
+            },
+            {
+              "id": 62,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 18080,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.328018393-07:00",
+              "finishedAt": "2026-10-15T18:20:14.40828544-07:00"
+            },
+            {
+              "id": 25,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 18366,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.298906615-07:00",
+              "finishedAt": "2026-10-15T18:20:14.665523957-07:00"
+            },
+            {
+              "id": 59,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 18407,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.326160483-07:00",
+              "finishedAt": "2026-10-15T18:20:14.73371207-07:00"
+            },
+            {
+              "id": 58,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 18608,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.325570284-07:00",
+              "finishedAt": "2026-10-15T18:20:14.934175994-07:00"
+            },
+            {
+              "id": 52,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 21664,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.321882791-07:00",
+              "finishedAt": "2026-10-15T18:20:17.986665233-07:00"
+            },
+            {
+              "id": 6,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 21897,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.28424921-07:00",
+              "finishedAt": "2026-10-15T18:20:18.181686228-07:00"
+            },
+            {
+              "id": 54,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 21952,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.323563942-07:00",
+              "finishedAt": "2026-10-15T18:20:18.276091243-07:00"
+            },
+            {
+              "id": 4,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 22646,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.282879737-07:00",
+              "finishedAt": "2026-10-15T18:20:18.929100563-07:00"
+            },
+            {
+              "id": 2,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 22650,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.281035361-07:00",
+              "finishedAt": "2026-10-15T18:20:18.931700165-07:00"
+            },
+            {
+              "id": 24,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 22739,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.297377852-07:00",
+              "finishedAt": "2026-10-15T18:20:19.037193583-07:00"
+            },
+            {
+              "id": 35,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 22880,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.305465962-07:00",
+              "finishedAt": "2026-10-15T18:20:19.18613644-07:00"
+            },
+            {
+              "id": 27,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 23069,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.299966939-07:00",
+              "finishedAt": "2026-10-15T18:20:19.369913586-07:00"
+            },
+            {
+              "id": 37,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 23356,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.307519881-07:00",
+              "finishedAt": "2026-10-15T18:20:19.66411389-07:00"
+            },
+            {
+              "id": 14,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 23469,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.288733518-07:00",
+              "finishedAt": "2026-10-15T18:20:19.757753561-07:00"
+            },
+            {
+              "id": 43,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 23804,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.313404923-07:00",
+              "finishedAt": "2026-10-15T18:20:20.117942652-07:00"
+            },
+            {
+              "id": 29,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 24473,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.301380707-07:00",
+              "finishedAt": "2026-10-15T18:20:20.77506584-07:00"
+            },
+            {
+              "id": 48,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 24862,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.318256489-07:00",
+              "finishedAt": "2026-10-15T18:20:21.181021852-07:00"
+            },
+            {
+              "id": 22,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 25081,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.295840533-07:00",
+              "finishedAt": "2026-10-15T18:20:21.377788344-07:00"
+            },
+            {
+              "id": 33,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 25174,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.303748929-07:00",
+              "finishedAt": "2026-10-15T18:20:21.478670201-07:00"
+            },
+            {
+              "id": 61,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 26327,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.32746564-07:00",
+              "finishedAt": "2026-10-15T18:20:22.654859295-07:00"
+            },
+            {
+              "id": 47,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 26353,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.317409074-07:00",
+              "finishedAt": "2026-10-15T18:20:22.670710602-07:00"
+            },
+            {
+              "id": 42,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 26474,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.312472642-07:00",
+              "finishedAt": "2026-10-15T18:20:22.78674155-07:00"
+            },
+            {
+              "id": 56,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 26474,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:19:56.324551277-07:00",
+              "finishedAt": "2026-10-15T18:20:22.798663906-07:00"
+            }
+          ]
+        }
+      ],
+      "totalDispatched": 381,
+      "completed": 357,
+      "outcomes": {
+        "completed": 357,
+        "rejected": 24
+      },
+      "rawEventsSHA256": "e51599c29f41d636b991ad44241d15434f1e86f57f0ddbf450014e29a319d301"
+    },
+    {
+      "directory": "steady-2rps-b0de2bb",
+      "sourceSHA": "b0de2bbc7f39e0664c26fdbdb313fe1c790c6b55",
+      "loopbackControl": false,
+      "minimumConcurrency": 1,
+      "maximumConcurrency": 16,
+      "minimumStartIntervalMs": 500,
+      "complete": true,
+      "stopReason": "ramp_failure",
+      "phases": [
+        {
+          "phase": "steady-16",
+          "dispatched": 192,
+          "completed": 190,
+          "outcomes": {
+            "completed": 190,
+            "unconfirmed": 2
+          },
+          "actualHTTPOverlap": 6,
+          "p50SuccessfulMs": 1356,
+          "p95SuccessfulMs": 2900,
+          "maxSuccessfulMs": 7171,
+          "firstStart": "2026-10-15T18:29:05.016178-07:00",
+          "lastFinish": "2026-10-15T18:30:46.459153-07:00",
+          "wallSeconds": 101.443,
+          "measuredStartRPS": 1.886,
+          "errors": [
+            {
+              "id": 191,
+              "kind": "unconfirmed",
+              "code": "NETWORK_ERROR",
+              "httpStatus": 502,
+              "durationMs": 148,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:30:46.310837211-07:00",
+              "finishedAt": "2026-10-15T18:30:46.459118893-07:00"
+            },
+            {
+              "id": 190,
+              "kind": "unconfirmed",
+              "code": "NETWORK_ERROR",
+              "httpStatus": 502,
+              "durationMs": 698,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:30:45.760777214-07:00",
+              "finishedAt": "2026-10-15T18:30:46.459153309-07:00"
+            }
+          ]
+        }
+      ],
+      "totalDispatched": 192,
+      "completed": 190,
+      "outcomes": {
+        "completed": 190,
+        "unconfirmed": 2
+      },
+      "rawEventsSHA256": "f33efb64dc493ddda12c13a29b8816d0923b9aa3db11a0e68d5aceea34b07fab"
+    },
+    {
+      "directory": "steady-b0de2bb",
+      "sourceSHA": "b0de2bbc7f39e0664c26fdbdb313fe1c790c6b55",
+      "loopbackControl": false,
+      "minimumConcurrency": 1,
+      "maximumConcurrency": 32,
+      "minimumStartIntervalMs": 250,
+      "complete": true,
+      "stopReason": "ramp_failure",
+      "phases": [
+        {
+          "phase": "steady-32",
+          "dispatched": 40,
+          "completed": 28,
+          "outcomes": {
+            "completed": 28,
+            "rejected": 12
+          },
+          "actualHTTPOverlap": 32,
+          "p50SuccessfulMs": 28343,
+          "p95SuccessfulMs": 34848,
+          "maxSuccessfulMs": 35306,
+          "firstStart": "2026-10-15T18:23:11.247142-07:00",
+          "lastFinish": "2026-10-15T18:23:53.454849-07:00",
+          "wallSeconds": 42.208,
+          "measuredStartRPS": 3.534,
+          "errors": [
+            {
+              "id": 12,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 13334,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:14.730900426-07:00",
+              "finishedAt": "2026-10-15T18:23:28.065856816-07:00"
+            },
+            {
+              "id": 11,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 13719,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:14.442776514-07:00",
+              "finishedAt": "2026-10-15T18:23:28.162035817-07:00"
+            },
+            {
+              "id": 22,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 13345,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:17.535162877-07:00",
+              "finishedAt": "2026-10-15T18:23:30.880645248-07:00"
+            },
+            {
+              "id": 24,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 12851,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:18.130258546-07:00",
+              "finishedAt": "2026-10-15T18:23:30.981676526-07:00"
+            },
+            {
+              "id": 20,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 13947,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:17.033926277-07:00",
+              "finishedAt": "2026-10-15T18:23:30.981785742-07:00"
+            },
+            {
+              "id": 15,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 15399,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:15.582086204-07:00",
+              "finishedAt": "2026-10-15T18:23:30.981816385-07:00"
+            },
+            {
+              "id": 18,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 14669,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:16.438564848-07:00",
+              "finishedAt": "2026-10-15T18:23:31.108429928-07:00"
+            },
+            {
+              "id": 14,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 15811,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:15.328921845-07:00",
+              "finishedAt": "2026-10-15T18:23:31.140073444-07:00"
+            },
+            {
+              "id": 23,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 13340,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:17.832228162-07:00",
+              "finishedAt": "2026-10-15T18:23:31.173171606-07:00"
+            },
+            {
+              "id": 16,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 15476,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:15.886013428-07:00",
+              "finishedAt": "2026-10-15T18:23:31.362285896-07:00"
+            },
+            {
+              "id": 21,
+              "kind": "rejected",
+              "code": "model_cooldown",
+              "httpStatus": 429,
+              "durationMs": 14096,
+              "retryAfterSeconds": 16.0,
+              "startedAt": "2026-10-15T18:23:17.288270258-07:00",
+              "finishedAt": "2026-10-15T18:23:31.384304336-07:00"
+            },
+            {
+              "id": 19,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 16619,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:23:16.732467327-07:00",
+              "finishedAt": "2026-10-15T18:23:33.351810436-07:00"
+            }
+          ]
+        }
+      ],
+      "totalDispatched": 40,
+      "completed": 28,
+      "outcomes": {
+        "completed": 28,
+        "rejected": 12
+      },
+      "rawEventsSHA256": "c9eba2122125277ad6465f0ac8d6aec059f10494c12039cc3a7577882483f8d1"
+    },
+    {
+      "directory": "steady-isolated-b0de2bb",
+      "sourceSHA": "b0de2bbc7f39e0664c26fdbdb313fe1c790c6b55",
+      "loopbackControl": false,
+      "minimumConcurrency": 1,
+      "maximumConcurrency": 32,
+      "minimumStartIntervalMs": 250,
+      "complete": true,
+      "stopReason": "ramp_failure",
+      "phases": [
+        {
+          "phase": "steady-32",
+          "dispatched": 211,
+          "completed": 210,
+          "outcomes": {
+            "completed": 210,
+            "rejected": 1
+          },
+          "actualHTTPOverlap": 12,
+          "p50SuccessfulMs": 1337,
+          "p95SuccessfulMs": 5305,
+          "maxSuccessfulMs": 14913,
+          "firstStart": "2026-10-15T18:25:53.480900-07:00",
+          "lastFinish": "2026-10-15T18:27:04.989714-07:00",
+          "wallSeconds": 71.509,
+          "measuredStartRPS": 3.59,
+          "errors": [
+            {
+              "id": 201,
+              "kind": "rejected",
+              "code": "rate_limit_exceeded",
+              "httpStatus": 429,
+              "durationMs": 2598,
+              "retryAfterSeconds": 0.0,
+              "startedAt": "2026-10-15T18:26:49.525808905-07:00",
+              "finishedAt": "2026-10-15T18:26:52.12446772-07:00"
+            }
+          ]
+        }
+      ],
+      "totalDispatched": 211,
+      "completed": 210,
+      "outcomes": {
+        "completed": 210,
+        "rejected": 1
+      },
+      "rawEventsSHA256": "97d07700745cc201dab698804c7a536c522f6bff1ea4d786ec1978b6a1f56368"
+    }
+  ],
+  "totals": {
+    "dispatched": 1320,
+    "completed": 1279,
+    "outcomes": {
+      "completed": 1279,
+      "unconfirmed": 4,
+      "rejected": 37
+    }
+  }
+}

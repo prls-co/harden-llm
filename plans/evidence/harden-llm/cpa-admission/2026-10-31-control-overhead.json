@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "sourceBaseSHA": "cce83ebffa1e4b2b95aad2fab797fba0e7187b73",
+  "changedSourceFilesSHA256": {
+    "internal/gateway/httpapi/jobs_mixed_endurance_integration_test.go": "10084f6de9831f58c5f5066f49a0a25502078728f3d1b1098163e0e3aac9d4d1",
+    "internal/gateway/httpapi/jobs_temporal_integration_test.go": "9c2ea51e214b1a0dd5c23638bacfb267dbae0ccb6929561c30e811df1290a325",
+    "scripts/test/run_test_tier_test.mjs": "924125afbce0f242b6dfd9859dca7c602026372e710ce73fad2e2927ec77e2e1",
+    "stateful/admission_metadata.go": "f49bb60c5f7d40444d06c6e30f499a4210980e2975f4c880b464819c9677642c",
+    "stateful/admission_metadata_test.go": "cf7099ba4c3c4b0e19eddd3770bbccac5cc17f651cd8498bceb88a6dae326d00",
+    "stateful/admission_signals.go": "8683e0bde418ffe81a43a3ffa8b5941811ee3a16671775eefb1e755b0be3e445",
+    "stateful/admission_signals_test.go": "1b3185d2a0b678f9b758a73aad95e8ea907543b3c0b72b04ee0f32077117a184",
+    "stateful/batch/ledger_schema.sql": "7af0276ca8a2241ba9d4ea906629928bcd557e37f4ccd11193ab83e0ac39e089",
+    "stateful/batch/ledger_store.go": "899e6065e0a8141edaa3a12977cf76cde8d43b851abc5d992a071edba12b17fa",
+    "stateful/batch/pool_state.go": "e349771fd29b25dd55fe853c1f4ee2c31fd517e7f48bbe5468c0ff53d2f356f8",
+    "stateful/batch/pool_state_test.go": "5978dacb93b82af295a3bffc6ab7afd2719dd167e7535d315f48f92e48ee9b34",
+    "stateful/batch/pool_workflow.go": "71cf43e2fb8e6de96cff5745c80351e5d92e27ac81d5fddb145c74d9f8f8c717",
+    "stateful/batch/queue.go": "099056e436a6f929902d573f4bf620323a8bcd94e6b8c78ea9c78a7caf49c219",
+    "stateful/batch/queue_integration_test.go": "ade93b1a9c18aa0deed70de06628a8385529673fbde891d5acba30658975bed9",
+    "stateful/batch/workers.go": "5d96ce0c76a3151a081bff34a2574f017f43a9bb3a3215fba92316b3669db720",
+    "stateful/batch/workers_test.go": "224eac5cf8efcf3139c83270a7f4bc326fb86b393d3da732e4c8ac756f35eb3e",
+    "stateful/cpa_admission.go": "0b8461421b506148e26847be64c6157fdcadc7e7dd8a642f0b3f7645d1dc86df",
+    "stateful/cpa_admission_test.go": "774e7d0a1e335202b1c177129b13659a59f2891d2773ea5226ed0c0964023a79",
+    "stateful/service.go": "ff0fcd248c31d4ea65909bf98f61469d078bea0b8e8562bb2d1922c41306aa1f",
+    "test/test-tiers.json": "e3e9b2e49d98764952230911313044bd4c8c22b2cb092fb397efe87d157377a0"
+  },
+  "scope": "Local synthetic TLS provider; self-hosted Temporal/PostgreSQL/Garage. No CPA or paid provider.",
+  "providerDelayMS": 5,
+  "nativeCap": 128,
+  "ordinaryDeadlineSeconds": 60,
+  "grantStartLeaseSeconds": 5,
+  "fullScaleAccepted": false,
+  "checks": {
+    "fast": {
+      "accepted": true,
+      "localReceipt": "tmp/test-feedback/runner-1793456870347-3745115-7c58bc7d8fb54ca6.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "queue_sql": {
+      "accepted": true,
+      "localReceipt": "tmp/cpa-mixed-final-fifo.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "integration_race_loaded_host": {
+      "accepted": false,
+      "localReceipt": "tmp/cpa-mixed-final-integration-race.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "integration_race_isolated": {
+      "accepted": true,
+      "localReceipt": "tmp/cpa-mixed-isolated-integration-race.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "temporal": {
+      "accepted": true,
+      "localReceipt": "tmp/cpa-mixed-final-temporal.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "mixed_1000": {
+      "accepted": false,
+      "localReceipt": "tmp/cpa-mixed-final-1000.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "mixed_10000": {
+      "accepted": false,
+      "localReceipt": "tmp/cpa-mixed-10000-priority.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    }
+  },
+  "profiles": {
+    "mixed_1000": {
+      "LedgerSnapshotConfirmed": true,
+      "LedgerAttempts": 1001,
+      "NeverSentAttempts": 1,
+      "ClaimP50MS": 1103.012,
+      "ClaimP95MS": 3520.680949999999,
+      "ClaimMaxMS": 4866.999,
+      "Accepted": false,
+      "Total": 1000,
+      "Durable": 800,
+      "Ordinary": 200,
+      "Replicas": 2,
+      "Scopes": 2,
+      "Concurrency": 128,
+      "ElapsedMS": 44007,
+      "NativeRequests": 1000,
+      "NativePeak": 5,
+      "DistinctNative": 1000,
+      "DistinctResults": 1000,
+      "OrdinaryErrors": 0,
+      "PeakHeapBytes": 44686856,
+      "PeakGoroutines": 1171,
+      "QueueP50MS": 13333,
+      "QueueP95MS": 36740,
+      "QueueMaxMS": 38522,
+      "NativeP95MS": 7,
+      "DatabaseTransactions": 12132,
+      "DatabaseUpdatedRows": 9131,
+      "Workflows": {
+        "HLLMBatchV1": 2,
+        "HLLMCPAAttemptV2": 801,
+        "HLLMCPAPoolV2": 2
+      },
+      "Continued": true,
+      "SnapshotBytes": 1162,
+      "failure": "One never-dispatched attempt: 801 durable workflows instead of 800; native/results exactly 1000."
+    },
+    "mixed_10000": {
+      "Accepted": false,
+      "Total": 10000,
+      "Durable": 9000,
+      "Ordinary": 1000,
+      "Replicas": 2,
+      "Scopes": 2,
+      "Concurrency": 128,
+      "ElapsedMS": 487819,
+      "NativeRequests": 7858,
+      "NativePeak": 7,
+      "DistinctNative": 7858,
+      "DistinctResults": 1000,
+      "OrdinaryErrors": 0,
+      "PeakHeapBytes": 147925592,
+      "PeakGoroutines": 5103,
+      "QueueP50MS": 0,
+      "QueueP95MS": 0,
+      "QueueMaxMS": 0,
+      "NativeP95MS": 0,
+      "DatabaseTransactions": 0,
+      "DatabaseUpdatedRows": 0,
+      "Workflows": null,
+      "Continued": false,
+      "SnapshotBytes": 0,
+      "failure": "Durable jobs expired at original eight-minute budget; all 1000 ordinary calls succeeded; partial result collection only."
+    }
+  },
+  "limitations": [
+    "Not a CPA throughput/quota measurement.",
+    "Loaded-host history timing failure retained despite subsequent isolated pass.",
+    "10,000 profile predates the added deferred claim-latency snapshot fields; zero/unset diagnostic counters are not absence-of-work evidence.",
+    "Worker handoff and remaining P4/P6 gates remain open."
+  ],
+  "testedImplementationSHA": "1d25697bee38b96fb16216ed4d77af0ee77eadec"
+}

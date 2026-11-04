@@ -226,7 +226,7 @@ func (s *Service) ReplaceBundle(ctx context.Context, hash string, data []byte) e
 	}
 	// Bounded candidate probes finish before the replacement transaction begins.
 	for _, r := range resolved {
-		if err := s.probeProfile(ctx, r); err != nil {
+		if err := s.probeProfile(ctx, hash, r); err != nil {
 			return err
 		}
 	}

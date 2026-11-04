@@ -1,0 +1,20 @@
+{
+  "request-retry": 3,
+  "max-retry-credentials": 1,
+  "max-retry-interval": 30,
+  "passthrough-headers": false,
+  "disable-cooling": null,
+  "transient-error-cooldown-seconds": null,
+  "save-cooldown-status": null,
+  "routing": {
+    "strategy": "round-robin",
+    "session-affinity": false
+  },
+  "homeEnabled": false,
+  "pluginsConfigured": false,
+  "configSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8",
+  "enabledCredentialCounts": {
+    "claude": 1,
+    "codex": 1
+  }
+}

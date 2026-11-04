@@ -1,0 +1,121 @@
+{
+  "binarySHA256": "5a15b42b98c6ebd79fe9569ade0338bb1babe923edfbfc83501ad9834fc5c40f",
+  "callerAttemptsFromItemCounts": 3000,
+  "case": "sustained-mixed-windowed-3000",
+  "completionObservedMs": 1036566,
+  "distinctDownloadedResults": 3000,
+  "distinctValidatedResults": 3000,
+  "downloadFinishedMs": 1044037,
+  "failedItems": 0,
+  "finishedAt": "2026-10-16T22:49:30.765064775Z",
+  "firstSubmissionAt": "2026-10-16T22:32:06.727464392Z",
+  "independentQualificationFailures": [],
+  "inputTokens": 472500,
+  "jobs": [
+    {
+      "job_id": "04093af4-1fcb-5e61-93ef-d880be4f814e",
+      "status": "completed",
+      "counts": {
+        "total": 1000,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 1000,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T15:32:06.828597-07:00",
+      "deadline": "2026-10-16T16:02:06.828597-07:00",
+      "observed_at": "2026-10-16T22:45:33.141298975Z",
+      "last_worker_heartbeat_at": "2026-10-16T15:45:30.002943-07:00",
+      "last_progress_at": "2026-10-16T15:45:30.002943-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/04093af4-1fcb-5e61-93ef-d880be4f814e",
+      "result_url": "/v1/jobs/04093af4-1fcb-5e61-93ef-d880be4f814e/result"
+    },
+    {
+      "job_id": "de8b7d81-d039-543a-89cc-7d82843d308c",
+      "status": "completed",
+      "counts": {
+        "total": 1000,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 1000,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T15:32:07.039598-07:00",
+      "deadline": "2026-10-16T16:02:07.039598-07:00",
+      "observed_at": "2026-10-16T22:49:18.28680182Z",
+      "last_worker_heartbeat_at": "2026-10-16T15:49:18.143367-07:00",
+      "last_progress_at": "2026-10-16T15:49:18.143367-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/de8b7d81-d039-543a-89cc-7d82843d308c",
+      "result_url": "/v1/jobs/de8b7d81-d039-543a-89cc-7d82843d308c/result"
+    },
+    {
+      "job_id": "d0299daa-540e-58f9-bae7-99cbc91cc04f",
+      "status": "completed",
+      "counts": {
+        "total": 1000,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 1000,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T15:32:07.368045-07:00",
+      "deadline": "2026-10-16T16:02:07.368045-07:00",
+      "observed_at": "2026-10-16T22:49:23.293778373Z",
+      "last_worker_heartbeat_at": "2026-10-16T15:49:19.209561-07:00",
+      "last_progress_at": "2026-10-16T15:49:19.209561-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/d0299daa-540e-58f9-bae7-99cbc91cc04f",
+      "result_url": "/v1/jobs/d0299daa-540e-58f9-bae7-99cbc91cc04f/result"
+    }
+  ],
+  "logicalRequests": 3000,
+  "model": "gpt-6-luna",
+  "officialAPIEnabled": false,
+  "outputTokensIncludingReasoning": 347760,
+  "pilot": {
+    "job_id": "ed2da690-e6bf-597e-a16a-f8705ef2ca8a",
+    "status": "completed",
+    "counts": {
+      "total": 2,
+      "queued": 0,
+      "active": 0,
+      "waiting": 0,
+      "succeeded": 2,
+      "failed": 0
+    },
+    "created_at": "2026-10-16T15:30:26.645112-07:00",
+    "deadline": "2026-10-16T16:00:26.645112-07:00",
+    "observed_at": "2026-10-16T22:30:36.669951208Z",
+    "last_worker_heartbeat_at": "2026-10-16T15:30:32.404582-07:00",
+    "last_progress_at": "2026-10-16T15:30:32.404582-07:00",
+    "next_attempt_at": null,
+    "status_url": "/v1/jobs/ed2da690-e6bf-597e-a16a-f8705ef2ca8a",
+    "result_url": "/v1/jobs/ed2da690-e6bf-597e-a16a-f8705ef2ca8a/result"
+  },
+  "pilotRequests": 2,
+  "policy": {
+    "Concurrency": 128,
+    "Burst": 200,
+    "StartRate": 100,
+    "MaximumRate": 200,
+    "RefillEstimate": 61000000000,
+    "WindowRequests": 200,
+    "WindowDuration": 61000000000
+  },
+  "reasoning": "low",
+  "resultReadyAt": "2026-10-16T15:49:19.209561-07:00",
+  "resultReadyMs": 1032482,
+  "sharedCPAConfigurationChanged": false,
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceDirty": false,
+  "sourceSHA": "1c788aca9443a11d6fbe6b47eba1baa60eed32b4",
+  "startedAt": "2026-10-16T22:30:26.286189193Z",
+  "status": "passed",
+  "twoBearerClientsSharePool": true,
+  "validatedByCore": 3000
+}

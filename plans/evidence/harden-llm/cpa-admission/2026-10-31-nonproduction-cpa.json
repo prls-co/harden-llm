@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 1,
+  "accepted": true,
+  "verifiedAt": "2026-10-31T19:02:12.059886+00:00",
+  "branch": "feat/cpa-shared-admission-v2",
+  "sourceSHA": "b75d86fb606f6c5bd7819016bc13390f63b759e0",
+  "imageID": "sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba",
+  "imageLabels": {
+    "org.opencontainers.image.revision": "b75d86fb606f6c5bd7819016bc13390f63b759e0",
+    "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+    "org.opencontainers.image.title": "harden-llm-gateway",
+    "org.opencontainers.image.version": "b75d86fb606f6c5bd7819016bc13390f63b759e0"
+  },
+  "environment": "hllm-cpa-acceptance-20261031-9a4b47",
+  "apiURLs": [
+    "http://127.0.0.1:33788",
+    "http://127.0.0.1:33787"
+  ],
+  "namespace": "hllm-cpa-acceptance-20261031-9a4b47",
+  "taskQueue": "hllm-cpa-acceptance-20261031-9a4b47",
+  "poolID": "hllm-cpa-acceptance-20261031-9a4b47",
+  "database": "hllm_cpa_accept_9a4b47",
+  "databaseRolePrivileged": false,
+  "bucket": "hllm-cpa-acceptance-20261031-9a4b47",
+  "privateNetwork": {
+    "id": "d0de09ac77acf3a496a19ee5586a124c8b601e045d7e309ea27c1a8d83caca5a",
+    "name": "hllm-cpa-acceptance-20261031-9a4b47_private",
+    "subnet": "10.203.0.0/28",
+    "reason": "Docker predefined address pools exhausted; explicit non-overlapping owned subnet"
+  },
+  "containers": [
+    {
+      "name": "hllm-cpa-acceptance-20261031-9a4b47-api-a-1",
+      "imageID": "sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba",
+      "health": "healthy",
+      "networks": [
+        "compose_default",
+        "hllm-cpa-acceptance-20261031-9a4b47_private",
+        "prls-observability"
+      ]
+    },
+    {
+      "name": "hllm-cpa-acceptance-20261031-9a4b47-api-b-1",
+      "imageID": "sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba",
+      "health": "healthy",
+      "networks": [
+        "compose_default",
+        "hllm-cpa-acceptance-20261031-9a4b47_private",
+        "prls-observability"
+      ]
+    },
+    {
+      "name": "hllm-cpa-acceptance-20261031-9a4b47-worker-1",
+      "imageID": "sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba",
+      "health": null,
+      "networks": [
+        "compose_default",
+        "hllm-cpa-acceptance-20261031-9a4b47_private",
+        "prls-observability"
+      ]
+    }
+  ],
+  "schemaApplied": true,
+  "v2Initialized": true,
+  "hostedCI": {
+    "runID": 41231308022,
+    "conclusion": "success",
+    "fast": "passed",
+    "hostedIntegration": "skipped",
+    "browser": "skipped",
+    "release": "skipped"
+  },
+  "healthAuth": {
+    "accepted": true,
+    "sourceSHA": "b75d86fb606f6c5bd7819016bc13390f63b759e0",
+    "imageID": "sha256:e94803f3781ade366eb407b9d61b4ed582b2c4bc4a7b020dc452d7fb6c12c0ba",
+    "environment": "hllm-cpa-acceptance-20261031-9a4b47",
+    "apiURLs": [
+      "http://127.0.0.1:33788",
+      "http://127.0.0.1:33787"
+    ],
+    "checks": [
+      {
+        "replica": 0,
+        "path": "/healthz",
+        "status": 200
+      },
+      {
+        "replica": 0,
+        "path": "/readyz",
+        "status": 200
+      },
+      {
+        "replica": 0,
+        "pathKind": "unauthenticated",
+        "status": 401
+      },
+      {
+        "replica": 0,
+        "pathKind": "authenticatedMissing",
+        "status": 404
+      },
+      {
+        "replica": 0,
+        "pathKind": "unauthenticated",
+        "status": 401
+      },
+      {
+        "replica": 0,
+        "pathKind": "authenticatedMissing",
+        "status": 404
+      },
+      {
+        "replica": 1,
+        "path": "/healthz",
+        "status": 200
+      },
+      {
+        "replica": 1,
+        "path": "/readyz",
+        "status": 200
+      },
+      {
+        "replica": 1,
+        "pathKind": "unauthenticated",
+        "status": 401
+      },
+      {
+        "replica": 1,
+        "pathKind": "authenticatedMissing",
+        "status": 404
+      },
+      {
+        "replica": 1,
+        "pathKind": "unauthenticated",
+        "status": 401
+      },
+      {
+        "replica": 1,
+        "pathKind": "authenticatedMissing",
+        "status": 404
+      },
+      {
+        "replica": 0,
+        "pathKind": "upstreamBearerRejected",
+        "status": 401
+      },
+      {
+        "replica": 1,
+        "pathKind": "upstreamBearerRejected",
+        "status": 401
+      }
+    ],
+    "beforeInferenceLedger": {
+      "attempts": 0,
+      "jobs": 0,
+      "history": 0,
+      "mode": "active",
+      "generation": 2
+    },
+    "browserRun": false,
+    "inferenceCalls": 0
+  },
+  "pilot": {
+    "accepted": true,
+    "separateLogicalRequests": 2,
+    "ordinaryJSON": true,
+    "ordinaryCompletedSSEExistingWire": true,
+    "sseTerminalMatchesDeltas": true,
+    "crossReplicaStatus": true,
+    "duplicateConflictNoRetry": true,
+    "reusedCapturedSuccessWithoutInferenceReplay": true,
+    "clientFailureRetained": "qualification-error-pilot.json",
+    "clientFailureCause": "Expected nested completed response but existing HLLM stream.go emits top-level response fields. Same captured successful wire validated against existing contract; no inference repeated.",
+    "usage": [
+      {
+        "input_tokens": 67,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 33,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 100
+      },
+      {
+        "input_tokens": 69,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 35,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 104
+      }
+    ]
+  },
+  "campaign": {
+    "accepted": true,
+    "logicalRequests": 1000,
+    "validatedResults": 1000,
+    "distinctResponseIDs": 1000,
+    "replicas": 2,
+    "jobs": 2,
+    "idempotentCrossReplicaSubmissions": true,
+    "elapsedSeconds": 259.002,
+    "reportedInputTokens": 73000,
+    "reportedOutputTokens": 39000,
+    "reportedReasoningTokensSubset": 0,
+    "inputUsageKnown": 1000,
+    "outputUsageKnown": 1000,
+    "maximumItemAttempt": 1,
+    "cpaInternalAttemptCountsKnown": 0,
+    "generationMS": {
+      "count": 1000,
+      "p50": 1262,
+      "p95": 1987,
+      "max": 4829
+    },
+    "queueMS": {
+      "count": 1000,
+      "p50": 126520,
+      "p95": 250555,
+      "max": 252810
+    },
+    "retryWaitMS": {
+      "count": 1000,
+      "p50": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "headersMS": {
+      "count": 1000,
+      "p50": 692,
+      "p95": 1298,
+      "max": 3550
+    },
+    "waitingReasonsObserved": [
+      "admission_window",
+      "dispatch_pending"
+    ],
+    "finalCounts": {
+      "total": 1000,
+      "queued": 0,
+      "active": 0,
+      "waiting": 0,
+      "succeeded": 1000,
+      "failed": 0
+    }
+  },
+  "finalLedger": {
+    "attempts": 1002,
+    "dispatched": 1002,
+    "unsettled": 0,
+    "withoutPositiveStop": 0,
+    "ordinaryAttempts": 2,
+    "durableAttempts": 1000,
+    "outcomeKinds": {
+      "completed": 1002
+    },
+    "jobs": 2,
+    "items": 1000,
+    "itemSucceeded": 1000,
+    "itemMaxAttempts": 1,
+    "trackingCompleted": 2,
+    "referenceHistory": 0,
+    "profiles": 0,
+    "cacheEntries": 0,
+    "schemaVersion": 1,
+    "batchSchemaVersion": 1
+  },
+  "pool": {
+    "generation": 2,
+    "outstanding": 0,
+    "startIntents": 0,
+    "quiescing": false,
+    "policy": {
+      "Burst": 200,
+      "Concurrency": 128,
+      "MaximumRate": 200,
+      "RefillEstimate": 61000000000,
+      "StartRate": 100,
+      "WindowDuration": 61000000000,
+      "WindowRequests": 200
+    }
+  },
+  "observedDurableNativeEntries": 1000,
+  "observedDurableInvocationPeak": 95,
+  "invocationPeakDefinition": "Overlap of HLLM native-path started_at/finished_at intervals, not upstream-internal concurrency.",
+  "diagnosticFieldsVerified": [
+    "generation_ms",
+    "queue_ms",
+    "retry_wait_ms",
+    "headers_ms",
+    "first_output_ms",
+    "input_tokens",
+    "output_tokens",
+    "reasoning_tokens",
+    "generation_deadline_at"
+  ],
+  "containerRestarts": 0,
+  "containerOOMKills": 0,
+  "operatorClientSHA256": "c123433e99d80ee86c3795b56ad41d342b78316e5f33c19734d2c92503e715ec",
+  "limitations": [
+    "One bounded short-output gpt-6-luna low-reasoning workload; does not establish universal CPA concurrency/RPM/TPM or a maximum-throughput optimum.",
+    "CPA internal attempts remain unknown; shared CPA retry configuration unchanged.",
+    "Requested max_output_tokens may be stripped by the retained CPA translator; exact nonce schema bounded visible output, usage is reported separately.",
+    "No real throttle occurred in this campaign; cooldown/probe/rejection recovery is established by deterministic local-provider/SQL/Temporal tests, not this live sample.",
+    "Preserved existing HLLM Responses completed-SSE envelope has top-level response fields, rather than nested response; terminal output and deltas validated, not a claim of every SDK accessor compatibility.",
+    "Initial incomplete operator-client recovery payload was rejected before inference; the later SSE parser error reused already captured successful output without repeating inference.",
+    "Nonproduction loopback API deployment only; no frontend/browser test, main merge or production promotion.",
+    "Environment, credentials and accepted jobs/results are retained privately for review; no broad shared-service cleanup."
+  ],
+  "resourceSamples": [
+    [
+      {
+        "Name": "hllm-cpa-acceptance-20261031-9a4b47-api-a-1",
+        "CPUPerc": "4.21%",
+        "MemUsage": "19.26MiB / 256MiB",
+        "PIDs": "18"
+      },
+      {
+        "Name": "hllm-cpa-acceptance-20261031-9a4b47-api-b-1",
+        "CPUPerc": "0.04%",
+        "MemUsage": "19.31MiB / 256MiB",
+        "PIDs": "18"
+      },
+      {
+        "Name": "hllm-cpa-acceptance-20261031-9a4b47-worker-1",
+        "CPUPerc": "0.00%",
+        "MemUsage": "42.67MiB / 512MiB",
+        "PIDs": "18"
+      }
+    ],
+    [
+      {
+        "Name": "hllm-cpa-acceptance-20261031-9a4b47-api-a-1",
+        "CPUPerc": "0.00%",
+        "MemUsage": "19.62MiB / 256MiB",
+        "PIDs": "18"
+      },
+      {
+        "Name": "hllm-cpa-acceptance-20261031-9a4b47-api-b-1",
+        "CPUPerc": "0.00%",
+        "MemUsage": "18.44MiB / 256MiB",
+        "PIDs": "18"
+      },
+      {
+        "Name": "hllm-cpa-acceptance-20261031-9a4b47-worker-1",
+        "CPUPerc": "0.00%",
+        "MemUsage": "39.45MiB / 512MiB",
+        "PIDs": "18"
+      }
+    ]
+  ]
+}

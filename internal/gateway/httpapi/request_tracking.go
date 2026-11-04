@@ -204,7 +204,8 @@ func (c *trackedCall) fail(err error, result hardenllm.Result) {
 		return
 	}
 	var p *hardenllm.ProviderError
-	if errors.As(err, &p) && (p.Status == 0 || p.Status >= 500) {
+	var uncertain interface{ InferenceUnconfirmed() bool }
+	if c.session.ProviderEntered() && ((errors.As(err, &uncertain) && uncertain.InferenceUnconfirmed()) || (errors.As(err, &p) && (p.Status == 0 || p.Status >= 500 || p.Code == "execution_unconfirmed"))) {
 		c.session.Finish("unconfirmed", "upstream_error", false)
 		return
 	}

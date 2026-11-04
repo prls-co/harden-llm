@@ -9,7 +9,7 @@ defmodule HardenLlmUI.TestHostLive do
     Pagination
   }
 
-  alias HardenLlmUI.{HistoryComponents, TraceProjection}
+  alias HardenLlmUI.{HistoryComponents, ProfileWidgetState, TraceProjection}
 
   def mount(_params, _session, socket) do
     fixture =
@@ -17,9 +17,25 @@ defmodule HardenLlmUI.TestHostLive do
       |> File.read!()
       |> Jason.decode!()
 
+    profiles = fixture["profiles"]["profiles"]
+
+    rows =
+      Map.new([{"query", nil, "lowest"}, {"utility", "Repair Provider", "highest"}], fn
+        {role, selected, reasoning} ->
+          id = ProfileWidgetState.resolve_selected_profile_id(profiles, selected)
+          profile = Enum.find(profiles, &(&1["id"] == id))
+
+          {role,
+           %{
+             profile: id,
+             reasoning: ProfileWidgetState.profile_reasoning_effort(profile, reasoning)
+           }}
+      end)
+
     {:ok,
      assign(socket,
-       profiles: fixture["profiles"]["profiles"],
+       profiles: profiles,
+       rows: rows,
        fixture: fixture,
        messages: [],
        settings:
@@ -33,6 +49,25 @@ defmodule HardenLlmUI.TestHostLive do
   def render(assigns) do
     ~H"""
     <main id="independent-host">
+      <form id="portable-profile-form" phx-change="portable-profiles-change">
+        <HardenLlmUI.ProfileWidgetComponent.profile_row
+          :for={role <- ["query", "utility"]}
+          category={role}
+          profile_input_id={"portable-#{role}-profile"}
+          profile_name={"row[#{role}_profile]"}
+          profile_value={@rows[role].profile}
+          profile_options={ProfileWidgetState.profile_options(@profiles)}
+          profile_allow_custom={false}
+          profile_required={true}
+          profile_change={nil}
+          reasoning_input_id={"portable-#{role}-reasoning"}
+          reasoning_name={"row[#{role}_reasoning]"}
+          reasoning_value={@rows[role].reasoning}
+          reasoning_options={ProfileWidgetState.reasoning_options(@profiles, @rows[role].profile)}
+          reasoning_change={nil}
+          target={nil}
+        />
+      </form>
       <.live_component
         :for={id <- ["left", "right"]}
         module={HardenLlmUI.ProfileWidgetComponent}
@@ -95,6 +130,23 @@ defmodule HardenLlmUI.TestHostLive do
   def handle_event("toggle-record", %{"run-id" => id}, socket) do
     {:noreply,
      update(socket, :settings, &update_in(&1, [id, :trace_open], fn open -> not open end))}
+  end
+
+  def handle_event("portable-profiles-change", %{"row" => values}, socket) do
+    rows =
+      Map.new(socket.assigns.rows, fn {role, current} ->
+        id = Map.get(values, "#{role}_profile", current.profile)
+        profile = Enum.find(socket.assigns.profiles, &(&1["id"] == id))
+        reasoning = Map.get(values, "#{role}_reasoning", current.reasoning)
+
+        {role,
+         %{
+           profile: id,
+           reasoning: ProfileWidgetState.profile_reasoning_effort(profile, reasoning)
+         }}
+      end)
+
+    {:noreply, assign(socket, :rows, rows)}
   end
 
   def handle_info({:profile_widget, id, message}, socket) do

@@ -14,6 +14,11 @@ import (
 //go:embed request_tracking_schema.sql
 var trackingSchemaSQL string
 
+// Exact retained contract for the additive admission-enum migration only.
+//
+//go:embed request_tracking_legacy_schema.sql
+var trackingLegacySchemaSQL string
+
 const trackingColumns = `tracking_id::text,owner_id::text,endpoint,status,stage,reason,created_at,deadline_at,retention_expires_at,updated_at,heartbeat_at,last_progress_at,finished_at,next_attempt_at,error_code,attempts_used,revision,outcome_confirmed`
 
 func scanTracking(row pgx.Row) (TrackingRecord, error) {
@@ -47,7 +52,28 @@ func applyTrackingSchema(ctx context.Context, tx pgx.Tx) error {
 		return err
 	}
 	if actualCols != expectedCols || actualChecks != expectedChecks {
-		return errors.New("stateful: incompatible request_tracking schema; operator action required")
+		legacy := strings.Split(trackingLegacySchemaSQL, ";\nCREATE INDEX")[0]
+		legacy = strings.Replace(legacy, "CREATE TABLE IF NOT EXISTS request_tracking", "CREATE TEMP TABLE hllm_tracking_legacy_expected", 1)
+		legacy = strings.ReplaceAll(legacy, "request_tracking_pkey", "hllm_tracking_legacy_expected_pkey")
+		if _, err := tx.Exec(ctx, legacy+" ON COMMIT DROP"); err != nil {
+			return err
+		}
+		var legacyCols, legacyChecks string
+		if err := tx.QueryRow(ctx, shape, "hllm_tracking_legacy_expected").Scan(&legacyCols, &legacyChecks); err != nil {
+			return err
+		}
+		if actualCols != expectedCols || actualCols != legacyCols || actualChecks != legacyChecks {
+			return errors.New("stateful: incompatible request_tracking schema; operator action required")
+		}
+		if err := upgradeTrackingAdmissionChecks(ctx, tx); err != nil {
+			return err
+		}
+		if err := tx.QueryRow(ctx, shape, "request_tracking").Scan(&actualCols, &actualChecks); err != nil {
+			return err
+		}
+		if actualCols != expectedCols || actualChecks != expectedChecks {
+			return errors.New("stateful: request_tracking admission migration did not match target")
+		}
 	}
 	var indexOK bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_index i WHERE i.indexrelid=to_regclass('request_tracking_expiry') AND i.indrelid='request_tracking'::regclass AND i.indisvalid AND i.indpred IS NULL AND i.indexprs IS NULL AND i.indnatts=3 AND ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY k(n,ord) JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.n ORDER BY ord)=ARRAY['api_key_hash','retention_expires_at','tracking_id'])`).Scan(&indexOK); err != nil {
@@ -55,6 +81,46 @@ func applyTrackingSchema(ctx context.Context, tx pgx.Tx) error {
 	}
 	if !indexOK {
 		return errors.New("stateful: incompatible request_tracking expiry index; operator action required")
+	}
+	return nil
+}
+
+func upgradeTrackingAdmissionChecks(ctx context.Context, tx pgx.Tx) error {
+	type check struct{ name, definition string }
+	read := func(from, compared string) ([]check, error) {
+		rows, err := tx.Query(ctx, `SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=$1::regclass AND contype='c' AND pg_get_constraintdef(oid) NOT IN(SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=$2::regclass) ORDER BY conname`, from, compared)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		var checks []check
+		for rows.Next() {
+			var c check
+			if err := rows.Scan(&c.name, &c.definition); err != nil {
+				return nil, err
+			}
+			checks = append(checks, c)
+		}
+		return checks, rows.Err()
+	}
+	remove, err := read("request_tracking", "hllm_tracking_expected")
+	if err != nil {
+		return err
+	}
+	add, err := read("hllm_tracking_expected", "request_tracking")
+	if err != nil {
+		return err
+	}
+	for _, c := range remove {
+		if _, err := tx.Exec(ctx, "ALTER TABLE request_tracking DROP CONSTRAINT "+pgx.Identifier{c.name}.Sanitize()); err != nil {
+			return err
+		}
+	}
+	for _, c := range add {
+		name := strings.Replace(c.name, "hllm_tracking_expected", "request_tracking", 1)
+		if _, err := tx.Exec(ctx, "ALTER TABLE request_tracking ADD CONSTRAINT "+pgx.Identifier{name}.Sanitize()+" "+c.definition); err != nil {
+			return err
+		}
 	}
 	return nil
 }

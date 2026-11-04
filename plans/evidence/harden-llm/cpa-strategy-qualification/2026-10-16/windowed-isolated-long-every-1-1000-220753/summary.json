@@ -1,0 +1,87 @@
+{
+  "coverageFailure": "",
+  "finishedAt": "2026-10-16T22:13:42.944202319Z",
+  "measurement": {
+    "at": "2026-10-16T15:13:42.94419301-07:00",
+    "elapsedMs": 259724,
+    "Active": 0,
+    "Peak": 128,
+    "ReportedTokens": 1399852,
+    "UnknownTokenReserve": 98304,
+    "ActiveTokenReserve": 0,
+    "TokenBudget": 8000000,
+    "Actors": [
+      {
+        "name": "foreground",
+        "Offered": 1000,
+        "Dispatched": 1000,
+        "Completed": 996,
+        "Rejected": 0,
+        "Unknown": 3,
+        "Failed": 1,
+        "Policy": 0,
+        "Active": 0,
+        "Peak": 128,
+        "TerminalRefusals": 0,
+        "InputTokens": 616524,
+        "OutputTokens": 783328,
+        "FirstStart": "2026-10-16T15:09:23.219693839-07:00",
+        "LastFinish": "2026-10-16T15:13:42.943789188-07:00",
+        "ReadyMs": 259724
+      }
+    ],
+    "Controllers": [
+      {
+        "Policy": {
+          "Concurrency": 128,
+          "Burst": 200,
+          "StartRate": 100,
+          "MaximumRate": 200,
+          "RefillEstimate": 61000000000,
+          "WindowRequests": 200,
+          "WindowDuration": 61000000000
+        },
+        "Rate": 200,
+        "BurstLeft": 0,
+        "Successes": 96,
+        "Epoch": "2026-10-16T15:09:23.219693839-07:00",
+        "NextStart": "2026-10-16T15:13:33.384524261-07:00",
+        "NextEligible": "0001-01-01T00:00:00Z",
+        "Cooling": false,
+        "Probing": false,
+        "ProbeDelay": 2000000000,
+        "Paused": false,
+        "WindowStart": "2026-10-16T15:13:27.230309582-07:00",
+        "WindowStarts": 200,
+        "RefillWindowBurst": true,
+        "PacedRecovery": true,
+        "AccumulatePace": true
+      }
+    ],
+    "ForegroundAdmittedAfterBackgroundFinished": 0
+  },
+  "metadata": {
+    "TemporalUsed": false,
+    "binarySHA256": "b2a89ef194b3c407bb42357620c44a57afec1e6689278ccd18ec6f224af1e715",
+    "competing": false,
+    "endpoint": "https://cpa.prls.co",
+    "foregroundCalls": 1000,
+    "longEvery": 1,
+    "mixedBoundedText": false,
+    "model": "gpt-6-luna",
+    "nativeInternalAttempts": null,
+    "offeredBackgroundTrafficStops": false,
+    "officialAPIUsed": false,
+    "policy": "windowed",
+    "reasoning": "low",
+    "sharedCPAConfigurationChanged": false,
+    "sharedController": false,
+    "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sourceDirty": false,
+    "sourceSHA": "b866bb61a32d553d33ca5be2095f2a3608061c61",
+    "startedAt": "2026-10-16T22:07:53.214189856Z",
+    "tokenBudget": 8000000
+  },
+  "reportedUsageIsNotNativeInternalUsage": true,
+  "status": "failed"
+}

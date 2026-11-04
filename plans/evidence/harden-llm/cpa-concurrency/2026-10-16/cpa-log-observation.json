@@ -1,0 +1,88 @@
+{
+  "observedAt": "2026-10-16T01:41:33.636433+00:00",
+  "windows": {
+    "recovery-b0de2bb": {
+      "start": "2026-10-16T01:22:46.679558+00:00",
+      "end": "2026-10-16T01:23:11.157553+00:00",
+      "upstream429LogLines": 0,
+      "credentialUnavailableLogLines": 0,
+      "timeoutLogLines": 0,
+      "statusLogLines": {
+        "200": 196
+      },
+      "nativeRateLimitDetailLogLines": 0
+    },
+    "steady-2rps-b0de2bb": {
+      "start": "2026-10-16T01:29:05.006509+00:00",
+      "end": "2026-10-16T01:30:46.471595+00:00",
+      "upstream429LogLines": 0,
+      "credentialUnavailableLogLines": 0,
+      "timeoutLogLines": 0,
+      "statusLogLines": {
+        "200": 195
+      },
+      "nativeRateLimitDetailLogLines": 0
+    },
+    "run-dffcc38": {
+      "start": "2026-10-16T01:17:26.762610+00:00",
+      "end": "2026-10-16T01:20:22.799973+00:00",
+      "upstream429LogLines": 48,
+      "credentialUnavailableLogLines": 48,
+      "timeoutLogLines": 0,
+      "statusLogLines": {
+        "200": 363,
+        "429": 72
+      },
+      "nativeRateLimitDetailLogLines": 48
+    },
+    "steady-b0de2bb": {
+      "start": "2026-10-16T01:23:11.224909+00:00",
+      "end": "2026-10-16T01:23:53.470436+00:00",
+      "upstream429LogLines": 31,
+      "credentialUnavailableLogLines": 77,
+      "timeoutLogLines": 0,
+      "statusLogLines": {
+        "200": 31,
+        "429": 43
+      },
+      "nativeRateLimitDetailLogLines": 31
+    },
+    "local-steady-2rps-f1387fe": {
+      "start": "2026-10-16T01:38:10.365780+00:00",
+      "end": "2026-10-16T01:39:45.588731+00:00",
+      "upstream429LogLines": 0,
+      "credentialUnavailableLogLines": 0,
+      "timeoutLogLines": 0,
+      "statusLogLines": {
+        "200": 179,
+        "499": 1
+      },
+      "nativeRateLimitDetailLogLines": 0
+    },
+    "local128-f1387fe": {
+      "start": "2026-10-16T01:35:10.158551+00:00",
+      "end": "2026-10-16T01:36:10.358980+00:00",
+      "upstream429LogLines": 0,
+      "credentialUnavailableLogLines": 0,
+      "timeoutLogLines": 0,
+      "statusLogLines": {
+        "200": 129,
+        "499": 1
+      },
+      "nativeRateLimitDetailLogLines": 0
+    },
+    "steady-isolated-b0de2bb": {
+      "start": "2026-10-16T01:25:53.471328+00:00",
+      "end": "2026-10-16T01:27:05.001076+00:00",
+      "upstream429LogLines": 10,
+      "credentialUnavailableLogLines": 12,
+      "timeoutLogLines": 0,
+      "statusLogLines": {
+        "200": 213,
+        "429": 11
+      },
+      "nativeRateLimitDetailLogLines": 10
+    }
+  },
+  "caveat": "Shared logs; time correlation, not request-identity attribution. Status lines include upstream and gateway messages, so are not unique HTTP requests. Raw content and credentials not retained."
+}

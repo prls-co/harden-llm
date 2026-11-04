@@ -2,7 +2,7 @@
 
 - Document: `PLAN-HLLM-CPA-EXECUTION-002`.
 - Date: 2026-10-18.
-- Status: implementation design; proposed changes and acceptance gates below are not implemented or deployed by this document.
+- Status: implementation and local/nonproduction acceptance complete in PR #141, stacked on request-status PR #140. Neither PR is merged into main. Runtime `b75d86f`, exact image and bounded CPA qualification are recorded in `plans/implementation/cpa-delivery-2026-10-31.md` section 25 and the acceptance audit; production promotion remains separate.
 - Owner: Harden-LLM for orchestration, persistence, API and client behavior; CLIProxyAPI-setup for CPA configuration and upstream instrumentation; Agent Platform for existing shared-service provisioning.
 - Tracking: [implementation issue #134](https://github.com/prls-co/harden-llm/issues/134).
 - Compatibility requirement: preserve existing OpenAI-compatible endpoints and wire contracts; `/v1/jobs` is an optional durable extension, not a mandatory client migration.
@@ -577,8 +577,8 @@ earlier episodes need not all finish before another eligible request starts.
 
 Ten 1,000-item jobs share that same budget/cap; they do not each receive 128
 slots or 200 starts. Fair scheduling apportions future grants as clients arrive
-and finish. In the current baseline, ordinary HLLM generation endpoints bypass
-batch admission. The required request-bound adapter closes that bypass while
+and finish. In the historical baseline, ordinary HLLM generation endpoints bypassed
+batch admission. The implemented request-bound adapter closes that bypass while
 preserving OpenAI-compatible wire contracts; `/v1/jobs` is optional for durable
 waiting/progress. Direct CPA calls and independently configured pool authorities
 remain outside HLLM control. A shared-account guarantee cannot cover bypassing

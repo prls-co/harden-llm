@@ -5,7 +5,8 @@
 Add one optional `X-HLLM-Tracking-ID` header with a fresh, canonical lowercase,
 hyphenated, nonnil UUID to `POST /v1/responses` or
 `POST /v1/chat/completions`. Normal request bodies, completion JSON, final-only
-SSE, errors, cache identity and inference/recovery policy stay unchanged.
+SSE and cache identity stay unchanged. Status lookup itself does not select or
+restart inference/recovery.
 Requests without this header allocate no tracking collector and issue no
 tracking SQL. The header is never forwarded to the provider or written to diagnostic logs;
 logs use server-generated call/trace correlation.
@@ -44,9 +45,13 @@ based on a missing or stale observation.
 The canonical fields and enums are in `api/openapi.yaml` (`RequestStatus`).
 
 - `running`: execution is being observed; `stage` is a bounded local phase.
-- `waiting`: the existing runtime actually scheduled a retry. `reason` separates
-  provider throttling from other retry backoff. `next_attempt_at` is eligibility,
-  not a promised completion time. A terminal 429 is failed, not waiting.
+- `waiting`: `retry_wait` means the runtime scheduled a retry; `admission_wait`
+  means the configured CPA pool has not granted this live dispatch. Reasons
+  distinguish throttling/window/capacity, account restriction, worker readiness,
+  rollover, persistence and unresolved execution. `next_attempt_at` is a known
+  eligibility floor, never a completion promise, and is null when unknown. A
+  terminal refusal ends the POST rather than leaving it waiting; partial-output
+  or post-entry transport uncertainty can be unconfirmed.
 - `completed`: a valid, size-checked normal response was prepared. This does
   not prove the client received every byte.
 - `failed` / `cancelled`: a known terminal failure or positively never-started
@@ -79,6 +84,11 @@ failed/absent readback returns 503 without starting inference.
 
 After dispatch, metadata write failure cannot replace a known response or
 introduce inference retry. Lookup may subsequently show stale/unknown metadata.
+When CPA admission is enabled, each actual provider retry/repair obtains its own
+shared-pool permit. Unconfirmed managed dispatches send `x-should-retry: false`
+so compatible SDKs do not silently repeat uncertain inference. Queued cancellation
+before native entry is confirmed; canceling an entered provider path is uncertain.
+
 Only bounded status facts are stored, never prompts, schemas, output, provider
 credentials, arbitrary errors or reference history. No Garage artifact is made.
 

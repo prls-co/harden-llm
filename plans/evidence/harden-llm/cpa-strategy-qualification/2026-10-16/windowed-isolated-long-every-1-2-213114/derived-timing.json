@@ -1,0 +1,27 @@
+{
+  "scope": "foreground native completed measurements; headers and first output both measured from request start",
+  "qualificationStatus": "passed",
+  "completed": 2,
+  "foregroundRequested": 2,
+  "resultReadyMs": 6563,
+  "p99CompletedByMs": 6563,
+  "p999CompletedByMs": 6563,
+  "callMedianMs": 6226.0,
+  "callP95Ms": 6562,
+  "maximumCompletedCall": {
+    "durationMs": 6562,
+    "headersMs": 850,
+    "firstOutputMs": 3889,
+    "inputTokens": 627,
+    "outputTokens": 868,
+    "reasoningTokens": 311
+  },
+  "reportedEffortCounts": {
+    "low": 2
+  },
+  "outcomeCounts": {
+    "completed": 2
+  },
+  "errorCodeCounts": {},
+  "timingWarning": null
+}

@@ -1,0 +1,247 @@
+{
+  "scope": "full release on diagnostic checkpoint; not accepted; no paid provider",
+  "sourceSHA": "1c788aca9443a11d6fbe6b47eba1baa60eed32b4",
+  "accepted": false,
+  "report": "tmp/test-feedback/runner-1792191378275-765917-0fb375efe4949100.json",
+  "reportSHA256": "249c26ea1301ef11d518f9b9dbbb67b50d3f47c202fbbb261598846a1b5fe4ca",
+  "firstFailure": {
+    "taskId": "go-integration",
+    "finding": "TestProfileResources/export_contains_no_plaintext_incoming_deployment_or_entered_secret: SaveProfile returned storage_unavailable. Original assertion did not retain underlying cause."
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "tasks": [
+    {
+      "taskId": "go-format",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 727
+    },
+    {
+      "taskId": "go-lint",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 1450
+    },
+    {
+      "taskId": "go-build",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 7396
+    },
+    {
+      "taskId": "go-static",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 5185
+    },
+    {
+      "taskId": "runner-contracts",
+      "status": 1,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 43188
+    },
+    {
+      "taskId": "production-config-compose",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 1399
+    },
+    {
+      "taskId": "go-unit",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 18336
+    },
+    {
+      "taskId": "go-parity",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 9275
+    },
+    {
+      "taskId": "go-integration",
+      "status": 1,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 49853
+    },
+    {
+      "taskId": "go-temporal-integration",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "go-integration-race",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "go-api",
+      "status": 0,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 8569
+    },
+    {
+      "taskId": "go-observability",
+      "status": 1,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 3998
+    },
+    {
+      "taskId": "go-compose",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "go-compose-contract",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "go-race",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "go-vulnerability",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-ui-package",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-format",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-compile",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-deterministic",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "client-core",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "run-progress-client",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-deps-audit",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-hex-audit",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-assets-deploy",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-pagination-asset-check",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-release",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "backend-verify-baseline",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    },
+    {
+      "taskId": "frontend-gateway-workflows",
+      "status": 125,
+      "signal": "SIGTERM",
+      "timedOut": false,
+      "wallTimeMs": 0
+    }
+  ],
+  "originalSQLLimitsUnchanged": {
+    "transactionMs": 600,
+    "statementMs": 500
+  },
+  "cause": "unconfirmed",
+  "canceledTasksAreNotIndependentAssertionFailures": true,
+  "localCPUExecution": {
+    "logicalHostCPUs": 12,
+    "candidateSlots": 2,
+    "GOMAXPROCS": 4,
+    "ERLSchedulers": 4,
+    "goPackageSlots": 3,
+    "actualIntegrationCommand": [
+      "go",
+      "test",
+      "-p=3",
+      "./...",
+      "-tags=integration",
+      "-count=1"
+    ]
+  },
+  "resourceHypothesis": "Concurrent compilation and integration execution can contend on this host; no causal attribution established."
+}

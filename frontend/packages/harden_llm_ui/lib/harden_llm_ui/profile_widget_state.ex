@@ -16,6 +16,7 @@ defmodule HardenLlmUI.ProfileWidgetState do
   }
 
   @leaf_target_fields ~w(source profileId modelId reasoningEffort providerOptions)
+  @reasoning_options [{"lowest", "L"}, {"middle", "M"}, {"highest", "H"}]
 
   @recovery_node_descriptors %{
     "original" => %{
@@ -159,6 +160,49 @@ defmodule HardenLlmUI.ProfileWidgetState do
   end
 
   def resolve_selected_profile_id(_profiles, selected_id), do: normalize_text(selected_id)
+
+  @doc "Projects canonical profiles into the shared searchable picker options."
+  def profile_options(profiles) do
+    Enum.map(profiles, fn profile_state ->
+      profile = profile_state["definition"] || %{}
+      id = profile_state["id"] || ""
+      models = Enum.map(profile["models"] || [], &(&1["id"] || ""))
+
+      %{
+        value: id,
+        label: profile_state["name"] || id,
+        search:
+          Enum.join(
+            [
+              id,
+              profile_state["name"],
+              profile["modelId"],
+              profile["baseUrl"],
+              profile["apiInferenceType"] | models
+            ],
+            " "
+          )
+      }
+    end)
+  end
+
+  @doc "Returns configured reasoning options, or draft choices before profile selection."
+  def reasoning_options(profiles, selected_profile_id) do
+    case normalize_text(selected_profile_id) do
+      "" ->
+        @reasoning_options
+
+      id ->
+        case Enum.find(profiles, &(get_in(&1, ["id"]) == id)) do
+          %{} = profile_state ->
+            levels = profile_reasoning_levels(profile_state)
+            Enum.filter(@reasoning_options, fn {value, _label} -> value in levels end)
+
+          _ ->
+            []
+        end
+    end
+  end
 
   @doc "Resolves the initial model from the selected backend-owned profile."
   def resolve_selected_model_id(profiles, profile_id, model_id) when is_list(profiles) do
@@ -581,7 +625,7 @@ defmodule HardenLlmUI.ProfileWidgetState do
   def profile_reasoning_levels(profile_state) when is_map(profile_state) do
     case get_in(profile_state, ["definition", "reasoningEffortMap"]) do
       map when is_map(map) ->
-        Enum.filter(~w(lowest middle highest), &Map.has_key?(map, &1))
+        for {level, _label} <- @reasoning_options, Map.has_key?(map, level), do: level
 
       _ ->
         []

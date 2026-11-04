@@ -32,6 +32,9 @@ import (
 
 var errResponseTooLarge = errors.New("provider response exceeded the size limit")
 
+// The trace prefix may contain credential metadata. Retain only its bounded suffix.
+var cpaCorrelationSuffix = regexp.MustCompile(`(?i)-([a-f0-9]{8})$`)
+
 const (
 	defaultMaxResponseBytes   = 16 << 20
 	defaultAnthropicVersion   = "2023-06-01"
@@ -168,7 +171,17 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 }
 
 // Execute performs a prepared request and normalizes its result.
-func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOperation) (runtime.ProviderResult, error) {
+func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOperation) (finalResult runtime.ProviderResult, finalErr error) {
+	started := time.Now()
+	cpaID := ""
+	var headerMS atomic.Int64
+	headerMS.Store(-1)
+	defer func() {
+		finalResult.Stream.CorrelationID = cpaID
+		if n := headerMS.Load(); n >= 0 {
+			finalResult.Stream.HeadersMs = &n
+		}
+	}()
 	if router == nil || router.client == nil {
 		return runtime.ProviderResult{}, errors.New("providers: router is not initialized")
 	}
@@ -213,13 +226,17 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	request.Header = prepared.headers.Clone()
 	var dispatched atomic.Bool
 	request = request.WithContext(httptrace.WithClientTrace(request.Context(), &httptrace.ClientTrace{
-		WroteHeaders: func() { dispatched.Store(true) },
+		WroteHeaders:         func() { dispatched.Store(true) },
+		GotFirstResponseByte: func() { headerMS.Store(time.Since(started).Milliseconds()) },
 	}))
 	response, err := router.client.Do(request)
 	if err != nil {
 		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, normalizeTransportError(ctx, requestContext, err)
 	}
 	defer response.Body.Close()
+	if match := cpaCorrelationSuffix.FindStringSubmatch(response.Header.Get("X-Cpa-Trace-Id")); match != nil {
+		cpaID = strings.ToLower(match[1])
+	}
 	if response.StatusCode >= 200 && response.StatusCode <= 299 && prepared.protocol == "openai.responses" && isEventStreamContentType(response.Header.Get("Content-Type")) {
 		streamResponse, streamErr, streamDiagnostics := collectResponsesEventStreamReaderContextWithProgress(ctx, requestContext, response.Body, router.maxResponseBytes, operation.StreamProgress)
 		if streamResponse != nil {

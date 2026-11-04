@@ -1,0 +1,160 @@
+{
+  "binarySHA256": "525ec1f1f2439bc5d5b7271d186692b9d86eb92330aefb53dce563e767eb1142",
+  "callerAttemptsFromItemCounts": 1000,
+  "case": "baseline",
+  "completionObservedMs": 260188,
+  "distinctDownloadedResults": 1000,
+  "distinctValidatedResults": 1000,
+  "downloadFinishedMs": 265320,
+  "failedItems": 0,
+  "finishedAt": "2026-10-16T18:53:37.461056176Z",
+  "firstSubmissionAt": "2026-10-16T18:49:12.140447336Z",
+  "independentQualificationFailures": [],
+  "inputTokens": 107000,
+  "jobs": [
+    {
+      "job_id": "dc728238-3d34-5d63-bf8f-78a849112883",
+      "status": "completed",
+      "counts": {
+        "total": 200,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 200,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T11:49:12.157399-07:00",
+      "deadline": "2026-10-16T12:01:12.157399-07:00",
+      "observed_at": "2026-10-16T18:53:17.281628944Z",
+      "last_worker_heartbeat_at": "2026-10-16T11:49:20.950286-07:00",
+      "last_progress_at": "2026-10-16T11:49:20.950286-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/dc728238-3d34-5d63-bf8f-78a849112883",
+      "result_url": "/v1/jobs/dc728238-3d34-5d63-bf8f-78a849112883/result"
+    },
+    {
+      "job_id": "ead57f13-2a73-5528-963b-ca578b5a2cbb",
+      "status": "completed",
+      "counts": {
+        "total": 200,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 200,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T11:50:13.171256-07:00",
+      "deadline": "2026-10-16T12:02:13.171256-07:00",
+      "observed_at": "2026-10-16T18:53:17.285198556Z",
+      "last_worker_heartbeat_at": "2026-10-16T11:50:25.726189-07:00",
+      "last_progress_at": "2026-10-16T11:50:25.726189-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/ead57f13-2a73-5528-963b-ca578b5a2cbb",
+      "result_url": "/v1/jobs/ead57f13-2a73-5528-963b-ca578b5a2cbb/result"
+    },
+    {
+      "job_id": "51dfbafd-613d-5f6b-89e7-be6edb1769b3",
+      "status": "completed",
+      "counts": {
+        "total": 200,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 200,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T11:51:14.163268-07:00",
+      "deadline": "2026-10-16T12:03:14.163268-07:00",
+      "observed_at": "2026-10-16T18:53:17.288922997Z",
+      "last_worker_heartbeat_at": "2026-10-16T11:52:16.614578-07:00",
+      "last_progress_at": "2026-10-16T11:52:16.614578-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/51dfbafd-613d-5f6b-89e7-be6edb1769b3",
+      "result_url": "/v1/jobs/51dfbafd-613d-5f6b-89e7-be6edb1769b3/result"
+    },
+    {
+      "job_id": "f21014b0-b0a2-55a5-b786-b1d908e961c4",
+      "status": "completed",
+      "counts": {
+        "total": 200,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 200,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T11:52:15.160224-07:00",
+      "deadline": "2026-10-16T12:04:15.160224-07:00",
+      "observed_at": "2026-10-16T18:53:17.293050483Z",
+      "last_worker_heartbeat_at": "2026-10-16T11:52:33.011355-07:00",
+      "last_progress_at": "2026-10-16T11:52:33.011355-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/f21014b0-b0a2-55a5-b786-b1d908e961c4",
+      "result_url": "/v1/jobs/f21014b0-b0a2-55a5-b786-b1d908e961c4/result"
+    },
+    {
+      "job_id": "a785f94d-8676-5039-84d1-d7eee09eb155",
+      "status": "completed",
+      "counts": {
+        "total": 200,
+        "queued": 0,
+        "active": 0,
+        "waiting": 0,
+        "succeeded": 200,
+        "failed": 0
+      },
+      "created_at": "2026-10-16T11:53:16.195376-07:00",
+      "deadline": "2026-10-16T12:05:16.195376-07:00",
+      "observed_at": "2026-10-16T18:53:32.328645134Z",
+      "last_worker_heartbeat_at": "2026-10-16T11:53:29.72291-07:00",
+      "last_progress_at": "2026-10-16T11:53:29.72291-07:00",
+      "next_attempt_at": null,
+      "status_url": "/v1/jobs/a785f94d-8676-5039-84d1-d7eee09eb155",
+      "result_url": "/v1/jobs/a785f94d-8676-5039-84d1-d7eee09eb155/result"
+    }
+  ],
+  "logicalRequests": 1000,
+  "model": "gpt-6-luna",
+  "officialAPIEnabled": false,
+  "outputTokensIncludingReasoning": 43000,
+  "pilot": {
+    "job_id": "bb17756f-ea06-5baf-ab9e-a6371da2b1a3",
+    "status": "completed",
+    "counts": {
+      "total": 2,
+      "queued": 0,
+      "active": 0,
+      "waiting": 0,
+      "succeeded": 2,
+      "failed": 0
+    },
+    "created_at": "2026-10-16T11:47:36.039917-07:00",
+    "deadline": "2026-10-16T11:59:36.039917-07:00",
+    "observed_at": "2026-10-16T18:47:41.061832345Z",
+    "last_worker_heartbeat_at": "2026-10-16T11:47:38.840942-07:00",
+    "last_progress_at": "2026-10-16T11:47:38.840942-07:00",
+    "next_attempt_at": null,
+    "status_url": "/v1/jobs/bb17756f-ea06-5baf-ab9e-a6371da2b1a3",
+    "result_url": "/v1/jobs/bb17756f-ea06-5baf-ab9e-a6371da2b1a3/result"
+  },
+  "pilotRequests": 2,
+  "policy": {
+    "Concurrency": 128,
+    "Burst": 1000,
+    "StartRate": 100,
+    "MaximumRate": 200,
+    "RefillEstimate": 61000000000,
+    "WindowRequests": 0,
+    "WindowDuration": 61000000000
+  },
+  "reasoning": "low",
+  "resultReadyAt": "2026-10-16T11:53:29.72291-07:00",
+  "resultReadyMs": 257582,
+  "sharedCPAConfigurationChanged": false,
+  "sourceDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceDirty": false,
+  "sourceSHA": "426dc903d57c874c06699c67e665edfd2f8e06f4",
+  "startedAt": "2026-10-16T18:47:35.437515252Z",
+  "status": "passed",
+  "validatedByCore": 1000
+}

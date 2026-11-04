@@ -46,7 +46,7 @@ func newEffects(options ClientOptions) (hardenllm.Options, error) {
 		connections[id] = connection
 	}
 
-	policy := providers.EndpointPolicy{AllowedHosts: options.EndpointPolicy.AllowedHosts, PrivateAllowedHosts: options.EndpointPolicy.PrivateAllowedHosts, PrivateAllowlist: options.EndpointPolicy.PrivateAllowlist, Resolver: options.EndpointPolicy.Resolver, DialContext: options.EndpointPolicy.DialContext, TLSConfig: options.EndpointPolicy.TLSConfig, ConnectTimeout: options.EndpointPolicy.ConnectTimeout, TLSHandshakeTimeout: options.EndpointPolicy.TLSHandshakeTimeout, ResponseHeaderTimeout: options.EndpointPolicy.ResponseHeaderTimeout}
+	policy := providers.EndpointPolicy{AllowedHosts: options.EndpointPolicy.AllowedHosts, PrivateAllowedHosts: options.EndpointPolicy.PrivateAllowedHosts, PrivateAllowlist: options.EndpointPolicy.PrivateAllowlist, Resolver: options.EndpointPolicy.Resolver, DialContext: options.EndpointPolicy.DialContext, TLSConfig: options.EndpointPolicy.TLSConfig, ConnectTimeout: options.EndpointPolicy.ConnectTimeout, TLSHandshakeTimeout: options.EndpointPolicy.TLSHandshakeTimeout, ResponseHeaderTimeout: options.EndpointPolicy.ResponseHeaderTimeout, MaxConnsPerHost: options.EndpointPolicy.MaxConnsPerHost}
 	executor, err := providers.NewRouter(providers.Config{EndpointPolicy: policy, Logger: options.Logger, JinaAPIKey: options.WebSearch.JinaAPIKey, JinaTimeout: options.WebSearch.JinaTimeout, JinaMaxResponseBytes: options.WebSearch.JinaMaxResponseBytes})
 	if err != nil {
 		return hardenllm.Options{}, err
@@ -59,7 +59,7 @@ func newEffects(options ClientOptions) (hardenllm.Options, error) {
 	if err != nil {
 		return hardenllm.Options{}, err
 	}
-	return hardenllm.Options{Connections: connections, DefaultConnection: options.DefaultConnection, Cache: options.Cache, Executor: executor, Observer: trackingObserver{next: observer}, DiscoverModels: func(ctx context.Context, c hardenllm.Connection) ([]hardenllm.Model, error) {
+	return hardenllm.Options{Connections: connections, DefaultConnection: options.DefaultConnection, Cache: options.Cache, Executor: trackingExecutor{next: executor}, Observer: trackingObserver{next: observer}, DiscoverModels: func(ctx context.Context, c hardenllm.Connection) ([]hardenllm.Model, error) {
 		found, err := discovery.Discover(ctx, providers.ModelDiscoveryRequest{BaseURL: c.BaseURL, APIInferenceType: c.Protocol, APIKey: c.APIKey, Headers: c.Headers})
 		if err != nil {
 			return nil, err

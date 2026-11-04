@@ -1,0 +1,32 @@
+{
+  "sourceSHA": "6816ed3972f678d6cbb51eae8a41a3719b41b921",
+  "focusedRace": {
+    "command": "go test -race ./internal/livecapacity -count=1",
+    "passed": true
+  },
+  "vet": {
+    "command": "go vet -tags=live ./internal/livecapacity ./cmd/harden-llm-cpabench",
+    "passed": true
+  },
+  "buildLiveDriver": true,
+  "localFast": {
+    "accepted": true,
+    "tasks": 10,
+    "cleanupErrors": [],
+    "report": "tmp/test-feedback/runner-1792126854805-568196-f991960335b13b19.json"
+  },
+  "hostedTestHierarchy": {
+    "passedRunIDs": [
+      38853643720,
+      38853639873
+    ]
+  },
+  "unknownsReplayed": false,
+  "sharedConfigurationChanged": false,
+  "officialAPIUsed": false,
+  "browsersRun": false,
+  "productionDeployed": false,
+  "ordinaryHLLM1000ResultAcceptance": false,
+  "measuredRunnerSHA256": "374fcee774c23f5452a1a666acc51decb7a595e99829a07713e37ab1f49f3ba5",
+  "publishedRunnerFinalStatusFixed": true
+}

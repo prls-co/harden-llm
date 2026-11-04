@@ -1,0 +1,75 @@
+{
+  "callerRequests": 66,
+  "validatedResults": 65,
+  "outcomes": {
+    "completed": 65,
+    "failed": 1
+  },
+  "generatedTokensIncludingReasoning": 40558,
+  "inputTokensPerRequest": [
+    81
+  ],
+  "cpaLogObservation": {
+    "source": "container main.log",
+    "matched_lines": 66,
+    "correlated_request_ids": 66,
+    "native_429": 0,
+    "auth_unavailable": 0
+  },
+  "runs": [
+    {
+      "run": 0,
+      "label": "short",
+      "requests": 16,
+      "validated": 16,
+      "outputTokensMedian": 34.0,
+      "outputTokensTotal": 544,
+      "durationMedianMs": 2393.5,
+      "maximumDurationMs": 4780,
+      "caller429": 0
+    },
+    {
+      "run": 1,
+      "label": "long",
+      "requests": 16,
+      "validated": 15,
+      "outputTokensMedian": 1186.5,
+      "outputTokensTotal": 19261,
+      "durationMedianMs": 9450.5,
+      "maximumDurationMs": 12605,
+      "caller429": 0
+    },
+    {
+      "run": 2,
+      "label": "long",
+      "requests": 16,
+      "validated": 16,
+      "outputTokensMedian": 1164.5,
+      "outputTokensTotal": 18983,
+      "durationMedianMs": 9824.0,
+      "maximumDurationMs": 11829,
+      "caller429": 0
+    },
+    {
+      "run": 3,
+      "label": "short",
+      "requests": 16,
+      "validated": 16,
+      "outputTokensMedian": 34.0,
+      "outputTokensTotal": 544,
+      "durationMedianMs": 2303.0,
+      "maximumDurationMs": 3293,
+      "caller429": 0
+    }
+  ],
+  "sourceFiles": {
+    "cmd/harden-llm-cpatokens/main.go": "1fb48c618a23daa4572f320b14047a993beac24edbf8571b9a039a8adc1b6794",
+    "internal/livecapacity/native.go": "013dd164c435e83459ac1b10d2bf535836000fe9a2b7097687156133fef0dc33",
+    "internal/livecapacity/transport.go": "7b84fbe69d430a404ec2966d8bc2625ff51b7a24e0b98106a30ca6d0aa790dc7"
+  },
+  "privateEventsSHA256": "362fa78f8b814fd81e7213db9f57df34625b53ba17d4488c1d1e863a326ed0ce",
+  "binarySHA256": "4c00c1080811378cc1d7111315c46a5ccb8584e588676b5270a34982809a039d",
+  "cpaImage": "sha256:99bedd436cf04530451aeff67b88d3e76dfff2f2c48691dbf68d07e0c27c7288",
+  "cpaConfigurationSHA256": "d4a6f7ebe8004fcee3151c49e3533afdbde85a02d1c516e3eddc1e8ebf1337f8",
+  "sourceBaseSHA": "b2ebaa5f1c8727364bed2ad3c729cbbc6964aa0c"
+}

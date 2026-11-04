@@ -1,0 +1,36 @@
+{
+  "conclusion": "Retained failed sample: 999 of 1000 foreground responses qualified; one HTTP 200 completed response failed the existing exact-output oracle. No automatic retry of that completed inference.",
+  "failedMeasurements": [
+    {
+      "cpaRequestId": "e3591bb0",
+      "responseModel": "gpt-6-luna",
+      "reportedEffort": "low",
+      "responseStatus": "completed",
+      "id": 771,
+      "attempt": 1,
+      "startedAt": "2026-10-16T14:56:06.028820938-07:00",
+      "finishedAt": "2026-10-16T14:56:07.182371808-07:00",
+      "durationMs": 1153,
+      "headersMs": 516,
+      "firstOutputMs": 907,
+      "httpStatus": 200,
+      "kind": "failed",
+      "errorCode": "qualification_mismatch",
+      "terminal": "response.completed",
+      "inputTokens": 70,
+      "outputTokens": 48,
+      "cachedInputTokens": 0,
+      "reasoningTokens": 0,
+      "retryAfterMs": 0
+    }
+  ],
+  "failureDetailLimit": "The bounded measurement does not retain response text or an individual nonce comparison reason, so the exact failed content predicate cannot be reconstructed.",
+  "controllerCoverage": {
+    "backgroundValidated": 175,
+    "foregroundAdmittedAfterBackgroundActuallyFinished": 550,
+    "foregroundRefusals": 175,
+    "unknownOutcomes": 0,
+    "accountPolicyErrors": 0
+  },
+  "qualificationStatus": "failed; timing is not a 1000-success result"
+}

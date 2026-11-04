@@ -1,0 +1,12 @@
+{
+  "observedAt": "2026-10-16T21:00:20.348289+00:00",
+  "scope": "running local 10000-item baseline before accrued-rate fix; not live provider",
+  "productionBaseSHA": "2e909c706ecca3416d1cb4b89e67790929b28a8f",
+  "harnessSHA256": "3b1bed2833a0cc62c12a3e866dd3b198c94a29e534d4dee00b918576136c24ce",
+  "runningTestBinaries": [
+    {
+      "pid": 3855596,
+      "binarySHA256": "b75036ed473d7f20a7181459b995507a42f62c111208fb108053ab758d9a893e"
+    }
+  ]
+}

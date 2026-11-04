@@ -1,0 +1,64 @@
+{
+  "scope": "local browser-free verification, not deployment",
+  "sourceSHA": "b866bb61a32d553d33ca5be2095f2a3608061c61",
+  "report": "tmp/test-feedback/runner-1792186451622-41069-56c4b850941e1018.json",
+  "reportSHA256": "32539b2e76d37f8be9ba52e6c7f4785f3cc83415a7e655e57884efe82fdd95c6",
+  "selector": "fast",
+  "accepted": true,
+  "manifestSHA256": "08b2cd7e480d08d784871f8edfdc495b38300a7aff43b59716c66f1699d87125",
+  "taskCount": 10,
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "tasks": [
+    {
+      "taskId": "go-static",
+      "status": 0,
+      "wallTimeMs": 3025
+    },
+    {
+      "taskId": "runner-contracts",
+      "status": 0,
+      "wallTimeMs": 112681
+    },
+    {
+      "taskId": "go-unit",
+      "status": 0,
+      "wallTimeMs": 14287
+    },
+    {
+      "taskId": "go-parity",
+      "status": 0,
+      "wallTimeMs": 6929
+    },
+    {
+      "taskId": "go-api",
+      "status": 0,
+      "wallTimeMs": 6307
+    },
+    {
+      "taskId": "go-observability",
+      "status": 0,
+      "wallTimeMs": 7461
+    },
+    {
+      "taskId": "frontend-ui-package",
+      "status": 0,
+      "wallTimeMs": 52763
+    },
+    {
+      "taskId": "frontend-deterministic",
+      "status": 0,
+      "wallTimeMs": 157025
+    },
+    {
+      "taskId": "client-core",
+      "status": 0,
+      "wallTimeMs": 651
+    },
+    {
+      "taskId": "run-progress-client",
+      "status": 0,
+      "wallTimeMs": 1186
+    }
+  ]
+}

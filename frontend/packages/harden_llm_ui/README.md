@@ -28,6 +28,54 @@ Import `assets/js/hooks.mjs` into the host LiveSocket hooks. Import `assets/css/
 
 The bundled `priv/openapi.yaml` is copied from canonical `api/openapi.yaml` and checked byte-for-byte by Go TEST-436. Update both in the same contract change. All reference response validation uses that document; do not add handwritten parallel schemas.
 
+### 2.1. Selection-only profile rows
+
+Hosts that only select a saved profile and reasoning level can render
+`HardenLlmUI.ProfileWidgetComponent.profile_row/1` without mounting the full
+LiveComponent/editor. Keep the canonical `catalog["profiles"]` maps on the
+server; build options with `ProfileWidgetState.profile_options/1` and
+`reasoning_options/2`, also used by the full widget. For example, inside a host
+form whose `phx-change` targets its owning LiveComponent:
+
+```heex
+<HardenLlmUI.ProfileWidgetComponent.profile_row
+  category="Query generation"
+  profile_input_id={@id <> "-query-profile"}
+  profile_name="run[query_profile_id]"
+  profile_value={@query_profile_id}
+  profile_options={HardenLlmUI.ProfileWidgetState.profile_options(@profiles)}
+  profile_allow_custom={false}
+  profile_required={true}
+  profile_change={nil}
+  reasoning_input_id={@id <> "-query-reasoning"}
+  reasoning_name="run[query_reasoning_level]"
+  reasoning_value={@query_reasoning_level}
+  reasoning_options={HardenLlmUI.ProfileWidgetState.reasoning_options(@profiles, @query_profile_id)}
+  reasoning_change={nil}
+  target={@myself}
+/>
+```
+
+The host handles the normal nested `{"run": {...}}` form event, validates IDs
+against its current eligible catalog, and submits its own product request.
+Use `nil` change attributes to inherit the containing form's change event and
+serialize all current form fields. A string/JS event may instead target one
+row field when the host intentionally handles field-only changes.
+Initialize once with `resolve_selected_profile_id/2` and use
+`profile_reasoning_effort/2` to resolve configured reasoning. Explicit unknown
+profile IDs do not select another profile; their reasoning options are empty.
+The blank-ID reasoning choices preserve the full editor's draft behavior,
+not permission to run with an invalid product selection.
+
+Do not pass optional search/cache/config/model IDs when those controls are not
+part of the host's form. The row itself performs no HTTP, draft writes, Save
+or inference and requires no Portal context. Use the same hooks and `ui.css`;
+selection-only hosts need no JSON viewer or full-editor asset integration.
+Profile creation/editing remains the full widget's responsibility. Give every
+row a distinct ID even across embedded workspaces. The host owns access checks,
+catalog refresh and stale-response handling; never pass the server key in
+component attributes or hook data.
+
 ## 3. Verification
 
 ```bash
