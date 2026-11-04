@@ -295,3 +295,11 @@ The first fast attempt exposed the standalone widget's separate lockfile still
 selecting old HTML/Crypto versions while its task shares the host dependency
 directory. Both locks are now updated together; the existing dependency checks
 remain enabled. No assertion or offline policy was relaxed.
+
+The subsequent fast run rejected a TEST-517 fixture whose 40 ms whole-call timer
+expired before enqueue under compilation load (zero provider entries, zero
+queued rows). Queued cancellation now occurs at the existing signal callback,
+after positive enqueue acknowledgement: exactly one closed waiter, no provider
+entry and the admission-wait projection remain mandatory. An already-expired
+real context separately requires `DeadlineExceeded`, zero queue entries and
+zero native entry. No production deadline or admission code is changed.

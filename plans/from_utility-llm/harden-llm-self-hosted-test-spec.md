@@ -2410,6 +2410,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/cpa_admission_test.go`, `internal/gateway/httpapi/ordinary_admission_test.go`.
 - Command: `go test -race ./stateful ./internal/gateway/httpapi -run '^TestCPAAdmission|^TestOrdinaryAdmission' -count=1`.
 - Oracle: Ordinary managed CPA requests cannot bypass unavailable admission. Retry/repair dispatches retain the selected model/options, one logical execution ID, distinct permits/owners/ordinals and the original deadline. Queued cancellation never enters the provider; metadata uncertainty cannot repeat inference; panic never invents transport stop. Post-entry transport/partial-output uncertainty is not automatically retried and sends additive SDK retry suppression without changing OpenAI HTTP status or trusted retry floors. Unmanaged providers and model discovery bypass CPA admission; waiting/polling does not fabricate native entry, progress or ETA.
+- The queued cancellation fixture cancels only after positive enqueue acknowledgement, requiring exactly one closed waiter and no native entry. A separate already-expired real context requires `DeadlineExceeded`, zero queued waiters and zero native entry; setup scheduling cannot silently change the scenario.
 
 ### TEST-518: Additive ordinary-admission status schema migration
 
