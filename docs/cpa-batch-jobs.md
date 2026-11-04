@@ -113,6 +113,10 @@ accepted image only when those inputs are unchanged. Then:
    dependencies/shared services are not restarted. First creation requires a
    successful daemon listing proving its configured container is absent, plus
    explicit `runtime` permission in `allowedDifferenceFields`.
+   Worker apply is a separate stage: it omits Compose `--wait`, which rejects a
+   service without an HTTP health check. Final process/image checks still run;
+   the next step establishes Temporal readiness. Mixed worker/application apply
+   is rejected. HTTP application apply retains `--wait`.
 3. Using the same protected Compose inputs/image, run the worker service once
    with command `batch-upgrade`. Require `status: v2_ready`, the configured pool
    and generation, and no outstanding legacy ownership. The command performs

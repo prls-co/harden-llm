@@ -952,6 +952,10 @@ export function runApply(descriptor, services, run = defaultProcessRunner, { exp
   services = normalizeSelectedServices(descriptor, services);
   expectedRelease = normalizeExpectedRelease(expectedRelease);
   validateCandidateScope(services, expectedRelease, false);
+  const workerOnly = services.includes(BATCH_WORKER_SERVICE);
+  if (workerOnly && services.length !== 1) {
+    fail("apply the batch worker separately before enabling the gateway", "invalid_arguments");
+  }
   for (const service of services) {
     if (!descriptor.services[service].manageable) fail(`service ${service} is not approved for application`, "scope_blocked");
   }
@@ -982,7 +986,11 @@ export function runApply(descriptor, services, run = defaultProcessRunner, { exp
       const schemaArgs = buildComposeArguments(descriptor, ["run", "--rm", "--no-deps", "--pull", "never", "gateway-schema"], overridePath);
       processResultOutput(run("docker", schemaArgs, { env: buildComposeEnvironment(second.resolved) }));
     }
-    const upArgs = buildComposeArguments(descriptor, ["up", "-d", "--no-build", "--no-deps", "--pull", "never", "--wait", "--wait-timeout", "300", ...services], overridePath);
+    // Compose --wait requires a Docker health check even when the worker's
+    // inherited HTTP check is explicitly disabled. Its final process/image
+    // checks and subsequent V2/poller readiness own this staged worker path.
+    const waitArgs = workerOnly ? [] : ["--wait", "--wait-timeout", "300"];
+    const upArgs = buildComposeArguments(descriptor, ["up", "-d", "--no-build", "--no-deps", "--pull", "never", ...waitArgs, ...services], overridePath);
     processResultOutput(run("docker", upArgs, { env: buildComposeEnvironment(second.resolved) }));
   });
   const final = runCheck(descriptor, { services, expectedRelease, run });

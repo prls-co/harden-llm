@@ -303,3 +303,22 @@ after positive enqueue acknowledgement: exactly one closed waiter, no provider
 entry and the admission-wait projection remain mandatory. An already-expired
 real context separately requires `DeadlineExceeded`, zero queue entries and
 zero native entry. No production deadline or admission code is changed.
+
+## 13. Native Compose worker waiting correction
+
+Exact application source `f1ebdc4` passed all 30 hosted release tasks in run
+`41857609943`, attempt 1, and both immutable application images were built.
+The first production worker apply installed the additive schema and started
+the correct worker, but Compose returned an error. Independent controller
+readback confirmed equivalence, running state and zero restarts; explicit
+upgrade then confirmed generation 2 `v2_ready` with zero outstanding permits.
+
+A no-recreate diagnostic against that already-equivalent, owned worker
+reproduced `container ... has no healthcheck configured`: native Compose
+`--wait` rejects the intentionally disabled worker HTTP check. The controller
+now omits `--wait` only for separate worker apply, retains final process/image
+checks and the subsequent V2/poller readiness gate, and rejects mixed worker/
+HTTP application apply. Gateway/web still use native HTTP health waiting.
+TEST-260/450 regressions failed before this operations-tool correction; native
+configuration coverage remains TEST-235. This changes deployment tooling, not
+the qualified Go/web runtime inputs or their immutable image identities.
