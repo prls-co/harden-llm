@@ -291,3 +291,7 @@ Primary affected-version references: [Bandit](https://cna.erlef.org/cves/CVE-202
 The unchanged `mix hex.audit` now reports no retired/advisory packages;
 canonical `frontend-deps-audit` also passes. Host/widget compatibility and
 production compilation remain part of the fast and exact-main release gates.
+The first fast attempt exposed the standalone widget's separate lockfile still
+selecting old HTML/Crypto versions while its task shares the host dependency
+directory. Both locks are now updated together; the existing dependency checks
+remain enabled. No assertion or offline policy was relaxed.
