@@ -112,12 +112,20 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 			return
 		}
 	}
-	result, callErr := api.execute(request.Context(), connection, cache, timeout, recovery, hardenllm.Request{
+	ctx, tracked, cancel, ok := api.beginTrackedCall(writer, request, timeout)
+	if !ok {
+		return
+	}
+	defer cancel()
+	defer tracked.close()
+	result, callErr := api.execute(ctx, connection, cache, timeout, recovery, hardenllm.Request{
 		ModelID: input.Model, Messages: messages, CallType: callType, Schema: schema, Tools: tools,
 		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(input.ReasoningEffort),
 		ProviderOptions: options,
 	})
+	tracked.observeResult(result)
 	if callErr != nil {
+		tracked.fail(callErr, result)
 		api.writeCallError(writer, callErr, result, diagnostics)
 		return
 	}
@@ -125,17 +133,25 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 	includeUsage := !input.Stream || input.StreamOptions != nil && input.StreamOptions.IncludeUsage
 	response, err := chatResponse(input.Model, result, created, includeUsage, diagnostics)
 	if err != nil {
+		if tracked != nil {
+			tracked.session.Finish("failed", "response_projection_error", true)
+		}
 		writeRequestError(writer, err, "response")
 		return
 	}
 	if input.Stream {
 		if err := validateResponseSize(response); err != nil {
+			if tracked != nil {
+				tracked.session.Finish("failed", "response_projection_error", true)
+			}
 			writeRequestError(writer, err, "response")
 			return
 		}
+		tracked.project(response)
 		api.streamChat(writer, request, input.Model, result, created, input.StreamOptions != nil && input.StreamOptions.IncludeUsage, diagnostics)
 		return
 	}
+	tracked.project(response)
 	writeJSON(writer, http.StatusOK, response, maximumResponseBytes)
 }
 
@@ -217,12 +233,20 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 		writeRequestError(writer, err, "reasoning")
 		return
 	}
-	result, callErr := api.execute(request.Context(), connection, cache, timeout, recovery, hardenllm.Request{
+	ctx, tracked, cancel, ok := api.beginTrackedCall(writer, request, timeout)
+	if !ok {
+		return
+	}
+	defer cancel()
+	defer tracked.close()
+	result, callErr := api.execute(ctx, connection, cache, timeout, recovery, hardenllm.Request{
 		ModelID: input.Model, Messages: messages, CallType: callType, Schema: schema, Tools: tools,
 		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(reasoningEffort), WebSearch: webSearch,
 		ProviderOptions: options,
 	})
+	tracked.observeResult(result)
 	if callErr != nil {
+		tracked.fail(callErr, result)
 		api.writeCallError(writer, callErr, result, diagnostics)
 		return
 	}
@@ -233,17 +257,25 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 	}
 	response, err := responsesResponse(input.Model, result, created, diagnostics, parallelToolCalls)
 	if err != nil {
+		if tracked != nil {
+			tracked.session.Finish("failed", "response_projection_error", true)
+		}
 		writeRequestError(writer, err, "response")
 		return
 	}
 	if input.Stream {
 		if err := validateResponseSize(response); err != nil {
+			if tracked != nil {
+				tracked.session.Finish("failed", "response_projection_error", true)
+			}
 			writeRequestError(writer, err, "response")
 			return
 		}
+		tracked.project(response)
 		api.streamResponses(writer, request, input.Model, result, created, diagnostics, parallelToolCalls)
 		return
 	}
+	tracked.project(response)
 	writeJSON(writer, http.StatusOK, response, maximumResponseBytes)
 }
 
@@ -264,16 +296,12 @@ func validateNumberRange(writer http.ResponseWriter, field string, value *float6
 }
 
 func (api *API) execute(parent context.Context, connection string, cache hardenllm.CacheMode, timeoutMS int64, recovery hardenllm.RecoveryPolicy, input hardenllm.Request) (hardenllm.Result, error) {
-	if timeoutMS == 0 {
-		timeoutMS = api.maxRunDuration.Milliseconds()
-	}
-	timeout := time.Duration(timeoutMS) * time.Millisecond
-	if timeout > api.maxRunDuration {
-		timeout = api.maxRunDuration
-	}
-	ctx, cancel := context.WithTimeout(parent, timeout)
+	ctx, cancel := context.WithTimeout(parent, api.executionTimeout(timeoutMS))
 	defer cancel()
 	input.ConnectionID, input.CacheMode, input.RecoveryPolicy = connection, cache, recovery
+	if progress, ok := ctx.Value(trackingProgressKey{}).(chan<- hardenllm.ProgressEvent); ok {
+		input.Progress = progress
+	}
 	return scopeFromContext(ctx).client.Call(ctx, input)
 }
 

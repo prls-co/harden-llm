@@ -18,6 +18,7 @@ The custom /api/v1/run contract accepts string prompts. Ordinary OpenAI clients 
 - Optional controls/diagnostics use one `harden` property. Normal requests work without it. Go/OpenAPI own defaults; Phoenix does not duplicate engine decisions.
 - Streaming validates/repairs first, then emits standard endpoint-specific SSE, delaying first content. No provisional output, custom progress protocol or retry after disconnect.
 - Keep 256 KiB request, 16 MiB upstream response and 60 s inference limits; cap encoded outcomes at 16 MiB including at most 64 KiB diagnostics. Reject before headers, never truncate.
+- Optional `X-HLLM-Tracking-ID` and key-scoped `GET /v1/requests/{trackingID}` retain bounded execution metadata in the existing stateful PostgreSQL pool. They preserve request-bound execution and do not retain responses, add reference history, retry inference, or implement background/result retrieval. The root core remains stateless. See `docs/request-status.md` and issue #136.
 - `CPA_API_KEY` authenticates upstream only. The binary reads process environment and does not parse dotenv.
 
 ## Consequences and verification

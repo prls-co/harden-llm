@@ -2016,3 +2016,69 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Command: `go test ./internal/schema ./internal/gateway/httpapi ./internal/providers ./internal/runtime -count=1`.
 - Oracle: every supported nullable field accepts null or its declared type, remains required and respects enum. Unsupported unions and nullable roots fail. The real Responses handler and TLS provider adapter dispatch the two exact consumer schemas once with strict JSON Schema. Successful and invalid-schema model outputs retain the exact assistant string; known invalid output carries `STRUCTURED_SCHEMA` and one provider attempt. Caller-supplied unsupported schemas fail with HTTP 400 and no dispatch; a gateway-generated invalid contract fails with HTTP 500 and no dispatch. Existing library structured results remain parsed values. No provider keys, internet or browser are needed.
 - Genuine RED: current contracts rejected nullable types; after adding nullable support, the real handler changed whitespace/key ordering of successful structured output and misclassified both schema error origins as HTTP 502. The source fixtures use the actual consumer contracts, not an invented provider shape.
+
+### TEST-490: Request tracking wire admission and contract
+
+- Type / verifies: unit; request-status lookup issue #136.
+- Coverage gate: `fast`.
+- Location: `internal/gateway/httpapi/request_tracking_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestRequestTracking(Contract|LookupAdmission)$' -count=1`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: Canonical OpenAPI has one optional tracking header on both generation routes and one authenticated no-store lookup; unavailable storage is 503; lookup never dispatches.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-491: Request tracking projection and session
+
+- Type / verifies: unit; request-status lookup issue #136.
+- Coverage gate: `fast`.
+- Location: `stateful/request_tracking_test.go`.
+- Command: `go test ./stateful -run '^TestRequestTracking(ID|Observation|Session|WireSchema|ProgressSources)$' -count=1`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: Strict UUIDs, fixed enums, elapsed/wait clocks, monotone phases, distinct heartbeat/progress, stale-derived uncertainty and immutable terminal facts without payload or nonce leakage.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-492: Request tracking real PostgreSQL ownership
+
+- Type / verifies: integration; request-status lookup issue #136.
+- Coverage gate: `integration`.
+- Location: `stateful/request_tracking_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: Real additive schema compatibility, same-key uniqueness across services, other-key independence, exact-owner ambiguous COMMIT readback, revision/terminal fencing, bounded scoped expiry and no replacement inference permission.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-493: Request tracking lifecycle and official SDK
+
+- Type / verifies: unit; request-status lookup issue #136.
+- Coverage gate: `fast`.
+- Location: `internal/gateway/httpapi/request_tracking_lifecycle_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestRequestTracking' -count=1`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: Registration precedes inference; absent header bypasses tracking; invalid/duplicate IDs dispatch nothing; SDK default retries respect terminal 409; original JSON/SSE survive metadata/delivery failures; bounded collector flushes coalesced facts.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-494: Request tracking observer delegation
+
+- Type / verifies: unit; request-status lookup issue #136.
+- Coverage gate: `fast`.
+- Location: `stateful/request_tracking_observer_test.go`.
+- Command: `go test ./stateful -run '^TestRequestTrackingObserverDelegation$' -count=1`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: All seven methods forward original contexts and completion callbacks once; actual scheduled retries become waiting and clear only their own phase; untracked calls perform no tracking.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-495: Request tracking real HTTP replicas and scale
+
+- Type / verifies: integration; request-status lookup issue #136.
+- Coverage gate: `integration`.
+- Location: `internal/gateway/httpapi/request_tracking_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: POST A/GET B share real PostgreSQL, cancellation stops local transport without inference replay, and 1000 distinct tracked versus 1000 untracked calls across two keys have exact counts and no reference history/artifacts/payload retention; record measured SQL/latency/memory.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
