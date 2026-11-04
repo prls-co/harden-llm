@@ -2,7 +2,7 @@
 
 - Document: `PLAN-HLLM-CPA-EXECUTION-002`.
 - Date: 2026-10-18.
-- Status: implementation and local/nonproduction acceptance complete in PR #141, stacked on request-status PR #140. Neither PR is merged into main. Runtime `b75d86f`, exact image and bounded CPA qualification are recorded in `plans/implementation/cpa-delivery-2026-10-31.md` section 25 and the acceptance audit; production promotion remains separate.
+- Status: merged and production-qualified on 2026-11-04. Application source `f1ebdc4` passed all 30 exact-main release tasks and 1,000 separate live CPA requests/results; worker deployment tooling is corrected in `fa2de8b`. See the [production receipt](evidence/harden-llm/cpa-admission/2026-11-04-production-cpa.json) and delivery section 28. Earlier sections retain the design/baseline history.
 - Owner: Harden-LLM for orchestration, persistence, API and client behavior; CLIProxyAPI-setup for CPA configuration and upstream instrumentation; Agent Platform for existing shared-service provisioning.
 - Tracking: [implementation issue #134](https://github.com/prls-co/harden-llm/issues/134).
 - Compatibility requirement: preserve existing OpenAI-compatible endpoints and wire contracts; `/v1/jobs` is an optional durable extension, not a mandatory client migration.

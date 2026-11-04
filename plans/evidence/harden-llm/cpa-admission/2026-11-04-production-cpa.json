@@ -1,0 +1,477 @@
+{
+  "schemaVersion": 1,
+  "accepted": true,
+  "verifiedAt": "2026-11-04T16:01:59.180465+00:00",
+  "branch": "main",
+  "applicationSourceSHA": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+  "apiURL": "https://harden-llm.prls.co",
+  "namespace": "harden-llm-production",
+  "taskQueue": "harden-llm-batch-v1",
+  "poolID": "cpa-production",
+  "database": "harden_llm",
+  "bucket": "harden-llm-artifacts",
+  "images": {
+    "gateway": {
+      "tag": "harden-llm-gateway:release-f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+      "id": "sha256:fc338caf13a639864240ea976b591fe3cce62ee7d11fadb3c67e3b617ba803d2",
+      "labels": {
+        "org.opencontainers.image.revision": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+        "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+        "org.opencontainers.image.title": "harden-llm-gateway",
+        "org.opencontainers.image.version": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4"
+      },
+      "platform": "linux/amd64"
+    },
+    "web": {
+      "tag": "harden-llm-web:release-f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+      "id": "sha256:887c52cd8859d892a116fb3226c9caee2878cfddeb8f155369c48c6b1ebc5f8d",
+      "labels": {
+        "org.opencontainers.image.title": "harden-llm-web",
+        "org.opencontainers.image.version": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4"
+      },
+      "platform": "linux/amd64"
+    }
+  },
+  "release": {
+    "runID": 41857609943,
+    "attempt": 1,
+    "headSHA": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/41857609943",
+    "conclusion": "success",
+    "releaseJobID": 126670443598,
+    "releaseStep": "success",
+    "browser": "not selected"
+  },
+  "releaseTasks": {
+    "accepted": true,
+    "taskCount": 30,
+    "tasks": [
+      {
+        "id": "go-format",
+        "status": 0,
+        "wallTimeMs": 818
+      },
+      {
+        "id": "go-lint",
+        "status": 0,
+        "wallTimeMs": 29163
+      },
+      {
+        "id": "go-build",
+        "status": 0,
+        "wallTimeMs": 14081
+      },
+      {
+        "id": "go-static",
+        "status": 0,
+        "wallTimeMs": 13786
+      },
+      {
+        "id": "runner-contracts",
+        "status": 0,
+        "wallTimeMs": 69381
+      },
+      {
+        "id": "production-config-compose",
+        "status": 0,
+        "wallTimeMs": 1532
+      },
+      {
+        "id": "go-unit",
+        "status": 0,
+        "wallTimeMs": 26159
+      },
+      {
+        "id": "go-parity",
+        "status": 0,
+        "wallTimeMs": 18988
+      },
+      {
+        "id": "go-integration",
+        "status": 0,
+        "wallTimeMs": 31304
+      },
+      {
+        "id": "go-temporal-integration",
+        "status": 0,
+        "wallTimeMs": 83310
+      },
+      {
+        "id": "go-integration-race",
+        "status": 0,
+        "wallTimeMs": 75572
+      },
+      {
+        "id": "go-api",
+        "status": 0,
+        "wallTimeMs": 14441
+      },
+      {
+        "id": "go-observability",
+        "status": 0,
+        "wallTimeMs": 16287
+      },
+      {
+        "id": "go-compose",
+        "status": 0,
+        "wallTimeMs": 209822
+      },
+      {
+        "id": "go-compose-contract",
+        "status": 0,
+        "wallTimeMs": 2440
+      },
+      {
+        "id": "go-race",
+        "status": 0,
+        "wallTimeMs": 399148
+      },
+      {
+        "id": "go-vulnerability",
+        "status": 0,
+        "wallTimeMs": 24044
+      },
+      {
+        "id": "frontend-ui-package",
+        "status": 0,
+        "wallTimeMs": 64989
+      },
+      {
+        "id": "frontend-format",
+        "status": 0,
+        "wallTimeMs": 127053
+      },
+      {
+        "id": "frontend-compile",
+        "status": 0,
+        "wallTimeMs": 122712
+      },
+      {
+        "id": "frontend-deterministic",
+        "status": 0,
+        "wallTimeMs": 208818
+      },
+      {
+        "id": "client-core",
+        "status": 0,
+        "wallTimeMs": 215
+      },
+      {
+        "id": "run-progress-client",
+        "status": 0,
+        "wallTimeMs": 424
+      },
+      {
+        "id": "frontend-deps-audit",
+        "status": 0,
+        "wallTimeMs": 128861
+      },
+      {
+        "id": "frontend-hex-audit",
+        "status": 0,
+        "wallTimeMs": 2007
+      },
+      {
+        "id": "frontend-assets-deploy",
+        "status": 0,
+        "wallTimeMs": 95179
+      },
+      {
+        "id": "frontend-pagination-asset-check",
+        "status": 0,
+        "wallTimeMs": 89399
+      },
+      {
+        "id": "frontend-release",
+        "status": 0,
+        "wallTimeMs": 39138
+      },
+      {
+        "id": "backend-verify-baseline",
+        "status": 0,
+        "wallTimeMs": 209622
+      },
+      {
+        "id": "frontend-gateway-workflows",
+        "status": 0,
+        "wallTimeMs": 319598
+      }
+    ],
+    "cleanupErrors": [],
+    "cleanupWarnings": []
+  },
+  "schemaApplied": true,
+  "pool": {
+    "poolID": "cpa-production",
+    "generation": 2,
+    "outstanding": 0,
+    "startIntents": 0,
+    "quiescing": false,
+    "persistenceWait": false
+  },
+  "policy": {
+    "concurrency": 128,
+    "burst": 200,
+    "initialStartRate": 100,
+    "maximumStartRate": 200,
+    "windowRequests": 200,
+    "windowMS": 61000,
+    "recoveryJitterMS": 0,
+    "jobTimeoutSeconds": 7200
+  },
+  "httpChecks": {
+    "accepted": true,
+    "baseURL": "https://harden-llm.prls.co",
+    "checks": [
+      {
+        "pathKind": "/healthz",
+        "authenticated": false,
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "pathKind": "/readyz",
+        "authenticated": false,
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "pathKind": "/v1/jobs",
+        "authenticated": false,
+        "status": 401,
+        "expected": 401
+      },
+      {
+        "pathKind": "/v1/jobs",
+        "authenticated": true,
+        "status": 404,
+        "expected": 404
+      },
+      {
+        "pathKind": "/v1/requests",
+        "authenticated": false,
+        "status": 401,
+        "expected": 401
+      },
+      {
+        "pathKind": "/v1/requests",
+        "authenticated": true,
+        "status": 404,
+        "expected": 404
+      },
+      {
+        "pathKind": "/api/v1",
+        "authenticated": true,
+        "status": 200,
+        "expected": 200
+      }
+    ]
+  },
+  "ordinaryPilot": {
+    "accepted": true,
+    "ordinaryCalls": 2,
+    "observations": [
+      {
+        "stream": false,
+        "status": 200,
+        "trackingState": "completed",
+        "duplicateStatus": 409,
+        "duplicateRetrySuppressed": true
+      },
+      {
+        "stream": true,
+        "status": 200,
+        "trackingState": "completed",
+        "duplicateStatus": 409,
+        "duplicateRetrySuppressed": true
+      }
+    ]
+  },
+  "campaign": {
+    "accepted": true,
+    "logicalRequests": 1000,
+    "validatedResults": 1000,
+    "distinctResponseIDs": 1000,
+    "jobs": 2,
+    "elapsedSeconds": 313.392,
+    "finalCounts": {
+      "total": 1000,
+      "queued": 0,
+      "active": 0,
+      "waiting": 0,
+      "succeeded": 1000,
+      "failed": 0
+    },
+    "waitingReasonsObserved": [
+      "admission_window",
+      "dispatch_pending"
+    ],
+    "idempotentSubmission": true,
+    "goClientWaitDownloadWithDeadlines": true,
+    "maximumItemAttempt": 1,
+    "reportedInputTokens": 23000,
+    "reportedOutputTokens": 14000,
+    "inputUsageKnown": 1000,
+    "outputUsageKnown": 1000,
+    "reportedReasoningTokensSubset": 0,
+    "cpaInternalAttemptCountsKnown": 0,
+    "generationMS": {
+      "count": 1000,
+      "p50": 1646.5,
+      "p95": 3138,
+      "max": 13459
+    },
+    "queueMS": {
+      "count": 1000,
+      "p50": 120417.0,
+      "p95": 247727,
+      "max": 303402
+    },
+    "headersMS": {
+      "count": 1000,
+      "p50": 868.5,
+      "p95": 2246,
+      "max": 12746
+    }
+  },
+  "campaignLedger": {
+    "attempts": 1000,
+    "distinctItems": 1000,
+    "dispatched": 1000,
+    "positivelyStopped": 1000,
+    "unsettled": 0,
+    "maximumOrdinal": 1
+  },
+  "globalLedger": {
+    "attempts": 1002,
+    "dispatched": 1002,
+    "positivelyStopped": 1002,
+    "unsettled": 0
+  },
+  "retainedData": {
+    "cache_entries": {
+      "before": 2,
+      "after": 2,
+      "contentsUnchanged": true
+    },
+    "credentials": {
+      "before": 0,
+      "after": 0,
+      "contentsUnchanged": true
+    },
+    "drafts": {
+      "before": 1,
+      "after": 1,
+      "contentsUnchanged": true
+    },
+    "hidden_presets": {
+      "before": 0,
+      "after": 0,
+      "contentsUnchanged": true
+    },
+    "history": {
+      "before": 3,
+      "after": 3,
+      "contentsUnchanged": true
+    },
+    "profiles": {
+      "before": 0,
+      "after": 0,
+      "contentsUnchanged": true
+    }
+  },
+  "containers": [
+    {
+      "name": "harden-llm-harden-llm-gateway-1",
+      "imageID": "sha256:fc338caf13a639864240ea976b591fe3cce62ee7d11fadb3c67e3b617ba803d2",
+      "version": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+      "status": "running",
+      "health": "healthy",
+      "stopGraceSeconds": 70,
+      "networks": [
+        "compose_default",
+        "harden-llm_harden-private",
+        "prls-observability"
+      ],
+      "logging": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "5",
+          "max-size": "20m"
+        }
+      }
+    },
+    {
+      "name": "harden-llm-harden-llm-web-1",
+      "imageID": "sha256:887c52cd8859d892a116fb3226c9caee2878cfddeb8f155369c48c6b1ebc5f8d",
+      "version": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+      "status": "running",
+      "health": "healthy",
+      "stopGraceSeconds": 20,
+      "networks": [
+        "harden-llm_harden-private",
+        "prls-observability"
+      ],
+      "logging": {
+        "Type": "json-file",
+        "Config": {}
+      }
+    },
+    {
+      "name": "harden-llm-harden-llm-batch-worker-1",
+      "imageID": "sha256:fc338caf13a639864240ea976b591fe3cce62ee7d11fadb3c67e3b617ba803d2",
+      "version": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+      "status": "running",
+      "health": null,
+      "stopGraceSeconds": 120,
+      "networks": [
+        "compose_default",
+        "harden-llm_harden-private",
+        "prls-observability"
+      ],
+      "logging": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "5",
+          "max-size": "20m"
+        }
+      }
+    }
+  ],
+  "credentialsPreserved": true,
+  "CPAConfigurationChanged": false,
+  "workerDeploymentToolFix": {
+    "PR": 146,
+    "codeSHA": "9512bd0718caed08c3f7997055da5e1915c1b7b6",
+    "focusedTestsPassed": 44,
+    "composeWaitDiagnosticExit": 1,
+    "correctedNoRecreateExit": 0,
+    "applicationRuntimeInputsChanged": false,
+    "mergeSHA": "fa2de8bc12a64592efa7b8cdaec61ea2d5e5147d",
+    "localFastTasksPassed": 10,
+    "nativeCorrectedCommandExit": 0,
+    "hostedFollowupAtPublication": "queued; not claimed as passed"
+  },
+  "failedReleaseRuns": [
+    {
+      "id": 41844670099,
+      "cause": "SQL scale test overlapped independent compilers; isolated timing resources"
+    },
+    {
+      "id": 41848022541,
+      "cause": "Go 1.26.9 reachable certificate advisory; patched to 1.26.10"
+    },
+    {
+      "id": 41850876751,
+      "cause": "Hex dependency advisories; patched affected packages and required dependencies"
+    }
+  ],
+  "limitations": [
+    "One short-output CPA gpt-6-luna low workload; configured limits are operating estimates, not universal provider quotas.",
+    "CPA internal attempts remain unknown. No live throttle occurred; deterministic tests own refusal/cooldown/probe qualification.",
+    "Two ordinary pilot calls used two reservations before the 1,000-item campaign; the final two items waited for another configured window. Elapsed time includes validation/downloads.",
+    "Existing top-level completed SSE response fields are preserved; not certification of every SDK completed-response accessor.",
+    "No browser ran; browser layout was not checked.",
+    "Active image lifecycle retains local immutable tags; no registry publication is configured."
+  ]
+}

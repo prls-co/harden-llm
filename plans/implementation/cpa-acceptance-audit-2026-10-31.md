@@ -1,5 +1,14 @@
 # CPA admission acceptance audit
 
+Current status, 2026-11-04: application source `f1ebdc4` is deployed and qualified
+in production after all 30 exact-main release tasks passed. The separate live
+campaign validates 1,000 distinct results in 313.392 seconds; two ordinary
+tracking pilots also pass. All 1,002 dispatches stopped/settled, pool outstanding
+and start intents are zero, and retained reference data contents are unchanged.
+The [production receipt](../evidence/harden-llm/cpa-admission/2026-11-04-production-cpa.json)
+records images, limits and evidence boundaries. Sections below retain earlier
+checkpoints and the failures/fixes, rather than retroactively relabelling them.
+
 ## 1. Scope and evidence rule
 
 This audit tracks #134 separately from status lookup #136. It does not replace
@@ -322,3 +331,43 @@ HTTP application apply. Gateway/web still use native HTTP health waiting.
 TEST-260/450 regressions failed before this operations-tool correction; native
 configuration coverage remains TEST-235. This changes deployment tooling, not
 the qualified Go/web runtime inputs or their immutable image identities.
+
+## 14. Production acceptance complete
+
+PRs #140/#141 and release corrections #143/#144/#145 are merged. Runtime
+images use exact source `f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4`, qualified
+by release `41857609943` attempt 1: all 30 selected tasks pass, with no cleanup
+errors/warnings. Exact image IDs, local full-SHA tags and rollout identity are
+in the production receipt. No registry publisher is introduced.
+
+Production reuses the HLLM database/role and Garage bucket, existing private
+networks and shared Temporal service. Namespace `harden-llm-production`, task
+queue `harden-llm-batch-v1` and stable pool `cpa-production` share admission for
+ordinary and durable calls. Additive schema, worker, V2 authority and application
+rollout ran in that order; provider-free public HTTP checks pass. The worker's
+actual stop grace is 120 seconds.
+
+Separate provider qualification passes tracked ordinary JSON/existing SSE and
+duplicate 409/retry suppression, then two 500-item jobs: 1,000 distinct validated
+outputs/response IDs, zero failures, maximum HLLM item attempt 1. Five-second
+status and actual Go wait/download clients report admission-window waits, fresh
+heartbeats and both deadline fields. Campaign elapsed 313.392 seconds includes
+validation/downloads. The two prior pilots used two initial reservations, so
+the final two items waited for another local window. Campaign reported 23,000
+input and 14,000 output tokens, known for all items. CPA internal attempts remain
+unknown; no live throttle occurred. This is not a universal quota or long-output
+performance guarantee.
+
+SQL confirms exactly 1,002 dispatched, positively locally stopped and settled
+attempts, including the pilots. Pool generation 2 has zero outstanding permits,
+zero start intents, no quiescing/persistence wait. Stored row-content fingerprints
+and counts for cache, credentials, drafts, hidden presets, history and profiles
+match the pre-rollout checkpoint. Jobs/results and rollback images/configuration
+are retained. No browser ran; layout was not checked.
+
+Operations-only PR #146 is merged as `fa2de8b`: all ten local fast tasks, 44
+controller/native configuration tests and the corrected real no-recreate command
+pass. Its hosted follow-up jobs were queued without a runner at publication;
+they are not borrowed as release passes. Go/frontend/deployment recipe runtime
+inputs are unchanged from the accepted artifact. Production source includes
+this controller fix; final controller comparison is equivalent.

@@ -1,5 +1,11 @@
 # CPA batch jobs
 
+Production is enabled at `https://harden-llm.prls.co/v1` as of 2026-11-04.
+The [production receipt](../plans/evidence/harden-llm/cpa-admission/2026-11-04-production-cpa.json)
+records exact application source/images, the 30-task release and 1,000 distinct
+live CPA results. Limits below are configured operating estimates; the recorded
+short-output result is not a universal account quota or completion guarantee.
+
 ## 1. Execution contract
 
 Explicit batch submission accepts up to 1,000 separate CPA generations. Ten
