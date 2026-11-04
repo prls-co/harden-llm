@@ -1,5 +1,11 @@
 # CPA and request-status delivery evidence
 
+Current production status (2026-11-04): source `f1ebdc4` is deployed and qualified
+after a 30-task exact-main release and 1,000 separate live CPA results. Controller
+follow-up `fa2de8b` preserves those runtime image identities. Section 28 and the
+[production receipt](../evidence/harden-llm/cpa-admission/2026-11-04-production-cpa.json)
+supersede the earlier open-gate checkpoints below.
+
 ## 1. Scope and baseline
 
 Implement issues #136 and #134 without changing ordinary OpenAI response formats,
@@ -1392,3 +1398,29 @@ proves the actual root/frontend/batch graph without starting containers. The
 production sequence and rollback/data preservation rules are documented in
 `docs/cpa-batch-jobs.md` section 2.1. Release, source/image identity and deployed
 acceptance remain separate from these local checks until recorded.
+
+## 28. Production release and live acceptance — 2026-11-04
+
+The three review findings and subsequent release blockers are fixed and merged
+through #140/#141/#143/#144/#145/#146. The [current acceptance audit](cpa-acceptance-audit-2026-10-31.md#14-production-acceptance-complete)
+records failures and corrections. Exact application source `f1ebdc4` passed
+release `41857609943`, attempt 1, all 30 selected tasks. Gateway/worker and web
+images were built only after that run passed, using the normal pinned Dockerfiles
+and protected dependency secret. Qualified image IDs are in the receipt.
+
+The protected controller applied schema/worker, confirmed V2 generation 2, then
+applied gateway/web. All three identities/configurations compare equivalent.
+Public health/auth/profile/status reads pass independently of provider acceptance.
+Separate live CPA acceptance validates two tracked JSON/SSE pilots and 1,000
+distinct durable outputs in 313.392 seconds, with zero failures and one HLLM
+attempt per item. Actual Go clients verify downloads and deadline visibility.
+Every one of the 1,002 local dispatches stopped and settled; outstanding permits
+and start intents are zero. Existing reference data contents, credentials,
+accepted jobs/results and rollback checkpoints are preserved.
+
+The final worker-only Compose wait correction is operations tooling, qualified
+by all ten local fast tasks, 44 focused/native configuration tests and a real
+no-recreate exit-0 comparison. Its source is `fa2de8b`; application runtime
+inputs/images remain `f1ebdc4`. Hosted follow-up jobs were queued, not passed,
+when this evidence was published. No browser ran. Future analytics evaluation
+remains #142; it is not a release prerequisite or a dashboard project.

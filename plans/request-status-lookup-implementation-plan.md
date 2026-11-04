@@ -2,7 +2,7 @@
 
 - Document: `PLAN-HLLM-REQUEST-STATUS-001`, version 1.0.
 - Date: 2026-10-18.
-- Status: implemented and ready for review in [PR #140](https://github.com/prls-co/harden-llm/pull/140), source `326767d`; unmerged. The combined `b75d86f` source is qualified in isolated nonproduction (section 12). Section 11 records implementation acceptance. Shared CPA admission remains separate in PR #141.
+- Status: merged through [PR #140](https://github.com/prls-co/harden-llm/pull/140) and production-qualified on 2026-11-04 in combined application source `f1ebdc4`. Authenticated JSON/SSE tracking, duplicate suppression, shared CPA admission and a separate 1,000-item durable campaign pass. See the [production receipt](evidence/harden-llm/cpa-admission/2026-11-04-production-cpa.json). Sections 11–12 retain the earlier implementation/nonproduction evidence.
 - Tracking: [issue #136](https://github.com/prls-co/harden-llm/issues/136).
 - Related: [CPA execution issue #134](https://github.com/prls-co/harden-llm/issues/134) and [broader architecture](cpa-durable-execution-architecture.md).
 - Inspected source baseline: `f1ace14f9b0252ce8a49f7def5b776fbf524864a` (`origin/main` when planned); design branch was `e05ce9ee90c96bb5757948061950a45368e59def` before this document.
