@@ -246,3 +246,23 @@ runner scheduling overlap; a fresh exact-source release must still pass.
 Source comparison also identifies frontend runtime changes in #141. This
 production closeout therefore builds gateway and web, with the worker using the
 gateway image, rather than retaining an out-of-date frontend image.
+
+## 11. Certificate security compiler patch
+
+The next exact-main release, `41848022541` attempt 1 on `db4c8e7`, was rejected
+by `go-vulnerability`: GO-2026-6809 is reachable through `crypto/x509` in the
+pinned Go 1.26.9 standard library. The [official Go advisory](https://pkg.go.dev/vuln/GO-2026-6809)
+identifies 1.26.10 as the patched 1.26 release. The earlier failed run had
+cancelled this check before it completed; this is a separate newly observed
+release blocker, not a reason to retry the same source or relax the scanner.
+
+The module minimum, hosted toolchain, gateway/synthetic provider builders and
+optional browser recipe now select Go 1.26.10. The Dockerfiles retain Alpine 3.23 and pin the
+official multi-platform image index
+`sha256:34414731924cf2263160f0021f5cf6e1807382d85248f7cb419d4187b96d5e43`,
+resolved from `docker.io/library/golang:1.26.10-alpine3.23`; its linux/amd64
+manifest is `sha256:9d1e2c4fda593efb2c405e1c855c75ec17fe42dc02f6b7142a5ea7af7f386bf4`.
+No TLS verification bypass, vulnerability suppression or unrelated dependency
+upgrade is introduced. The unchanged vulnerability check and a fresh exact-main
+release must pass before building production artifacts.
+The optional browser image is not built or run as part of this closeout.
