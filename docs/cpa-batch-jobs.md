@@ -101,7 +101,8 @@ not permit arbitrary overlay files or a different worker authority.
 After the exact merged source passes the browser-free release workflow, build
 the gateway image according to `SPEC-HLLM-IMAGE-DEPLOYMENT-001`. Preserve the
 protected descriptor/environment and existing data before updating image and
-batch settings. Keep the unchanged frontend image. Then:
+batch settings. Rebuild the frontend when its runtime inputs change; retain its
+accepted image only when those inputs are unchanged. Then:
 
 1. Provision or verify the private production namespace and existing network.
    Set the same namespace, queue, stable account pool, upstream and policy for
@@ -117,7 +118,8 @@ batch settings. Keep the unchanged frontend image. Then:
    and generation, and no outstanding legacy ownership. The command performs
    the explicit V1 drain/handoff when needed. Do not change pool identity to
    bypass a drain or restriction.
-4. Apply only `harden-llm-gateway` with the same `--expected-release`. Recheck
+4. Apply `harden-llm-gateway` with the same `--expected-release`, plus
+   `harden-llm-web` when its runtime inputs changed. Recheck
    gateway/worker image IDs, source labels, controller equivalence and Temporal
    control/provider pollers. Gateway retains its HTTP health check. The worker
    must be running with its intentionally disabled HTTP health check; pollers

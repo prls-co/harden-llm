@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -23,18 +24,46 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prls-co/harden-llm/internal/integrationtest"
 	"github.com/prls-co/harden-llm/stateful"
 )
 
-type trackingSQLTrace struct{ queries atomic.Int64 }
+type trackingSQLTrace struct {
+	queries atomic.Int64
+	t       *testing.T
+}
 
 func (s *trackingSQLTrace) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
 	s.queries.Add(1)
 	return ctx
 }
-func (*trackingSQLTrace) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
+func (s *trackingSQLTrace) failure(operation string, err error) {
+	if err == nil {
+		return
+	}
+	code := "other"
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		code = pgErr.Code
+	} else if errors.Is(err, context.DeadlineExceeded) {
+		code = "context_deadline_exceeded"
+	} else if errors.Is(err, context.Canceled) {
+		code = "context_canceled"
+	}
+	// Deliberately omit queries, parameters, DSNs and arbitrary error text.
+	s.t.Logf("tracking SQL %s failure: type=%T code=%s", operation, err, code)
+}
+func (s *trackingSQLTrace) TraceQueryEnd(_ context.Context, _ *pgx.Conn, data pgx.TraceQueryEndData) {
+	s.failure("query", data.Err)
+}
+func (s *trackingSQLTrace) TraceAcquireStart(ctx context.Context, _ *pgxpool.Pool, _ pgxpool.TraceAcquireStartData) context.Context {
+	return ctx
+}
+func (s *trackingSQLTrace) TraceAcquireEnd(_ context.Context, _ *pgxpool.Pool, data pgxpool.TraceAcquireEndData) {
+	s.failure("acquire", data.Err)
+}
 func trackingHTTPPool(t *testing.T) (*pgxpool.Pool, *trackingSQLTrace) {
 	t.Helper()
 	_, dsn := integrationtest.PostgresLease(t)
@@ -42,7 +71,7 @@ func trackingHTTPPool(t *testing.T) (*pgxpool.Pool, *trackingSQLTrace) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	trace := &trackingSQLTrace{}
+	trace := &trackingSQLTrace{t: t}
 	config.ConnConfig.Tracer = trace
 	config.MaxConns = 16
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
@@ -224,6 +253,8 @@ func TestRequestTrackingScale(t *testing.T) {
 						resp.Body.Close()
 						if readErr != nil || resp.StatusCode != 200 || !strings.Contains(string(data), "fixture answer") {
 							t.Error("generation failed", resp.StatusCode, readErr)
+							stats := pool.Stat()
+							t.Logf("tracking pool: total=%d acquired=%d idle=%d cancelled_acquires=%d empty_acquires=%d", stats.TotalConns(), stats.AcquiredConns(), stats.IdleConns(), stats.CanceledAcquireCount(), stats.EmptyAcquireCount())
 						}
 					}
 					if tracked {
