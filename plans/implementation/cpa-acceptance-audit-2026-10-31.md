@@ -134,3 +134,75 @@ for review, rather than automatically deleting them on observer completion.
   nonce schema constrained visible output. No token quota or ban-safe rate is
   inferred from this campaign. Browser layout was not checked; no frontend,
   production promotion or shared CPA configuration change occurred.
+
+## 8. Production-readiness review — 2026-11-04
+
+Disposition: **not yet ready for production promotion**. The P0–P6 implementation
+and isolated nonproduction acceptance above remain valid. This review identifies
+remaining work in the production adoption path; it does not invalidate the
+recorded 1,000-request result or authorize deployment.
+
+PR #140 remains open/ready, source `326767d`; PR #141 remains open/ready, reviewed
+source `822b324`. Both hosted fast runs pass. GitHub records no approving review
+for either PR: #140 has only a resolved automated security comment and #141 had
+no review submissions. This is an author review of the critical auth/tracking,
+admission, claim/settlement, continuation, deadline, client and release paths;
+it is not an independent approval or a claim that every research artifact was
+re-reviewed. No new inference or browser ran for this review.
+
+### 8.1. Production blocker: deployment controller cannot adopt batch execution
+
+`scripts/production-config.mjs` fixes `COMPOSE_FILE_ORDER` to root/frontend files
+and `APPLICATION_SERVICES` to gateway/web. `validateDescriptor` rejects adding
+`deploy/batch/compose.yml`; `validateCandidateScope` rejects the batch worker
+under `--expected-release`. These were reproduced by importing the actual module,
+constructing metadata-only candidates and invoking its validators with a process
+runner that throws on any attempted external command:
+
+```text
+batch-overlay: invalid_configuration: descriptor composeFiles do not match the approved graph
+worker-release: scope_blocked: --expected-release is limited to harden-llm-gateway and harden-llm-web
+```
+
+The current protected production descriptor has no worker or batch/Temporal
+settings; the running production gateway has batch disabled. A normal gateway
+image promotion alone therefore cannot deliver the feature. Add narrowly scoped
+batch overlay/worker support to the existing controller, retaining its exact-image,
+release, allowed-difference and shared-service guards. Qualify schema, worker and
+V2 authority before enabling managed incoming CPA traffic. Do not bypass the
+controller with the private nonproduction Compose file.
+
+### 8.2. Rollout fix: worker container grace is shorter than worker drain
+
+`deploy/batch/compose.yml` sets `stop_grace_period: 30s`.
+`stateful/batch/workers.go` sets each SDK worker's `WorkerStopTimeout` to 45s and
+stops provider then control sequentially. Docker may SIGKILL before even the
+provider's full wait, interrupting outcome finalization during an ordinary
+replacement. Unknown outcomes correctly remain unconfirmed, but a routine
+rollout should not force that failure path. Align the container grace with both
+bounded worker waits plus process cleanup (for example 100–120s) and cover the
+configuration relationship with the lowest sufficient deterministic check.
+
+### 8.3. Client contract gap: new deadline fields are dropped
+
+The V2 gateway/OpenAPI return `execution_deadline` and `finalization_deadline`,
+but `httpclient.JobStatus` exposes neither. `decodeWire` validates the response
+then decodes into that smaller struct, so Go callers lose those fields. This does
+not stop REST bulk execution; add the two optional timestamps and a client wire
+regression before claiming complete typed-client deadline visibility.
+
+### 8.4. Remaining release steps
+
+1. Fix the scoped production-controller adoption and shutdown configuration;
+   close the small typed-client deadline gap. Recheck the affected boundaries.
+2. Merge #140 before #141, preserving accepted jobs, schemas and the existing
+   production service/data ownership. A main merge is not a live enablement.
+3. Follow `SPEC-HLLM-IMAGE-DEPLOYMENT-001`: exact merged source, successful
+   browser-free release workflow/attempt, then pinned gateway/worker image build
+   and protected candidate descriptor checks. Existing fast-only runs explicitly
+   skipped release and do not substitute for this gate. Do not run the service-
+   heavy certification on the live production daemon.
+4. Prepare the production namespace/settings and schema/worker/V2 sequence;
+   verify the concrete release/rollback plan before promotion. Operator approval
+   of the actual production switch remains separate. No new design inputs or
+   analytics dashboard are needed from the user.

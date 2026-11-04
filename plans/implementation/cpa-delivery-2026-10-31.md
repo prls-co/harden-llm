@@ -1355,3 +1355,28 @@ throttle occurred here; deterministic tests own cooldown/probe failure behavior.
 The retained CPA translator may strip requested output limits. Shared CPA config,
 main and production remain unchanged; no browser ran. P0–P6 source/local/
 nonproduction acceptance is complete, with review/merge/promotion separate.
+
+## 26. Production readiness review — 2026-11-04
+
+The user requested a review and explicit production-readiness decision. Both PRs
+remain unmerged with passing fast CI, and GitHub has no approving reviews. The
+previous completion was implementation plus local/nonproduction qualification,
+not a production release certification or independent code approval.
+
+An author review of critical auth/tracking, execution fencing/reconciliation,
+ordinary/durable admission, continuation, deadlines, client and rollout paths
+found remaining production adoption gaps. Actual controller validators reject
+the batch overlay (`invalid_configuration`) and worker release scope
+(`scope_blocked`) without running any external process. Production still has no
+worker/Temporal settings and the batch feature is disabled. Worker Compose grace
+is 30s while the provider/control SDK waits are 45s each and sequential. The Go
+job-status client also drops the two new optional deadline fields. Details,
+source locations, reproductions and ordered release steps are in acceptance
+audit section 8. No application source, production configuration, shared data,
+browser or provider path was changed by this review; existing accepted evidence
+is retained rather than re-run or relabelled.
+
+Disposition: not yet ready for a production push. The remaining work is scoped
+rollout/client corrections and the already required exact-merged-source release
+certification/adoption. The user's deferred analytics issue #142 remains an
+evaluation-first future item, not a release prerequisite.
