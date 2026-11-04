@@ -266,3 +266,28 @@ No TLS verification bypass, vulnerability suppression or unrelated dependency
 upgrade is introduced. The unchanged vulnerability check and a fresh exact-main
 release must pass before building production artifacts.
 The optional browser image is not built or run as part of this closeout.
+
+## 12. Frontend dependency audit patches
+
+Release `41850876751` attempt 1 on `77f98d6` passed the Go vulnerability and
+real Temporal tasks, then failed the Hex security audit. Ordinary integration,
+integration race and other cancelled/unstarted tasks are not passes. The full
+failed report is retained; no production artifact was built or promoted.
+
+Both dependency audits were run explicitly before another release dispatch.
+The locked fixes are Bandit 1.14.1, Phoenix.HTML 4.4.0, Plug.Crypto 2.2.1,
+Hackney 4.9.1 and ssl_verify_fun 1.1.9. Hackney's required dependency constraints
+also update certifi 2.18.0, h2 0.12.5, quic 2.1.3 and webtransport 0.4.8.
+Other dependency locks and the shared `prls_web` Git revision are retained.
+The host explicitly overrides that revision's exact Phoenix.HTML 4.3.0 pin;
+the reusable widget requires the patched 4.4 line. This selects the security
+fix without adopting a new shared-library identity/UI contract.
+
+Primary affected-version references: [Bandit](https://cna.erlef.org/cves/CVE-2026-116078.html),
+[Phoenix.HTML](https://cna.erlef.org/cves/CVE-2026-117645.html),
+[Plug.Crypto](https://cna.erlef.org/cves/CVE-2026-105963.html),
+[Hackney](https://cna.erlef.org/cves/CVE-2026-115693.html),
+[ssl_verify_fun](https://cna.erlef.org/cves/CVE-2026-117666.html).
+The unchanged `mix hex.audit` now reports no retired/advisory packages;
+canonical `frontend-deps-audit` also passes. Host/widget compatibility and
+production compilation remain part of the fast and exact-main release gates.

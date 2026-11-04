@@ -10,7 +10,7 @@ defmodule HardenLlmUI.MixProject do
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       deps: [
         {:phoenix, "== 1.8.9"},
-        {:phoenix_html, "~> 4.1"},
+        {:phoenix_html, "~> 4.4.0"},
         {:phoenix_live_view, "== 1.2.10"},
         {:phoenix_template,
          git: "https://github.com/phoenixframework/phoenix_template.git",
