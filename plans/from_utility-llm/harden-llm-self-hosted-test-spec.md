@@ -1250,6 +1250,7 @@ or contact a provider.
 - Fixtures/data: temporary four-file Compose graph, two ordered env files, single-quoted bcrypt-like dollar text, JSON, an intentional empty, a precedence collision and a defaulted variable.
 - Assertions: native `docker compose config --format json` resolves the approved file order; production precedence wins the permitted collision; empty/default semantics remain distinct; serialized dollar escaping is normalized before comparison; no daemon operation is issued.
 - Pass criteria: the test passes with the installed Compose version and cannot pass by replacing native interpolation with a hand-written parser or by starting a container.
+- Batch adoption: also resolve the actual repository's approved root/frontend/batch graph with temporary synthetic settings; assert the same gateway/schema/worker image, inherited protected effects, worker command, disabled worker HTTP health check and 120-second stop grace. This remains configuration-only and starts no services.
 
 ## 23. Recovery production closeout
 
@@ -1264,6 +1265,7 @@ runner, provider, database, browser, or timeout budget.
 - Location: `scripts/production-config.mjs` and `scripts/test/production_config_test.mjs`.
 - Command: `node --test scripts/test/production_config_test.mjs`.
 - Acceptance: an explicit 40-hex candidate rejects stale desired/runtime identity, missing labels, unhealthy candidates, invalid scope, and resolve-only use; a valid old runtime may transition to matching candidate images; no mutating subprocess runs on rejection and no diagnostic contains fixture secrets.
+- Batch adoption: only the exact optional batch overlay and worker are accepted. First installation requires positive daemon evidence of absence and explicit allowed runtime differences; inspection/daemon errors and foreign ownership remain fatal. Worker operations require an explicit release, matching gateway image/storage/Temporal/policy, process health and configured stop grace. Gateway/web retain their HTTP health requirements. TEST-450 requires schema before worker creation and preserves scoped `--no-deps` startup.
 
 ### TEST-261: Pending and later outcomes each terminate once
 
@@ -2092,6 +2094,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Coverage gate: `fast`.
 - Tier: T1; `httpclient/jobs_test.go`.
 - Exercise real local HTTP responses against canonical OpenAPI. Waiting reports quota state without an inference POST and requires an overall deadline. Missing/duplicate result records are rejected; validated success/error totals must match terminal status.
+- V2 `execution_deadline` and `finalization_deadline` remain available in status and progress callbacks; legacy omission stays nil rather than inventing a deadline.
 
 ### TEST-479: Self-hosted batch composition configuration
 
@@ -2311,6 +2314,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `stateful/batch/workers_test.go`.
 - Command: `go test ./stateful/batch -run '^TestWorkers' -count=1`.
 - Oracle: Independent inference and readiness use a separate provider task queue within the same worker lifecycle. V1 workflow/activity registrations remain available. Failed control startup stops the owned provider worker, normal shutdown stops both once, and worker shutdown cancels the provider context before local-stop evidence is recorded.
+- Deployment relationship: parse the actual worker overlay and require its stop grace to cover both configured sequential SDK worker waits plus at least ten seconds for process cleanup.
 
 ### TEST-507: Real CPA pool rollover with an active native HTTP call
 

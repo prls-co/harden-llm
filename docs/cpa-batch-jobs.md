@@ -89,6 +89,48 @@ Temporal pollers and job heartbeats/deadlines. Preserve accepted manifests,
 results and workflow histories during rollback. Disable new batch submissions
 and drain accepted work before removing workers or changing workflow versions.
 
+### 2.1. Production controller rollout
+
+Use `scripts/production-config.mjs` and the protected production descriptor.
+The controller accepts either the existing root/frontend graph or exactly that
+graph followed by `deploy/batch/compose.yml`. The batch graph requires both
+gateway and worker descriptor identities, sharing the accepted image ID,
+connection configuration, database, Garage and Temporal/pool policy. It does
+not permit arbitrary overlay files or a different worker authority.
+
+After the exact merged source passes the browser-free release workflow, build
+the gateway image according to `SPEC-HLLM-IMAGE-DEPLOYMENT-001`. Preserve the
+protected descriptor/environment and existing data before updating image and
+batch settings. Keep the unchanged frontend image. Then:
+
+1. Provision or verify the private production namespace and existing network.
+   Set the same namespace, queue, stable account pool, upstream and policy for
+   gateway and worker in the protected production environment.
+2. Run controller `check`, then `apply --services harden-llm-batch-worker
+   --expected-release FULL_SOURCE_SHA`. Schema runs with the accepted gateway
+   image before the worker starts. Only the selected worker is created;
+   dependencies/shared services are not restarted. First creation requires a
+   successful daemon listing proving its configured container is absent, plus
+   explicit `runtime` permission in `allowedDifferenceFields`.
+3. Using the same protected Compose inputs/image, run the worker service once
+   with command `batch-upgrade`. Require `status: v2_ready`, the configured pool
+   and generation, and no outstanding legacy ownership. The command performs
+   the explicit V1 drain/handoff when needed. Do not change pool identity to
+   bypass a drain or restriction.
+4. Apply only `harden-llm-gateway` with the same `--expected-release`. Recheck
+   gateway/worker image IDs, source labels, controller equivalence and Temporal
+   control/provider pollers. Gateway retains its HTTP health check. The worker
+   must be running with its intentionally disabled HTTP health check; pollers
+   and authenticated job progress establish operational readiness.
+5. Check public health/authentication without inference. Perform any authorized
+   live-provider qualification separately, validate all result IDs/counts, and
+   record it as provider evidence rather than an automatic deployment smoke.
+
+Worker Compose stop grace is 120 seconds: the provider and control SDK workers
+stop sequentially with up to 45 seconds each, leaving time for process cleanup.
+This does not extend a generation deadline. An unknown provider outcome remains
+unconfirmed and is never automatically replayed.
+
 The dispatcher initially releases up to 200 calls, then paces starts at 100/second,
 with at most 128 active calls. Every 100 unthrottled validated completions
 doubles the launch rate, up to 200/second. These are caller controls, not a
@@ -178,6 +220,9 @@ interrupted download is incomplete and can be repeated without inference.
 `httpclient.Client` provides `SubmitJob`, `JobStatus`, `WaitJob` and
 `DownloadJobResult`, validated against OpenAPI. The downloader checks IDs,
 counts, per-item schemas and success/error totals.
+`JobStatus.ExecutionDeadline` and `JobStatus.FinalizationDeadline` expose the
+optional V2 timestamps, including progress callbacks; older status responses
+leave both nil. `Deadline` remains the existing compatibility field.
 
 With the existing protected `HARDEN_LLM_TOKEN` environment value:
 
@@ -269,6 +314,7 @@ unfinished response does not block later eligible work. History rollover drains
 active activities before the next run, so long responses can briefly delay
 queued work at that boundary. The measured burst boundary is not a universal
 simultaneous-generation ceiling, RPM contract or suspension-safe rate. All
-participating clients must share the configured authority; direct CPA and
-ordinary HLLM calls remain outside it. Requalify changed models, request shapes
+participating clients must share the configured authority. Direct CPA traffic
+remains outside it; the current V2 release also admits ordinary HLLM calls to
+the configured CPA origin through that same authority. Requalify changed models, request shapes
 and account limits before retuning policy.

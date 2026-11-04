@@ -206,3 +206,21 @@ regression before claiming complete typed-client deadline visibility.
    verify the concrete release/rollback plan before promotion. Operator approval
    of the actual production switch remains separate. No new design inputs or
    analytics dashboard are needed from the user.
+
+## 9. Authorized production closeout fixes — 2026-11-04
+
+The user subsequently authorized fixes, merge to main, release and production
+deployment. Section 8 records the pre-fix review; it is not a new approval gate.
+The scoped controller now accepts only the known optional batch overlay/worker,
+checks shared image/storage/Temporal/policy authority, proves first-install
+absence without hiding daemon errors, runs schema before worker startup and
+keeps normal gateway HTTP health checks. Disabled worker HTTP health, physical
+network aliases and actual stop grace are compared explicitly. Existing image,
+ownership, allowed-difference and release guards remain active.
+
+The overlay now allows 120 seconds for both sequential SDK stops and cleanup.
+The typed Go client preserves both optional V2 deadline fields while accepting
+legacy omission. TEST-234/235/260/450/478/506 cover these changes; the new
+regressions failed against the prior source before implementation. Focused Go,
+controller and native Compose configuration checks pass. Exact merged-source
+release/deployment receipts will be recorded separately after those steps run.

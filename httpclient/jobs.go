@@ -29,18 +29,20 @@ type JobCounts struct {
 func (c JobCounts) Done() bool { return c.Total > 0 && c.Succeeded+c.Failed == c.Total }
 
 type JobStatus struct {
-	JobID               string     `json:"job_id"`
-	Status              string     `json:"status"`
-	Counts              JobCounts  `json:"counts"`
-	CreatedAt           time.Time  `json:"created_at"`
-	Deadline            time.Time  `json:"deadline"`
-	ObservedAt          time.Time  `json:"observed_at"`
-	LastWorkerHeartbeat *time.Time `json:"last_worker_heartbeat_at"`
-	LastProgressAt      *time.Time `json:"last_progress_at"`
-	NextAttemptAt       *time.Time `json:"next_attempt_at"`
-	WaitingReason       string     `json:"waiting_reason,omitempty"`
-	StatusURL           string     `json:"status_url"`
-	ResultURL           string     `json:"result_url"`
+	JobID                string     `json:"job_id"`
+	Status               string     `json:"status"`
+	Counts               JobCounts  `json:"counts"`
+	CreatedAt            time.Time  `json:"created_at"`
+	Deadline             time.Time  `json:"deadline"`
+	ExecutionDeadline    *time.Time `json:"execution_deadline,omitempty"`
+	FinalizationDeadline *time.Time `json:"finalization_deadline,omitempty"`
+	ObservedAt           time.Time  `json:"observed_at"`
+	LastWorkerHeartbeat  *time.Time `json:"last_worker_heartbeat_at"`
+	LastProgressAt       *time.Time `json:"last_progress_at"`
+	NextAttemptAt        *time.Time `json:"next_attempt_at"`
+	WaitingReason        string     `json:"waiting_reason,omitempty"`
+	StatusURL            string     `json:"status_url"`
+	ResultURL            string     `json:"result_url"`
 }
 
 func decodeJobStatus(response *http.Response) (JobStatus, error) {

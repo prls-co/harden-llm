@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -18,6 +19,7 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
+	"gopkg.in/yaml.v3"
 )
 
 type ownedWorker struct {
@@ -68,6 +70,24 @@ func TestWorkersSeparateProviderQueueAndPreserveLegacyRegistrations(t *testing.T
 	}
 	if options[0].MaxConcurrentWorkflowTaskPollers != 32 || options[0].MaxConcurrentActivityTaskPollers != 32 || options[1].MaxConcurrentActivityTaskPollers != 8 {
 		t.Fatal("default pollers cannot feed the qualified 128-permit pool", options)
+	}
+	// Stop joins provider and control workers sequentially before process cleanup.
+	// The deployment must not SIGKILL either SDK wait prematurely.
+	raw, err := os.ReadFile("../../deploy/batch/compose.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var deployment struct {
+		Services map[string]struct {
+			StopGracePeriod string `yaml:"stop_grace_period"`
+		} `yaml:"services"`
+	}
+	if err := yaml.Unmarshal(raw, &deployment); err != nil {
+		t.Fatal(err)
+	}
+	grace, err := time.ParseDuration(deployment.Services["harden-llm-batch-worker"].StopGracePeriod)
+	if err != nil || grace < options[0].WorkerStopTimeout+options[1].WorkerStopTimeout+10*time.Second {
+		t.Fatal("Compose stop grace must cover both SDK waits and process cleanup", grace, err)
 	}
 	if !reflect.DeepEqual(created[1].activities, []string{"InvokeAttempt", "ProviderReady"}) || len(created[0].workflows) != 4 {
 		t.Fatal("inference escaped provider queue or compatibility workflow missing", created)

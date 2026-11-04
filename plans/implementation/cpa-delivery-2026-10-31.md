@@ -1380,3 +1380,15 @@ Disposition: not yet ready for a production push. The remaining work is scoped
 rollout/client corrections and the already required exact-merged-source release
 certification/adoption. The user's deferred analytics issue #142 remains an
 evaluation-first future item, not a release prerequisite.
+
+## 27. Authorized production closeout fixes — 2026-11-04
+
+The user authorized completing the fixes, main merge, release and deployment.
+The three review findings are corrected with deterministic regressions added
+before implementation: narrowly scoped batch adoption in the existing
+production controller, 120-second worker stop grace, and optional execution/
+finalization deadlines retained by the Go client. Native Compose resolution
+proves the actual root/frontend/batch graph without starting containers. The
+production sequence and rollback/data preservation rules are documented in
+`docs/cpa-batch-jobs.md` section 2.1. Release, source/image identity and deployed
+acceptance remain separate from these local checks until recorded.

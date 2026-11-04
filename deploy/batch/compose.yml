@@ -37,7 +37,9 @@ services:
     # Temporal task-queue pollers and the job heartbeat/deadline, not /healthz.
     healthcheck:
       disable: true
-    stop_grace_period: 30s
+    # Provider and control SDK workers each drain for up to 45 seconds, followed
+    # by process/telemetry cleanup. Docker must not interrupt those waits.
+    stop_grace_period: 120s
 
 networks:
   batch-temporal:
