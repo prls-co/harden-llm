@@ -224,3 +224,25 @@ legacy omission. TEST-234/235/260/450/478/506 cover these changes; the new
 regressions failed against the prior source before implementation. Focused Go,
 controller and native Compose configuration checks pass. Exact merged-source
 release/deployment receipts will be recorded separately after those steps run.
+
+## 10. Exact-main release scheduling correction
+
+PRs #140 and #141 merged as `f86897c` and `55a7e95`. Exact-main release
+`41844670099`, attempt 1, failed in `go-integration`: TEST-495's unchanged
+1,000-tracked-call assertion observed six registration 503s and 994 provider
+dispatches. The runner report records overlap with race/vulnerability checks
+and frontend compilation. Other interrupted/unstarted tasks are not passes.
+Production application images were not changed by that failed gate.
+
+The ordinary SQL/scale integration task now uses the existing exclusive release
+resource, like the already isolated integration-race task. TEST-048 rejects CPU
+compiler overlap for either task; its added assertion failed before changing
+the manifest. The 600/500 ms SQL budgets, 16-call generator, package cap, 1,000
+count/terminal assertions, production code and cleanup rules are unchanged.
+TEST-495 now reports only bounded SQL error types/codes and pool counters on
+failure, never parameters, DSNs or arbitrary errors. This fixes the observed
+runner scheduling overlap; a fresh exact-source release must still pass.
+
+Source comparison also identifies frontend runtime changes in #141. This
+production closeout therefore builds gateway and web, with the worker using the
+gateway image, rather than retaining an out-of-date frontend image.

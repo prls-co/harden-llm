@@ -1821,12 +1821,19 @@ stale Phoenix-history guidance with ADR-HLLM-033/034. This adds the omitted
 canonical document to the existing contract test, without changing its purpose.
 
 TEST-048 includes `internal/testkit/integration_race_resources_test.go`,
-`TestIntegrationRaceOwnsTimingResources`, a default-tag manifest assertion for
+`TestIntegrationOwnsTimingResources` (previously `TestIntegrationRaceOwnsTimingResources`), a default-tag manifest assertion for
 exclusive race-timing resources under ADR-HLLM-015. Its original TEST-008 comment
 was a traceability error; TEST-008 remains retry classification/budget/backoff/
 cancellation. No assertion, runtime task or deadline changes in this correction.
 TEST-234's physical-network cases and TEST-450 schema ordering already pass;
 TEST-434/435 remain explicit deployed identity/HTTP checks.
+
+On 2026-11-04, release `41844670099` recorded TEST-495 registration refusals
+while ordinary integration overlapped race/vulnerability/frontend compilation.
+TEST-048 now requires both `go-integration` and `go-integration-race` to own
+the existing exclusive release resource. Their SQL budgets, package/generator
+concurrency, counts and assertions are unchanged. TEST-495 additionally records
+safe query/acquire error classifications and pool counters for diagnosis.
 
 
 ## 28. Shipped reference preset acceptance (2026-10-13)
