@@ -529,6 +529,7 @@ test("TEST-450 accepted gateway schema runs exactly once before applications wit
   assert.equal(starts.length, 2);
   assert.deepEqual(starts[0].args.slice(-6), ["run", "--rm", "--no-deps", "--pull", "never", "gateway-schema"]);
   assert(starts[1].args.includes("up"));
+  assert(starts[1].args.includes("--wait"), "HTTP applications retain native health waiting");
   assert(starts[1].args.includes("--no-deps"));
   assert(starts.every(call => call.args.includes(f.descriptor.dockerContext)));
   const paths = starts.map(call => call.args.filter((_, index, all) => all[index - 1] === "-f"));
@@ -664,6 +665,7 @@ test("TEST-450 first worker installation runs schema before only the explicitly 
   assert.deepEqual(mutations[0].slice(-6), ["run", "--rm", "--no-deps", "--pull", "never", "gateway-schema"]);
   assert.deepEqual(mutations[1].slice(-1), [batchWorker]);
   assert(mutations[1].includes("--no-deps"));
+  assert(!mutations[1].includes("--wait"), "Compose --wait requires a health check even for the disabled worker");
   assert(!mutations[1].includes("harden-llm-gateway"));
   assert.equal(runCheck(f.descriptor, {services: [batchWorker], expectedRelease: f.release, run: f.run}).differences.length, 0);
   assert(!JSON.stringify(f.calls).includes("synthetic-upstream-token"));
@@ -696,6 +698,12 @@ test("TEST-260 worker apply requires an explicit release and missing-runtime app
   f.descriptor.services[batchWorker].allowedDifferenceFields = ["environment", "image", "identity"];
   assert.throws(() => runApply(f.descriptor, [batchWorker], f.run, {expectedRelease: f.release}), /unapproved difference/);
   assert(!f.calls.some(a => a.includes("up") || a.includes("run")));
+});
+
+test("TEST-260 worker installation must precede the gateway rather than share an apply", t => {
+  const f = batchApplyFixture(t);
+  assert.throws(() => runApply(f.descriptor, [batchWorker, "harden-llm-gateway"], f.run, {expectedRelease: f.release}), /worker.*separately|worker.*before/);
+  assert.equal(f.calls.length, 0);
 });
 
 test("TEST-260 running worker uses its process health while gateway still requires HTTP health", t => {
