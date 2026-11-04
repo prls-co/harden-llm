@@ -346,19 +346,44 @@ func TestCPAAdmissionCanceledQueueHasNoProviderEntry(t *testing.T) {
 	store := newAdmissionMemoryStore()
 	store.neverGrant = true
 	native := &admissionNative{}
-	c := admissionTestClient(t, store, native)
 	now := time.Now()
 	record, _ := NewTrackingRecord(uuid.NewString(), "/v1/responses", now, now.Add(time.Second))
 	session := NewTrackingSession(record, time.Now)
-	ctx, cancel := context.WithTimeout(WithTrackingSession(context.Background(), session), 40*time.Millisecond)
+	ctx, cancel := context.WithCancel(WithTrackingSession(context.Background(), session))
 	defer cancel()
+	// Wake follows positive enqueue acknowledgement. Cancel there so compiler
+	// scheduling cannot turn the queued-cancellation case into pre-entry expiry.
+	c := admissionTestClient(t, store, native, admissionSignals{wake: func() error {
+		cancel()
+		return nil
+	}})
 	_, err := c.Call(ctx, admissionTestRequest())
-	if !errors.Is(err, context.DeadlineExceeded) || native.calls.Load() != 0 || session.ProviderEntered() || len(store.queued) != 1 {
+	if !errors.Is(err, context.Canceled) || native.calls.Load() != 0 || session.ProviderEntered() || len(store.queued) != 1 {
 		t.Fatal("abandoned waiter entered native execution", err, native.calls.Load(), session.ProviderEntered())
 	}
 	row := store.waiters[store.queued[0].RequestID]
 	if row.ClosedAt == nil || session.Snapshot(false).Stage == nil || *session.Snapshot(false).Stage != "admission_wait" {
 		t.Fatal("queued caller was not canceled/observed", row, session.Snapshot(false))
+	}
+}
+
+func TestCPAAdmissionExpiredCallerHasNoProviderEntry(t *testing.T) {
+	t.Parallel()
+	store := newAdmissionMemoryStore()
+	store.neverGrant = true
+	native := &admissionNative{}
+	c := admissionTestClient(t, store, native)
+	now := time.Now()
+	record, recordErr := NewTrackingRecord(uuid.NewString(), "/v1/responses", now.Add(-time.Second), now.Add(-time.Nanosecond))
+	if recordErr != nil {
+		t.Fatal(recordErr)
+	}
+	session := NewTrackingSession(record, time.Now)
+	ctx, cancel := context.WithDeadline(WithTrackingSession(context.Background(), session), now.Add(-time.Nanosecond))
+	defer cancel()
+	_, err := c.Call(ctx, admissionTestRequest())
+	if !errors.Is(err, context.DeadlineExceeded) || native.calls.Load() != 0 || session.ProviderEntered() || len(store.queued) != 0 {
+		t.Fatal("expired caller entered the queue or provider", err, native.calls.Load(), len(store.queued))
 	}
 }
 
