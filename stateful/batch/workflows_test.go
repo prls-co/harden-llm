@@ -3,9 +3,13 @@ package batch
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-476
 import (
 	"context"
+	"errors"
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/workflow"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -82,11 +86,20 @@ func TestBatchWorkflowUsesDurableJobDeadline(t *testing.T) {
 	env.RegisterActivityWithOptions(a.Enqueue, activity.RegisterOptions{Name: "batch.Enqueue"})
 	env.RegisterActivity(&a)
 	env.OnActivity(a.Enqueue, mock.Anything, mock.Anything).Return(nil)
-	env.OnActivity(a.Status, mock.Anything, mock.Anything).Return(Status{Counts: Counts{Total: 1, Queued: 1}}, nil)
-	env.OnActivity(a.Expire, mock.Anything, mock.Anything).Return(nil).Once()
+	expired := false
+	env.OnActivity(a.Status, mock.Anything, mock.Anything).Return(func(context.Context, JobRef) (Status, error) {
+		if expired {
+			return Status{Counts: Counts{Total: 1, Failed: 1}}, nil
+		}
+		return Status{Counts: Counts{Total: 1, Queued: 1}}, nil
+	})
+	env.OnActivity(a.Expire, mock.Anything, mock.Anything).Return(func(context.Context, JobRef) error { expired = true; return nil }).Once()
 	env.ExecuteWorkflow(BatchWorkflow, JobRef{JobID: "job", Deadline: env.Now().Add(time.Minute)})
 	if err := env.GetWorkflowError(); err != nil {
 		t.Fatal(err)
+	}
+	if !expired {
+		t.Fatal("durable deadline did not expire queued work")
 	}
 	env.AssertExpectations(t)
 }
@@ -161,4 +174,95 @@ func TestDispatcherRetainsAccountPauseAcrossIdleAndNewJobs(t *testing.T) {
 	if calls.Load() != 1 {
 		t.Fatal("account pause was discarded when the dispatcher became idle")
 	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-496
+func TestDispatcherAllowsLongGenerationOnceWithinBudget(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(&a)
+	start := env.Now()
+	generated := 0
+	var settled time.Time
+	env.OnActivity(a.Generate, mock.Anything, mock.Anything).Return(func(context.Context, Ref) (Outcome, error) {
+		generated++
+		return Outcome{Kind: "completed", ArtifactID: "one.json"}, nil
+	}).After(190 * time.Second).Once()
+	env.OnActivity(a.Record, mock.Anything, mock.Anything, mock.Anything).Return(func(context.Context, Ref, Outcome) (Counts, error) {
+		settled = env.Now()
+		return Counts{Total: 1, Succeeded: 1}, nil
+	}).Once()
+	env.OnActivity(a.Cooldown, mock.Anything, mock.Anything).Return(nil)
+	state := DispatcherState{Controller: NewController(DefaultPolicy()), Jobs: []PendingJob{{Job: JobRef{Scope: "fixture", JobID: "long", Count: 1, Deadline: start.Add(time.Hour)}, Ready: []int{0}}}}
+	env.ExecuteWorkflow(DispatcherWorkflow, state)
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	if generated != 1 || settled.Before(start.Add(190*time.Second)) || settled.After(start.Add(300*time.Second)) {
+		t.Fatal("long generation failed or was replayed", generated, settled.Sub(start))
+	}
+	env.AssertExpectations(t)
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-511
+func TestDispatcherDrainsOwnedExecutionBeforeV2Handoff(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(&a)
+	stable := "hllm-cpa-pool-v1/pool"
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: stable})
+	p := DefaultPolicy()
+	p.Concurrency = 1
+	state := DispatcherState{Controller: NewController(p), Jobs: []PendingJob{{Job: JobRef{Scope: "fixture", JobID: "job", Count: 2, Deadline: env.Now().Add(time.Hour)}, Ready: []int{0, 1}}}}
+	env.OnActivity(a.Generate, mock.Anything, Ref{Scope: "fixture", JobID: "job", Index: 0}).Return(Outcome{Kind: "completed", ArtifactID: "one.json"}, nil).After(10 * time.Second).Once()
+	env.OnActivity(a.Record, mock.Anything, mock.Anything, mock.Anything).Return(Counts{Total: 2, Succeeded: 1, Queued: 1}, nil).Once()
+	env.OnActivity(a.Cooldown, mock.Anything, mock.Anything).Return(nil)
+	env.OnActivity(a.PrepareLegacyJobs, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(a.AdvanceLegacyPool, mock.Anything, mock.Anything).Return(PoolFence{PoolID: "pool", Generation: 2, Sequence: 7}, nil).Once()
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow(legacyUpgradeSignal, true) }, time.Second)
+	env.RegisterDelayedCallback(func() { t.Error("handoff did not finish within bounded drain"); env.CancelWorkflow() }, 20*time.Second)
+	env.ExecuteWorkflow(DispatcherWorkflow, state)
+	var continued *workflow.ContinueAsNewError
+	if !errors.As(env.GetWorkflowError(), &continued) || continued.WorkflowType.Name != PoolWorkflowName {
+		t.Fatal("dispatcher did not hand off stable authority", env.GetWorkflowError())
+	}
+	var next PoolState
+	if err := converter.GetDefaultDataConverter().FromPayloads(continued.Input, &next); err != nil {
+		t.Fatal(err)
+	}
+	if next.Sequence != 7 || next.Generation != 2 || next.PoolID != "pool" || next.Controller.WindowStarts != 1 || len(next.Outstanding) != 0 {
+		t.Fatal("handoff reset quota/sequence or retained owned execution", next)
+	}
+	if env.Now().Sub(state.Jobs[0].Job.Deadline.Add(-time.Hour)) < 10*time.Second {
+		t.Fatal("handoff did not wait for owned provider return")
+	}
+	env.AssertExpectations(t)
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-514
+func TestBatchWorkflowWaitsForClaimedFinalizationWithoutReplayingInference(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var a Activities
+	env.RegisterActivity(&a)
+	start := env.Now()
+	env.OnActivity(a.Enqueue, mock.Anything, mock.Anything).Return(nil)
+	expired := false
+	env.OnActivity(a.Status, mock.Anything, mock.Anything).Return(func(context.Context, JobRef) (Status, error) {
+		if expired && env.Now().After(start.Add(15*time.Second)) {
+			return Status{Counts: Counts{Total: 1, Failed: 1}}, nil
+		}
+		return Status{Counts: Counts{Total: 1, Active: 1}}, nil
+	})
+	env.OnActivity(a.Expire, mock.Anything, mock.Anything).Return(func(context.Context, JobRef) error { expired = true; return nil }).Once()
+	env.ExecuteWorkflow(BatchWorkflow, JobRef{Deadline: start.Add(10 * time.Second)})
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
+	if !expired || env.Now().Sub(start) < 15*time.Second {
+		t.Fatal("job workflow ended before owned finalization")
+	}
+	env.AssertExpectations(t)
 }

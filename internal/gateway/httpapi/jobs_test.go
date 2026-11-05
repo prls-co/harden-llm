@@ -4,12 +4,14 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/prls-co/harden-llm/stateful/batch"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type jobFixture struct {
@@ -79,5 +81,38 @@ func TestJobResultWaitsThenDeliversTerminalResults(t *testing.T) {
 	api.jobResult(w, r)
 	if w.Code != 200 || w.Header().Get("Content-Type") != "application/x-ndjson" || !json.Valid([]byte(strings.TrimSpace(w.Body.String()))) {
 		t.Fatalf("terminal result missing: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-496
+func TestJobGenerationDeadlineContract(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		timeout  int64
+		status   int
+		resolved int64
+	}{{0, 202, 300000}, {300000, 202, 300000}, {900000, 202, 900000}, {900001, 400, 0}, {-1, 400, 0}} {
+		fixture := &jobFixture{status: batch.Status{JobID: "fixture", Counts: batch.Counts{Total: 1, Queued: 1}}}
+		api := &API{jobs: fixture}
+		body := fmt.Sprintf(`{"items":[{"custom_id":"one","request":{"model":"gpt-6-luna","input":"hello","harden":{"timeout_ms":%d}}}]}`, tc.timeout)
+		r := httptest.NewRequest("POST", "/v1/jobs", strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Idempotency-Key", "fixture-key")
+		r = r.WithContext(context.WithValue(r.Context(), accessScopeKey{}, accessScope{hash: strings.Repeat("a", 64)}))
+		w := httptest.NewRecorder()
+		api.createJob(w, r)
+		if w.Code != tc.status {
+			t.Errorf("timeout %d: status %d want %d", tc.timeout, w.Code, tc.status)
+			continue
+		}
+		if tc.status == 202 && (len(fixture.items) != 1 || fixture.items[0].Generation.TimeoutMS != tc.resolved) {
+			t.Errorf("timeout %d: resolved snapshot differs from %d", tc.timeout, tc.resolved)
+		}
+		if tc.status != 202 && fixture.calls != 0 {
+			t.Fatal("invalid deadline reached storage")
+		}
+	}
+	if MaximumRunDuration != 60*time.Second {
+		t.Fatal("ordinary request budget was changed by batch policy")
 	}
 }

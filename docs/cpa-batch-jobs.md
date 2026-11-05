@@ -1,5 +1,11 @@
 # CPA batch jobs
 
+Production is enabled at `https://harden-llm.prls.co/v1` as of 2026-11-04.
+The [production receipt](../plans/evidence/harden-llm/cpa-admission/2026-11-04-production-cpa.json)
+records exact application source/images, the 30-task release and 1,000 distinct
+live CPA results. Limits below are configured operating estimates; the recorded
+short-output result is not a universal account quota or completion guarantee.
+
 ## 1. Execution contract
 
 Explicit batch submission accepts up to 1,000 separate CPA generations. Ten
@@ -20,9 +26,12 @@ existing matched bearer, never the request body. CPA pool identity comes from
 deployment configuration. All participating replicas must use the same
 namespace, task queue and pool ID. Queue service is round-robin across jobs,
 not a weighted allocation across clients; submitting more jobs can change a
-client's share. Ordinary HLLM `/v1/responses` calls, direct CPA clients and
-separate Temporal namespaces remain outside this admission authority. Route
-participating shared-account work through `/v1/jobs` to obtain the shared limit.
+client's share. With V2 admission enabled, ordinary HLLM generation, repair and
+retry calls to the configured CPA origin share the same authority with jobs.
+Ordinary calls remain request-bound; use `/v1/jobs` for durable multi-minute
+waits. Direct CPA clients and separate Temporal namespaces remain outside this
+authority. Route participating shared-account work through the same configured
+HLLM pool to obtain a shared limit.
 
 ## 2. Self-hosted configuration
 
@@ -42,6 +51,7 @@ HARDEN_LLM_BATCH_CONCURRENCY=128
 HARDEN_LLM_BATCH_BURST=200
 HARDEN_LLM_BATCH_START_RATE=100
 HARDEN_LLM_BATCH_MAX_START_RATE=200
+HARDEN_LLM_BATCH_RECOVERY_JITTER_MS=0
 HARDEN_LLM_BATCH_REFILL_ESTIMATE_MS=61000
 HARDEN_LLM_BATCH_WINDOW_REQUESTS=200
 HARDEN_LLM_BATCH_WINDOW_MS=61000
@@ -84,6 +94,54 @@ process exit triggers restart; it serves no HTTP health endpoint. Monitor its
 Temporal pollers and job heartbeats/deadlines. Preserve accepted manifests,
 results and workflow histories during rollback. Disable new batch submissions
 and drain accepted work before removing workers or changing workflow versions.
+
+### 2.1. Production controller rollout
+
+Use `scripts/production-config.mjs` and the protected production descriptor.
+The controller accepts either the existing root/frontend graph or exactly that
+graph followed by `deploy/batch/compose.yml`. The batch graph requires both
+gateway and worker descriptor identities, sharing the accepted image ID,
+connection configuration, database, Garage and Temporal/pool policy. It does
+not permit arbitrary overlay files or a different worker authority.
+
+After the exact merged source passes the browser-free release workflow, build
+the gateway image according to `SPEC-HLLM-IMAGE-DEPLOYMENT-001`. Preserve the
+protected descriptor/environment and existing data before updating image and
+batch settings. Rebuild the frontend when its runtime inputs change; retain its
+accepted image only when those inputs are unchanged. Then:
+
+1. Provision or verify the private production namespace and existing network.
+   Set the same namespace, queue, stable account pool, upstream and policy for
+   gateway and worker in the protected production environment.
+2. Run controller `check`, then `apply --services harden-llm-batch-worker
+   --expected-release FULL_SOURCE_SHA`. Schema runs with the accepted gateway
+   image before the worker starts. Only the selected worker is created;
+   dependencies/shared services are not restarted. First creation requires a
+   successful daemon listing proving its configured container is absent, plus
+   explicit `runtime` permission in `allowedDifferenceFields`.
+   Worker apply is a separate stage: it omits Compose `--wait`, which rejects a
+   service without an HTTP health check. Final process/image checks still run;
+   the next step establishes Temporal readiness. Mixed worker/application apply
+   is rejected. HTTP application apply retains `--wait`.
+3. Using the same protected Compose inputs/image, run the worker service once
+   with command `batch-upgrade`. Require `status: v2_ready`, the configured pool
+   and generation, and no outstanding legacy ownership. The command performs
+   the explicit V1 drain/handoff when needed. Do not change pool identity to
+   bypass a drain or restriction.
+4. Apply `harden-llm-gateway` with the same `--expected-release`, plus
+   `harden-llm-web` when its runtime inputs changed. Recheck
+   gateway/worker image IDs, source labels, controller equivalence and Temporal
+   control/provider pollers. Gateway retains its HTTP health check. The worker
+   must be running with its intentionally disabled HTTP health check; pollers
+   and authenticated job progress establish operational readiness.
+5. Check public health/authentication without inference. Perform any authorized
+   live-provider qualification separately, validate all result IDs/counts, and
+   record it as provider evidence rather than an automatic deployment smoke.
+
+Worker Compose stop grace is 120 seconds: the provider and control SDK workers
+stop sequentially with up to 45 seconds each, leaving time for process cleanup.
+This does not extend a generation deadline. An unknown provider outcome remains
+unconfirmed and is never automatically replayed.
 
 The dispatcher initially releases up to 200 calls, then paces starts at 100/second,
 with at most 128 active calls. Every 100 unthrottled validated completions
@@ -174,6 +232,9 @@ interrupted download is incomplete and can be repeated without inference.
 `httpclient.Client` provides `SubmitJob`, `JobStatus`, `WaitJob` and
 `DownloadJobResult`, validated against OpenAPI. The downloader checks IDs,
 counts, per-item schemas and success/error totals.
+`JobStatus.ExecutionDeadline` and `JobStatus.FinalizationDeadline` expose the
+optional V2 timestamps, including progress callbacks; older status responses
+leave both nil. `Deadline` remains the existing compatibility field.
 
 With the existing protected `HARDEN_LLM_TOKEN` environment value:
 
@@ -186,8 +247,8 @@ harden-llm-gateway wait-job \
 The waiter emits status every five seconds and preserves the overall deadline.
 It publishes a new mode-0600 result file only after validating the download.
 It exits unsuccessfully for item errors. A job's default two-hour deadline is
-separate from the provider's default 180-second generation budget. An item may
-lower that budget through `harden.timeout_ms`; queue/cooldown waits do not use it.
+separate from the provider's default 300-second generation budget for new jobs. An item may
+select 1 through 900 seconds through `harden.timeout_ms`; queue/cooldown waits do not use it. Existing accepted snapshots keep their prior budget, including the legacy 180-second interpretation of old zero snapshots.
 
 ## 4. Diagnostics and CPA ownership
 
@@ -265,6 +326,7 @@ unfinished response does not block later eligible work. History rollover drains
 active activities before the next run, so long responses can briefly delay
 queued work at that boundary. The measured burst boundary is not a universal
 simultaneous-generation ceiling, RPM contract or suspension-safe rate. All
-participating clients must share the configured authority; direct CPA and
-ordinary HLLM calls remain outside it. Requalify changed models, request shapes
+participating clients must share the configured authority. Direct CPA traffic
+remains outside it; the current V2 release also admits ordinary HLLM calls to
+the configured CPA origin through that same authority. Requalify changed models, request shapes
 and account limits before retuning policy.

@@ -1250,6 +1250,7 @@ or contact a provider.
 - Fixtures/data: temporary four-file Compose graph, two ordered env files, single-quoted bcrypt-like dollar text, JSON, an intentional empty, a precedence collision and a defaulted variable.
 - Assertions: native `docker compose config --format json` resolves the approved file order; production precedence wins the permitted collision; empty/default semantics remain distinct; serialized dollar escaping is normalized before comparison; no daemon operation is issued.
 - Pass criteria: the test passes with the installed Compose version and cannot pass by replacing native interpolation with a hand-written parser or by starting a container.
+- Batch adoption: also resolve the actual repository's approved root/frontend/batch graph with temporary synthetic settings; assert the same gateway/schema/worker image, inherited protected effects, worker command, disabled worker HTTP health check and 120-second stop grace. This remains configuration-only and starts no services.
 
 ## 23. Recovery production closeout
 
@@ -1264,6 +1265,7 @@ runner, provider, database, browser, or timeout budget.
 - Location: `scripts/production-config.mjs` and `scripts/test/production_config_test.mjs`.
 - Command: `node --test scripts/test/production_config_test.mjs`.
 - Acceptance: an explicit 40-hex candidate rejects stale desired/runtime identity, missing labels, unhealthy candidates, invalid scope, and resolve-only use; a valid old runtime may transition to matching candidate images; no mutating subprocess runs on rejection and no diagnostic contains fixture secrets.
+- Batch adoption: only the exact optional batch overlay and worker are accepted. First installation requires positive daemon evidence of absence and explicit allowed runtime differences; inspection/daemon errors and foreign ownership remain fatal. Worker operations require an explicit release, matching gateway image/storage/Temporal/policy, process health and configured stop grace. Gateway/web retain their HTTP health requirements. TEST-450 requires schema before worker creation and preserves scoped `--no-deps` startup.
 
 ### TEST-261: Pending and later outcomes each terminate once
 
@@ -1819,12 +1821,19 @@ stale Phoenix-history guidance with ADR-HLLM-033/034. This adds the omitted
 canonical document to the existing contract test, without changing its purpose.
 
 TEST-048 includes `internal/testkit/integration_race_resources_test.go`,
-`TestIntegrationRaceOwnsTimingResources`, a default-tag manifest assertion for
+`TestIntegrationOwnsTimingResources` (previously `TestIntegrationRaceOwnsTimingResources`), a default-tag manifest assertion for
 exclusive race-timing resources under ADR-HLLM-015. Its original TEST-008 comment
 was a traceability error; TEST-008 remains retry classification/budget/backoff/
 cancellation. No assertion, runtime task or deadline changes in this correction.
 TEST-234's physical-network cases and TEST-450 schema ordering already pass;
 TEST-434/435 remain explicit deployed identity/HTTP checks.
+
+On 2026-11-04, release `41844670099` recorded TEST-495 registration refusals
+while ordinary integration overlapped race/vulnerability/frontend compilation.
+TEST-048 now requires both `go-integration` and `go-integration-race` to own
+the existing exclusive release resource. Their SQL budgets, package/generator
+concurrency, counts and assertions are unchanged. TEST-495 additionally records
+safe query/acquire error classifications and pool counters for diagnosis.
 
 
 ## 28. Shipped reference preset acceptance (2026-10-13)
@@ -2042,6 +2051,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Coverage gate: `fast`; live native measurements require `go run -tags=live ./cmd/harden-llm-cpabench --live` and a new private output directory.
 - Locations: `internal/livecapacity/native_test.go`, `internal/livecapacity/nativebench_test.go`.
 - Command: `go test -race ./internal/livecapacity -run '^TestNative' -count=1`.
+- Clock boundary: the fast-completion window case runs the actual scheduler/timers/goroutines under `testing/synctest`; its six-call, two-per-50-ms-window and 45-ms minimum-gap assertions are unchanged. This removes host callback scheduling from the policy clock, without replacing the scheduler or relaxing its quota oracle.
 - Oracle: a validated native `response.completed` returns without connection EOF; exact nonce/model/usage qualify results; explicit 429/Retry-After and policy stops remain distinct from malformed/unknown outcomes. Correlation retains only the validated eight-hex CPA request-ID suffix, excluding the sensitive trace-header prefix and malformed suffixes. The pool continues independent items after an unknown without replaying it, overlaps its configured slots, retries only known rejections, doubles then bisects a deterministic throttle boundary, prevents fast completion from refilling a configured window budget, refunds only explicit same-window refusals while retaining unknown reservations, and permits a recovery probe while an unrelated old call remains active. Native experiments use one existing CPA credential, no official API, unbounded client connection slots up to 1000, five-second progress, and a separate bounded native request deadline. Neither HLLM's 60 s core deadline nor production egress policy changes. Only explicit rejections define the throttle bracket; unknown outliers remain separate and malformed results invalidate calibration; a 1000-result drain still requires exactly 1000 validated results.
 
 ### TEST-482: Reference HTTP client, complete outcomes and no inference replay
@@ -2093,6 +2103,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Coverage gate: `fast`.
 - Tier: T1; `httpclient/jobs_test.go`.
 - Exercise real local HTTP responses against canonical OpenAPI. Waiting reports quota state without an inference POST and requires an overall deadline. Missing/duplicate result records are rejected; validated success/error totals must match terminal status.
+- V2 `execution_deadline` and `finalization_deadline` remain available in status and progress callbacks; legacy omission stays nil rather than inventing a deadline.
 
 ### TEST-479: Self-hosted batch composition configuration
 
@@ -2129,6 +2140,71 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Oracle: every supported nullable field accepts null or its declared type, remains required and respects enum. Unsupported unions and nullable roots fail. The real Responses handler and TLS provider adapter dispatch the two exact consumer schemas once with strict JSON Schema. Successful and invalid-schema model outputs retain the exact assistant string; known invalid output carries `STRUCTURED_SCHEMA` and one provider attempt. Caller-supplied unsupported schemas fail with HTTP 400 and no dispatch; a gateway-generated invalid contract fails with HTTP 500 and no dispatch. Existing library structured results remain parsed values. No provider keys, internet or browser are needed.
 - Genuine RED: current contracts rejected nullable types; after adding nullable support, the real handler changed whitespace/key ordering of successful structured output and misclassified both schema error origins as HTTP 502. The source fixtures use the actual consumer contracts, not an invented provider shape.
 
+### TEST-490: Request tracking wire admission and contract
+
+- Type / verifies: unit; request-status lookup issue #136.
+- Coverage gate: `fast`.
+- Location: `internal/gateway/httpapi/request_tracking_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestRequestTracking(Contract|LookupAdmission)$' -count=1`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: Canonical OpenAPI has one optional tracking header on both generation routes and one authenticated no-store lookup; unavailable storage is 503; lookup never dispatches.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-491: Request tracking projection and session
+
+- Type / verifies: unit; request-status lookup issue #136.
+- Coverage gate: `fast`.
+- Location: `stateful/request_tracking_test.go`.
+- Command: `go test ./stateful -run '^TestRequestTracking(ID|Observation|Session|WireSchema|ProgressSources)$' -count=1`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: Strict UUIDs, fixed enums, elapsed/wait clocks, monotone phases, distinct heartbeat/progress, stale-derived uncertainty and immutable terminal facts without payload or nonce leakage.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-492: Request tracking real PostgreSQL ownership
+
+- Type / verifies: integration; request-status lookup issue #136.
+- Coverage gate: `integration`.
+- Location: `stateful/request_tracking_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: Real additive schema compatibility, same-key uniqueness across services, other-key independence, exact-owner ambiguous COMMIT readback, revision/terminal fencing, bounded scoped expiry and no replacement inference permission.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-493: Request tracking lifecycle and official SDK
+
+- Type / verifies: unit; request-status lookup issue #136.
+- Coverage gate: `fast`.
+- Location: `internal/gateway/httpapi/request_tracking_lifecycle_test.go`.
+- Command: `go test ./internal/gateway/httpapi -run '^TestRequestTracking' -count=1`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: Registration precedes inference; absent header bypasses tracking; invalid/duplicate IDs dispatch nothing; SDK default retries respect terminal 409; original JSON/SSE survive metadata/delivery failures; bounded collector flushes coalesced facts.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-494: Request tracking observer delegation
+
+- Type / verifies: unit; request-status lookup issue #136.
+- Coverage gate: `fast`.
+- Location: `stateful/request_tracking_observer_test.go`.
+- Command: `go test ./stateful -run '^TestRequestTrackingObserverDelegation$' -count=1`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: All seven methods forward original contexts and completion callbacks once; actual scheduled retries become waiting and clear only their own phase; untracked calls perform no tracking.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
+
+### TEST-495: Request tracking real HTTP replicas and scale
+
+- Type / verifies: integration; request-status lookup issue #136.
+- Coverage gate: `integration`.
+- Location: `internal/gateway/httpapi/request_tracking_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Fixtures/data: Owned synthetic providers and metadata; real leased PostgreSQL only for integration.
+- Deterministic controls: No public provider credentials/network, no browsers, bounded test-owned clocks/resources.
+- Pass criteria: POST A/GET B share real PostgreSQL, cancellation stops local transport without inference replay, and 1000 distinct tracked versus 1000 untracked calls across two keys have exact counts and no reference history/artifacts/payload retention; record measured SQL/latency/memory.
+- Expected runtime: Under 30 seconds focused; enclosing runner retains its existing deadline.
 ## 33. Shared CPA capacity qualification
 
 ### TEST-483: Competing-client scheduling and bounded CPA experiments
@@ -2153,6 +2229,298 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - No public provider or paid credentials. Hard 10-minute operation deadline, five-second progress and canonical runner-owned resource cleanup. This proves local orchestration scale, not CPA throughput.
 
 - The original non-accumulating pacer admitted one call per workflow decision and failed the unchanged eight-minute job deadline (first job: 593 successes, 407 deadline failures). TEST-474 now requires ten elapsed credits after 100 ms at 100 starts/second, bounds idle catch-up by the configured burst and prevents repeated same-time admission. A version marker preserves old histories; the full 10,000-result oracle and deadline remain unchanged.
+
+### TEST-496: CPA generation snapshots and pre-output refusal safety
+
+- Type / verifies: unit; issue #134 phase P1.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/budget_test.go`, `internal/gateway/httpapi/jobs_test.go`.
+- Command: `go test ./stateful/batch ./internal/gateway/httpapi -run 'TestGenerationBudget|TestGenerationRefusal|TestJobGenerationDeadline' -count=1`.
+- Oracle: Old zero/180-second snapshots retain their budget; new jobs resolve to 300 seconds with explicit 900-second maximum; ordinary calls keep 60 seconds. Partial output plus 429 never authorizes requeue; absent credentials without a trusted recovery indication pauses admission.
+
+### TEST-497: Accepted CPA defaults survive policy evolution
+
+- Type / verifies: integration; issue #134 phases P0/P1.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/budget_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Real PostgreSQL retains accepted timeout snapshots and job identity across a new default; explicit different budgets or changed custom IDs conflict. JSONB key reordering cannot invalidate an otherwise unchanged accepted schema, and comparison never rounds JSON numbers through floating point.
+
+### TEST-498: CPA invocation claims and settlement ledger
+
+- Type / verifies: integration; issue #134 phase P2.
+- Coverage gate: `integration`.
+- Locations: `stateful/batch/ledger_integration_test.go`, `stateful/batch/ledger_expiry_race_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Real PostgreSQL enforces one invocation owner, same-permit reservation acknowledgement under a forced race, exact-owner unknown COMMIT readback, immutable and repeat-safe settlement, safe never-claimed expiry, local-stop generation fencing, additive schema/index compatibility and ordinary metadata without request manifests. Metadata failures cannot create replacement inference permission.
+- Additional oracle: Actual PostgreSQL row-lock waits for expiry and a stale claimant are observed before releasing the owning transaction. Expiry wins without a provider retry and the item remains safely queueable.
+
+
+### TEST-499: Independent CPA invocation and artifact evidence
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/attempt_execution_test.go`.
+- Command: `go test ./stateful/batch -run '^TestInvocation' -count=1`.
+- Oracle: Fresh invocation claims permit one provider execution; claim losers and uncertain claims cannot execute. Durable execution disables retry/repair/rerun/cache. Lost artifact acknowledgement requires positive identity-bound readback; metadata return contains no response body. Panic never invents transport stop or retains panic contents.
+
+### TEST-500: Independent CPA workflow metadata-only recovery
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Locations: `stateful/batch/attempt_workflow_test.go`, `stateful/batch/attempt_finalization_test.go`.
+- Command: `go test ./stateful/batch -run '^TestIndependentAttempt|^TestIndependentFinalization' -count=1`.
+- Oracle: Settlement metadata retries preserve the same owner/observation; failed provider activity acknowledgement and claim redelivery only reconcile retained evidence. Exactly one provider activity is scheduled, with no workflow inference retry. Settlement notices identify the stable pool and authoritative ledger revision.
+- Additional oracle: The combined-finalization version marker retains legacy activity decisions while new attempts use one metadata activity after inference. Known retries retain the same observation; unknown/lost provider returns reconcile without native replay. Failed wake hints cannot invalidate positive settlement.
+
+
+### TEST-501: Bounded idempotent CPA attempt starter
+
+- Type / verifies: unit; issue #134 phases P2/P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/attempt_starter_test.go`.
+- Command: `go test ./stateful/batch -run '^TestAttemptStarter|^TestAttemptSettlementNotice' -count=1`.
+- Oracle: At most 16 metadata starts share one 15-second budget and run concurrently; no provider execution occurs. Every retry preserves the permit/workflow identity with completed-ID reuse rejected. Workflow-already-exists acknowledges the same lifecycle; unknown start acknowledgement retains an unresolved intent. Settlement notifications use the stable pool workflow ID without a Run ID and contain only permit/revision references.
+
+### TEST-502: Independent CPA SQL claim and lost-result recovery
+
+- Type / verifies: integration; issue #134 phase P3.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/attempt_execution_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Real SQL plus local HTTP recovers a bound stored result after losing the provider return and observation acknowledgement. Redelivery cannot execute; exactly one HTTP request and one succeeded item survive. The result endpoint returns the original response, never the internal artifact envelope, after verifying the authoritative ledger owner and scoped item identity.
+
+### TEST-503: Bounded CPA queue selection and scope/job fairness
+
+- Type / verifies: integration; issue #134 phase P3.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/queue_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Real SQL rotates key scopes first and each scope's jobs second, with FIFO items. More jobs cannot buy a key more global turns. Cursor ownership survives another activity/store instance, selection returns no input payload and mints no permit, and expired/active/unpersisted-intent items cannot be selected. Stale generations and oversized pages reject. A 1,000-live-waiter page fits the unchanged metadata transaction deadline. A separate iterative oracle checks uneven owner rotation. Additive/repeated FIFO index migration preserves accepted items and rejects a weaker same-named index.
+
+### TEST-504: CPA pool state, admission epochs and bounded continuation
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/pool_state_test.go`.
+- Command: `go test ./stateful/batch -run '^TestPoolState' -count=1`.
+- Oracle: Windows anchor on confirmed claims using pool receipt time; unconfirmed starts never refill automatically. Settlement applies once; capacity needs positive local stop. Only the current probe reopens at adapted pace, preserving its new dispatch origin. Terminal throttling does not refund credits. Never-sent work requires independent worker readiness without halving CPA pace. A 1,000-outstanding-permit snapshot is below 256 KiB and retains identities/sequence; no historical job list grows in the snapshot.
+
+### TEST-505: CPA pool Temporal continuation and metadata recovery
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/pool_workflow_test.go`.
+- Command: `go test ./stateful/batch -run '^TestPoolWorkflow|^TestPoolPolicy' -count=1`.
+- Oracle: Pool continuation carries active independent attempts, unknown start intents and restrictions without draining inference. Initialization outage cannot indefinitely prevent continuation. Recovery uses the exact eligible timer rather than rounding an empty local queue to the generic poll interval. All metadata failures retain grant identity.
+- Additional oracle: An actual policy result survives idle/continuation. Policy signals shrink/increase a cap with active work while preserving permit IDs, window budget and restrictions; new grants retain accepted budgets/deadlines. Old accepted SQL snapshots remain owned by TEST-497.
+
+
+### TEST-506: CPA provider/control worker ownership and shutdown
+
+- Type / verifies: unit; issue #134 phase P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/workers_test.go`.
+- Command: `go test ./stateful/batch -run '^TestWorkers' -count=1`.
+- Oracle: Independent inference and readiness use a separate provider task queue within the same worker lifecycle. V1 workflow/activity registrations remain available. Failed control startup stops the owned provider worker, normal shutdown stops both once, and worker shutdown cancels the provider context before local-stop evidence is recorded.
+- Deployment relationship: parse the actual worker overlay and require its stop grace to cover both configured sequential SDK worker waits plus at least ten seconds for process cleanup.
+
+### TEST-507: Real CPA pool rollover with an active native HTTP call
+
+- Type / verifies: integration; issue #134 phases P3/P4.
+- Coverage gate: `release`.
+- Location: `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Owned real Temporal/PostgreSQL/Garage plus the production root/native HTTP/SSE and result projection retain one held native call across a changed pool run ID. Another job completes using the other available slot while the held call remains active. Exactly four globally distinct requests/results, peak overlap at most two, no lost outstanding permits and sequence preserved across continuation. The fixture explicitly registers manifests with V2; default enqueue/handoff adoption is a separate gate.
+
+### TEST-508: CPA status publication and job-coalesced heartbeats
+
+- Type / verifies: integration; issue #134 phases P1/P3.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/pool_progress_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: PostgreSQL publication pages are bounded, pool/generation scoped and do not change item counts/progress. Identical five-second ticks coalesce; a real gate transition changes reason without fabricating progress or refreshing a recent heartbeat. Provider byte progress and liveness remain distinct and require the invocation's exact claim.
+
+### TEST-509: CPA waiting projection and publication lifecycle
+
+- Type / verifies: unit; issue #134 phases P1/P3.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/pool_progress_test.go`, `stateful/batch/pool_workflow_test.go`.
+- Command: `go test ./stateful/batch -run '^TestPoolWaiting|^TestPoolWorkflow' -count=1`.
+- Oracle: Waiting causes derive from actual pool gates. Unanchored windows, active recovery probes and uncertain execution do not invent an ETA. A restricted pool pages status and emits five-second liveness without any provider work; cursor and restrictions survive continuation.
+
+### TEST-510: CPA legacy authority handoff at the SQL fence
+
+- Type / verifies: integration; issue #134 phases P0/P4.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/handoff_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Active legacy execution and unknown local-stop evidence block generation transfer without mutation. A drained handoff is repeat-safe, preserves accepted zero/180-second snapshots and artifacts, and fences obsolete grants. Empty bootstrap cannot reset existing authority/data.
+
+### TEST-511: CPA V1 drain protocol and carried V2 controller
+
+- Type / verifies: unit; issue #134 phase P4.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/workflows_test.go`, `stateful/batch/handoff_test.go`.
+- Command: `go test ./stateful/batch -run '^TestDispatcherDrainsOwnedExecution|^TestDispatcherReplays' -count=1`.
+- Oracle: The namespaced upgrade signal stops new V1 grants and waits for its owned provider activity/settlement before continuing the same identity into V2. Controller window budget and monotonic sequence survive. Retained V1 histories still replay.
+
+### TEST-512: CPA real handoff, compatible enqueue and cooldown restart
+
+- Type / verifies: integration; issue #134 phases P3/P4.
+- Coverage gate: `release`.
+- Location: `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Real Temporal/PostgreSQL/Garage and native HTTP validate V1 quiesce/drain, immutable accepted work, mixed legacy/new artifact downloads and future API submissions routed into V2. Empty initialization invokes no provider. V2 reports actual throttling/eligibility/heartbeat, survives worker restart in cooldown and completes 24 items in exactly 25 provider requests with overlap <=2.
+
+### TEST-513: Claimed CPA execution survives job expiry during finalization
+
+- Type / verifies: integration; issue #134 phases P1/P4.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/finalization_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Expiry cannot overwrite an item owned by a current permit. Its positively completed attempt can still settle once. V2 status exposes the original execution deadline and a separate 30-second metadata finalization deadline without extending provider execution.
+
+### TEST-514: CPA job lifecycle waits for owned finalization
+
+- Type / verifies: unit; issue #134 phases P1/P4.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/workflows_test.go`.
+- Command: `go test ./stateful/batch -run '^TestBatchWorkflow' -count=1`.
+- Oracle: The job lifecycle expires never-started work once at its execution deadline, then observes claimed-attempt finalization without scheduling inference or resetting deadlines. Historical workflow version behavior remains available; the queued-expiry fixture reflects the mutation proved at the SQL boundary.
+
+### TEST-515: Live ordinary dispatch metadata and shared CPA queue
+
+- Type / verifies: integration; issue #134 phase P5 foundation.
+- Coverage gate: `integration`.
+- Location: `stateful/batch/request_admission_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Ordinary permits require an exact scoped live waiter, accepted deadline/budget and owner nonce. Cancellation/liveness expiry cannot authorize abandoned inference or pretend an active claim stopped. Safe never-sent grants settle after cancellation races. Ordinary success retains metadata without batch manifests/artifacts and cannot be overwritten. Jobs and live requests rotate by scope then owner using one sequence/cursor, pending intents and reservations are excluded, and pool waiting publication shares bounded/coalesced pages. Twenty-four-hour pruning requires positive local stop and pool-applied settlement; unresolved claims remain. Additive schema/index checks reject weaker shapes. This does not establish the gateway adapter or mixed provider load.
+
+### TEST-516: Ordinary request grants and retirement ownership
+
+- Type / verifies: unit; issue #134 phase P5 foundation.
+- Coverage gate: `fast`.
+- Location: `stateful/batch/request_pool_test.go`.
+- Command: `go test -race ./stateful/batch -run '^TestPoolRequest|^TestRequestStarter|^TestPoolWorkflowRetires' -count=1`.
+- Oracle: Ordinary grants consume the existing shared cap/window, retain separate same-scope request identities and refund only positively never-sent work. Their metadata starter cannot spawn a durable provider workflow. Pool settlement acknowledgements retry without inference, retire only positively stopped/applied requests and carry unresolved execution across continuation.
+
+### TEST-517: Ordinary CPA per-dispatch adapter and uncertainty
+
+- Type / verifies: unit; issue #134 phase P5.
+- Coverage gate: `fast`.
+- Location: `stateful/cpa_admission_test.go`, `internal/gateway/httpapi/ordinary_admission_test.go`.
+- Command: `go test -race ./stateful ./internal/gateway/httpapi -run '^TestCPAAdmission|^TestOrdinaryAdmission' -count=1`.
+- Oracle: Ordinary managed CPA requests cannot bypass unavailable admission. Retry/repair dispatches retain the selected model/options, one logical execution ID, distinct permits/owners/ordinals and the original deadline. Queued cancellation never enters the provider; metadata uncertainty cannot repeat inference; panic never invents transport stop. Post-entry transport/partial-output uncertainty is not automatically retried and sends additive SDK retry suppression without changing OpenAI HTTP status or trusted retry floors. Unmanaged providers and model discovery bypass CPA admission; waiting/polling does not fabricate native entry, progress or ETA.
+- The queued cancellation fixture cancels only after positive enqueue acknowledgement, requiring exactly one closed waiter and no native entry. A separate already-expired real context requires `DeadlineExceeded`, zero queued waiters and zero native entry; setup scheduling cannot silently change the scenario.
+
+### TEST-518: Additive ordinary-admission status schema migration
+
+- Type / verifies: integration; issues #134/#136.
+- Coverage gate: `integration`.
+- Location: `stateful/cpa_admission_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Only the exact retained legacy tracking schema migrates to additive admission stage/reasons. Accepted invocation owner, status, deadline and unrelated data survive; repeated schema application is stable. Admission waiting with unknown eligibility stores and returns no fabricated ETA. Existing incompatible-schema rejection remains required.
+
+### TEST-519: Real ordinary and durable CPA shared admission
+
+- Type / verifies: integration; issue #134 phase P5.
+- Coverage gate: `release`.
+- Location: `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Real Temporal/PostgreSQL/Garage and native HTTP share one cap across a held durable call and two authenticated ordinary scopes. Waiting lookup respects key isolation and actual pool capacity. A queued timeout cannot later infer. Both ordinary OpenAI endpoints preserve completed JSON/SSE behavior. Warm cache bypasses permits; ordinary execution creates no batch manifest or reference history. Actual native request counts/overlap, immutable metadata settlement and the existing durable result boundary remain checked. This is a bounded compatibility case, not 1,000/10,000-call or live CPA throughput acceptance.
+
+### TEST-520: Mixed V2 load identity, shared admission and resource qualification
+
+- Type / verifies: explicit integration/endurance; issue #134 phase P5.
+- Coverage gate: `temporal-endurance`.
+- Location: `internal/gateway/httpapi/jobs_mixed_endurance_integration_test.go`; SDK helpers stay in the approved `jobs_temporal_integration_test.go` boundary.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-endurance`; individual profiles can be selected through the runner's focused manifest.
+- Serial resource: process-wide Go heap/goroutine counters and the shared measurement host. The canonical endurance task enforces `-parallel=1`; the measured clients and provider dispatches remain concurrent.
+- Oracle: Two separately composed API instances/database pools and two bearer scopes share one V2 account pool at cap 128. The local 5 ms provider has no external quota; no real credentials/provider are used. The 1,000 profile mixes 800 durable and 200 concurrent ordinary tasks; the 10,000 profile mixes 9,000 durable and 1,000 concurrent ordinary tasks. Every custom ID/result and actual native HTTP start is counted once; original ordinary deadlines remain. Cross-key result isolation, empty outstanding/start/retirement state, correct ledger ownership/artifact boundaries and continuation are required. Progress logs and retained timing/heap/goroutine/database/workflow reports support resource and overhead qualification, not live CPA throughput claims.
+
+### TEST-521: Metadata backpressure and one dispatch-readiness episode
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `stateful/cpa_admission_test.go`, `stateful/admission_metadata_test.go`, `stateful/admission_signals_test.go`, `stateful/batch/pool_state_test.go`.
+- Command: `go test -race ./stateful ./stateful/batch -run '^TestCPAAdmissionBoundsMetadata|^TestPoolCoalescesOneUnavailable' -count=1`.
+- Oracle: Twelve concurrent live calls use at most two enqueue/poll operations and two existing-permit operations per API instance, while all twelve native dispatches can overlap and still execute once. Caller deadlines/cancellation remain authoritative; the metadata bound never spans native I/O. Overlapping/recent successful wake hints coalesce without dropping settlement notices; canceled callers and failed acknowledgements remain distinct. A single unclaimed expiry wave creates one two-second readiness floor rather than compounding to thirty seconds; the workflow version gate retains historical behavior for old histories. The separate pending-claim bound survives continuation, is not released by workflow-start acknowledgement alone, and preserves all 128 active permits. Durable claim hints run alongside native execution without blocking entry; a version marker preserves legacy actor decisions.
+
+
+### TEST-522: Ledger connection queue and original execution deadlines
+
+- Coverage gate: `integration`.
+- Tier: T3; `stateful/batch/ledger_capacity_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: A real one-connection pgx pool and acquisition tracer hold metadata in the connection queue longer than the 600 ms SQL transaction budget. Once the slot is released, the read succeeds under its original caller deadline. A separately canceled caller enters no SQL. SQL statement/transaction deadlines remain unchanged; waiting cannot authorize inference or reset execution deadlines. A concrete pgx acquisition boundary is necessary for this cancellation/queue oracle.
+
+
+### TEST-523: Positive same-owner recovery after an uncertain claim acknowledgement
+
+- Coverage gate: `fast`.
+- Location: `stateful/batch/attempt_execution_test.go`.
+- Command: `go test -race ./stateful/batch -run 'LostClaimAck' -count=1`.
+- Oracle: A lost claim COMMIT acknowledgement and failed readback cannot enter the provider. Only a later positive same-fresh-nonce local-stop CAS can stage a known never-dispatched observation. Foreign/missing ownership remains unconfirmed, terminal outcomes remain immutable, and metadata-only settlement returns known never-entry to the queue without consuming a provider attempt or writing a result artifact. The real PostgreSQL case commits the claim before dropping its acknowledgement; native execution remains exactly zero.
+
+
+### TEST-524: Real committed-claim recovery without provider entry
+
+- Coverage gate: `integration`.
+- Location: `stateful/batch/attempt_execution_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Commit a real PostgreSQL claim, drop its acknowledgement and fail the first readback. A later positive same-owner local-stop CAS stages known never-entry; settlement returns the item to the queue with no consumed provider attempt, no result artifact and exactly zero native executions. This is the concrete SQL boundary for TEST-523; absent/foreign proof cannot be replaced by an inference retry.
+
+
+### TEST-525: Bounded durable pool wakes and authoritative trailing readback
+
+- Coverage gate: `fast`.
+- Tier: T1; `stateful/batch/pool_wake_test.go`, `stateful/batch/pool_workflow_test.go`.
+- Command: `go test -race ./stateful/batch -run '^TestDurablePoolWake|^TestPoolOneWake' -count=1`.
+- Oracle: Concurrent positively stopped successful settlements and positive claim hints share one bounded collection/RPC without granting or releasing capacity. Arrivals after sealing require a trailing batch; canceled followers/owners cannot discard other committed hints. Failures are not cached, the original earlier deadline wins, RPC lifetime is at most one second, and pools stay isolated. Restrictions/refusals/uncertain outcomes bypass successful batches. SDK virtual time proves one hint reads all outstanding SQL settlements before the five-second fallback, while a fabricated revision alone releases no permit. Ordinary notice forwarding remains independently unchanged.
+
+
+### TEST-526: Real lost Temporal start acknowledgement and independent replay
+
+- Coverage gate: `integration`.
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: A real Temporal start succeeds before its caller receives a synthetic acknowledgement loss. Retrying the exact reservation/Workflow ID while local native HTTP is blocked resolves the existing execution, retains one ledger ordinal and active permit, and produces exactly one HTTP call and validated artifact result. Real independent-attempt history replays through the combined-finalization version marker. No mock replaces PostgreSQL, Temporal, native HTTP or Garage; only the lost caller acknowledgement is injected.
+
+
+### TEST-527: Real persistence blockage after native result completion
+
+- Coverage gate: `integration`.
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Hold only the test invocation ledger row after confirmed native HTTP entry. Release HTTP while its local-stop/observation/settlement writes are blocked. Require a positively bound Garage artifact and real Temporal finalization retry before releasing the row. The retained observation then settles once, returns one validated result, keeps the original claim/ordinal, and releases pool capacity with exactly one provider HTTP call. The database, native HTTP, Temporal retry, artifact and recovery are real; no inference is replayed.
+
+### TEST-528: Same-invocation acknowledgement readback without repeated writes
+
+- Coverage gate: `integration`.
+- Tier: T3; `stateful/batch/acknowledgement_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration`.
+- Oracle: Commit a real claim/dispatch intent, lose its acknowledgement and abort the first readback transaction with a real SQL error. A bounded read-only retry can confirm only this invocation's fresh owner/new intent, producing one native HTTP call, artifact and ledger ordinal without repeating the write. A recorded prior intent, foreign/absent/terminal/stopped/expired/fenced ownership or persistent failed readback cannot authorize native entry; activity redelivery remains non-authorizing. Existing permanent unknown-COMMIT/no-provider oracles remain.
+
+### TEST-529: Optional deterministic recovery padding and history compatibility
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `stateful/batch/recovery_jitter_test.go`, `stateful/batch/pool_workflow_test.go`, `cmd/harden-llm-gateway/batch_config_test.go`.
+- Command: `go test -race ./stateful/batch ./cmd/harden-llm-gateway -run '^TestRecoveryJitter|^TestPoolRecoveryJitter|^TestBatchRecoveryJitter' -count=1`.
+- Oracle: Recovery jitter defaults to zero, accepts only 0–1,000 ms, never changes ordinary dispatch pacing or shortens trusted/fallback floors, and selects padding once per new scheduled deadline. A fixed SHA-256 vector freezes version-one behavior; continuation/config changes preserve a recorded choice. A successful probe clears padding and single-probe/cap rules remain. Snapshot checks reject corrupt choices; SDK version markers retain exact legacy deadlines. The explicit configuration is shared by API/worker Compose without adding credentials or services.
+
+### TEST-530: Actual worker-process death after native HTTP entry
+
+- Coverage gate: `integration`.
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Launch only a test-owned worker with private bootstrap and a clean environment against owned Temporal/PostgreSQL/Garage and local TLS HTTP. After confirmed native entry, SIGKILL and Process.Wait prove actual death. Restart compatible control; require a terminal unconfirmed result with no native replay or invented artifact/stop and retain capacity. Only explicit audited same-owner stop backed by that exit proof releases capacity, preserving identical public terminal bytes and one provider call. No shared worker/process is killed, and no heartbeat/lease is treated as stop proof.
+
+### TEST-531: Real late artifact after authoritative expiry settlement
+
+- Coverage gate: `integration`.
+- Tier: T3; `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
+- Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
+- Oracle: Let actual native HTTP produce a validated result, then delay its real Garage write. Advance only the owned ledger's resolved deadline to expiry; require authoritative terminal unconfirmed settlement before releasing storage. The genuine same-owner completed artifact must exist afterward, but the public result remains byte-identical unconfirmed, inference stays one call/ordinal, and actual owner stop advances only its settlement revision and releases capacity. No late object can promote or overwrite terminal inference.
 
 ## 34. Consumer service-chain fixture
 

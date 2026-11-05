@@ -16,3 +16,7 @@ scrape_configs:
     static_configs:
       - targets:
           - otel-collector:8888
+  - job_name: n8n-shared
+    static_configs:
+      - targets:
+          - n8n-main:5678

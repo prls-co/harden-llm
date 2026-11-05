@@ -21,6 +21,9 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, getenv func(string) string) error {
+	if len(args) == 1 && args[0] == "batch-upgrade" {
+		return runBatchUpgrade(ctx, stdout, getenv)
+	}
 	if len(args) == 1 && args[0] == "batch-policy" {
 		return runBatchPolicy(ctx, stdout, getenv)
 	}

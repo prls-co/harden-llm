@@ -256,7 +256,7 @@ func (s *Service) SaveProfile(ctx context.Context, hash string, input SaveProfil
 	if err != nil {
 		return ProfileView{}, storageFailure(err)
 	}
-	if err = s.probeProfile(ctx, resolved); err != nil {
+	if err = s.probeProfile(ctx, hash, resolved); err != nil {
 		return ProfileView{}, err
 	}
 	id, err := s.newID()
@@ -309,12 +309,12 @@ func saveCredentialTx(ctx context.Context, tx pgx.Tx, record CredentialRecord, e
 	return err
 }
 
-func (s *Service) probeProfile(ctx context.Context, resolved ResolvedProfile) error {
+func (s *Service) probeProfile(ctx context.Context, hash string, resolved ResolvedProfile) error {
 	var definition Profile
 	if err := json.Unmarshal(resolved.Definition, &definition); err != nil {
 		return err
 	}
-	options := s.effects
+	options := s.scopedEffects(hash)
 	options.Connections = hardenllm.ConnectionCatalog{"generation": resolved.Connection}
 	options.DefaultConnection = "generation"
 	options.Cache = nil

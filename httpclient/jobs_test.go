@@ -25,6 +25,48 @@ func fixtureJobStatus(done bool) map[string]any {
 	}
 	return map[string]any{"job_id": jobFixtureID, "status": state, "counts": c, "created_at": "2026-10-16T00:00:00Z", "deadline": "2026-10-16T02:00:00Z", "observed_at": "2026-10-16T00:01:00Z", "last_worker_heartbeat_at": "2026-10-16T00:01:00Z", "last_progress_at": "2026-10-16T00:00:05Z", "next_attempt_at": nil, "status_url": "/v1/jobs/" + jobFixtureID, "result_url": "/v1/jobs/" + jobFixtureID + "/result"}
 }
+
+func TestJobStatusPreservesV2DeadlinesAndAcceptsLegacyStatus(t *testing.T) {
+	t.Parallel()
+	for _, v2 := range []bool{false, true} {
+		t.Run(map[bool]string{false: "legacy", true: "v2"}[v2], func(t *testing.T) {
+			t.Parallel()
+			wire := fixtureJobStatus(true)
+			if v2 {
+				wire["execution_deadline"] = "2026-10-16T02:00:00Z"
+				wire["finalization_deadline"] = "2026-10-16T02:00:30Z"
+			}
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Error("status lookup mutated the job")
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(wire)
+			}))
+			defer s.Close()
+			c, err := New(Config{BaseURL: s.URL, APIKey: strings.Repeat("synthetic-key", 4), HTTPClient: s.Client()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			var progress JobStatus
+			status, err := c.WaitJob(ctx, jobFixtureID, func(v JobStatus) { progress = v })
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, got := range []JobStatus{status, progress} {
+				if !v2 {
+					if got.ExecutionDeadline != nil || got.FinalizationDeadline != nil {
+						t.Fatal("legacy status invented V2 deadlines")
+					}
+				} else if got.ExecutionDeadline == nil || got.FinalizationDeadline == nil || !got.ExecutionDeadline.Equal(got.Deadline) || !got.FinalizationDeadline.Equal(got.Deadline.Add(30*time.Second)) {
+					t.Fatal("client discarded or changed authoritative V2 deadlines")
+				}
+			}
+		})
+	}
+}
 func TestWaitJobReportsWaitingAndNeverRepostsInference(t *testing.T) {
 	t.Parallel()
 	gets, posts, progress := 0, 0, 0

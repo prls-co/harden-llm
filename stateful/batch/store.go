@@ -1,6 +1,7 @@
 package batch
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	_ "embed"
@@ -46,6 +47,9 @@ func ApplySchema(ctx context.Context, p *pgxpool.Pool) error {
 		if _, err = tx.Exec(ctx, schema); err != nil {
 			return err
 		}
+	}
+	if err := applyLedgerSchema(ctx, tx); err != nil {
+		return err
 	}
 	return tx.Commit(ctx)
 }
@@ -93,7 +97,16 @@ func (s *PostgresStore) Create(ctx context.Context, scope, key string, items []I
 				return e
 			}
 			if priorDigest != hex.EncodeToString(digest[:]) {
-				return ErrConflict
+				if ref.Count != len(items) {
+					return ErrConflict
+				}
+				same, err := sameAcceptedSubmission(ctx, tx, scope, ref.JobID, items)
+				if err != nil {
+					return err
+				}
+				if !same {
+					return ErrConflict
+				}
 			}
 			return nil
 		}
@@ -122,7 +135,14 @@ func (s *PostgresStore) Status(ctx context.Context, scope, id string) (v Status,
 		return v, ErrNotFound
 	}
 	err = s.transaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-		e := tx.QueryRow(ctx, `SELECT id::text,created_at,deadline,last_heartbeat,last_progress,waiting_reason,next_attempt_at FROM batch_jobs WHERE api_key_hash=$1 AND id=$2`, scope, id).Scan(&v.JobID, &v.CreatedAt, &v.Deadline, &v.LastWorkerHeartbeat, &v.LastProgressAt, &v.WaitingReason, &v.NextAttemptAt)
+		var generation int64
+		e := tx.QueryRow(ctx, `SELECT id::text,created_at,deadline,last_heartbeat,last_progress,waiting_reason,next_attempt_at,COALESCE((SELECT generation FROM batch_pool_generations p WHERE p.pool_id=batch_jobs.pool_id),1) FROM batch_jobs WHERE api_key_hash=$1 AND id=$2`, scope, id).Scan(&v.JobID, &v.CreatedAt, &v.Deadline, &v.LastWorkerHeartbeat, &v.LastProgressAt, &v.WaitingReason, &v.NextAttemptAt, &generation)
+		if generation >= 2 {
+			execution := v.Deadline
+			finalization := execution.Add(attemptFinalizationGrace)
+			v.ExecutionDeadline = &execution
+			v.FinalizationDeadline = &finalization
+		}
 		if errors.Is(e, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -138,6 +158,10 @@ func (s *PostgresStore) Status(ctx context.Context, scope, id string) (v Status,
 	}
 	if v.WaitingReason != "" && v.Counts.Active == 0 {
 		v.Status = "waiting"
+	}
+	if v.ExecutionDeadline != nil && !time.Now().Before(*v.ExecutionDeadline) && !v.Counts.Done() {
+		v.WaitingReason = "persistence_wait"
+		v.NextAttemptAt = nil
 	}
 	if v.Counts.Done() {
 		v.Status = "completed"
@@ -248,11 +272,75 @@ func (s *PostgresStore) Expire(ctx context.Context, j JobRef) error {
 		if e := tx.QueryRow(ctx, `SELECT id::text FROM batch_jobs WHERE api_key_hash=$1 AND id=$2 FOR UPDATE`, j.Scope, j.JobID).Scan(&lock); e != nil {
 			return e
 		}
-		_, e := tx.Exec(ctx, `UPDATE batch_items SET state='failed',outcome=$3 WHERE api_key_hash=$1 AND job_id=$2 AND state NOT IN ('succeeded','failed')`, j.Scope, j.JobID, raw)
+		_, e := tx.Exec(ctx, `UPDATE batch_items SET state='failed',outcome=$3 WHERE api_key_hash=$1 AND job_id=$2 AND state NOT IN ('succeeded','failed') AND current_permit IS NULL`, j.Scope, j.JobID, raw)
 		if e != nil {
 			return e
 		}
 		_, e = tx.Exec(ctx, `UPDATE batch_jobs SET last_progress=now(),waiting_reason='',next_attempt_at=NULL WHERE api_key_hash=$1 AND id=$2`, j.Scope, j.JobID)
 		return e
 	})
+}
+
+// A default is resolved once at acceptance. Resubmission under the same key
+// adopts that stored budget; an explicit different budget still conflicts.
+// Compare exact JSON numbers and semantic object order, because jsonb may
+// reorder nested schemas while serializing an accepted request.
+func sameAcceptedSubmission(ctx context.Context, tx pgx.Tx, scope, id string, items []Item) (bool, error) {
+	rows, err := tx.Query(ctx, `SELECT item_index,custom_id,request FROM batch_items WHERE api_key_hash=$1 AND job_id=$2 ORDER BY item_index`, scope, id)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	decode := func(raw []byte) (map[string]any, error) {
+		var object map[string]any
+		d := json.NewDecoder(bytes.NewReader(raw))
+		d.UseNumber()
+		err := d.Decode(&object)
+		return object, err
+	}
+	n := 0
+	for rows.Next() {
+		var index int
+		var custom string
+		var stored []byte
+		if err := rows.Scan(&index, &custom, &stored); err != nil {
+			return false, err
+		}
+		if n >= len(items) || index != n || custom != items[n].CustomID {
+			return false, nil
+		}
+		incoming, err := json.Marshal(items[n].Generation)
+		if err != nil {
+			return false, err
+		}
+		accepted, err := decode(stored)
+		if err != nil {
+			return false, err
+		}
+		requested, err := decode(incoming)
+		if err != nil {
+			return false, err
+		}
+		if items[n].Generation.TimeoutDefaulted {
+			requested["timeout_ms"] = accepted["timeout_ms"]
+		}
+		delete(accepted, "timeout_defaulted")
+		delete(requested, "timeout_defaulted")
+		a, err := json.Marshal(accepted)
+		if err != nil {
+			return false, err
+		}
+		b, err := json.Marshal(requested)
+		if err != nil {
+			return false, err
+		}
+		if !bytes.Equal(a, b) {
+			return false, nil
+		}
+		n++
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return n == len(items), nil
 }

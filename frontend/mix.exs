@@ -47,7 +47,9 @@ defmodule HardenLlm.MixProject do
     [
       {:harden_llm_ui, path: "packages/harden_llm_ui"},
       {:phoenix, "== 1.8.9"},
-      {:phoenix_html, "~> 4.1"},
+      # The pinned prls_web revision requests 4.3.0; its public API is retained
+      # while the host selects the patched attribute-escaping implementation.
+      {:phoenix_html, "~> 4.4.0", override: true},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "== 1.2.10"},
       {:phoenix_template,
@@ -70,7 +72,7 @@ defmodule HardenLlm.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.13.0"},
+      {:bandit, "~> 1.14.1"},
       {:req, "== 0.6.1"},
       {:prls_web,
        git: "https://github.com/prls-co/prls-web.git",

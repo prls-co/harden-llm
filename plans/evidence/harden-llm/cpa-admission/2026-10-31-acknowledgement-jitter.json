@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "sourceBaseSHA": "9fddf33a2002d5c6d7b970ff752532c68ca87190",
+  "scope": "Owned four-shard Temporal/PostgreSQL/Garage with local synthetic TLS provider; no CPA or paid calls.",
+  "loadSource": {
+    "baseSHA": "9fddf33a2002d5c6d7b970ff752532c68ca87190",
+    "sha256": {
+      "cmd/harden-llm-gateway/batch.go": "201ec02235b6b361f825ecdb07a8f881cb0e0bb17dc68c9d6e6a72be3c2fa8ea",
+      "stateful/batch/controller.go": "6ad1197b5e140cfda6eecba6053edce69ced8a80cde7be7adf61e83aa7d4b30c",
+      "stateful/batch/ledger_claim.go": "e8b5075ee3e41f53e9083d98e97901ca29599be601f9ccf1ea7ca3892c4008c1",
+      "stateful/batch/pool_state.go": "f34e188c725648998644fe6ccf7738fb503d5867d844696f77e79f1d82f4440b",
+      "stateful/batch/pool_workflow.go": "8ec6dbf7c28221bbee1bca5e93830cbbf4ba95146408a96ca8edff6ee4f58743",
+      "stateful/batch/recovery_jitter.go": "1fdc15435f1bf270f56cc70f6a6eec8c5fa5b386617ececcba31c67f642b9fc8",
+      "internal/gateway/httpapi/jobs_mixed_endurance_integration_test.go": "748de1836091ef7047e07b7bf578e900b7b5114927b12ce84c0a82537ca74bfa",
+      "internal/gateway/httpapi/jobs_temporal_integration_test.go": "1141fede10d71f09f7419e93097f7e44e54d4d0ff202dbac2345ce8839f47bfb",
+      "deploy/test/compose.integration.yml": "b639c28d5cf63b6645ed307b23bb8cfcbaf92db98f492ce8a64bf72d3dc7215b"
+    }
+  },
+  "laterTestOnlySHA256": {
+    "internal/gateway/httpapi/jobs_temporal_integration_test.go": "3fd0be71e2753b97ea6354c7cc0e7f8beca8c312206d9e388083763a1ce30775"
+  },
+  "nativeCap": 128,
+  "ordinaryDeadlineSeconds": 60,
+  "durableDeadlineSeconds": 480,
+  "grantStartLeaseSeconds": 5,
+  "recoveryJitterDefaultMS": 0,
+  "fullScaleAccepted": true,
+  "checks": {
+    "fast": {
+      "accepted": true,
+      "selector": "fast",
+      "manifestSHA256": "33d850bd87d3f42252d896617750af99acce47f23cc0807a5ec75b95ded2aa74",
+      "generatedAt": "2026-10-31T18:21:23.541Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "localReceipt": "tmp/test-feedback/runner-1793470883541-1218466-a01d002bcd6f969d.json"
+    },
+    "integration_race": {
+      "accepted": true,
+      "selector": "go-integration-race",
+      "manifestSHA256": "33d850bd87d3f42252d896617750af99acce47f23cc0807a5ec75b95ded2aa74",
+      "generatedAt": "2026-10-31T18:27:12.911Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "localReceipt": "tmp/cpa-ack-jitter-final-integration-race.json"
+    },
+    "temporal_replay_faults": {
+      "accepted": true,
+      "selector": "go-temporal-integration",
+      "manifestSHA256": "33d850bd87d3f42252d896617750af99acce47f23cc0807a5ec75b95ded2aa74",
+      "generatedAt": "2026-10-31T18:33:40.972Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "localReceipt": "tmp/cpa-ack-jitter-final-temporal.json"
+    },
+    "physical_process_and_late_artifact": {
+      "accepted": true,
+      "selector": "go-temporal-integration",
+      "manifestSHA256": "ebc465a5b0aec45cf98e2ac69acda852a959e1660fbb55ece873ae627d5473a8",
+      "generatedAt": "2026-10-31T18:17:23.993Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "localReceipt": "tmp/cpa-process-late-first.json"
+    }
+  },
+  "profiles": {
+    "1000": {
+      "accepted": true,
+      "selector": "go-temporal-endurance",
+      "manifestSHA256": "01674c645cbc07f23a92b9145b85ae485ad758a0a632c6232e6e6049ba93289f",
+      "generatedAt": "2026-10-31T18:04:50.839Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "localReceipt": "tmp/cpa-ack-jitter-1000.json",
+      "localMetrics": "tmp/cpa-mixed-1000-1101186.json",
+      "metrics": {
+        "Accepted": true,
+        "Total": 1000,
+        "Durable": 800,
+        "Ordinary": 200,
+        "Replicas": 2,
+        "Scopes": 2,
+        "Concurrency": 128,
+        "ElapsedMS": 33059,
+        "NativeRequests": 1000,
+        "NativePeak": 6,
+        "DistinctNative": 1000,
+        "DistinctResults": 1000,
+        "OrdinaryErrors": 0,
+        "PeakHeapBytes": 42046248,
+        "PeakGoroutines": 1200,
+        "LedgerSnapshotConfirmed": true,
+        "LedgerAttempts": 1000,
+        "NeverSentAttempts": 0,
+        "ClaimP50MS": 400.299,
+        "ClaimP95MS": 664.9661,
+        "ClaimMaxMS": 861.102,
+        "PoolAcquireDurationMS": 2996,
+        "PoolEmptyAcquires": 338,
+        "AttemptOutcomesConfirmed": true,
+        "AttemptOutcomes": [
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 800
+          },
+          {
+            "Kind": "ordinary",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 200
+          }
+        ],
+        "DurableClaimSignalCalls": 69,
+        "DurableSettlementSignalCalls": 112,
+        "Workflows": {
+          "HLLMBatchV1": 2,
+          "HLLMCPAAttemptV2": 800,
+          "HLLMCPAPoolV2": 2
+        },
+        "Continued": true,
+        "SnapshotBytes": 1246,
+        "QueueP50MS": 11990,
+        "QueueP95MS": 24802.899999999998,
+        "QueueMaxMS": 25954,
+        "NativeP95MS": 7,
+        "DatabaseTransactions": 11859,
+        "DatabaseUpdatedRows": 8770
+      }
+    },
+    "10000": {
+      "accepted": true,
+      "selector": "go-temporal-endurance",
+      "manifestSHA256": "1b975d50c322f1049838ba230894c20cc9119cd54ddbf660b6234ec10f5d965e",
+      "generatedAt": "2026-10-31T18:16:00.474Z",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "localReceipt": "tmp/cpa-ack-jitter-10000.json",
+      "localMetrics": "tmp/cpa-mixed-10000-1125135.json",
+      "metrics": {
+        "Accepted": true,
+        "Total": 10000,
+        "Durable": 9000,
+        "Ordinary": 1000,
+        "Replicas": 2,
+        "Scopes": 2,
+        "Concurrency": 128,
+        "ElapsedMS": 474169,
+        "NativeRequests": 10000,
+        "NativePeak": 6,
+        "DistinctNative": 10000,
+        "DistinctResults": 10000,
+        "OrdinaryErrors": 0,
+        "PeakHeapBytes": 145494752,
+        "PeakGoroutines": 5203,
+        "LedgerSnapshotConfirmed": true,
+        "LedgerAttempts": 10000,
+        "NeverSentAttempts": 0,
+        "ClaimP50MS": 606.096,
+        "ClaimP95MS": 1182.2864999999997,
+        "ClaimMaxMS": 3150.629,
+        "PoolAcquireDurationMS": 37864,
+        "PoolEmptyAcquires": 3941,
+        "AttemptOutcomesConfirmed": true,
+        "AttemptOutcomes": [
+          {
+            "Kind": "job",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 9000
+          },
+          {
+            "Kind": "ordinary",
+            "State": "settled",
+            "Outcome": "completed",
+            "Code": "",
+            "Claimed": true,
+            "DispatchRecorded": true,
+            "LocalStopped": true,
+            "Count": 1000
+          }
+        ],
+        "DurableClaimSignalCalls": 874,
+        "DurableSettlementSignalCalls": 1215,
+        "Workflows": {
+          "HLLMBatchV1": 9,
+          "HLLMCPAAttemptV2": 9000,
+          "HLLMCPAPoolV2": 9
+        },
+        "Continued": true,
+        "SnapshotBytes": 1248,
+        "QueueP50MS": 180888.5,
+        "QueueP95MS": 410866.59999999974,
+        "QueueMaxMS": 437905,
+        "NativeP95MS": 6,
+        "DatabaseTransactions": 120030,
+        "DatabaseUpdatedRows": 93381
+      }
+    }
+  },
+  "limitations": [
+    "Synthetic local-provider acceptance is not a CPA throughput, concurrency or quota measurement.",
+    "Native overlap peaked at six; cap 128 is configuration, not an observed provider limit.",
+    "10000 profile includes final result collection/diagnostics; accepted execution deadlines and count/resource assertions were unchanged.",
+    "Physical-fault helpers were added after measured load; frozen runtime and endurance fixture hashes remain unchanged.",
+    "Logical signal counts are SDK entries, not transport retry attempts.",
+    "P6 deployment and representative bounded CPA campaign remain open; no browser or production promotion."
+  ]
+}

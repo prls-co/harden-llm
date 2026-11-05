@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	openai "github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/responses"
@@ -232,9 +233,18 @@ func TestOpenAIContractAuthStateAndRetiredRoutes(t *testing.T) {
 
 func newContractProxy(t *testing.T, upstream *httptest.Server) *httptest.Server {
 	t.Helper()
+	return httptest.NewServer(newContractAPI(t, upstream).Handler())
+}
+
+func newContractAPI(t *testing.T, upstream *httptest.Server) *API {
+	t.Helper()
+	return newContractAPIWithPool(t, upstream, nil)
+}
+func newContractAPIWithPool(t *testing.T, upstream *httptest.Server, pool *pgxpool.Pool) *API {
+	t.Helper()
 	certificatePool := x509.NewCertPool()
 	certificatePool.AddCert(upstream.Certificate())
-	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{
+	service, err := stateful.NewService(stateful.Config{Pool: pool, Client: stateful.ClientOptions{
 		Connections: []hardenllm.Connection{{
 			ID: "cpa", Provider: "fixture", Protocol: "responses", BaseURL: upstream.URL + "/v1",
 			CacheDomain: "fixture-credential-1", APIKey: "synthetic-upstream-secret",
@@ -252,5 +262,5 @@ func newContractProxy(t *testing.T, upstream *httptest.Server) *httptest.Server 
 	if err != nil {
 		t.Fatal(err)
 	}
-	return httptest.NewServer(api.Handler())
+	return api
 }

@@ -10,6 +10,7 @@ x-batch-environment: &batch-environment
   HARDEN_LLM_BATCH_CONCURRENCY: ${HARDEN_LLM_BATCH_CONCURRENCY:-128}
   HARDEN_LLM_BATCH_BURST: ${HARDEN_LLM_BATCH_BURST:-200}
   HARDEN_LLM_BATCH_START_RATE: ${HARDEN_LLM_BATCH_START_RATE:-100}
+  HARDEN_LLM_BATCH_RECOVERY_JITTER_MS: ${HARDEN_LLM_BATCH_RECOVERY_JITTER_MS:-0}
   HARDEN_LLM_BATCH_MAX_START_RATE: ${HARDEN_LLM_BATCH_MAX_START_RATE:-200}
   HARDEN_LLM_BATCH_REFILL_ESTIMATE_MS: ${HARDEN_LLM_BATCH_REFILL_ESTIMATE_MS:-61000}
   HARDEN_LLM_BATCH_WINDOW_REQUESTS: ${HARDEN_LLM_BATCH_WINDOW_REQUESTS:-200}
@@ -36,7 +37,9 @@ services:
     # Temporal task-queue pollers and the job heartbeat/deadline, not /healthz.
     healthcheck:
       disable: true
-    stop_grace_period: 30s
+    # Provider and control SDK workers each drain for up to 45 seconds, followed
+    # by process/telemetry cleanup. Docker must not interrupt those waits.
+    stop_grace_period: 120s
 
 networks:
   batch-temporal:

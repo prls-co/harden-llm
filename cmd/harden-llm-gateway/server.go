@@ -80,7 +80,22 @@ func runGatewayRuntime(ctx context.Context, stdout, stderr io.Writer, getenv fun
 		return safeStartupError(redactor, "configure reference presets", err)
 	}
 	artifacts, artifactDiagnostic := referenceArtifacts(config.reference)
-	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{
+	jobs, activities, temporalClient, err := configureBatch(startupContext, config, pool, artifacts, telemetryRuntime)
+	if err != nil {
+		return safeStartupError(redactor, "configure durable batches", err)
+	}
+	if temporalClient != nil {
+		defer temporalClient.Close()
+	}
+	var admission *stateful.CPAAdmission
+	if config.batch.enabled {
+		for _, connection := range config.connections {
+			if connection.ID == config.batch.upstream {
+				admission = &stateful.CPAAdmission{Store: &batch.PostgresStore{Pool: pool}, Signals: batch.TemporalRequestSignals{Client: temporalClient}, PoolID: config.batch.poolID, Endpoint: connection.BaseURL, Logger: telemetryRuntime.Logger()}
+			}
+		}
+	}
+	service, err := stateful.NewService(stateful.Config{Admission: admission, Client: stateful.ClientOptions{
 		Connections: config.connections, DefaultConnection: config.defaultConnection,
 		EndpointPolicy: hardenllm.EndpointPolicy{
 			AllowedHosts: config.allowedHosts, PrivateAllowedHosts: config.privateAllowedHosts,
@@ -92,13 +107,6 @@ func runGatewayRuntime(ctx context.Context, stdout, stderr io.Writer, getenv fun
 	if err != nil {
 		return safeStartupError(redactor, "configure shared proxy client", err)
 	}
-	jobs, activities, temporalClient, err := configureBatch(startupContext, config, pool, artifacts, telemetryRuntime)
-	if err != nil {
-		return safeStartupError(redactor, "configure durable batches", err)
-	}
-	if temporalClient != nil {
-		defer temporalClient.Close()
-	}
 	if workerOnly {
 		worker, err := batch.NewWorker(temporalClient, config.batch.taskQueue, activities)
 		if err != nil {
@@ -109,8 +117,16 @@ func runGatewayRuntime(ctx context.Context, stdout, stderr io.Writer, getenv fun
 		}
 		defer worker.Stop()
 		telemetryRuntime.Logger().InfoContext(ctx, "batch worker started", "namespace", config.batch.namespace, "task_queue", config.batch.taskQueue, "pool_id", config.batch.poolID)
-		<-ctx.Done()
-		return nil
+		var failures <-chan error
+		if owned, ok := worker.(interface{ Errors() <-chan error }); ok {
+			failures = owned.Errors()
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case err := <-failures:
+			return safeStartupError(redactor, "batch worker failed", err)
+		}
 	}
 	telemetry, err := gateway.NewTelemetry(telemetryRuntime.TracerProvider(), telemetryRuntime.MeterProvider())
 	if err != nil {

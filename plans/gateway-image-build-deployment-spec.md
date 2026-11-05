@@ -26,7 +26,16 @@ decision.
 
 ## 2. Artifact and production identity
 
-Current production identity is recorded in the
+Current production application identity is source
+`f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4`, exact release run `41857609943`
+attempt 1, recorded in the [November 4 CPA production receipt](evidence/harden-llm/cpa-admission/2026-11-04-production-cpa.json).
+Gateway and worker share the gateway image; frontend runtime changes require
+the separately built web image from that same qualified source. Worker/tooling
+adoption uses the existing protected controller, self-hosted Temporal and scoped
+HLLM storage. Operations follow-up `fa2de8b` does not rebuild or relabel those
+unchanged runtime artifacts. Publication retains the existing local-image policy.
+
+The previous production identity is recorded in the
 [October 16 Model Recall prerequisite release](../docs/release-certification.md#october-16-model-recall-prerequisite-production-qualification):
 gateway source `474342a2bbf7273df9b050b386447dc0d7954ea7`, exact release run
 38869145461 attempt 1, and retained frontend source

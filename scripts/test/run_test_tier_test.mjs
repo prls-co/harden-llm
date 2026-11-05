@@ -589,3 +589,20 @@ test("refuses an oversized diagnostic report without leaving a partial artifact"
   await assert.rejects(writeRunReport({ diagnostics: "x".repeat(2 * 1024 * 1024) }, reportPath), /exceeds the 2097152-byte limit/);
   await assert.rejects(fs.stat(reportPath), { code: "ENOENT" });
 });
+
+test("browser-free frontend tasks use process-owned HTTP ports", async () => {
+  const manifest = JSON.parse(await fs.readFile(path.join(TEST_ROOT, "test/test-tiers.json"), "utf8"));
+  for (const id of ["frontend-deterministic", "frontend-async", "frontend-pagination-asset-check"]) {
+    const task = manifest.tasks.find((entry) => entry.id === id);
+    assert.ok(task, `missing ${id}`);
+    assert.equal(task.environment?.PORT, "0", `${id} must not reserve a global fixed HTTP port`);
+  }
+});
+
+
+test("endurance resource measurements isolate process-wide counters", async () => {
+  const manifest = JSON.parse(await fs.readFile(path.join(TEST_ROOT, "test/test-tiers.json"), "utf8"));
+  const task = manifest.tasks.find(({id}) => id === "go-temporal-endurance");
+  assert.ok(task.command.includes("-parallel=1"), "process-wide heap/goroutine measurements require one profile at a time");
+  assert.ok(task.testIds.includes("TEST-520"));
+});

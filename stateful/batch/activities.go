@@ -15,7 +15,6 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
-	"go.temporal.io/sdk/workflow"
 )
 
 type TemporalStarter struct {
@@ -42,12 +41,39 @@ type Activities struct {
 	PoolID    string
 	Policy    Policy
 	Logger    *slog.Logger
+	wakeHints poolWakeHints
 }
 
 func (a *Activities) Enqueue(ctx context.Context, j JobRef) error {
-	_, err := a.Temporal.SignalWithStartWorkflow(ctx, "hllm-cpa-pool-v1/"+a.PoolID, enqueueSignal, j, client.StartWorkflowOptions{TaskQueue: a.TaskQueue, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE}, DispatcherWorkflowName, DispatcherState{Controller: NewController(a.Policy)})
+	store, ok := a.Store.(QueueStore)
+	if !ok || a.Temporal == nil {
+		return ErrUnavailable
+	}
+	marker, err := store.PoolGeneration(ctx, a.PoolID)
+	if errors.Is(err, ErrNotFound) {
+		if err := store.EnsurePool(ctx, a.PoolID, 1); err != nil {
+			return err
+		}
+		marker, err = store.PoolGeneration(ctx, a.PoolID)
+	}
+	if err != nil {
+		return err
+	}
+	if err := store.AttachJob(ctx, a.PoolID, marker.Generation, j); err != nil {
+		return err
+	}
+	name := DispatcherWorkflowName
+	var input interface{} = DispatcherState{Controller: NewController(a.Policy)}
+	reuse := enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE
+	if marker.Generation >= 2 {
+		name = PoolWorkflowName
+		input = NewPoolState(a.PoolID, marker.Generation, a.Policy)
+		reuse = enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE
+	}
+	_, err = a.Temporal.SignalWithStartWorkflow(ctx, "hllm-cpa-pool-v1/"+a.PoolID, enqueueSignal, j, client.StartWorkflowOptions{TaskQueue: a.TaskQueue, WorkflowIDReusePolicy: reuse}, name, input)
 	return err
 }
+
 func (a *Activities) Status(ctx context.Context, j JobRef) (Status, error) {
 	return a.Store.Status(ctx, j.Scope, j.JobID)
 }
@@ -76,7 +102,7 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 			if out.Kind == "policy" {
 				level = slog.LevelError
 			}
-			a.Logger.Log(ctx, level, "batch provider attempt completed", "job_id", r.JobID, "item", r.Index, "attempt", out.Attempt, "kind", out.Kind, "code", code, "http_status", status, "cpa_request_id", out.ProviderRequestID, "retry_after_ms", out.RetryAfterMS, "started_at", out.StartedAt, "finished_at", out.FinishedAt, "retry_wait_ms", out.RetryWaitMS, "queue_ms", out.QueueMS, "generation_ms", out.DurationMS, "headers_ms", out.HeadersMS, "first_output_ms", out.FirstOutputMS, "input_tokens", out.InputTokens, "output_tokens", out.OutputTokens, "reasoning_tokens", out.ReasoningTokens, "cpa_internal_attempts", out.CPAInternalAttempts)
+			a.Logger.Log(ctx, level, "batch provider attempt completed", "job_id", r.JobID, "item", r.Index, "attempt", out.Attempt, "kind", out.Kind, "code", code, "http_status", status, "cpa_request_id", out.ProviderRequestID, "retry_after_ms", out.RetryAfterMS, "started_at", out.StartedAt, "finished_at", out.FinishedAt, "retry_wait_ms", out.RetryWaitMS, "queue_ms", out.QueueMS, "generation_ms", out.DurationMS, "generation_budget_ms", out.GenerationBudgetMS, "generation_deadline_at", out.GenerationDeadline, "admission", out.Admission, "headers_ms", out.HeadersMS, "first_output_ms", out.FirstOutputMS, "input_tokens", out.InputTokens, "output_tokens", out.OutputTokens, "reasoning_tokens", out.ReasoningTokens, "cpa_internal_attempts", out.CPAInternalAttempts)
 		}
 	}()
 	item, err := a.Store.Begin(ctx, r)
@@ -96,12 +122,16 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 		out.Error = &ItemError{Code: "job_deadline_exceeded", Message: "The job deadline expired."}
 		return out, nil
 	}
-	providerTimeout := 180 * time.Second
-	if item.Item.Generation.TimeoutMS > 0 {
-		providerTimeout = min(providerTimeout, time.Duration(item.Item.Generation.TimeoutMS)*time.Millisecond)
+	providerTimeout := generationBudget(item.Item.Generation)
+	if providerTimeout <= 0 {
+		out.Error = &ItemError{Code: "invalid_generation_budget", Message: "The stored generation budget is invalid."}
+		return out, nil
 	}
-	callCtx, cancel := context.WithTimeout(ctx, min(providerTimeout, time.Until(item.Deadline)))
+	callCtx, cancel := generationContext(ctx, item.Item.Generation, item.Deadline)
 	defer cancel()
+	out.GenerationBudgetMS = providerTimeout.Milliseconds()
+	deadline, _ := callCtx.Deadline()
+	out.GenerationDeadline = &deadline
 	progress := make(chan hardenllm.ProgressEvent, 8)
 	request := item.Item.Generation.Request()
 	request.Origin = hardenllm.Origin{Client: "harden-llm-batch", JobID: r.JobID}
@@ -156,7 +186,13 @@ func (a *Activities) Generate(ctx context.Context, r Ref) (out Outcome, returnEr
 		out.CachedInputTokens = &u.CacheReadTokens
 	}
 	if err != nil {
-		out.Kind, out.Error, out.RetryAfterMS = classifyAttemptError(err)
+		out.Kind, out.Error, out.RetryAfterMS = classifyGenerationError(err, result)
+		base, _, _ := classifyAttemptError(err)
+		if base == "rejected" {
+			out.Admission = "throttled"
+		} else if base == "policy" {
+			out.Admission = "restricted"
+		}
 		return out, nil
 	}
 
@@ -195,6 +231,8 @@ func classifyAttemptError(err error) (kind string, problem *ItemError, delay int
 		switch {
 		case status == 401 || status == 403 || code == "account_deactivated" || code == "policy_violation" || code == "insufficient_quota" || code == "billing_hard_limit_reached" || code == "billing_not_active":
 			kind = "policy"
+		case code == "auth_unavailable" && p.RetryAfter <= 0:
+			kind = "policy"
 		case status == 429 || code == "rate_limit_exceeded" || code == "model_cooldown" || code == "auth_unavailable":
 			kind = "rejected"
 		}
@@ -207,15 +245,19 @@ func classifyAttemptError(err error) (kind string, problem *ItemError, delay int
 }
 
 func NewWorker(c client.Client, queue string, a *Activities) (worker.Worker, error) {
-	if c == nil || queue == "" || a == nil || a.Store == nil || a.Artifacts == nil || a.Execute == nil || a.Encode == nil || a.PoolID == "" {
-		return nil, ErrUnavailable
+	return newWorkers(c, queue, a, worker.New)
+}
+
+func classifyGenerationError(err error, result hardenllm.Result) (string, *ItemError, int64) {
+	kind, problem, delay := classifyAttemptError(err)
+	partial := result.AssistantText != "" || result.Diagnostics.OutputBytes > 0 || result.Diagnostics.OutputCodePoints > 0
+	for _, attempt := range result.Attempts {
+		if attempt.Stream != nil && (attempt.Stream.OutputBytes > 0 || attempt.Stream.OutputCodePoints > 0) {
+			partial = true
+		}
 	}
-	if err := a.Policy.Validate(); err != nil {
-		return nil, err
+	if kind == "rejected" && partial {
+		kind = "unconfirmed"
 	}
-	w := worker.New(c, queue, worker.Options{MaxConcurrentActivityExecutionSize: a.Policy.Concurrency + 16, WorkerStopTimeout: 15 * time.Second, DisableRegistrationAliasing: true})
-	w.RegisterWorkflowWithOptions(BatchWorkflow, workflow.RegisterOptions{Name: BatchWorkflowName})
-	w.RegisterWorkflowWithOptions(DispatcherWorkflow, workflow.RegisterOptions{Name: DispatcherWorkflowName})
-	w.RegisterActivity(a)
-	return w, nil
+	return kind, problem, delay
 }

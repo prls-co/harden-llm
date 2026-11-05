@@ -1,6 +1,7 @@
 package batch
 
 import (
+	"errors"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 	"time"
@@ -17,6 +18,10 @@ type DispatcherState struct {
 	Jobs       []PendingJob
 	Turn       int
 	Processed  int
+	Quiescing  bool
+	Upgrade    bool
+	Unresolved int
+	Active     int
 }
 
 func (s *DispatcherState) PopReady() (Ref, bool) {
@@ -55,6 +60,8 @@ func durableOptions() workflow.ActivityOptions {
 
 // BatchWorkflow owns registration and a durable overall deadline, not inference retries.
 func BatchWorkflow(ctx workflow.Context, job JobRef) error {
+	ownedFinalization := workflow.GetVersion(ctx, "claimed-attempt-finalization", workflow.DefaultVersion, 1) != workflow.DefaultVersion
+	expired := false
 	ctx = workflow.WithActivityOptions(ctx, durableOptions())
 	var a *Activities
 	if err := workflow.ExecuteActivity(ctx, a.Enqueue, job).Get(ctx, nil); err != nil {
@@ -70,7 +77,20 @@ func BatchWorkflow(ctx workflow.Context, job JobRef) error {
 		}
 		remaining := job.Deadline.Sub(workflow.Now(ctx))
 		if remaining <= 0 {
-			return workflow.ExecuteActivity(ctx, a.Expire, job).Get(ctx, nil)
+			if !ownedFinalization {
+				return workflow.ExecuteActivity(ctx, a.Expire, job).Get(ctx, nil)
+			}
+			if !expired {
+				if err := workflow.ExecuteActivity(ctx, a.Expire, job).Get(ctx, nil); err != nil {
+					return err
+				}
+				expired = true
+				continue
+			}
+			if err := workflow.Sleep(ctx, 5*time.Second); err != nil {
+				return err
+			}
+			continue
 		}
 		if err := workflow.Sleep(ctx, min(remaining, 30*time.Second)); err != nil {
 			return err
@@ -88,10 +108,13 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 	wake := workflow.GetSignalChannel(ctx, enqueueSignal)
 	resume := workflow.GetSignalChannel(ctx, "resume")
 	configure := workflow.GetSignalChannel(ctx, "policy")
+	quiesce := workflow.GetSignalChannel(ctx, legacyQuiesceSignal)
+	upgrade := workflow.GetSignalChannel(ctx, legacyUpgradeSignal)
 	finished := workflow.NewBufferedChannel(ctx, 1000)
 	active := 0
 	lastWork := workflow.Now(ctx)
 	nextHeartbeat := lastWork
+	longGenerationBudgets := workflow.GetVersion(ctx, "long-generation-budgets", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	coalesceHeartbeats := workflow.GetVersion(ctx, "coalesce-status-heartbeats", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	// Old V1 histories keep their recorded pacing; fresh runs replenish the
 	// configured burst at each new admission window without exceeding its budget.
@@ -99,7 +122,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 	s.Controller.PacedRecovery = workflow.GetVersion(ctx, "pace-recovery-after-probe", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	s.Controller.AccumulatePace = workflow.GetVersion(ctx, "accrue-launch-rate-credits", workflow.DefaultVersion, 1) != workflow.DefaultVersion
 	s.Controller.HonorFailureHints = workflow.GetVersion(ctx, "honor-failed-attempt-retry-hints", workflow.DefaultVersion, 1) != workflow.DefaultVersion
-	if err := workflow.SetQueryHandler(ctx, stateQuery, func() (DispatcherState, error) { return s, nil }); err != nil {
+	if err := workflow.SetQueryHandler(ctx, stateQuery, func() (DispatcherState, error) { copy := s; copy.Active = active; return copy, nil }); err != nil {
 		return err
 	}
 	refs := func() []JobRef {
@@ -112,7 +135,9 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 	publish := func() error {
 		var next *time.Time
 		reason := ""
-		if s.Controller.Paused {
+		if s.Quiescing {
+			reason = "workflow_rollover"
+		} else if s.Controller.Paused {
 			reason = "account_restricted"
 		} else if s.Controller.Cooling {
 			reason = "provider_throttled"
@@ -143,6 +168,9 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 	}
 	finish := func(done completion) {
 		active--
+		if done.Outcome.Error != nil && done.Outcome.Error.Code == "activity_failed" {
+			s.Unresolved++
+		}
 		s.Processed++
 		lastWork = workflow.Now(ctx)
 		for i := range s.Jobs {
@@ -160,12 +188,26 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 			}
 		}
 		wasCooling, wasPaused, wasEligible := s.Controller.Cooling, s.Controller.Paused, s.Controller.NextEligible
-		s.Controller.Complete(workflow.Now(ctx), done.DispatchedAt, done.ReservedAt, done.Probe, done.Outcome.Kind, retryDelay(done.Outcome.RetryAfterMS))
+		s.Controller.CompleteOutcome(workflow.Now(ctx), done.DispatchedAt, done.ReservedAt, done.Probe, done.Outcome)
 		if !coalesceHeartbeats || wasCooling != s.Controller.Cooling || wasPaused != s.Controller.Paused || !wasEligible.Equal(s.Controller.NextEligible) {
 			nextHeartbeat = workflow.Now(ctx)
 		}
 	}
 	drainSignals := func() {
+		var stop bool
+		for quiesce.ReceiveAsync(&stop) {
+			if stop {
+				s.Quiescing = true
+				nextHeartbeat = workflow.Now(ctx)
+			}
+		}
+		for upgrade.ReceiveAsync(&stop) {
+			if stop {
+				s.Quiescing = true
+				s.Upgrade = true
+				nextHeartbeat = workflow.Now(ctx)
+			}
+		}
 		var incoming JobRef
 		for wake.ReceiveAsync(&incoming) {
 			enqueue(incoming)
@@ -217,6 +259,56 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 		if s.Turn >= len(s.Jobs) {
 			s.Turn = 0
 		}
+		if s.Upgrade && active == 0 && s.Unresolved == 0 {
+			metaCtx := workflow.WithActivityOptions(ctx, durableOptions())
+			identity := workflow.GetInfo(ctx).WorkflowExecution.ID
+			prepared := 0
+			for {
+				drainSignals()
+				if prepared >= len(s.Jobs) {
+					break
+				}
+				last := min(prepared+16, len(s.Jobs))
+				jobs := make([]JobRef, 0, last-prepared)
+				for _, job := range s.Jobs[prepared:last] {
+					jobs = append(jobs, job.Job)
+				}
+				if err := workflow.ExecuteActivity(metaCtx, a.PrepareLegacyJobs, LegacyHandoff{WorkflowID: identity, Jobs: jobs}).Get(metaCtx, nil); err != nil {
+					return err
+				}
+				prepared = last
+			}
+			// An empty pool still needs the compatibility generation marker.
+			if prepared == 0 {
+				if err := workflow.ExecuteActivity(metaCtx, a.PrepareLegacyJobs, LegacyHandoff{WorkflowID: identity}).Get(metaCtx, nil); err != nil {
+					return err
+				}
+			}
+			var fence PoolFence
+			err := workflow.ExecuteActivity(metaCtx, a.AdvanceLegacyPool, LegacyHandoff{WorkflowID: identity}).Get(metaCtx, &fence)
+			if err != nil {
+				var application *temporal.ApplicationError
+				if errors.As(err, &application) && application.Type() == "legacy_execution_unresolved" {
+					s.Unresolved++
+				} else {
+					return err
+				}
+			} else {
+				drainSignals()
+				next := NewPoolState(fence.PoolID, fence.Generation, s.Controller.Policy)
+				next.Controller = s.Controller
+				next.Sequence = fence.Sequence
+				next.WindowAnchored = !s.Controller.WindowStart.IsZero()
+				if len(s.Jobs) > 0 {
+					previous := (s.Turn + len(s.Jobs) - 1) % len(s.Jobs)
+					next.AfterScope = s.Jobs[previous].Job.Scope
+				}
+				if _, err := next.Snapshot(); err != nil {
+					return err
+				}
+				return workflow.NewContinueAsNewError(ctx, PoolWorkflowName, next)
+			}
+		}
 		drain := workflow.GetInfo(ctx).GetContinueAsNewSuggested() || workflow.GetInfo(ctx).GetCurrentHistoryLength() > 10000
 		if drain && active == 0 {
 			// Activities above may have yielded while new signals arrived. Carry
@@ -231,7 +323,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 			}
 			nextHeartbeat = workflow.Now(ctx).Add(5 * time.Second)
 		}
-		for !drain && s.Controller.CanStart(workflow.Now(ctx), active) {
+		for !drain && !s.Quiescing && s.Controller.CanStart(workflow.Now(ctx), active) {
 			r, ready := s.PopReady()
 			if !ready {
 				break
@@ -245,7 +337,11 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 				nextHeartbeat = workflow.Now(ctx)
 			}
 			workflow.Go(ctx, func(child workflow.Context) {
-				callCtx := workflow.WithActivityOptions(child, workflow.ActivityOptions{StartToCloseTimeout: 210 * time.Second, HeartbeatTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}})
+				activityBudget := 210 * time.Second
+				if longGenerationBudgets {
+					activityBudget = MaximumGenerationBudget + 30*time.Second
+				}
+				callCtx := workflow.WithActivityOptions(child, workflow.ActivityOptions{StartToCloseTimeout: activityBudget, HeartbeatTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}})
 				var outcome Outcome
 				if err := workflow.ExecuteActivity(callCtx, a.Generate, r).Get(callCtx, &outcome); err != nil {
 					outcome = Outcome{Kind: "failed", Error: &ItemError{Code: "activity_failed", Message: "The provider activity failed; inspect correlated diagnostics."}}
@@ -263,7 +359,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 			})
 		}
 		now = workflow.Now(ctx)
-		if len(s.Jobs) == 0 && active == 0 && now.Sub(lastWork) >= 30*time.Minute {
+		if !s.Quiescing && len(s.Jobs) == 0 && active == 0 && now.Sub(lastWork) >= 30*time.Minute {
 			version := workflow.GetVersion(ctx, "retain-idle-admission-restrictions", workflow.DefaultVersion, 1)
 			if version == workflow.DefaultVersion || (!s.Controller.Paused && !s.Controller.Cooling) {
 				drainSignals()
@@ -273,7 +369,7 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 			}
 		}
 		delay := 5 * time.Second
-		if !drain && !s.Controller.Paused && !s.Controller.Probing && active < s.Controller.Policy.Concurrency {
+		if !drain && !s.Quiescing && !s.Controller.Paused && !s.Controller.Probing && active < s.Controller.Policy.Concurrency {
 			ready := false
 			for _, j := range s.Jobs {
 				ready = ready || len(j.Ready) > 0
@@ -284,6 +380,23 @@ func DispatcherWorkflow(ctx workflow.Context, s DispatcherState) error {
 			}
 		}
 		selector := workflow.NewSelector(ctx)
+		selector.AddReceive(quiesce, func(ch workflow.ReceiveChannel, _ bool) {
+			var v bool
+			ch.Receive(ctx, &v)
+			if v {
+				s.Quiescing = true
+				nextHeartbeat = workflow.Now(ctx)
+			}
+		})
+		selector.AddReceive(upgrade, func(ch workflow.ReceiveChannel, _ bool) {
+			var v bool
+			ch.Receive(ctx, &v)
+			if v {
+				s.Quiescing = true
+				s.Upgrade = true
+				nextHeartbeat = workflow.Now(ctx)
+			}
+		})
 		selector.AddReceive(wake, func(ch workflow.ReceiveChannel, _ bool) { var j JobRef; ch.Receive(ctx, &j); enqueue(j) })
 		selector.AddReceive(resume, func(ch workflow.ReceiveChannel, _ bool) {
 			var v bool

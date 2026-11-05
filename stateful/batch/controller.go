@@ -8,20 +8,21 @@ import (
 )
 
 type Policy struct {
-	Concurrency    int
-	Burst          int
-	StartRate      int
-	MaximumRate    int
-	RefillEstimate time.Duration
-	WindowRequests int
-	WindowDuration time.Duration
+	Concurrency      int
+	Burst            int
+	StartRate        int
+	MaximumRate      int
+	RefillEstimate   time.Duration
+	WindowRequests   int
+	WindowDuration   time.Duration
+	RecoveryJitterMS int `json:",omitempty"`
 }
 
 func DefaultPolicy() Policy {
 	return Policy{Concurrency: 128, Burst: 200, StartRate: 100, MaximumRate: 200, RefillEstimate: 61 * time.Second, WindowRequests: 200, WindowDuration: 61 * time.Second}
 }
 func (p Policy) Validate() error {
-	if p.Concurrency < 1 || p.Concurrency > 1000 || p.Burst < 1 || p.Burst > 1000 || p.StartRate < 1 || p.MaximumRate < p.StartRate || p.MaximumRate > 1000 || p.RefillEstimate < time.Second || p.RefillEstimate > time.Hour {
+	if p.Concurrency < 1 || p.Concurrency > 1000 || p.Burst < 1 || p.Burst > 1000 || p.StartRate < 1 || p.MaximumRate < p.StartRate || p.MaximumRate > 1000 || p.RefillEstimate < time.Second || p.RefillEstimate > time.Hour || p.RecoveryJitterMS < 0 || p.RecoveryJitterMS > 1000 {
 		return fmt.Errorf("batch: invalid admission policy")
 	}
 	if p.WindowRequests < 0 || p.WindowRequests > 1000 || (p.WindowRequests > 0 && (p.WindowDuration < time.Second || p.WindowDuration > time.Hour)) {
@@ -184,6 +185,8 @@ func (c *Controller) Complete(now, dispatched, reserved time.Time, probe bool, k
 			c.WindowStarts--
 		}
 		c.completeThrottle(now, dispatched, probe, delay)
+	case "terminal_throttle":
+		c.completeThrottle(now, dispatched, probe, delay)
 	case "failed", "unconfirmed":
 		// A retry hint controls future admission even when this inference's
 		// outcome cannot safely be replayed or its window credit refunded.
@@ -225,4 +228,15 @@ func retryDelay(ms int64) time.Duration {
 		return time.Duration(math.MaxInt64)
 	}
 	return time.Duration(max(0, ms)) * time.Millisecond
+}
+
+// CompleteOutcome keeps item replay eligibility separate from future admission.
+func (c *Controller) CompleteOutcome(now, dispatched, reserved time.Time, probe bool, out Outcome) {
+	kind := out.Kind
+	if out.Admission == "restricted" {
+		kind = "policy"
+	} else if out.Admission == "throttled" && kind != "rejected" {
+		kind = "terminal_throttle"
+	}
+	c.Complete(now, dispatched, reserved, probe, kind, retryDelay(out.RetryAfterMS))
 }

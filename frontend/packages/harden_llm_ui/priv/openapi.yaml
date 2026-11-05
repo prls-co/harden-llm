@@ -27,6 +27,7 @@ tags:
   - name: Responses
   - name: Jobs
   - name: Health
+  - name: Requests
 paths:
   /v1/jobs:
     post:
@@ -137,6 +138,8 @@ paths:
   /v1/chat/completions:
     post:
       operationId: createChatCompletion
+      parameters:
+        - $ref: '#/components/parameters/TrackingID'
       tags: [Chat Completions]
       summary: Create a hardened chat completion
       description: >-
@@ -160,6 +163,8 @@ paths:
               schema: {type: string, description: "Standard `chat.completion.chunk` events followed by `data: [DONE]`."}
         '400': {$ref: '#/components/responses/Error'}
         '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
         '413': {$ref: '#/components/responses/Error'}
         '415': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/Error'}
@@ -169,6 +174,8 @@ paths:
   /v1/responses:
     post:
       operationId: createResponse
+      parameters:
+        - $ref: '#/components/parameters/TrackingID'
       tags: [Responses]
       summary: Create a hardened response
       description: >-
@@ -193,12 +200,44 @@ paths:
               schema: {type: string, description: Typed Responses events with monotonically increasing sequence numbers.}
         '400': {$ref: '#/components/responses/Error'}
         '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
         '413': {$ref: '#/components/responses/Error'}
         '415': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/Error'}
         '500': {$ref: '#/components/responses/Error'}
         '502': {$ref: '#/components/responses/Error'}
         '504': {$ref: '#/components/responses/Error'}
+  /v1/requests/{trackingID}:
+    get:
+      operationId: getRequestStatus
+      tags: [Requests]
+      summary: Observe a tracked ordinary request
+      description: >-
+        Key-scoped metadata only. Does not retrieve output, restart execution or
+        extend the original deadline. Registration may briefly race GET and return
+        404. All responses are no-store. Unknown, expired and other-key IDs have
+        identical 404 responses. No query parameters are supported.
+      parameters:
+        - name: trackingID
+          in: path
+          required: true
+          schema: {$ref: '#/components/schemas/TrackingUUID'}
+      responses:
+        '200':
+          description: Request observation; Retry-After 2 on running/waiting is polling guidance.
+          headers:
+            Cache-Control:
+              schema: {type: string, enum: [no-store]}
+            Retry-After:
+              schema: {type: string, enum: ['2']}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RequestStatus'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /healthz:
     get:
       operationId: getHealth
@@ -624,6 +663,17 @@ paths:
         '502': {$ref: '#/components/responses/ReferenceError'}
         '503': {$ref: '#/components/responses/ReferenceError'}
 components:
+  parameters:
+    TrackingID:
+      name: X-HLLM-Tracking-ID
+      in: header
+      required: false
+      description: >-
+        Optional caller-generated canonical lowercase nonnil UUID. Same-key
+        retained duplicates return 409 without execution, with x-should-retry
+        false. Correlation only; not replayable idempotency. Retained until the
+        execution deadline plus 24 hours. Never forwarded upstream.
+      schema: {$ref: '#/components/schemas/TrackingUUID'}
   securitySchemes:
     bearerAuth:
       type: http
@@ -645,6 +695,37 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ReferenceErrorEnvelope'}
   schemas:
+    TrackingUUID:
+      type: string
+      minLength: 36
+      maxLength: 36
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      not: {enum: ['00000000-0000-0000-0000-000000000000']}
+    RequestStatus:
+      type: object
+      additionalProperties: false
+      required: [id, endpoint, status, stage, reason, created_at, deadline_at, retention_expires_at, observed_at, updated_at, last_worker_heartbeat_at, last_progress_at, finished_at, next_attempt_at, elapsed_ms, attempts_used, retry_after_ms, observation_stale, outcome_confirmed, error_code]
+      properties:
+        id: {$ref: '#/components/schemas/TrackingUUID'}
+        endpoint: {type: string, enum: [/v1/responses, /v1/chat/completions]}
+        status: {type: string, enum: [running, waiting, completed, failed, cancelled, unconfirmed]}
+        stage: {type: [string, 'null'], enum: [preparing, provider_attempt, validation, retry_wait, response_projection, admission_wait, null]}
+        reason: {type: [string, 'null'], enum: [provider_throttled, retry_backoff, execution_unobserved, admission_window, account_restricted, dispatch_pending, workflow_rollover, persistence_wait, worker_unavailable, unresolved_execution, pool_capacity, null]}
+        created_at: {type: string, format: date-time}
+        deadline_at: {type: string, format: date-time}
+        retention_expires_at: {type: string, format: date-time}
+        observed_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        last_worker_heartbeat_at: {type: string, format: date-time}
+        last_progress_at: {type: [string, 'null'], format: date-time}
+        finished_at: {type: [string, 'null'], format: date-time}
+        next_attempt_at: {type: [string, 'null'], format: date-time}
+        elapsed_ms: {type: integer, minimum: 0}
+        attempts_used: {type: integer, minimum: 0}
+        retry_after_ms: {type: [integer, 'null'], minimum: 0}
+        observation_stale: {type: boolean}
+        outcome_confirmed: {type: [boolean, 'null']}
+        error_code: {type: [string, 'null'], enum: [invalid_request, upstream_error, request_timeout, request_canceled, response_projection_error, execution_unobserved, execution_failed, null]}
     BatchGenerationRequest:
       type: object
       additionalProperties: false
@@ -715,8 +796,8 @@ components:
             timeout_ms:
               type: integer
               minimum: 0
-              maximum: 180000
-              description: Zero or omission selects 180 seconds; queue waits are separate.
+              maximum: 900000
+              description: Zero or omission selects 300 seconds for new jobs; accepted snapshots retain their budget. Queue waits are separate.
             recovery:
               allOf:
               - $ref: '#/components/schemas/RecoveryPolicy'
@@ -817,6 +898,14 @@ components:
         deadline:
           type: string
           format: date-time
+        execution_deadline:
+          type: string
+          format: date-time
+          description: V2 execution deadline; identical to deadline, not extended by finalization.
+        finalization_deadline:
+          type: string
+          format: date-time
+          description: V2 bounded metadata allowance after execution ends; never authorizes another inference.
         observed_at:
           type: string
           format: date-time
@@ -838,6 +927,12 @@ components:
           - provider_throttled
           - admission_window
           - account_restricted
+          - dispatch_pending
+          - workflow_rollover
+          - persistence_wait
+          - worker_unavailable
+          - unresolved_execution
+          - pool_capacity
         status_url:
           type: string
           pattern: ^/v1/jobs/[0-9a-f-]+$
@@ -867,6 +962,9 @@ components:
       - durationMs
       - cpaInternalAttempts
       properties:
+        admission: {type: string, enum: [throttled, restricted]}
+        generationBudgetMs: {type: integer, minimum: 1, maximum: 900000}
+        generationDeadlineAt: {type: string, format: date-time}
         retryWaitMs: {type: integer, minimum: 0}
         startedAt: {type: string, format: date-time}
         finishedAt: {type: string, format: date-time}
@@ -907,6 +1005,7 @@ components:
           - failed
           - rejected
           - policy
+          - unconfirmed
         error:
           $ref: '#/components/schemas/BatchItemError'
         artifactId:

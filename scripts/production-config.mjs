@@ -33,6 +33,8 @@ export const COMPOSE_FILE_ORDER = Object.freeze([
   "docker-compose.yml",
   "deploy/frontend/compose.frontend.yml",
 ]);
+export const BATCH_COMPOSE_FILE_ORDER = Object.freeze([...COMPOSE_FILE_ORDER, "deploy/batch/compose.yml"]);
+const BATCH_WORKER_SERVICE = "harden-llm-batch-worker";
 export const PRLS_REQUIRED_VARIABLES = Object.freeze([
   "PRLS_LAMINAR_PROJECT_API_KEY",
   "PRLS_LOKI_S3_ACCESS_KEY",
@@ -62,7 +64,7 @@ const DOCKER_TRANSPORT_KEYS = new Set(["DOCKER_CONFIG", "DOCKER_HOST", "DOCKER_T
 const SAFE_DESCRIPTOR_ENVIRONMENT_KEY = /^[A-Z][A-Z0-9_]*$/;
 const RELEASE_ENVIRONMENT_KEY = /(?:^|_)RELEASE$/;
 const SENSITIVE_KEY = /(password|secret|token|api[_-]?key|access[_-]?key|encryption|database|bearer)/i;
-const ALLOWED_DIFFERENCE_FIELDS = new Set(["environment", "image", "mounts", "mount-contents", "command", "entrypoint", "networks", "ports", "healthcheck", "restart", "identity", "runtime"]);
+const ALLOWED_DIFFERENCE_FIELDS = new Set(["environment", "image", "mounts", "mount-contents", "command", "entrypoint", "networks", "ports", "healthcheck", "restart", "identity", "runtime", "stop-grace-period"]);
 const RELEASE_SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 export class ProductionConfigError extends Error {
@@ -120,10 +122,13 @@ function normalizeExpectedRelease(expectedRelease) {
 }
 
 function validateCandidateScope(services, expectedRelease, resolveOnly) {
+  if (services.includes(BATCH_WORKER_SERVICE) && !expectedRelease) {
+    fail("batch worker operations require --expected-release", "invalid_arguments");
+  }
   if (!expectedRelease) return;
   if (resolveOnly) fail("--expected-release cannot be combined with --resolve-only", "invalid_arguments");
-  if (services.some((service) => !APPLICATION_SERVICES.includes(service))) {
-    fail("--expected-release is limited to harden-llm-gateway and harden-llm-web", "scope_blocked");
+  if (services.some((service) => ![...APPLICATION_SERVICES, BATCH_WORKER_SERVICE].includes(service))) {
+    fail("--expected-release is limited to harden-llm-gateway, harden-llm-web and harden-llm-batch-worker", "scope_blocked");
   }
 }
 
@@ -163,10 +168,15 @@ export function validateDescriptor(input) {
   for (const key of ["productionEnvFile", "observabilityEnvFile", "sharedApplicationEnvFile"]) {
     assertAbsolutePath(input[key], `descriptor ${key}`);
   }
-  if (!Array.isArray(input.composeFiles) || JSON.stringify(input.composeFiles) !== JSON.stringify(COMPOSE_FILE_ORDER)) {
+  if (!Array.isArray(input.composeFiles) || ![COMPOSE_FILE_ORDER, BATCH_COMPOSE_FILE_ORDER].some(files => equalJSON(input.composeFiles, files))) {
     fail("descriptor composeFiles do not match the approved graph");
   }
   if (!isObject(input.services) || Object.keys(input.services).length === 0) fail("descriptor services are required");
+  const batchGraph = equalJSON(input.composeFiles, BATCH_COMPOSE_FILE_ORDER);
+  if (batchGraph !== Object.hasOwn(input.services, BATCH_WORKER_SERVICE)
+    || (batchGraph && !Object.hasOwn(input.services, "harden-llm-gateway"))) {
+    fail("the approved batch graph requires gateway and batch worker identities together");
+  }
 
   for (const [service, identity] of Object.entries(input.services)) {
     if (!/^[a-z0-9][a-z0-9_-]*$/.test(service)) fail("descriptor has an invalid service name");
@@ -473,10 +483,11 @@ function normalizeCommand(command) {
 function normalizeDuration(value) {
   if (typeof value === "number") return value;
   if (typeof value !== "string") return value ?? 0;
-  const match = value.trim().match(/^([0-9]+(?:\.[0-9]+)?)(ns|us|µs|ms|s|m|h)$/);
-  if (!match) return value;
+  const duration = value.trim();
+  if (!/^(?:[0-9]+(?:\.[0-9]+)?(?:ns|us|µs|ms|s|m|h))+$/.test(duration)) return value;
   const multipliers = { ns: 1, us: 1_000, "µs": 1_000, ms: 1_000_000, s: 1_000_000_000, m: 60_000_000_000, h: 3_600_000_000_000 };
-  return Math.round(Number(match[1]) * multipliers[match[2]]);
+  return Math.round([...duration.matchAll(/([0-9]+(?:\.[0-9]+)?)(ns|us|µs|ms|s|m|h)/g)]
+    .reduce((total, match) => total + Number(match[1]) * multipliers[match[2]], 0));
 }
 
 function normalizeDesiredMount(mount) {
@@ -544,11 +555,11 @@ function actualPorts(container) {
 }
 
 function desiredNetworks(networks, definitions) {
-  return Object.keys(networks ?? {}).map((key) => {
+  return [...new Set(Object.keys(networks ?? {}).map((key) => {
     const name = definitions?.[key]?.name;
     if (typeof name !== "string" || name.length === 0) fail(`resolved Compose network ${key} has no name`, "compose_failed");
     return name;
-  }).sort();
+  }))].sort();
 }
 
 function actualNetworks(container) {
@@ -557,6 +568,7 @@ function actualNetworks(container) {
 
 function desiredHealthcheck(healthcheck) {
   if (!healthcheck) return null;
+  if (healthcheck.disable || healthcheck.test?.[0] === "NONE") return {disabled: true};
   return {
     test: healthcheck.test ?? [],
     interval: normalizeDuration(healthcheck.interval),
@@ -569,6 +581,7 @@ function desiredHealthcheck(healthcheck) {
 function actualHealthcheck(container) {
   const healthcheck = container.Config?.Healthcheck;
   if (!healthcheck) return null;
+  if (healthcheck.Test?.[0] === "NONE") return {disabled: true};
   return {
     test: healthcheck.Test ?? [],
     interval: normalizeDuration(healthcheck.Interval),
@@ -645,6 +658,10 @@ export function compareServiceConfiguration(serviceName, desiredService, actualC
   if (!equalJSON(desiredNetworks(desiredService.networks, networks), actualNetworks(actualContainer))) differences.push(`${serviceName}.networks`);
   if (!equalJSON(desiredPorts(desiredService.ports), actualPorts(actualContainer))) differences.push(`${serviceName}.ports`);
   if (!equalJSON(desiredHealthcheck(desiredService.healthcheck), actualHealthcheck(actualContainer))) differences.push(`${serviceName}.healthcheck`);
+  if (desiredService.stop_grace_period !== undefined
+    && normalizeDuration(desiredService.stop_grace_period) !== (actualContainer.Config?.StopTimeout ?? 10) * 1_000_000_000) {
+    differences.push(`${serviceName}.stop-grace-period`);
+  }
   const desiredRestart = desiredService.restart ?? "no";
   const actualRestart = actualContainer.HostConfig?.RestartPolicy?.Name ?? "no";
   if (desiredRestart !== actualRestart) differences.push(`${serviceName}.restart`);
@@ -681,6 +698,15 @@ function inspectContainer(resolved, serviceName, run = defaultProcessRunner) {
   try {
     output = processResultOutput(run("docker", args, { env: buildComposeEnvironment(resolved) }));
   } catch {
+    // Only an explicitly opted-in first worker may be absent. An inspect error
+    // alone is not evidence of absence: require a successful daemon listing.
+    if (serviceName === BATCH_WORKER_SERVICE && equalJSON(resolved.descriptor.composeFiles, BATCH_COMPOSE_FILE_ORDER)) {
+      try {
+        const names = processResultOutput(run("docker", ["--context", resolved.descriptor.dockerContext,
+          "container", "ls", "--all", "--format", "{{.Names}}"], {env: buildComposeEnvironment(resolved)}));
+        if (!names.split(/\r?\n/).includes(identity.container)) return null;
+      } catch { /* Preserve the original failure; never guess on a daemon error. */ }
+    }
     fail(`unable to inspect service ${serviceName}`, "runtime_unavailable");
   }
   let inspected;
@@ -785,7 +811,10 @@ function candidateDifferences(resolved, runtime, imageResults, imageMetadata, se
       differences.push(`${service}.candidate.runtime-release`);
     }
     if (actual.State?.Status !== "running") differences.push(`${service}.candidate.runtime-state`);
-    if (actual.State?.Health?.Status !== "healthy") differences.push(`${service}.candidate.runtime-health`);
+    const healthy = service === BATCH_WORKER_SERVICE
+      ? desiredHealthcheck(desiredService.healthcheck)?.disabled === true && actualHealthcheck(actual)?.disabled === true
+      : actual.State?.Health?.Status === "healthy";
+    if (!healthy) differences.push(`${service}.candidate.runtime-health`);
     if (imageResults[service] !== identity.expectedImage) differences.push(`${service}.candidate.runtime-image`);
   }
   return differences.sort();
@@ -868,6 +897,7 @@ export function runCheck(descriptor, { services = descriptorServiceNames(descrip
   validateCandidateScope(services, expectedRelease, resolveOnly);
   const resolved = resolveConfiguration(descriptor);
   resolved.model = renderComposeConfiguration(resolved, run);
+  if (equalJSON(descriptor.composeFiles, BATCH_COMPOSE_FILE_ORDER)) validateBatchServices(resolved.model, descriptor);
   if (resolveOnly) return { resolved, differences: [], runtimeVerified: false, services };
   const runtime = inspectRuntime(resolved, services, run);
   const imageResults = inspectDesiredImages(resolved, services, run);
@@ -887,6 +917,26 @@ export function runCheck(descriptor, { services = descriptorServiceNames(descrip
   };
 }
 
+function validateBatchServices(model, descriptor) {
+  const gateway = model.services["harden-llm-gateway"];
+  const worker = model.services[BATCH_WORKER_SERVICE];
+  const invalid = () => fail("batch worker must share the gateway image, configuration and storage/Temporal authority with the worker command", "invalid_batch_service");
+  if (!gateway || !worker || gateway.image !== worker.image || !equalJSON(worker.command, ["worker"])
+    || descriptor.services["harden-llm-gateway"].expectedImage !== descriptor.services[BATCH_WORKER_SERVICE].expectedImage) invalid();
+  const gatewayEnv = environmentMap(gateway.environment), workerEnv = environmentMap(worker.environment);
+  const required = ["HARDEN_LLM_DATABASE_URL", "HARDEN_LLM_TEMPORAL_ADDRESS", "HARDEN_LLM_TEMPORAL_NAMESPACE",
+    "HARDEN_LLM_BATCH_TASK_QUEUE", "HARDEN_LLM_BATCH_POOL_ID", "HARDEN_LLM_BATCH_UPSTREAM",
+    "HARDEN_LLM_ARTIFACT_ENDPOINT", "HARDEN_LLM_ARTIFACT_BUCKET"];
+  if (gatewayEnv.HARDEN_LLM_BATCH_ENABLED !== "true" || required.some(key => !gatewayEnv[key])) invalid();
+  const keys = new Set([...required, "HARDEN_LLM_CONFIG_FILE", "HARDEN_LLM_CREDENTIAL_KEY", "HARDEN_LLM_TOKEN", "CPA_API_KEY",
+    ...Object.keys(gatewayEnv), ...Object.keys(workerEnv)].filter(key => required.includes(key)
+      || /^HARDEN_LLM_(?:BATCH_|TEMPORAL_|ARTIFACT_)/.test(key)
+      || ["HARDEN_LLM_CONFIG_FILE", "HARDEN_LLM_CREDENTIAL_KEY", "HARDEN_LLM_TOKEN", "CPA_API_KEY"].includes(key)));
+  if ([...keys].some(key => gatewayEnv[key] !== workerEnv[key])) invalid();
+  const configMounts = service => desiredMounts(service, descriptor.project).filter(m => m.target === gatewayEnv.HARDEN_LLM_CONFIG_FILE);
+  if (!equalJSON(configMounts(gateway), configMounts(worker))) invalid();
+}
+
 function validateSchemaService(model) {
   const gateway = model.services["harden-llm-gateway"];
   const schema = model.services["gateway-schema"];
@@ -902,6 +952,10 @@ export function runApply(descriptor, services, run = defaultProcessRunner, { exp
   services = normalizeSelectedServices(descriptor, services);
   expectedRelease = normalizeExpectedRelease(expectedRelease);
   validateCandidateScope(services, expectedRelease, false);
+  const workerOnly = services.includes(BATCH_WORKER_SERVICE);
+  if (workerOnly && services.length !== 1) {
+    fail("apply the batch worker separately before enabling the gateway", "invalid_arguments");
+  }
   for (const service of services) {
     if (!descriptor.services[service].manageable) fail(`service ${service} is not approved for application`, "scope_blocked");
   }
@@ -925,14 +979,18 @@ export function runApply(descriptor, services, run = defaultProcessRunner, { exp
   if (second.candidate?.desiredDifferences.length > 0) {
     fail("desired application images or release metadata do not match the expected release", "candidate_mismatch");
   }
-  const applySchema = services.includes("harden-llm-gateway");
+  const applySchema = services.includes("harden-llm-gateway") || services.includes(BATCH_WORKER_SERVICE);
   if (applySchema) validateSchemaService(second.resolved.model);
   withOverrideFile(second.resolved, (overridePath) => {
     if (applySchema) {
       const schemaArgs = buildComposeArguments(descriptor, ["run", "--rm", "--no-deps", "--pull", "never", "gateway-schema"], overridePath);
       processResultOutput(run("docker", schemaArgs, { env: buildComposeEnvironment(second.resolved) }));
     }
-    const upArgs = buildComposeArguments(descriptor, ["up", "-d", "--no-build", "--no-deps", "--pull", "never", "--wait", "--wait-timeout", "300", ...services], overridePath);
+    // Compose --wait requires a Docker health check even when the worker's
+    // inherited HTTP check is explicitly disabled. Its final process/image
+    // checks and subsequent V2/poller readiness own this staged worker path.
+    const waitArgs = workerOnly ? [] : ["--wait", "--wait-timeout", "300"];
+    const upArgs = buildComposeArguments(descriptor, ["up", "-d", "--no-build", "--no-deps", "--pull", "never", ...waitArgs, ...services], overridePath);
     processResultOutput(run("docker", upArgs, { env: buildComposeEnvironment(second.resolved) }));
   });
   const final = runCheck(descriptor, { services, expectedRelease, run });

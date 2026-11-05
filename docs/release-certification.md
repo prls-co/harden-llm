@@ -1,5 +1,7 @@
 # Release Certification
 
+Latest production qualification: [CPA admission and request status, November 4](#2026-11-04-cpa-admission-and-status-lookup-production-release).
+
 This document is the durable release summary for the 2026-07-13 v1 candidate,
 its 2026-08-09 utility-llm parity refresh, the 2026-08-10 production
 validation refresh, the 2026-08-16 merged production handoff, the
@@ -3126,3 +3128,39 @@ removed after verifying no container or protected-descriptor reference. Current
 images, all known-good rollback images, protected configuration/checkpoints,
 credentials and data remain. No H browser, provider request, rebuild or runtime
 restart is part of this documentation-only closeout.
+
+
+## 2026-11-04 CPA admission and status lookup production release
+
+Production is enabled at <https://harden-llm.prls.co/v1>. The immutable
+[receipt](../plans/evidence/harden-llm/cpa-admission/2026-11-04-production-cpa.json)
+and [acceptance audit](../plans/implementation/cpa-acceptance-audit-2026-10-31.md#14-production-acceptance-complete)
+record the exact application artifacts, corrected rollout controls, failed
+attempts and bounded acceptance evidence.
+
+| Boundary | Verified result |
+| --- | --- |
+| Application source | `f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4`, merged through #140/#141 and corrections #143/#144/#145. |
+| Exact-source certification | [Release 41857609943](https://github.com/prls-co/harden-llm/actions/runs/41857609943), attempt 1: all 30 selected browser-free tasks passed; cleanup errors/warnings empty. |
+| Gateway and worker | Image `sha256:fc338caf13a639864240ea976b591fe3cce62ee7d11fadb3c67e3b617ba803d2`, local full-source-SHA tag and matching version/revision labels. Worker command `worker`, actual stop grace 120 seconds. |
+| Web | Image `sha256:887c52cd8859d892a116fb3226c9caee2878cfddeb8f155369c48c6b1ebc5f8d`, same source/version; frontend runtime inputs changed, so it was rebuilt. |
+| Scoped adoption | Additive schema, worker, generation-2 V2 authority, then gateway/web; final three-service controller comparison equivalent. Existing HLLM database/role, Garage and private networks retained. |
+| Provider-free checks | Public health/readiness, bearer isolation, authenticated profiles and missing job/request-status lookups passed. |
+| Separate provider acceptance | Two tracked ordinary JSON/existing-SSE calls with duplicate suppression; two 500-item jobs, exactly 1,000 distinct validated outputs and response IDs in 313.392 seconds, no failures, maximum HLLM item attempt 1. |
+| Waiting and typed client | Five-second status with fresh heartbeats/admission reasons; actual Go wait/download clients verified complete results and both deadline fields. |
+| Ownership and retention | All 1,002 local dispatches positively stopped/settled; zero outstanding permits/start intents. Existing reference table contents/counts unchanged; credentials, accepted jobs/results and rollback checkpoints preserved. |
+| Operations follow-up | #146 / `fa2de8b` fixes Compose worker-only waiting. All ten local fast tasks, 44 controller/native tests and a real no-recreate exit-0 comparison passed. Runtime inputs/images remain the qualified `f1ebdc4` artifacts. Hosted follow-up jobs were queued at publication, not claimed as passes. |
+
+The campaign reported 23,000 input plus 14,000 output tokens; all item usage was
+known. Two pilots consumed two initial reservations, leaving the last two items
+for another configured window. Elapsed time includes validation/downloads. The
+128-permit and 200-start/61-second settings are caller estimates, not universal
+provider limits. No real throttle occurred; deterministic tests own cooldown/
+probe/refusal recovery. CPA internal attempts remain unknown. Existing completed
+SSE fields stay top-level; every SDK terminal accessor is not certified.
+
+Release certification uncovered and fixed SQL test scheduling overlap, the Go
+certificate advisory and frontend dependency advisories. All failed reports are
+retained. No browser ran; layout was not checked. Existing local immutable-image
+publication remains active; no registry workflow or analytics dashboard was added.
+Future analytics issue #142 requires evaluation before any implementation.
