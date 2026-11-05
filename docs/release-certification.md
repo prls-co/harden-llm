@@ -2,6 +2,8 @@
 
 Latest production qualification: [CPA admission and request status, November 4](#2026-11-04-cpa-admission-and-status-lookup-production-release).
 
+Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
+
 This document is the durable release summary for the 2026-07-13 v1 candidate,
 its 2026-08-09 utility-llm parity refresh, the 2026-08-10 production
 validation refresh, the 2026-08-16 merged production handoff, the
