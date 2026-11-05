@@ -19,6 +19,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/prls-co/harden-llm/internal/testfixture/native"
 )
 
 type interruptedSSEWriter struct {
@@ -90,7 +92,7 @@ func TestFrontendTransportInterruption(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		writePresetNativeResponse(w, r, input, "OK")
+		native.WriteResponse(w, r, input, "OK")
 	}
 	fixture := referenceHTTPConfigured(t, true, false, nil, native)
 	fixture.server.Close()

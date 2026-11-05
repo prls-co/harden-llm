@@ -8,13 +8,15 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	hardenllm "github.com/prls-co/harden-llm"
-	"github.com/prls-co/harden-llm/stateful"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+
+	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/testfixture/native"
+	"github.com/prls-co/harden-llm/stateful"
 )
 
 func TestNativeRecoveryInteractions(t *testing.T) {
@@ -59,7 +61,7 @@ func TestNativeRecoveryInteractions(t *testing.T) {
 		if model == "fixture-rerun-repair-escalation" {
 			text = presetFixtureText
 		}
-		writePresetNativeResponse(w, r, body, text)
+		native.WriteResponse(w, r, body, text)
 	}))
 	defer provider.Close()
 	roots := x509.NewCertPool()

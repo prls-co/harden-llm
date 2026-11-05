@@ -6,6 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"sync"
@@ -130,6 +133,176 @@ func TestCacheReplay(t *testing.T) {
 	if second.CallID == first.CallID || second.TraceID == first.TraceID {
 		t.Fatal("cache replay reused call or trace identity")
 	}
+
+	t.Run("semantic request mutations use prepared provider identity", func(t *testing.T) {
+		var requestMu sync.Mutex
+		var providerRequests []map[string]any
+		server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			var payload map[string]any
+			if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+				t.Errorf("decode local Responses request: %v", err)
+				http.Error(writer, "invalid request", http.StatusBadRequest)
+				return
+			}
+			requestMu.Lock()
+			providerRequests = append(providerRequests, payload)
+			requestMu.Unlock()
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = writer.Write([]byte(`{"status":"completed","output_text":"deterministic cache fixture","usage":{"input_tokens":1,"output_tokens":1}}`))
+		}))
+		defer server.Close()
+		endpoint, err := url.Parse(server.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mutationCache := &memoryCache{records: make(map[string]CacheRecord)}
+		options := testOptionsWith(mutationCache)
+		connection := options.Connections["primary"]
+		connection.BaseURL = server.URL
+		options.Connections["primary"] = connection
+		options = testProviderEffects(t, options, EndpointPolicy{
+			AllowedHosts: []string{endpoint.Hostname()}, PrivateAllowedHosts: []string{endpoint.Hostname()},
+			TLSConfig: server.Client().Transport.(*http.Transport).TLSClientConfig.Clone(),
+		})
+		mutationClient, err := New(options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mutationClient.newID = sequenceIDs()
+		const seedPrompt = "Compose the CMO overview for the deterministic cache fixture."
+		seedRequest := Request{
+			ConnectionID: "primary", ModelID: "gpt-test", Messages: testMessages(seedPrompt),
+			ReasoningEffort: "low", CallType: CallTypeText,
+			CacheMode: CacheModeCache, CacheVersion: "operation-v2",
+			RecoveryPolicy: RecoveryPolicy{MaxAttempts: 1, RetryOn: []RecoveryCategory{}, Backoff: RecoveryBackoff{}},
+		}
+		seeded, err := mutationClient.Call(context.Background(), seedRequest)
+		if err != nil {
+			t.Fatalf("seed cache operation through the production provider router: %v", err)
+		}
+		replayed, err := mutationClient.Call(context.Background(), seedRequest)
+		if err != nil {
+			t.Fatalf("replay unchanged cache operation: %v", err)
+		}
+		if seeded.Cache.Status != "miss" || !seeded.Cache.Written || replayed.Cache.Status != "hit" ||
+			!replayed.Cache.Served || replayed.ResultSource.Kind != ResultSourceCache || replayed.Output != seeded.Output {
+			t.Fatalf("unchanged operation did not replay its seeded result: first=%#v second=%#v", seeded, replayed)
+		}
+
+		mutations := []struct {
+			name       string
+			wantModel  string
+			wantReason string
+			wantPrompt string
+			change     func(*Request)
+		}{
+			{
+				name: "model", wantModel: "gpt-test-alternate", wantReason: "low",
+				wantPrompt: seedPrompt,
+				change: func(request *Request) {
+					request.ModelID = "gpt-test-alternate"
+				},
+			},
+			{
+				name: "reasoning effort", wantModel: "gpt-test", wantReason: "high",
+				wantPrompt: seedPrompt,
+				change:     func(request *Request) { request.ReasoningEffort = "high" },
+			},
+			{
+				name: "CMO overview prompt", wantModel: "gpt-test", wantReason: "low",
+				wantPrompt: seedPrompt + " Include the changed CMO rank prompt.",
+				change: func(request *Request) {
+					request.Messages = testMessages(seedPrompt + " Include the changed CMO rank prompt.")
+				},
+			},
+		}
+		for index, mutation := range mutations {
+			t.Run(mutation.name, func(t *testing.T) {
+				changedRequest := seedRequest
+				mutation.change(&changedRequest)
+				changed, err := mutationClient.Call(context.Background(), changedRequest)
+				if err != nil {
+					t.Fatalf("call changed cache operation: %v", err)
+				}
+				if changed.Cache.Status != "miss" || !changed.Cache.Written || changed.Cache.Served ||
+					changed.ResultSource.Kind != ResultSourceProvider || changed.Cache.OperationHash == seeded.Cache.OperationHash {
+					t.Fatalf("%s mutation reused a cached operation: seed=%#v changed=%#v", mutation.name, seeded.Cache, changed.Cache)
+				}
+				requestMu.Lock()
+				defer requestMu.Unlock()
+				if len(providerRequests) != index+2 {
+					t.Fatalf("%s provider dispatch count = %d, want %d", mutation.name, len(providerRequests), index+2)
+				}
+				payload := providerRequests[index+1]
+				if payload["model"] != mutation.wantModel {
+					t.Errorf("%s prepared model = %#v, want %q", mutation.name, payload["model"], mutation.wantModel)
+				}
+				reasoning, ok := payload["reasoning"].(map[string]any)
+				if !ok || reasoning["effort"] != mutation.wantReason {
+					t.Errorf("%s prepared reasoning = %#v, want effort %q", mutation.name, payload["reasoning"], mutation.wantReason)
+				}
+				encoded, err := json.Marshal(payload)
+				if err != nil || !strings.Contains(string(encoded), mutation.wantPrompt) {
+					t.Errorf("%s prepared prompt missing from provider payload: %s / %v", mutation.name, encoded, err)
+				}
+			})
+		}
+
+		mutationCache.mu.Lock()
+		cacheEntryCount := len(mutationCache.records)
+		mutationCache.mu.Unlock()
+		if cacheEntryCount != len(mutations)+1 {
+			t.Fatalf("seeded plus changed operation cache entries = %d, want %d", cacheEntryCount, len(mutations)+1)
+		}
+
+		if err := mutationCache.Delete(context.Background(), seeded.Cache.OperationHash); err != nil {
+			t.Fatalf("remove the seeded cache entry: %v", err)
+		}
+		missingEntryResult, err := mutationClient.Call(context.Background(), seedRequest)
+		if err != nil {
+			t.Fatalf("execute provider operation after cache entry removal: %v", err)
+		}
+		if missingEntryResult.Cache.Status != "miss" || !missingEntryResult.Cache.Written ||
+			missingEntryResult.Cache.Served || missingEntryResult.ResultSource.Kind != ResultSourceProvider ||
+			missingEntryResult.Cache.OperationHash != seeded.Cache.OperationHash {
+			t.Fatalf("missing cache entry did not execute and rewrite the same provider operation: %#v", missingEntryResult)
+		}
+		requestMu.Lock()
+		requestsAfterMiss := append([]map[string]any(nil), providerRequests...)
+		requestMu.Unlock()
+		if len(requestsAfterMiss) != len(mutations)+2 {
+			t.Fatalf("provider dispatches after missing cache entry = %d, want %d", len(requestsAfterMiss), len(mutations)+2)
+		}
+		payload := requestsAfterMiss[len(requestsAfterMiss)-1]
+		if payload["model"] != "gpt-test" {
+			t.Errorf("missing-entry provider model = %#v, want gpt-test", payload["model"])
+		}
+		reasoning, ok := payload["reasoning"].(map[string]any)
+		if !ok || reasoning["effort"] != "low" {
+			t.Errorf("missing-entry provider reasoning = %#v, want low", payload["reasoning"])
+		}
+		encoded, err := json.Marshal(payload)
+		if err != nil || !strings.Contains(string(encoded), seedPrompt) {
+			t.Errorf("missing-entry provider request omitted the seeded prompt: %s / %v", encoded, err)
+		}
+
+		rewritten, err := mutationClient.Call(context.Background(), seedRequest)
+		if err != nil || rewritten.Cache.Status != "hit" || !rewritten.Cache.Served ||
+			rewritten.ResultSource.Kind != ResultSourceCache || rewritten.Output != seeded.Output ||
+			rewritten.Cache.OperationHash != seeded.Cache.OperationHash {
+			t.Fatalf("rewritten entry did not replay: result=%#v error=%v", rewritten, err)
+		}
+		requestMu.Lock()
+		defer requestMu.Unlock()
+		if len(providerRequests) != len(mutations)+2 {
+			t.Fatalf("rewritten entry replay dispatched provider: %d calls", len(providerRequests))
+		}
+		mutationCache.mu.Lock()
+		defer mutationCache.mu.Unlock()
+		if len(mutationCache.records) != len(mutations)+1 || mutationCache.sets != len(mutations)+2 {
+			t.Fatalf("rewritten cache records/sets = %d/%d", len(mutationCache.records), mutationCache.sets)
+		}
+	})
 
 	request.CacheMode = CacheModeRefresh
 	if _, err := client.Call(context.Background(), request); err != nil {

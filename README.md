@@ -51,6 +51,18 @@ See [`docs/liveview-go-testing-guidelines.md`](docs/liveview-go-testing-guidelin
 for test-tier selection and [`test/test-tiers.json`](test/test-tiers.json) for
 the repository task graph.
 
+The internal `reference-gateway` fixture runs the actual gateway/stateful code
+against an explicitly owned SQL schema and a synthetic native upstream. Its
+`scenario.v1` output step on `/v1/responses` may specify integer `delayMs` from
+1 through 60000. Omission keeps existing output unchanged; null/zero/fractions,
+other step kinds or paths are rejected. For delayed output the shared native
+writer supplies the MIME headers, flushed before the step waits for its timer
+or request cancellation without fabricating model content or consuming another
+step. This models a quiet accepted model response, not a response-header timeout;
+production timeouts, recovery policy and public Run/OpenAI interfaces are not
+changed. The fixture remains internal test code, not a hosted service or
+deployment input.
+
 ## Self-hosted setup
 
 Copy `.env.example` to `.env`, preserve it as a private mode-0600 file, and set

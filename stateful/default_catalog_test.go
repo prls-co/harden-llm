@@ -108,6 +108,42 @@ func TestDefaultProfileCatalogParity(t *testing.T) {
 	}
 }
 
+// TEST-452 also preserves Query Set TEST-159's exact shipped-model oracle.
+// This is an optional preset, not a seeded profile or a consumer default.
+func TestCPALunaPresetPreservesModelSchemaAndReasoning(t *testing.T) {
+	t.Parallel()
+	catalog, err := DefaultCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	preset, exists := catalog["CPA GPT-5.6 Luna"]
+	if !exists {
+		t.Fatal("the shipped CPA Luna preset is missing")
+	}
+	profile, err := parseDefinition(preset.Definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.ModelID != "gpt-5.6-luna" || !profile.SupportsContractedStructuredOutput {
+		t.Fatal("CPA Luna model identity or contracted structured output changed")
+	}
+	for _, test := range []struct{ level, providerEffort string }{
+		{level: "lowest", providerEffort: "low"},
+		{level: "highest", providerEffort: "xhigh"},
+	} {
+		t.Run(test.level, func(t *testing.T) {
+			options, err := profileOptions(profile, test.level, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := mustJSON(t, map[string]string{"effort": test.providerEffort})
+			if !sameJSON(mustJSON(t, options["reasoning"]), want) {
+				t.Fatalf("%s reasoning no longer maps to provider effort %s", test.level, test.providerEffort)
+			}
+		})
+	}
+}
+
 func mustJSON(t *testing.T, value any) []byte {
 	t.Helper()
 	encoded, err := json.Marshal(value)
