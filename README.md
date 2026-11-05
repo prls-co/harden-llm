@@ -85,6 +85,19 @@ the same `/api/v1` contract as the reusable Phoenix client, distinguishes a
 complete inference from uncertain history recording, and never retries an
 inference POST. It is separate from the root in-process stateless engine.
 
+## CPA admission and batch jobs
+
+Ordinary OpenAI-compatible requests and durable jobs share CPA admission.
+For work that can wait several minutes, submit up to 1,000 separate requests
+through `POST /v1/jobs` with a stable `Idempotency-Key`. Save the returned job ID,
+poll `status_url` every five seconds for counts and waiting reasons, then
+download `result_url`. `completed_with_errors` means individual items failed;
+each result or error is identified by its `custom_id`.
+
+See [batch submission, progress and results](docs/cpa-batch-jobs.md#3-submission-waiting-and-results)
+and [ordinary request status lookup](docs/request-status.md). Ordinary tracking
+observes its original request; it does not make that request a background job.
+
 ## Current implementation plan
 
 [`plans/restore-reference-workflows-decoupling-plan.md`](plans/restore-reference-workflows-decoupling-plan.md)

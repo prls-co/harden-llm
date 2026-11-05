@@ -1,7 +1,8 @@
 package livecapacity
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-483
-// Research-only scheduling wrapper; production controller has no jitter field.
+// Research-only scheduling wrapper; characterizes the frozen scheduling baseline.
+// Current production recovery jitter is covered separately by the batch package.
 
 import (
 	"fmt"

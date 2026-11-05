@@ -1,7 +1,8 @@
 package batch
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-476
-// This characterizes the current rollover boundary, not uninterrupted admission.
+// This characterizes retained legacy dispatcher histories. Current shared-pool
+// continuation is covered separately by the pool workflow and handoff tests.
 
 import (
 	"context"

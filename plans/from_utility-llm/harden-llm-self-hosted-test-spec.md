@@ -2106,6 +2106,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Tier: T1; `httpclient/jobs_test.go`.
 - Exercise real local HTTP responses against canonical OpenAPI. Waiting reports quota state without an inference POST and requires an overall deadline. Missing/duplicate result records are rejected; validated success/error totals must match terminal status.
 - V2 `execution_deadline` and `finalization_deadline` remain available in status and progress callbacks; legacy omission stays nil rather than inventing a deadline.
+- TEST-478 and TEST-482 client fixtures use process-owned TLS servers and their trusted clients. Exact request counts, bearer/path checks, cancellation and no-replay assertions remain unchanged; unrelated plaintext loopback probes cannot enter those handlers. Production client behavior is unchanged.
 
 ### TEST-479: Self-hosted batch composition configuration
 

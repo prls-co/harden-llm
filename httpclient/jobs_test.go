@@ -1,6 +1,8 @@
 package httpclient
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-478
+// TLS fixtures preserve exact polling/mutation counts despite unrelated plain
+// HTTP probes of loopback listeners. Each client trusts its owned server.
 import (
 	"context"
 	"encoding/json"
@@ -36,7 +38,7 @@ func TestJobStatusPreservesV2DeadlinesAndAcceptsLegacyStatus(t *testing.T) {
 				wire["execution_deadline"] = "2026-10-16T02:00:00Z"
 				wire["finalization_deadline"] = "2026-10-16T02:00:30Z"
 			}
-			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodGet {
 					t.Error("status lookup mutated the job")
 				}
@@ -70,7 +72,7 @@ func TestJobStatusPreservesV2DeadlinesAndAcceptsLegacyStatus(t *testing.T) {
 func TestWaitJobReportsWaitingAndNeverRepostsInference(t *testing.T) {
 	t.Parallel()
 	gets, posts, progress := 0, 0, 0
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			posts++
 			t.Error("unexpected mutation")
@@ -98,7 +100,7 @@ func TestJobDownloadRejectsDuplicateOrMissingItemRecords(t *testing.T) {
 	t.Parallel()
 	for _, lines := range []int{1, 2} {
 		t.Run(string(rune('0'+lines)), func(t *testing.T) {
-			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if !strings.HasSuffix(r.URL.Path, "/result") {
 					w.Header().Set("Content-Type", "application/json")
 					json.NewEncoder(w).Encode(fixtureJobStatus(true))
@@ -122,7 +124,7 @@ func TestJobDownloadRejectsDuplicateOrMissingItemRecords(t *testing.T) {
 
 func TestJobRejectionUsesOrdinaryOpenAIErrorContract(t *testing.T) {
 	t.Parallel()
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusConflict)
 		io.WriteString(w, `{"error":{"message":"The durable job operation could not be completed.","type":"server_error","param":null,"code":"idempotency_conflict"}}`)
@@ -139,7 +141,7 @@ func TestJobRejectionUsesOrdinaryOpenAIErrorContract(t *testing.T) {
 func TestWaitJobStopsOnCancellationAfterReportingProgress(t *testing.T) {
 	t.Parallel()
 	gets := 0
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gets++
 		if r.Method != http.MethodGet {
 			t.Error("waiting submitted inference")
