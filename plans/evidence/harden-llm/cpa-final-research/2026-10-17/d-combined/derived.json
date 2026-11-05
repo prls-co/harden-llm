@@ -1,0 +1,77 @@
+{
+  "case": "d-combined",
+  "status": "passed",
+  "allResultsIndependentlyQualified": true,
+  "offered": 256,
+  "distinctValidatedItems": 256,
+  "attempts": 256,
+  "counts": {
+    "completed": 256
+  },
+  "peak": 128,
+  "elapsedMs": 71011,
+  "reportedTokens": 1791700,
+  "inputTokens": 1607592,
+  "outputTokens": 184108,
+  "unknownReserve": 0,
+  "contextWords": 1024,
+  "longEvery": 1,
+  "inputTokensPerValidResult": {
+    "n": 256,
+    "median": 6279.5,
+    "p95": 6332,
+    "p99": 6356,
+    "max": 6369
+  },
+  "outputTokensPerValidResult": {
+    "n": 256,
+    "median": 732.0,
+    "p95": 959,
+    "p99": 1188,
+    "max": 1266
+  },
+  "cachedInputTokensReported": 0,
+  "cachedInputUsagePresent": 256,
+  "generationMsValidResults": {
+    "n": 256,
+    "median": 6069.0,
+    "p95": 8439,
+    "p99": 9968,
+    "max": 10208
+  },
+  "nativeHeadersMs": {
+    "n": 256,
+    "median": 1097.0,
+    "p95": 1974,
+    "p99": 3044,
+    "max": 5209
+  },
+  "nativeFirstOutputMs": {
+    "n": 256,
+    "median": 3098.0,
+    "p95": 5565,
+    "p99": 6880,
+    "max": 7251
+  },
+  "validCompletionTimeMsFromFirstDispatch": {
+    "n": 256,
+    "median": 8618.978,
+    "p95": 67685.549,
+    "p99": 69350.316,
+    "max": 71010.841
+  },
+  "startsBySecond": {
+    "0": 128,
+    "3": 4,
+    "4": 34,
+    "5": 13,
+    "6": 21,
+    "61": 56
+  },
+  "errors": [],
+  "sourceSHA": "b38048e336d84f4d29920063d407dbbf7987c4fd",
+  "sourceDirty": false,
+  "nativeCPAStreaming": true,
+  "TemporalUsed": false,
+  "clockOrigin": "native headers and first-output both start at dispatch; do not mix with HLLM core clocks"
+}

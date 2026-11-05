@@ -35,6 +35,7 @@ import (
 	contract "github.com/prls-co/harden-llm/api"
 	"github.com/prls-co/harden-llm/internal/integrationtest"
 	"github.com/prls-co/harden-llm/internal/livecapacity"
+	"github.com/prls-co/harden-llm/internal/testfixture/native"
 	"github.com/prls-co/harden-llm/stateful"
 	"github.com/prls-co/harden-llm/stateful/batch"
 	"go.temporal.io/api/enums/v1"
@@ -148,7 +149,7 @@ func newTemporalBatchFixtureWithTemporal(t *testing.T, throttle bool, gate func(
 		if gate != nil {
 			gate(r.Context(), nonce)
 		}
-		writePresetNativeResponse(w, r, body, fmt.Sprintf(`{"nonce":%q}`, nonce))
+		native.WriteResponse(w, r, body, fmt.Sprintf(`{"nonce":%q}`, nonce))
 	}))
 	t.Cleanup(provider.Close)
 	roots := x509.NewCertPool()

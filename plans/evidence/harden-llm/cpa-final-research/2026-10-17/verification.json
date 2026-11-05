@@ -1,0 +1,55 @@
+{
+  "goSourceSHA": "b38048e336d84f4d29920063d407dbbf7987c4fd",
+  "commands": [
+    {
+      "command": "go test ./... -count=1",
+      "exitCode": 0,
+      "sha256": "96290a281b9ef122a36ad8277f0450df5bbd8bf90fe524e6cc47c33997a6f9ea",
+      "bytes": 1938
+    },
+    {
+      "command": "make test-parity",
+      "exitCode": 0,
+      "sha256": "2891d8b71e66e3843ae29aeec4213748bdd5c4fcebc92f1f194d34bf149b260b",
+      "bytes": 2431
+    },
+    {
+      "command": "go test -race -json ./internal/livecapacity ./stateful/batch -count=1",
+      "exitCode": 0,
+      "sha256": "5dc07092e1c252b056cd14a769c4e39d1f41c5c8634a5e185e9fb15c89dc1905",
+      "bytes": 1081893
+    }
+  ],
+  "rolloverObservations": [
+    "rollover_research_test.go:69: slow_activity_ms=120000 spare_slot_blocked_ms=119000 queued_items_carried=1 duplicate_generations=0 trigger=history_length",
+    "rollover_research_test.go:69: slow_activity_ms=120000 spare_slot_blocked_ms=119000 queued_items_carried=1 duplicate_generations=0 trigger=server_suggestion"
+  ],
+  "globallyDistinctValidatedResults": 1543,
+  "callerAttempts": 1544,
+  "outcomes": {
+    "completed": 1543,
+    "unconfirmed": 1
+  },
+  "providerErrorsRetainedWithoutReplay": [
+    {
+      "id": 2,
+      "attempt": 1,
+      "startedAt": "2026-10-17T07:28:05.720067194-07:00",
+      "finishedAt": "2026-10-17T07:31:05.720902637-07:00",
+      "durationMs": 180000,
+      "headersMs": 2165,
+      "firstOutputMs": 179797,
+      "httpStatus": 200,
+      "kind": "unconfirmed",
+      "errorClass": "context.deadlineExceededError",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "retryAfterMs": 0
+    }
+  ],
+  "allLiveCasesSameCleanSource": true,
+  "browserUsed": false,
+  "productionDeployment": false,
+  "newLiveTemporalQualification": false,
+  "retainedTemporalQualification": "../../cpa-strategy-qualification/2026-10-16/temporal-sustained-mixed-windowed-3000-223016/summary.json"
+}

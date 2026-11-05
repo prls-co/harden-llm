@@ -82,7 +82,9 @@ func terminalResult(events []map[string]any) map[string]any {
 func testClient(t *testing.T, handler http.HandlerFunc) (*Client, *atomic.Int32) {
 	t.Helper()
 	var calls atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Keep exact request/auth assertions isolated from unrelated plaintext
+	// loopback probes. The owned client trusts only this server's certificate.
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		if r.Header.Get("Authorization") != "Bearer "+testAPIKey {
 			t.Errorf("wrong bearer on %s %s", r.Method, r.URL.Path)

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "harden-llm.repository-closeout.v1",
+  "recordedAt": "2026-11-05T04:08:23.130099+00:00",
+  "validatedCodeCommit": "53f342ba42857bcdcab2f0e9bbd73482e0033b87",
+  "priorMain": "0bcfa817fada7daff3eca7d0f3c7ac11a343368c",
+  "originalCheckout": {
+    "branch": "feat/cpa-capacity-campaign",
+    "head": "6fdbf4f7eec9208a7e86c961151e97eebeeee3d3",
+    "preservedChangesCommit": "983b13f"
+  },
+  "retainedHistory": {
+    "planningPR": 135,
+    "planningHead": "035b6f1dcafa9d85d1da68dab495b5a625c22273",
+    "researchPR": 133,
+    "frozenResearchHead": "75909d998b470d55232bf4e7dc7c2741bd899a9c",
+    "unchangedManifestFiles": 42
+  },
+  "localVerification": {
+    "fast": {
+      "accepted": true,
+      "report": "tmp/test-feedback/runner-1793851661513-2413087-c80cb755fc746256.json",
+      "taskCount": 10,
+      "tasks": [
+        {
+          "id": "go-static",
+          "status": 0,
+          "wallTimeMs": 14719
+        },
+        {
+          "id": "runner-contracts",
+          "status": 0,
+          "wallTimeMs": 125795
+        },
+        {
+          "id": "go-unit",
+          "status": 0,
+          "wallTimeMs": 29357
+        },
+        {
+          "id": "go-parity",
+          "status": 0,
+          "wallTimeMs": 15860
+        },
+        {
+          "id": "go-api",
+          "status": 0,
+          "wallTimeMs": 12357
+        },
+        {
+          "id": "go-observability",
+          "status": 0,
+          "wallTimeMs": 11624
+        },
+        {
+          "id": "frontend-ui-package",
+          "status": 0,
+          "wallTimeMs": 58698
+        },
+        {
+          "id": "frontend-deterministic",
+          "status": 0,
+          "wallTimeMs": 162354
+        },
+        {
+          "id": "client-core",
+          "status": 0,
+          "wallTimeMs": 750
+        },
+        {
+          "id": "run-progress-client",
+          "status": 0,
+          "wallTimeMs": 1916
+        }
+      ]
+    },
+    "focusedRace": {
+      "accepted": true,
+      "command": "go test -race ./internal/testfixture/... ./internal/gateway/httpapi ./internal/livecapacity ./stateful/batch -count=1"
+    },
+    "httpClientRace": {
+      "accepted": true,
+      "command": "go test -race ./httpclient -count=1"
+    },
+    "sqlFixture": {
+      "accepted": true,
+      "selector": "reference-fixture-integration",
+      "report": "tmp/test-feedback/runner-1793851155311-2371057-92608927bb98fbb8.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "roleScope": "existing approved CI database; unique owned schemas only"
+    },
+    "historicalArtifactManifest": "all 42 original length and SHA-256 assertions passed",
+    "publicationDiffProtectedValueScan": "passed; values never retained",
+    "whitespace": "git diff HEAD --check passed"
+  },
+  "retainedFailure": {
+    "report": "tmp/test-feedback/runner-1793851271648-2381330-43ce42a5abfa1f6a.json",
+    "cause": "HTTP fixtures observed two unrelated unauthenticated plaintext GET / probes; reproduced on a standalone idle httptest server",
+    "correction": "Per-test TLS listeners and their trusted clients; exact count/auth/path/cancellation/no-replay assertions unchanged",
+    "otherInterruptedTasks": "Runner contracts and frontend siblings received SIGTERM after the first causal Go-unit failure; not claimed as passes"
+  },
+  "productionVerification": {
+    "applicationSource": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+    "productionReceipt": "2026-11-04-production-cpa.json",
+    "configuration": "equivalent; gateway/web/worker runtime verified; no recreation required",
+    "providerFreeHTTPChecks": {
+      "accepted": true,
+      "count": 7
+    },
+    "runtimeSourceChanged": false,
+    "gatewayDependenciesExcludeResearchAndFixtures": true,
+    "newApplicationBuild": false,
+    "newProviderInference": false,
+    "browserLayoutChecked": false
+  },
+  "publication": "Push validated history and merge PR 133 into main; verify local/tracking/remote main and production checkout after merge. Hosted checks and merge identity are recorded by GitHub, not inferred from this local receipt."
+}

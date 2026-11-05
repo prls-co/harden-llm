@@ -51,6 +51,18 @@ See [`docs/liveview-go-testing-guidelines.md`](docs/liveview-go-testing-guidelin
 for test-tier selection and [`test/test-tiers.json`](test/test-tiers.json) for
 the repository task graph.
 
+The internal `reference-gateway` fixture runs the actual gateway/stateful code
+against an explicitly owned SQL schema and a synthetic native upstream. Its
+`scenario.v1` output step on `/v1/responses` may specify integer `delayMs` from
+1 through 60000. Omission keeps existing output unchanged; null/zero/fractions,
+other step kinds or paths are rejected. For delayed output the shared native
+writer supplies the MIME headers, flushed before the step waits for its timer
+or request cancellation without fabricating model content or consuming another
+step. This models a quiet accepted model response, not a response-header timeout;
+production timeouts, recovery policy and public Run/OpenAI interfaces are not
+changed. The fixture remains internal test code, not a hosted service or
+deployment input.
+
 ## Self-hosted setup
 
 Copy `.env.example` to `.env`, preserve it as a private mode-0600 file, and set
@@ -72,6 +84,19 @@ Go services using key-scoped profiles and structured recovery over HTTP use
 the same `/api/v1` contract as the reusable Phoenix client, distinguishes a
 complete inference from uncertain history recording, and never retries an
 inference POST. It is separate from the root in-process stateless engine.
+
+## CPA admission and batch jobs
+
+Ordinary OpenAI-compatible requests and durable jobs share CPA admission.
+For work that can wait several minutes, submit up to 1,000 separate requests
+through `POST /v1/jobs` with a stable `Idempotency-Key`. Save the returned job ID,
+poll `status_url` every five seconds for counts and waiting reasons, then
+download `result_url`. `completed_with_errors` means individual items failed;
+each result or error is identified by its `custom_id`.
+
+See [batch submission, progress and results](docs/cpa-batch-jobs.md#3-submission-waiting-and-results)
+and [ordinary request status lookup](docs/request-status.md). Ordinary tracking
+observes its original request; it does not make that request a background job.
 
 ## Current implementation plan
 
