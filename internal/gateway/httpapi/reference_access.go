@@ -46,6 +46,9 @@ func rejectScopeSelector(w http.ResponseWriter, r *http.Request) bool {
 	if bundle {
 		limit = 2 << 20
 	}
+	if r.Method == http.MethodPost && r.URL.Path == "/v1/responses" {
+		limit = maximumResponsesRequestBytes
+	}
 	if r.Method == http.MethodPost && r.URL.Path == "/v1/jobs" {
 		limit = maximumJobRequestBytes
 	}

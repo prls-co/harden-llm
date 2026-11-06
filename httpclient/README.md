@@ -15,6 +15,7 @@ fragment. Explicit loopback HTTP is supported for local handler tests only;
 there is no failed-HTTPS fallback. The bearer must match the gateway's accepted
 key. A supplied `HTTPClient` is shallow-copied, not modified.
 
+- `Responses(ctx, input)` → one `POST /v1/responses`, using ordered messages, structured output and optional Harden diagnostics. The encoded request limit is 32 MiB.
 - `ListProfiles(ctx)` → `GET /api/v1/profiles`, returning `ProfilesEnvelope`.
 - `GetProfile(ctx, id)` → `GET /api/v1/profiles/{id}`, returning `ProfileDraft`.
 - `Run(ctx, input)` → one `POST /api/v1/run`, consuming its bounded SSE stream
@@ -62,6 +63,8 @@ gateway's 60-second limit. The HTTP deadline is at most 75 seconds, shortened
 by a caller deadline or shorter supplied client timeout. Redirects are disabled.
 Individual SSE frames are bounded to 16 MiB; the full stream to 16 MiB + 64 KiB.
 
+For `Responses`, a successful result carries original output text and any requested Harden metadata. `ResponsesFailure` retains the HTTP status, error code, original output text and available metadata; treat output text as sensitive. An `UnknownOutcomeError` means execution may have happened and must not be automatically replayed. Local validation rejects before dispatch.
+
 ## Result and failure handling
 
 Inspect both the returned `RunOutcome` and `error`:
@@ -100,7 +103,7 @@ closes this request; it cannot promise to undo remote provider work.
 
 ## Verification
 
-Canonical case: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-482`.
+Canonical cases: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-482` (reference) and `TEST-422` (ordinary Responses).
 
 ```sh
 GOWORK=off go test -mod=readonly -race -count=1 ./httpclient ./api

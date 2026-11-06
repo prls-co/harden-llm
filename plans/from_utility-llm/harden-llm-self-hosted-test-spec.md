@@ -1522,6 +1522,14 @@ old assertions move to their new owner without weakening their purpose.
   - Pass criteria: Models/chat/responses accept the selected deployment bearer without login/profile/custom identity header. Errors/tools/final-only SSE match OpenAPI; cache-off calls succeed during storage/identity outage and direct calls create zero history entries. No incoming key/hash enters root Request or diagnostic payload. P02's TEST-425/439 add two-key authentication/cache isolation without changing this existing protocol oracle; rerun this gate after P02 composition changes.
   - Expected runtime: 10–45s.
 
+TEST-422 additionally covers the typed Go Responses client and encoded request
+budget: `go test -race -count=1 -run '^(TestResponsesClient|TestRequestBodyBudget)' ./httpclient ./internal/gateway/httpapi`.
+The client sends one ordered request, preserves terminal metadata and rejects
+malformed or unknown outcomes without replay. The gateway tests both known and
+unknown body lengths, a 262,144-byte source input expanded by JSON escaping,
+and rejection above the 32 MiB ordinary Responses limit. Batch item and Chat
+Completion limits remain separate. This local evidence does not certify a deployed gateway.
+
 ### TEST-423: Complete saved profiles and credential bindings
 
 - Type: unit; verifies: REQ-423, REQ-427, REQ-432.
