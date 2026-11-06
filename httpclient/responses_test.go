@@ -15,7 +15,7 @@ import (
 )
 
 func TestResponsesClientContract(t *testing.T) {
-	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"system", "rules"}, {"user", "input"}, {"assistant", "invalid"}, {"user", "correct"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`), Strict: true}}, Harden: ResponseControls{Diagnostics: true}}
+	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"system", "rules"}, {"user", "input"}, {"assistant", "invalid"}, {"user", "correct"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`), Strict: true}}, Harden: ResponseControls{Diagnostics: true}}
 	client, calls := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/v1/responses" || r.Header.Get("Accept") != "application/json" {
 			t.Errorf("unexpected HTTP request %s %s", r.Method, r.URL.Path)
@@ -48,7 +48,7 @@ func TestResponsesClientContract(t *testing.T) {
 }
 
 func TestResponsesClientOutcomeClassification(t *testing.T) {
-	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"user", "private prompt"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`), Strict: true}}, Harden: ResponseControls{Diagnostics: true}}
+	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"user", "private prompt"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`), Strict: true}}, Harden: ResponseControls{Diagnostics: true}}
 	tests := []struct {
 		name        string
 		status      int
@@ -100,7 +100,7 @@ func TestResponsesClientRejectsInvalidBeforeDispatch(t *testing.T) {
 }
 
 func TestResponsesClientTransportLossNeverReplays(t *testing.T) {
-	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"user", "input"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`), Strict: true}}}
+	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"user", "input"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`), Strict: true}}}
 	client, calls := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 		conn, _, err := w.(http.Hijacker).Hijack()
 		if err != nil {
@@ -118,7 +118,7 @@ func TestResponsesClientTransportLossNeverReplays(t *testing.T) {
 
 func TestResponsesClientFullEscapedSourceInput(t *testing.T) {
 	text := strings.Repeat("\x00", 256<<10)
-	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"system", "rules"}, {"user", text}, {"assistant", `{}`}, {"user", "correct"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`), Strict: true}}}
+	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"system", "rules"}, {"user", text}, {"assistant", `{}`}, {"user", "correct"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`), Strict: true}}}
 	client, calls := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 		var got ResponsesInput
 		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
@@ -133,5 +133,18 @@ func TestResponsesClientFullEscapedSourceInput(t *testing.T) {
 	})
 	if _, err := client.Responses(context.Background(), input); err != nil || calls.Load() != 1 {
 		t.Fatalf("err=%v calls=%d", err, calls.Load())
+	}
+}
+
+func TestResponsesClientRejectsOutputOutsideRequestedSchema(t *testing.T) {
+	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{Role: "user", Content: "input"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}`), Strict: true}}}
+	client, calls := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"resp_x","object":"response","created_at":1,"status":"completed","model":"test-model","output":[],"output_text":"{\"name\":1}","parallel_tool_calls":false,"harden":{"execution_id":"fixture-call","trace_id":"fixture-trace"}}`)
+	})
+	_, err := client.Responses(context.Background(), input)
+	var invalid *ResponsesInvalidOutput
+	if !errors.As(err, &invalid) || invalid.Model != "test-model" || !strings.Contains(string(invalid.Harden), "fixture-trace") || calls.Load() != 1 {
+		t.Fatalf("invalid structured output error=%T calls=%d", err, calls.Load())
 	}
 }

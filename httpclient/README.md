@@ -63,7 +63,7 @@ gateway's 60-second limit. The HTTP deadline is at most 75 seconds, shortened
 by a caller deadline or shorter supplied client timeout. Redirects are disabled.
 Individual SSE frames are bounded to 16 MiB; the full stream to 16 MiB + 64 KiB.
 
-For `Responses`, a successful result carries original output text and any requested Harden metadata. `ResponsesFailure` retains the HTTP status, error code, original output text and available metadata; treat output text as sensitive. An `UnknownOutcomeError` means execution may have happened and must not be automatically replayed. Local validation rejects before dispatch.
+For `Responses`, a successful result carries original output text validated against the requested structured schema and any requested Harden metadata. `ResponsesInvalidOutput` denotes a received terminal response that violates the requested schema; it retains optional diagnostics and must not be replayed. `ResponsesFailure` retains the HTTP status, error code, original output text and available metadata; treat output text as sensitive. An `UnknownOutcomeError` means execution may have happened and must not be automatically replayed. Local validation rejects before dispatch.
 
 ## Result and failure handling
 

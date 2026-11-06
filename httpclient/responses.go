@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/prls-co/harden-llm/api"
+	"github.com/prls-co/harden-llm/internal/schema"
 
 	hardenllm "github.com/prls-co/harden-llm"
 )
@@ -60,6 +61,17 @@ type ResponsesFailure struct {
 
 func (*ResponsesFailure) Error() string { return "harden Responses request failed" }
 
+// ResponsesInvalidOutput is a received terminal response that does not satisfy
+// the requested schema. It retains only its model and optional diagnostics.
+type ResponsesInvalidOutput struct {
+	Model  string
+	Harden json.RawMessage
+}
+
+func (*ResponsesInvalidOutput) Error() string {
+	return "harden Responses output violates the requested schema"
+}
+
 // Responses performs one POST and never replays an unknown outcome.
 func (client *Client) Responses(ctx context.Context, input ResponsesInput) (ResponsesOutput, error) {
 	var out ResponsesOutput
@@ -79,6 +91,10 @@ func (client *Client) Responses(ctx context.Context, input ResponsesInput) (Resp
 	}
 	body, err := json.Marshal(input)
 	if err != nil || len(body) > 32<<20 || api.Validate("ResponseRequest", body) != nil {
+		return out, &ProtocolError{}
+	}
+	normalizedSchema, err := schema.Normalize(input.Text.Format.Schema)
+	if err != nil {
 		return out, &ProtocolError{}
 	}
 	execution, cancel := context.WithTimeout(ctx, maximumClientDuration)
@@ -121,6 +137,9 @@ func (client *Client) Responses(ctx context.Context, input ResponsesInput) (Resp
 	}
 	if err := decodeWire("Response", raw, &out); err != nil {
 		return ResponsesOutput{}, &UnknownOutcomeError{Cause: err}
+	}
+	if _, _, err := schema.ParseAndValidate(out.OutputText, normalizedSchema); err != nil {
+		return ResponsesOutput{}, &ResponsesInvalidOutput{Model: out.Model, Harden: out.Harden}
 	}
 	return out, nil
 }
