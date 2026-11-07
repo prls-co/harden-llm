@@ -183,8 +183,9 @@ paths:
         is stateless: `store` may be omitted or false, and server-side
         conversation fields are rejected. `include` is unsupported because
         upstream-only projections are not preserved in the normalized result.
-        Streaming emits the completed hardened result using typed Responses
-        events; it does not expose provisional provider output.
+        The encoded request body is limited to 32 MiB. Streaming emits the
+        completed hardened result using typed Responses events; it does not
+        expose provisional provider output.
       requestBody:
         required: true
         content:
