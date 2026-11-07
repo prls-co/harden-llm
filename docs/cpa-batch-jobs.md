@@ -217,7 +217,7 @@ Submit `POST /v1/jobs` with the existing HLLM bearer and a stable
 The response is `202` only after Temporal acknowledges workflow start. Retry an
 uncertain submission with the same key and input; changed input with that key
 returns `409`. Each item has a distinct `custom_id`. Manifests are bounded to
-32 MiB, and individual requests retain the 256 KiB batch item limit.
+32 MiB, and individual requests retain the ordinary 256 KiB limit.
 
 Poll `status_url`. Counts distinguish queued, active, retry-waiting, succeeded
 and failed items. `observed_at` is the status read time;

@@ -16,7 +16,7 @@ import (
 )
 
 func TestResponsesClientActualGateway(t *testing.T) {
-	text := strings.Repeat("x", 256<<10)
+	text := strings.Repeat("x", 128<<10)
 	var calls atomic.Int32
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := calls.Add(1)

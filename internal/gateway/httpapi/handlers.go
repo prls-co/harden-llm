@@ -43,7 +43,7 @@ func (api *API) models(writer http.ResponseWriter, request *http.Request) {
 
 func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Request) {
 	var input chatRequest
-	if !api.decodeRequest(writer, request, &input, maximumRequestBytes) {
+	if !api.decodeRequest(writer, request, &input) {
 		return
 	}
 	if input.N != nil && *input.N != 1 {
@@ -158,7 +158,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 
 func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 	var input responsesRequest
-	if !api.decodeRequest(writer, request, &input, maximumResponsesRequestBytes) {
+	if !api.decodeRequest(writer, request, &input) {
 		return
 	}
 	prepared, ok := prepareResponses(writer, input)

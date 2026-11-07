@@ -15,7 +15,7 @@ fragment. Explicit loopback HTTP is supported for local handler tests only;
 there is no failed-HTTPS fallback. The bearer must match the gateway's accepted
 key. A supplied `HTTPClient` is shallow-copied, not modified.
 
-- `Responses(ctx, input)` → one `POST /v1/responses`, using ordered messages, structured output and optional Harden diagnostics. The encoded request limit is 32 MiB.
+- `Responses(ctx, input)` → one `POST /v1/responses`, using ordered messages, structured output and optional Harden diagnostics. The encoded request limit is 256 KiB.
 - `ListProfiles(ctx)` → `GET /api/v1/profiles`, returning `ProfilesEnvelope`.
 - `GetProfile(ctx, id)` → `GET /api/v1/profiles/{id}`, returning `ProfileDraft`.
 - `Run(ctx, input)` → one `POST /api/v1/run`, consuming its bounded SSE stream

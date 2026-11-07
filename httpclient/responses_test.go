@@ -116,8 +116,8 @@ func TestResponsesClientTransportLossNeverReplays(t *testing.T) {
 	}
 }
 
-func TestResponsesClientFullEscapedSourceInput(t *testing.T) {
-	text := strings.Repeat("\x00", 256<<10)
+func TestResponsesClientEscapedInputWithinBudget(t *testing.T) {
+	text := strings.Repeat("\x00", 32<<10)
 	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"system", "rules"}, {"user", text}, {"assistant", `{}`}, {"user", "correct"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`), Strict: true}}}
 	client, calls := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 		var got ResponsesInput
@@ -133,6 +133,23 @@ func TestResponsesClientFullEscapedSourceInput(t *testing.T) {
 	})
 	if _, err := client.Responses(context.Background(), input); err != nil || calls.Load() != 1 {
 		t.Fatalf("err=%v calls=%d", err, calls.Load())
+	}
+}
+
+// TEST-422: The retained 256 KiB encoded bound rejects oversized input before HTTP dispatch.
+func TestResponsesClientRejectsEncodedRequestOverBudget(t *testing.T) {
+	for _, text := range []string{strings.Repeat("x", 256<<10), strings.Repeat("\x00", 256<<10)} {
+		input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{Role: "user", Content: text}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`), Strict: true}}}
+		client, calls := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+			t.Error("oversized request reached HTTP transport")
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"id":"resp_x","object":"response","created_at":1,"status":"completed","model":"test-model","output":[],"output_text":"{}","parallel_tool_calls":false}`)
+		})
+		_, err := client.Responses(context.Background(), input)
+		var protocol *ProtocolError
+		if !errors.As(err, &protocol) || calls.Load() != 0 {
+			t.Fatalf("oversized request err=%T HTTP calls=%d", err, calls.Load())
+		}
 	}
 }
 

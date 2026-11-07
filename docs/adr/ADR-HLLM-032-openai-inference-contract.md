@@ -17,7 +17,7 @@ The custom /api/v1/run contract accepts string prompts. Ordinary OpenAI clients 
 - Clients carry conversation state. Reject store:true, previous_response_id, background, hosted tools, media and unsupported fields; never silently discard. Do not claim full OpenAI/CPA parity.
 - Optional controls/diagnostics use one `harden` property. Normal requests work without it. Go/OpenAPI own defaults; Phoenix does not duplicate engine decisions.
 - Streaming validates/repairs first, then emits standard endpoint-specific SSE, delaying first content. No provisional output, custom progress protocol or retry after disconnect.
-- Keep a 256 KiB encoded request limit for Chat Completions and individual batch requests. Ordinary Responses accepts up to 32 MiB to accommodate a bounded prior response and JSON-escaped source input during correction; keep the 16 MiB upstream response and 60 s inference limits. Cap encoded outcomes at 16 MiB including at most 64 KiB diagnostics. Reject over-limit requests before inference and never truncate.
+- Keep 256 KiB request, 16 MiB upstream response and 60 s inference limits; cap encoded outcomes at 16 MiB including at most 64 KiB diagnostics. Reject before headers, never truncate.
 - Optional `X-HLLM-Tracking-ID` and key-scoped `GET /v1/requests/{trackingID}` retain bounded execution metadata in the existing stateful PostgreSQL pool. They preserve request-bound execution and do not retain responses, add reference history, retry inference, or implement background/result retrieval. The root core remains stateless. See `docs/request-status.md` and issue #136.
 - `CPA_API_KEY` authenticates upstream only. The binary reads process environment and does not parse dotenv.
 

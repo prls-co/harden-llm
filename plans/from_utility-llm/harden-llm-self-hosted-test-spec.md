@@ -1526,9 +1526,12 @@ TEST-422 additionally covers the typed Go Responses client and encoded request
 budget: `go test -race -count=1 -run '^(TestResponsesClient|TestRequestBodyBudget)' ./httpclient ./internal/gateway/httpapi`.
 The client sends one ordered request, preserves terminal metadata and rejects
 malformed or unknown outcomes without replay. The gateway tests both known and
-unknown body lengths, a 262,144-byte source input expanded by JSON escaping,
-and rejection above the 32 MiB ordinary Responses limit. Batch item and Chat
-Completion limits remain separate. This local evidence does not certify a deployed gateway.
+unknown body lengths, ordered correction and JSON-escaped input within the
+existing 256 KiB encoded limit, and rejection above that limit before inference.
+The user explicitly retained this existing limit on 2026-11-07; the earlier
+full-source-sized acceptance requirement is superseded, not certified by smaller
+fixtures. These tests do not promise any token count fits the byte limit.
+This local evidence does not certify a deployed gateway.
 
 ### TEST-423: Complete saved profiles and credential bindings
 

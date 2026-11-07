@@ -20,12 +20,11 @@ import (
 )
 
 const (
-	MaximumRunDuration           = 60 * time.Second
-	maximumRequestBytes          = 256 << 10
-	maximumResponsesRequestBytes = 32 << 20
-	maximumResponseBytes         = 16 << 20
-	maximumHardenBytes           = 64 << 10
-	readinessTimeout             = 2 * time.Second
+	MaximumRunDuration   = 60 * time.Second
+	maximumRequestBytes  = 256 << 10
+	maximumResponseBytes = 16 << 20
+	maximumHardenBytes   = 64 << 10
+	readinessTimeout     = 2 * time.Second
 )
 
 type ReadinessCheck func(context.Context) error

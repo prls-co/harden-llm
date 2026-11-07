@@ -117,22 +117,22 @@ type namedFunction struct {
 	Name string `json:"name"`
 }
 
-func (api *API) decodeRequest(writer http.ResponseWriter, request *http.Request, target any, limit int64) bool {
+func (api *API) decodeRequest(writer http.ResponseWriter, request *http.Request, target any) bool {
 	mediaType := strings.TrimSpace(strings.Split(request.Header.Get("Content-Type"), ";")[0])
 	if mediaType != "application/json" {
 		writeError(writer, http.StatusUnsupportedMediaType, "invalid_request_error", "unsupported_media_type", "Content-Type must be application/json.", "content_type")
 		return false
 	}
-	if request.ContentLength > limit {
+	if request.ContentLength > maximumRequestBytes {
 		writeError(writer, http.StatusRequestEntityTooLarge, "invalid_request_error", "request_too_large", "The request body exceeds the configured size limit.", nil)
 		return false
 	}
-	body, err := io.ReadAll(io.LimitReader(request.Body, limit+1))
+	body, err := io.ReadAll(io.LimitReader(request.Body, maximumRequestBytes+1))
 	if err != nil {
 		writeError(writer, http.StatusBadRequest, "invalid_request_error", "invalid_json", "The request body could not be read.", nil)
 		return false
 	}
-	if int64(len(body)) > limit {
+	if len(body) > maximumRequestBytes {
 		writeError(writer, http.StatusRequestEntityTooLarge, "invalid_request_error", "request_too_large", "The request body exceeds the configured size limit.", nil)
 		return false
 	}

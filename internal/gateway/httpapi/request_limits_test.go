@@ -13,10 +13,10 @@ import (
 	hardenllm "github.com/prls-co/harden-llm"
 )
 
-// TEST-422 / NER migration case 502: acquire a full source-sized input by encoded byte
-// length, including JSON escaping, without treating unknown Content-Length as safe.
+// TEST-422 / NER migration case 502: preserve ordered correction input within the
+// retained encoded byte budget, including JSON escaping and unknown Content-Length.
 func TestRequestBodyBudget(t *testing.T) {
-	input := strings.Repeat("\x00", 256<<10)
+	input := strings.Repeat("\x00", 32<<10)
 	body, err := json.Marshal(map[string]any{"model": "test", "input": []map[string]string{
 		{"role": "system", "content": "source prompt"}, {"role": "user", "content": input},
 		{"role": "assistant", "content": "{}"}, {"role": "user", "content": "correct the result"},
@@ -34,8 +34,8 @@ func TestRequestBodyBudget(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			var got responsesRequest
-			if !(&API{}).decodeRequest(rec, req, &got, maximumResponsesRequestBytes) {
-				t.Fatalf("admitted source-sized request rejected: status=%d body=%s", rec.Code, rec.Body.String())
+			if !(&API{}).decodeRequest(rec, req, &got) {
+				t.Fatalf("within-budget request rejected: status=%d body=%s", rec.Code, rec.Body.String())
 			}
 			var items []map[string]string
 			if err := json.Unmarshal(got.Input, &items); err != nil {
@@ -52,7 +52,7 @@ func TestRequestBodyBudget(t *testing.T) {
 func TestRequestBodyBudgetRejectsOversize(t *testing.T) {
 	for _, unknown := range []bool{false, true} {
 		t.Run(map[bool]string{false: "known length", true: "unknown length"}[unknown], func(t *testing.T) {
-			body := bytes.Repeat([]byte("x"), maximumResponsesRequestBytes+1)
+			body := bytes.Repeat([]byte("x"), maximumRequestBytes+1)
 			req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 			if unknown {
 				req.ContentLength = -1
@@ -60,7 +60,7 @@ func TestRequestBodyBudgetRejectsOversize(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			var got responsesRequest
-			if (&API{}).decodeRequest(rec, req, &got, maximumResponsesRequestBytes) || rec.Code != http.StatusRequestEntityTooLarge {
+			if (&API{}).decodeRequest(rec, req, &got) || rec.Code != http.StatusRequestEntityTooLarge {
 				t.Fatalf("oversize status = %d", rec.Code)
 			}
 		})
@@ -68,7 +68,7 @@ func TestRequestBodyBudgetRejectsOversize(t *testing.T) {
 }
 
 func TestRequestBodyBudgetAuthorization(t *testing.T) {
-	payload, err := json.Marshal(map[string]any{"model": "test", "input": strings.Repeat("\x00", 256<<10)})
+	payload, err := json.Marshal(map[string]any{"model": "test", "input": strings.Repeat("\x00", 32<<10)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestRequestBodyBudgetAuthorization(t *testing.T) {
 	handler := api.authorize(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		var got responsesRequest
-		if !api.decodeRequest(w, r, &got, maximumResponsesRequestBytes) {
+		if !api.decodeRequest(w, r, &got) {
 			t.Error("decoder rejected authorized body")
 		}
 	})
@@ -102,7 +102,7 @@ func TestRequestBodyBudgetKeepsOtherBoundaries(t *testing.T) {
 		status           int
 	}{
 		{"chat stays bounded", "/v1/chat/completions", `{"model":"test","messages":"` + strings.Repeat("x", 256<<10) + `"}`, http.StatusRequestEntityTooLarge},
-		{"scope selector stays rejected", "/v1/responses", `{"model":"test","input":"` + strings.Repeat("x", 256<<10) + `","ownerId":"other"}`, http.StatusBadRequest},
+		{"scope selector stays rejected", "/v1/responses", `{"model":"test","input":"` + strings.Repeat("x", 32<<10) + `","ownerId":"other"}`, http.StatusBadRequest},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			called = false

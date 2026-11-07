@@ -74,7 +74,7 @@ func (api *API) createJob(w http.ResponseWriter, r *http.Request) {
 		req, _ := http.NewRequestWithContext(r.Context(), http.MethodPost, "http://internal/v1/responses", bytes.NewReader(v.Request))
 		req.Header.Set("Content-Type", "application/json")
 		var native responsesRequest
-		if !api.decodeRequest(w, req, &native, maximumRequestBytes) {
+		if !api.decodeRequest(w, req, &native) {
 			return
 		}
 		if native.Model != "gpt-6-luna" {

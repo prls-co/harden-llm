@@ -38,7 +38,7 @@ paths:
         Opt-in self-hosted Temporal execution. Each item is one generation using
         the configured CPA upstream, gpt-6-luna and low reasoning. Caching,
         multi-step recovery and web search are disabled. The manifest is at most
-        32 MiB; each request is at most 256 KiB. Acceptance requires a durable
+        256 KiB; each request is at most 256 KiB. Acceptance requires a durable
         workflow-start acknowledgement. The idempotency key is scoped to the bearer.
       parameters:
         - name: Idempotency-Key
@@ -183,7 +183,7 @@ paths:
         is stateless: `store` may be omitted or false, and server-side
         conversation fields are rejected. `include` is unsupported because
         upstream-only projections are not preserved in the normalized result.
-        The encoded request body is limited to 32 MiB. Streaming emits the
+        The encoded request body is limited to 256 KiB. Streaming emits the
         completed hardened result using typed Responses events; it does not
         expose provisional provider output.
       requestBody:

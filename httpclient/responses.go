@@ -90,7 +90,7 @@ func (client *Client) Responses(ctx context.Context, input ResponsesInput) (Resp
 		}
 	}
 	body, err := json.Marshal(input)
-	if err != nil || len(body) > 32<<20 || api.Validate("ResponseRequest", body) != nil {
+	if err != nil || len(body) > maximumRequestBytes || api.Validate("ResponseRequest", body) != nil {
 		return out, &ProtocolError{}
 	}
 	normalizedSchema, err := schema.Normalize(input.Text.Format.Schema)
