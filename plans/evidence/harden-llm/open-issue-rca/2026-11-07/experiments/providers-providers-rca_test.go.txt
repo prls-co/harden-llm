@@ -1,0 +1,21 @@
+package providers
+
+import "testing"
+
+func TestRCAStructuredCitationLoss(t *testing.T) {
+	raw := []byte(`{"status":"completed","output":[{"type":"web_search_call","id":"search1","status":"completed","action":{"type":"search","query":"q","sources":[{"url":"https://example.test","title":"Source"}]}},{"type":"message","content":[{"type":"output_text","text":"{\"ok\":true}","annotations":[{"type":"url_citation","url":"https://example.test","title":"Source","start_index":2,"end_index":4}]}]}]}`)
+	for _, typ := range []string{"text", "structured"} {
+		r, err := normalizeResponse(preparedRequest{protocol: "openai.responses", callType: typ, searchMode: "native"}, raw)
+		if err != nil || r.Search == nil {
+			t.Fatalf("%s: %#v %v", typ, r, err)
+		}
+		want := 1
+		if typ == "structured" {
+			want = 0
+		}
+		if len(r.Search.Citations) != want {
+			t.Fatalf("%s citations=%d", typ, len(r.Search.Citations))
+		}
+		t.Logf("137 callType=%s sources=%d citations=%d executed=%t", typ, len(r.Search.Sources), len(r.Search.Citations), r.Search.Executed)
+	}
+}

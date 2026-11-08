@@ -1,0 +1,5 @@
+=== RUN   TestRCARateLimitDoesNotSelectRerunTarget
+    rca_experiment_test.go:31: 96 models=[generation generation] rerun target=fallback waited=1s attempts=2
+--- PASS: TestRCARateLimitDoesNotSelectRerunTarget (0.00s)
+PASS
+ok  	github.com/prls-co/harden-llm/internal/runtime	0.003s

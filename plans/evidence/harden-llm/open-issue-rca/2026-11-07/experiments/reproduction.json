@@ -1,0 +1,95 @@
+{
+  "parent_exit": -15,
+  "task_timeout_ms": 3000,
+  "wait_after_parent_exit_ms": 3500,
+  "owned_before": [
+    {
+      "pid": 460811,
+      "state": "S",
+      "ppid": 460810,
+      "pgrp": 460810,
+      "start": "497290045"
+    },
+    {
+      "pid": 460810,
+      "state": "S",
+      "ppid": 460768,
+      "pgrp": 460810,
+      "start": "497290045"
+    },
+    {
+      "pid": 460813,
+      "state": "S",
+      "ppid": 460812,
+      "pgrp": 460812,
+      "start": "497290045"
+    },
+    {
+      "pid": 460812,
+      "state": "S",
+      "ppid": 460768,
+      "pgrp": 460812,
+      "start": "497290045"
+    },
+    {
+      "pid": 460815,
+      "state": "S",
+      "ppid": 460814,
+      "pgrp": 460814,
+      "start": "497290046"
+    },
+    {
+      "pid": 460814,
+      "state": "S",
+      "ppid": 460768,
+      "pgrp": 460814,
+      "start": "497290046"
+    }
+  ],
+  "owned_after": [
+    {
+      "pid": 460811,
+      "state": "S",
+      "ppid": 460810,
+      "pgrp": 460810,
+      "start": "497290045"
+    },
+    {
+      "pid": 460810,
+      "state": "S",
+      "ppid": 1,
+      "pgrp": 460810,
+      "start": "497290045"
+    },
+    {
+      "pid": 460813,
+      "state": "S",
+      "ppid": 460812,
+      "pgrp": 460812,
+      "start": "497290045"
+    },
+    {
+      "pid": 460812,
+      "state": "S",
+      "ppid": 1,
+      "pgrp": 460812,
+      "start": "497290045"
+    },
+    {
+      "pid": 460815,
+      "state": "S",
+      "ppid": 460814,
+      "pgrp": 460814,
+      "start": "497290046"
+    },
+    {
+      "pid": 460814,
+      "state": "S",
+      "ppid": 1,
+      "pgrp": 460814,
+      "start": "497290046"
+    }
+  ],
+  "live_descendants_after_timeout": 6,
+  "cleanup_live_descendants": 0
+}

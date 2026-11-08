@@ -1,0 +1,32 @@
+package runtime
+
+import (
+	"context"
+	"github.com/prls-co/harden-llm/internal/cachekey"
+	"github.com/prls-co/harden-llm/internal/retry"
+	"testing"
+	"time"
+)
+
+type rcaRateLimitExecutor struct {
+	planExecutor
+	models []string
+}
+
+func (e *rcaRateLimitExecutor) Execute(_ context.Context, p PreparedOperation) (ProviderResult, error) {
+	e.models = append(e.models, p.Operation.Model)
+	if len(e.models) == 1 {
+		return ProviderResult{ProviderDispatched: true, Accounting: planLedger()}, &retry.ProviderError{Status: 429, Code: "rate_limit_exceeded", Category: retry.CategoryRateLimit, RetryAfter: time.Second}
+	}
+	return ProviderResult{Output: map[string]any{"ok": true}, ProviderDispatched: true, Accounting: planLedger()}, nil
+}
+func TestRCARateLimitDoesNotSelectRerunTarget(t *testing.T) {
+	e := &rcaRateLimitExecutor{}
+	policy := retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{retry.CategoryRateLimit}, Rerun: &retry.RerunPlan{Target: retry.RecoveryTarget{Source: "model", ModelID: "fallback"}}, Backoff: retry.Backoff{}}
+	var waited time.Duration
+	r, err := Execute(context.Background(), e, planConnection(), Credential{APIKey: "synthetic"}, decisionCall(), retry.Config{Policy: policy, Wait: func(_ context.Context, d time.Duration) error { waited = d; return nil }}, nil, cachekey.ModeOff, "v1", "call", "trace")
+	if err != nil || len(e.models) != 2 || e.models[0] != "generation" || e.models[1] != "generation" || waited < time.Second {
+		t.Fatalf("models=%v wait=%s err=%v", e.models, waited, err)
+	}
+	t.Logf("96 models=%v rerun target=fallback waited=%s attempts=%d", e.models, waited, len(r.Attempts))
+}

@@ -1,0 +1,40 @@
+package httpapi
+
+import (
+	"encoding/json"
+	h "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/api"
+	"github.com/prls-co/harden-llm/internal/runtime"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+// Analysis-only witnesses for issues 137, 138 and 149; no implementation changes.
+func TestRCAObservedGaps(t *testing.T) {
+	rec := httptest.NewRecorder()
+	_, ok := prepareResponses(rec, responsesRequest{Model: "fixture", Input: json.RawMessage(`"query"`), Include: []string{"web_search_call.action.sources"}})
+	if ok || rec.Code != 400 {
+		t.Fatalf("include witness changed: %t %d", ok, rec.Code)
+	}
+	t.Logf("137 include rejected: status=%d", rec.Code)
+	result := h.Result{Output: "a source", Search: &h.SearchResult{Mode: "native", Executed: true, Sources: []h.SearchSource{{URL: "https://example.test", Title: "Source"}}, Citations: []runtime.SearchCitation{{URL: "https://example.test", Title: "Source", StartIndex: 2, EndIndex: 8}}, CostStatus: "unavailable"}}
+	projected, err := responsesResponse("fixture", result, 0, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, _ := json.Marshal(projected)
+	if strings.Contains(string(encoded), "url_citation") || strings.Contains(string(encoded), "web_search_call") {
+		t.Fatal("projection witness changed")
+	}
+	t.Logf("137 search was present in input but absent in public response: %s", encoded)
+	run := []byte(`{"profileId":"fixture","userPrompt":"source","callType":"text","recoveryPolicy":{"maxAttempts":1},"messages":[{"role":"assistant","content":"invalid"},{"role":"user","content":"fix"}]}`)
+	if api.Validate("RunInput", run) == nil {
+		t.Fatal("ordered Run unexpectedly admitted")
+	}
+	t.Log("138 OpenAPI rejects added messages on RunInput")
+	for _, sample := range []struct{ name, value string }{{"ASCII", strings.Repeat("x", 262144)}, {"NUL", strings.Repeat("\x00", 262144)}, {"Unicode", strings.Repeat("界", 65536)}} {
+		body, _ := json.Marshal(map[string]any{"model": "fixture", "input": sample.value})
+		t.Logf("149 %s raw bytes=%d encoded bytes=%d exceeds 256KiB=%t", sample.name, len(sample.value), len(body), len(body) > maximumRequestBytes)
+	}
+}

@@ -1,0 +1,50 @@
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/quota
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/selection_cooling
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/billing_quota
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/revoked_authentication
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/denied_account
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/ordinary_outage
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/ordinary_outage_with_admission_hint
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/unknown_network_result
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/generation_timeout
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/untrusted_text
+=== RUN   TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/unsafe_provider_code
+--- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/quota (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/selection_cooling (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/billing_quota (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/revoked_authentication (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/denied_account (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/ordinary_outage (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/ordinary_outage_with_admission_hint (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/unknown_network_result (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/generation_timeout (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/untrusted_text (0.00s)
+    --- PASS: TestAttemptClassificationSeparatesQuotaAccountAndOrdinaryFailures/unsafe_provider_code (0.00s)
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA
+=== PAUSE TestPoolWaitingProjectionUsesActualGateAndNoInventedETA
+=== CONT  TestPoolWaitingProjectionUsesActualGateAndNoInventedETA
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/idle
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/restricted
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/throttled
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/worker
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/metadata
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/rollover
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/unknown
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/dispatch
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/capacity
+=== RUN   TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/unanchored_window
+--- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/idle (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/restricted (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/throttled (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/worker (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/metadata (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/rollover (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/unknown (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/dispatch (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/capacity (0.00s)
+    --- PASS: TestPoolWaitingProjectionUsesActualGateAndNoInventedETA/unanchored_window (0.00s)
+PASS
+ok  	github.com/prls-co/harden-llm/stateful/batch	0.014s

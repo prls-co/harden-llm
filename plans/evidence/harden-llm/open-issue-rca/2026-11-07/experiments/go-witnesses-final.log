@@ -1,0 +1,41 @@
+=== RUN   TestRCAObservedGaps
+    rca_experiment_test.go:20: 137 include rejected: status=400
+    rca_experiment_test.go:30: 137 search was present in input but absent in public response: {"created_at":0,"id":"resp_","model":"fixture","object":"response","output":[{"content":[{"annotations":[],"text":"a source","type":"output_text"}],"id":"msg_","role":"assistant","status":"completed","type":"message"}],"output_text":"a source","parallel_tool_calls":true,"status":"completed"}
+    rca_experiment_test.go:35: 138 OpenAPI rejects added messages on RunInput
+    rca_experiment_test.go:38: 149 ASCII raw bytes=262144 encoded bytes=262174 exceeds 256KiB=true
+    rca_experiment_test.go:38: 149 NUL raw bytes=262144 encoded bytes=1572894 exceeds 256KiB=true
+    rca_experiment_test.go:38: 149 Unicode raw bytes=196608 encoded bytes=196638 exceeds 256KiB=false
+--- PASS: TestRCAObservedGaps (0.05s)
+=== RUN   TestRequestBodyBudget
+    request_limits_test.go:27: source input bytes=32768 encoded correction request bytes=196790
+=== RUN   TestRequestBodyBudget/known_length
+=== RUN   TestRequestBodyBudget/unknown_length
+--- PASS: TestRequestBodyBudget (0.01s)
+    --- PASS: TestRequestBodyBudget/known_length (0.01s)
+    --- PASS: TestRequestBodyBudget/unknown_length (0.01s)
+=== RUN   TestRequestBodyBudgetRejectsOversize
+=== RUN   TestRequestBodyBudgetRejectsOversize/known_length
+=== RUN   TestRequestBodyBudgetRejectsOversize/unknown_length
+--- PASS: TestRequestBodyBudgetRejectsOversize (0.00s)
+    --- PASS: TestRequestBodyBudgetRejectsOversize/known_length (0.00s)
+    --- PASS: TestRequestBodyBudgetRejectsOversize/unknown_length (0.00s)
+=== RUN   TestRequestBodyBudgetAuthorization
+--- PASS: TestRequestBodyBudgetAuthorization (0.01s)
+=== RUN   TestRequestBodyBudgetKeepsOtherBoundaries
+=== RUN   TestRequestBodyBudgetKeepsOtherBoundaries/chat_stays_bounded
+=== RUN   TestRequestBodyBudgetKeepsOtherBoundaries/scope_selector_stays_rejected
+--- PASS: TestRequestBodyBudgetKeepsOtherBoundaries (0.00s)
+    --- PASS: TestRequestBodyBudgetKeepsOtherBoundaries/chat_stays_bounded (0.00s)
+    --- PASS: TestRequestBodyBudgetKeepsOtherBoundaries/scope_selector_stays_rejected (0.00s)
+PASS
+ok  	github.com/prls-co/harden-llm/internal/gateway/httpapi	0.092s
+=== RUN   TestRCAStructuredCitationLoss
+    rca_experiment_test.go:19: 137 callType=text sources=1 citations=1 executed=true
+    rca_experiment_test.go:19: 137 callType=structured sources=1 citations=0 executed=true
+--- PASS: TestRCAStructuredCitationLoss (0.00s)
+=== RUN   TestSearchEvidenceAndToolFailures
+=== PAUSE TestSearchEvidenceAndToolFailures
+=== CONT  TestSearchEvidenceAndToolFailures
+--- PASS: TestSearchEvidenceAndToolFailures (0.00s)
+PASS
+ok  	github.com/prls-co/harden-llm/internal/providers	(cached)
