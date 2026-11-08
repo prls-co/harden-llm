@@ -971,9 +971,11 @@ func normalizeResponsesTokenOptions(options map[string]any, target string) {
 		_, targetExists := options[target]
 		if sourceExists && !targetExists {
 			options[target] = value
-			if source != target {
-				delete(options, source)
-			}
+		}
+		// Responses accepts only the native token-limit name. In particular,
+		// a call override must also remove aliases inherited from a profile.
+		if source != target {
+			delete(options, source)
 		}
 	}
 }

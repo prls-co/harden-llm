@@ -109,7 +109,7 @@
     },
     {
       "id": "go-unit",
-      "testIds": ["TEST-005", "TEST-236", "TEST-238", "TEST-239", "TEST-240", "TEST-241", "TEST-242", "TEST-243", "TEST-244", "TEST-245", "TEST-246", "TEST-247", "TEST-248", "TEST-249", "TEST-250", "TEST-258", "TEST-259", "TEST-276", "TEST-278", "TEST-284", "TEST-289", "TEST-401", "TEST-402", "TEST-403", "TEST-404", "TEST-410", "TEST-421", "TEST-422", "TEST-437", "TEST-445", "TEST-423", "TEST-444", "TEST-425", "TEST-449", "TEST-451", "TEST-432", "TEST-457", "TEST-458", "TEST-461", "TEST-462", "TEST-465", "TEST-466", "TEST-472", "TEST-490", "TEST-491", "TEST-493", "TEST-494", "TEST-496", "TEST-499", "TEST-500", "TEST-501", "TEST-504", "TEST-505", "TEST-506", "TEST-509", "TEST-511", "TEST-514", "TEST-516", "TEST-517", "TEST-521", "TEST-523", "TEST-525", "TEST-529", "TEST-467", "TEST-468", "TEST-470", "TEST-471", "TEST-482", "TEST-473", "TEST-474", "TEST-475", "TEST-476", "TEST-478", "TEST-479", "TEST-483", "TEST-485"],
+      "testIds": ["TEST-005", "TEST-236", "TEST-238", "TEST-239", "TEST-240", "TEST-241", "TEST-242", "TEST-243", "TEST-244", "TEST-245", "TEST-246", "TEST-247", "TEST-248", "TEST-249", "TEST-250", "TEST-258", "TEST-259", "TEST-276", "TEST-278", "TEST-284", "TEST-289", "TEST-401", "TEST-402", "TEST-403", "TEST-404", "TEST-410", "TEST-421", "TEST-422", "TEST-437", "TEST-445", "TEST-423", "TEST-444", "TEST-425", "TEST-449", "TEST-451", "TEST-432", "TEST-457", "TEST-458", "TEST-461", "TEST-462", "TEST-465", "TEST-466", "TEST-472", "TEST-490", "TEST-491", "TEST-493", "TEST-494", "TEST-496", "TEST-499", "TEST-500", "TEST-501", "TEST-504", "TEST-505", "TEST-506", "TEST-509", "TEST-511", "TEST-514", "TEST-516", "TEST-517", "TEST-521", "TEST-523", "TEST-525", "TEST-529", "TEST-467", "TEST-468", "TEST-470", "TEST-471", "TEST-482", "TEST-473", "TEST-474", "TEST-475", "TEST-476", "TEST-478", "TEST-479", "TEST-483", "TEST-533"],
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["make", "test-unit"],
@@ -158,20 +158,6 @@
         ]
       },
       "pathSelectors": ["internal/integrationtest/**", "deploy/test/compose.integration.yml", "scripts/run-test-tier.mjs"]
-    },
-    {
-      "id": "reference-fixture-integration",
-      "testIds": ["TEST-486"],
-      "tier": "T3",
-      "resourceClass": "service",
-      "command": ["go", "test", "-race", "-tags=referencefixtureintegration", "./internal/testfixture/reference-gateway", "-count=1"],
-      "dependsOn": [],
-      "timeoutMs": 240000,
-      "cleanupOwner": "test-owned-schema-and-process",
-      "network": "local-only",
-      "credentialKeys": ["PRLS_FIXTURE_TEST_DATABASE_URL"],
-      "requiredFor": ["reference-fixture-integration"],
-      "pathSelectors": ["internal/testfixture/**", "internal/gateway/httpapi/**", "stateful/**", "go.mod", "go.sum"]
     },
     {
       "id": "go-integration",

@@ -522,6 +522,45 @@ func TestRepairPayloadUsesFlatHistoryAndDisablesSearch(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-533
+// The real CPA boundary rejects legacy aliases even when the native field is
+// present. A call override must win over a profile's legacy token default.
+func TestResponsesTokenLimitUsesOnlyNativeField(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		options map[string]any
+		want    int
+	}{
+		{"native_override", map[string]any{"max_output_tokens": 4096, "max_tokens": 16000, "max_completion_tokens": 8000}, 4096},
+		{"legacy_only", map[string]any{"max_tokens": 16000}, 16000},
+		{"completion_only", map[string]any{"max_completion_tokens": 8000}, 8000},
+		{"legacy_precedence", map[string]any{"max_tokens": 16000, "max_completion_tokens": 8000}, 16000},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			original := make(map[string]any, len(tc.options))
+			for key, value := range tc.options {
+				original[key] = value
+			}
+			payload, err := buildResponsesPayload(runtime.Connection{APIInferenceType: "responses"}, runtime.Call{ModelID: "fixture", Messages: providerMessages("", "test")}, tc.options, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if payload["max_output_tokens"] != tc.want {
+				t.Fatalf("native limit=%v want=%d", payload["max_output_tokens"], tc.want)
+			}
+			for _, alias := range []string{"max_tokens", "max_completion_tokens"} {
+				if _, exists := payload[alias]; exists {
+					t.Fatalf("unsupported alias %s reached Responses", alias)
+				}
+			}
+			if !reflect.DeepEqual(tc.options, original) {
+				t.Fatal("payload construction changed caller options")
+			}
+		})
+	}
+}
+
 func TestProviderOptionEdgeParity(t *testing.T) {
 	t.Parallel()
 	profile := runtime.Connection{
@@ -537,9 +576,14 @@ func TestProviderOptionEdgeParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for key, want := range map[string]any{"max_output_tokens": float64(9), "max_tokens": float64(8), "max_completion_tokens": float64(7)} {
-		if payload[key] != want {
-			t.Fatalf("Responses token option %q = %#v, want %#v; source retains legacy options when target exists", key, payload[key], want)
+	// Issue #151's real-provider qualification found that retaining these
+	// legacy source options causes HTTP 400. Native precedence is preserved.
+	if payload["max_output_tokens"] != float64(9) {
+		t.Fatal("native Responses limit changed")
+	}
+	for _, key := range []string{"max_tokens", "max_completion_tokens"} {
+		if _, exists := payload[key]; exists {
+			t.Fatalf("unsupported Responses alias %s retained", key)
 		}
 	}
 
