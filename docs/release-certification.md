@@ -1,6 +1,6 @@
 # Release Certification
 
-Latest production qualification: [CPA admission and request status, November 4](#2026-11-04-cpa-admission-and-status-lookup-production-release).
+Latest production qualification: [Responses client closeout, November 7](#2026-11-07-responses-client-production-closeout).
 
 Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
 
@@ -3166,3 +3166,48 @@ certificate advisory and frontend dependency advisories. All failed reports are
 retained. No browser ran; layout was not checked. Existing local immutable-image
 publication remains active; no registry workflow or analytics dashboard was added.
 Future analytics issue #142 requires evaluation before any implementation.
+
+
+## 2026-11-07 Responses client production closeout
+
+[PR #148](https://github.com/prls-co/harden-llm/pull/148) adds the typed Go
+Responses client and corrects its uncertainty projection. Explicit unconfirmed
+execution overrides an execution ID; `UnknownOutcomeError` retains a distinct
+`ResponsesUnconfirmed` cause without matching a terminal `ResponsesFailure`.
+The deterministic fixture reproduction and completion synchronization are
+recorded in the [RCA](rca/responses-client-and-fixture-completion.md).
+Both OpenAPI copies preserve the separate 32 MiB gateway batch-manifest bound
+and 256 KiB ordinary/item bound. Shared public ingress retains its existing
+8 MB limit; #149 remains separate limit-owner research.
+
+The [completed plan](../plans/responses-client-production-closeout-plan.md) and
+[redacted production receipt](../plans/evidence/harden-llm/responses-client/2026-11-07-production-closeout.json)
+record the source, artifacts, failed checks, configuration and retained data.
+
+| Boundary | Verified result |
+| --- | --- |
+| Application source | `main`, merged application SHA `c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd`; PR head `65637709468f418b652620af84b866020fd3fcb8`. Later documentation-only commits do not relabel these artifacts. |
+| Source checks | Complete client/gateway/reference-fixture race suites pass. All ten local fast tasks pass with the supported two-slot setting. Hosted default fast and CodeQL pass on the PR head and merged source. |
+| Exact-source release | [Run 42430881773](https://github.com/prls-co/harden-llm/actions/runs/42430881773), attempt 1: all 30 browser-free release tasks and both retained integration subreports pass; cleanup errors/warnings empty. |
+| Gateway and worker image | `harden-llm-gateway:release-c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd`, ID `sha256:d1c2f6cf777590d090d158f52756576820c3753651c0a6b58ea1cecbf5fff41a`. OCI source/revision/version and isolated/running binary versions match the application SHA. |
+| Web image | `harden-llm-web:release-c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd`, ID `sha256:2572099e2bc6b8b968ed2a989a2f90938e4bcac25ecff96385b6e74766c83307`. OCI source/revision/version match the application SHA. |
+| Scoped rollout | Worker applied separately, then gateway/web, through the approved controller and additive/idempotent schema command. All three run with zero restarts; HTTP services are healthy. Candidate-scoped application and complementary support checks cover all eight managed services and report `equivalent`. |
+| Durable execution | Active generation 2, no outstanding permits/start intents, and fresh workflow/control/provider queue pollers attributed to the new worker container. No initialization/reset or inference replay. |
+| Public HTTP | Twelve checks pass at `https://harden-llm.prls.co/`: health/readiness, missing/invalid bearer rejection, feature status, 40 profiles, missing job/request-status lookups, invalid/oversized pre-inference Responses validation, batch-body validation above 256 KiB, and the actual root-to-Portal login route ending at `https://a.prls.co/login`. |
+| Retained data | Two accepted jobs and 1,000 items/outcomes retain their exact comparison fingerprint. Total provider-attempt ledger rows remain 1,040; zero new provider attempts. Profile count/body digest and three reference-history rows are unchanged. Protected input-file digests are unchanged. |
+| Retained owners | All five support container IDs/images/restart counts and shared PostgreSQL/Garage owner IDs are unchanged. |
+| Protected descriptor | Mode 0600; SHA-256 `e6fa1eede018cbe91e888f72d266c5241c28c5402a78147142f5c7b8392bfe32` to `32e525d51295736cf06aea1503a577633f6888b7f846f8d4d73a2cac28385aa9`. Only the three applications' image/release identity fields changed. Private rollback checkpoint: `/home/kirill/.config/harden-llm/rollout-pr148-rjqjeryf/production.before.json`, mode 0600 in a mode-0700 directory. Prior `f1ebdc4` application images remain available. |
+
+The original fixture failure remains recorded and was reproduced with a held
+handler teardown before its synchronization fix. The first local fast run also
+retains runner startup/timeouts during measured host memory/I/O pressure. The
+same assertions pass with the supported two-slot selection, and hosted default
+fast/full release gates pass. No assertion, timeout or required case was relaxed.
+Operational commands use an owned `/var/tmp` directory because this host's
+`/tmp` quota also affected artifact download and controller temporary writes.
+
+No browser or live-provider inference ran; browser layout and new provider
+throughput are not certified. Downstream products must explicitly adopt the
+published Go client revision. This release preserves the existing CPA policy,
+provider prompts, extraction schemas, credentials, accepted jobs and shared
+infrastructure. The documentation-only closeout requires no application rebuild.

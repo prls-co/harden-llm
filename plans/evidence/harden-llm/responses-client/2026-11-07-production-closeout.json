@@ -1,0 +1,661 @@
+{
+  "schemaVersion": 1,
+  "accepted": true,
+  "verifiedAt": "2026-11-08T01:41:45.693693+00:00",
+  "branch": "main",
+  "pullRequest": 148,
+  "pullRequestHeadSHA": "65637709468f418b652620af84b866020fd3fcb8",
+  "applicationSourceSHA": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+  "url": "https://harden-llm.prls.co/",
+  "plan": "plans/responses-client-production-closeout-plan.md",
+  "rca": "docs/rca/responses-client-and-fixture-completion.md",
+  "images": {
+    "gateway": {
+      "tag": "harden-llm-gateway:release-c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "id": "sha256:d1c2f6cf777590d090d158f52756576820c3753651c0a6b58ea1cecbf5fff41a",
+      "source": "https://github.com/prls-co/harden-llm",
+      "revision": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "version": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "platform": "linux/amd64"
+    },
+    "web": {
+      "tag": "harden-llm-web:release-c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "id": "sha256:2572099e2bc6b8b968ed2a989a2f90938e4bcac25ecff96385b6e74766c83307",
+      "source": "https://github.com/prls-co/harden-llm",
+      "revision": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "version": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "platform": "linux/amd64"
+    }
+  },
+  "release": {
+    "databaseId": 42430881773,
+    "attempt": 1,
+    "headSha": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+    "headBranch": "main",
+    "event": "workflow_dispatch",
+    "conclusion": "success",
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/42430881773"
+  },
+  "releaseTasks": [
+    {
+      "taskId": "go-format",
+      "status": 0,
+      "wallTimeMs": 542
+    },
+    {
+      "taskId": "go-lint",
+      "status": 0,
+      "wallTimeMs": 42755
+    },
+    {
+      "taskId": "go-build",
+      "status": 0,
+      "wallTimeMs": 21454
+    },
+    {
+      "taskId": "go-static",
+      "status": 0,
+      "wallTimeMs": 22009
+    },
+    {
+      "taskId": "runner-contracts",
+      "status": 0,
+      "wallTimeMs": 106832
+    },
+    {
+      "taskId": "production-config-compose",
+      "status": 0,
+      "wallTimeMs": 1636
+    },
+    {
+      "taskId": "go-unit",
+      "status": 0,
+      "wallTimeMs": 73875
+    },
+    {
+      "taskId": "go-parity",
+      "status": 0,
+      "wallTimeMs": 54281
+    },
+    {
+      "taskId": "go-integration",
+      "status": 0,
+      "wallTimeMs": 42667
+    },
+    {
+      "taskId": "go-temporal-integration",
+      "status": 0,
+      "wallTimeMs": 91540
+    },
+    {
+      "taskId": "go-integration-race",
+      "status": 0,
+      "wallTimeMs": 127415
+    },
+    {
+      "taskId": "go-api",
+      "status": 0,
+      "wallTimeMs": 40979
+    },
+    {
+      "taskId": "go-observability",
+      "status": 0,
+      "wallTimeMs": 16301
+    },
+    {
+      "taskId": "go-compose",
+      "status": 0,
+      "wallTimeMs": 223970
+    },
+    {
+      "taskId": "go-compose-contract",
+      "status": 0,
+      "wallTimeMs": 4131
+    },
+    {
+      "taskId": "go-race",
+      "status": 0,
+      "wallTimeMs": 570038
+    },
+    {
+      "taskId": "go-vulnerability",
+      "status": 0,
+      "wallTimeMs": 21961
+    },
+    {
+      "taskId": "frontend-ui-package",
+      "status": 0,
+      "wallTimeMs": 85732
+    },
+    {
+      "taskId": "frontend-format",
+      "status": 0,
+      "wallTimeMs": 160268
+    },
+    {
+      "taskId": "frontend-compile",
+      "status": 0,
+      "wallTimeMs": 172743
+    },
+    {
+      "taskId": "frontend-deterministic",
+      "status": 0,
+      "wallTimeMs": 290325
+    },
+    {
+      "taskId": "client-core",
+      "status": 0,
+      "wallTimeMs": 357
+    },
+    {
+      "taskId": "run-progress-client",
+      "status": 0,
+      "wallTimeMs": 535
+    },
+    {
+      "taskId": "frontend-deps-audit",
+      "status": 0,
+      "wallTimeMs": 168265
+    },
+    {
+      "taskId": "frontend-hex-audit",
+      "status": 0,
+      "wallTimeMs": 3115
+    },
+    {
+      "taskId": "frontend-assets-deploy",
+      "status": 0,
+      "wallTimeMs": 136952
+    },
+    {
+      "taskId": "frontend-pagination-asset-check",
+      "status": 0,
+      "wallTimeMs": 104783
+    },
+    {
+      "taskId": "frontend-release",
+      "status": 0,
+      "wallTimeMs": 48109
+    },
+    {
+      "taskId": "backend-verify-baseline",
+      "status": 0,
+      "wallTimeMs": 348184
+    },
+    {
+      "taskId": "frontend-gateway-workflows",
+      "status": 0,
+      "wallTimeMs": 454153
+    }
+  ],
+  "releaseReportSHA256": "a6f0e1b3324682bd64c7f42a193d1176b16744ef20edc06c6fab77650b3f2a25",
+  "localFast": {
+    "report": "tmp/test-feedback/runner-1794098268869-3536122-8cb03798fbf3b280.json",
+    "candidateSlots": 2,
+    "accepted": true,
+    "tasks": 10,
+    "cleanupErrors": [],
+    "cleanupWarnings": []
+  },
+  "localRace": {
+    "command": "TMPDIR=/var/tmp/harden-pr148-build GOWORK=off go test -mod=readonly -race -count=1 ./httpclient ./internal/gateway/httpapi ./internal/testfixture/reference",
+    "log": "/var/tmp/harden-pr148-race-corrected.log",
+    "accepted": true
+  },
+  "hostedPRChecks": [
+    {
+      "link": "https://github.com/prls-co/harden-llm/runs/128578575975",
+      "name": "CodeQL",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430607299/job/128578465967",
+      "name": "fast T0-T2",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430607299/job/128578466758",
+      "name": "explicitly requested browser checks",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430607299/job/128578466944",
+      "name": "browser-free release",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430603685/job/128578458726",
+      "name": "fast T0-T2",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430607299/job/128578467321",
+      "name": "pooled T3 integration",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430607299/job/128578467242",
+      "name": "explicit Docker lifecycle fault suite",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430603685/job/128578459865",
+      "name": "explicitly requested browser checks",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430603685/job/128578459898",
+      "name": "browser-free release",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430603685/job/128578459424",
+      "name": "pooled T3 integration",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430603685/job/128578459468",
+      "name": "explicit Docker lifecycle fault suite",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430607299/job/128578442376",
+      "name": "mode",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430604227/job/128578436414",
+      "name": "Analyze (actions)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430604227/job/128578436531",
+      "name": "Analyze (go)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430604227/job/128578436092",
+      "name": "Analyze (python)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430604227/job/128578436263",
+      "name": "Analyze (javascript-typescript)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/prls-co/harden-llm/actions/runs/42430603685/job/128578431016",
+      "name": "mode",
+      "state": "SUCCESS"
+    }
+  ],
+  "mergedSourceChecks": [
+    {
+      "conclusion": "skipped",
+      "databaseId": 42432841756,
+      "event": "workflow_run",
+      "headSha": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/42432841756",
+      "workflowName": "Harden-LLM branch environments"
+    },
+    {
+      "conclusion": "skipped",
+      "databaseId": 42431092402,
+      "event": "workflow_run",
+      "headSha": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/42431092402",
+      "workflowName": "Harden-LLM branch environments"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 42430881773,
+      "event": "workflow_dispatch",
+      "headSha": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/42430881773",
+      "workflowName": "Harden-LLM test hierarchy"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 42430874684,
+      "event": "dynamic",
+      "headSha": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/42430874684",
+      "workflowName": "CodeQL"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 42430874514,
+      "event": "push",
+      "headSha": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/42430874514",
+      "workflowName": "Harden-LLM test hierarchy"
+    }
+  ],
+  "descriptor": {
+    "directory": "/home/kirill/.config/harden-llm/rollout-pr148-rjqjeryf",
+    "descriptorBackup": "/home/kirill/.config/harden-llm/rollout-pr148-rjqjeryf/production.before.json",
+    "descriptorBeforeSHA256": "e6fa1eede018cbe91e888f72d266c5241c28c5402a78147142f5c7b8392bfe32",
+    "priorApplicationSHA": "f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4",
+    "descriptorAfterSHA256": "32e525d51295736cf06aea1503a577633f6888b7f846f8d4d73a2cac28385aa9",
+    "applicationSHA": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd"
+  },
+  "configurationChecks": [
+    {
+      "scope": "application",
+      "services": [
+        "harden-llm-gateway",
+        "harden-llm-web",
+        "harden-llm-batch-worker"
+      ],
+      "exitCode": 0,
+      "report": "production-config check: equivalent\nproject: harden-llm (default); scoped services: 3\nsource: /home/kirill/.config/prls-agent-platform/observability/live.env\nsource: /home/kirill/p/harden-llm-production/.env\nsource: /home/kirill/p/harden-llm/.env\nruntime: verified; applied: no\naction: no service recreation required\n"
+    },
+    {
+      "scope": "support",
+      "services": [
+        "otel-collector",
+        "loki",
+        "prometheus",
+        "tempo",
+        "grafana"
+      ],
+      "exitCode": 0,
+      "report": "production-config check: equivalent\nproject: harden-llm (default); scoped services: 5\nsource: /home/kirill/.config/prls-agent-platform/observability/live.env\nsource: /home/kirill/p/harden-llm-production/.env\nsource: /home/kirill/p/harden-llm/.env\nruntime: verified; applied: no\naction: no service recreation required\n"
+    }
+  ],
+  "httpChecks": [
+    {
+      "name": "gateway-health",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "name": "gateway-ready",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "name": "missing-bearer",
+      "status": 401,
+      "expected": 401,
+      "pass": true,
+      "errorCode": "invalid_api_key"
+    },
+    {
+      "name": "invalid-bearer",
+      "status": 401,
+      "expected": 401,
+      "pass": true,
+      "errorCode": "invalid_api_key"
+    },
+    {
+      "name": "feature-status",
+      "status": 200,
+      "expected": 200,
+      "pass": true,
+      "features": {
+        "storage": "configured",
+        "historyStatus": "configured",
+        "artifacts": "configured",
+        "credentials": "configured"
+      },
+      "historyRows": 3
+    },
+    {
+      "name": "profiles",
+      "status": 200,
+      "expected": 200,
+      "pass": true,
+      "profileCount": 40,
+      "bodySHA256": "c4575f5177256de5d32eae0cf26efa98730c34b9024b60bc3eb37d22e8167b3f"
+    },
+    {
+      "name": "missing-job",
+      "status": 404,
+      "expected": 404,
+      "pass": true,
+      "errorCode": "not_found"
+    },
+    {
+      "name": "missing-request-status",
+      "status": 404,
+      "expected": 404,
+      "pass": true,
+      "errorCode": "request_not_found"
+    },
+    {
+      "name": "responses-invalid-before-inference",
+      "status": 400,
+      "expected": 400,
+      "pass": true,
+      "errorCode": "invalid_request"
+    },
+    {
+      "name": "responses-encoded-bound",
+      "status": 413,
+      "expected": 413,
+      "pass": true,
+      "errorCode": "request_too_large"
+    },
+    {
+      "name": "batch-manifest-above-256k-validation",
+      "status": 400,
+      "expected": 400,
+      "pass": true,
+      "errorCode": "invalid_request"
+    },
+    {
+      "name": "portal-login",
+      "status": 200,
+      "expected": 200,
+      "pass": true,
+      "origin": "https://a.prls.co",
+      "path": "/login"
+    }
+  ],
+  "retainedLedger": {
+    "jobs": 2,
+    "items": 1000,
+    "attempts": 1040,
+    "pending_items": 0,
+    "unsettled_attempts": 0,
+    "entered_without_stop": 0,
+    "open_waiters": 0,
+    "pool_modes": [
+      "active"
+    ],
+    "retained_items_fingerprint": "c61bd87a66e048267d08a5fd91d60a19"
+  },
+  "retainedData": {
+    "profilesCountAndSHA256Unchanged": true,
+    "historyRowsUnchanged": true,
+    "acceptedItemsAndOutcomesFingerprintUnchanged": true,
+    "sourceDigestsUnchanged": true,
+    "newProviderAttempts": 0
+  },
+  "sourceDigests": {
+    "observability": "5826d070c085c8833a808bffa33273b31ae964feba41070179199b4eafef1731",
+    "production": "7b8e809d7e15fa5b84a245b8926e5354c35340b3e4ef15c324d6ec33bc99d390",
+    "shared-application": "acc7c62165006c1b496f710014604859374c7104b46b1b39b354c0437846aaec"
+  },
+  "containers": [
+    {
+      "service": "otel-collector",
+      "id": "32daddb31bd7018423b62b1ee1ad270b2241fc777489b89bb33d005d7b73c1d3",
+      "image": "sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",
+      "imageReference": "otel/opentelemetry-collector-contrib:0.156.0@sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",
+      "version": "0.156.0",
+      "revision": "aa158b23c8f89d795b21a05a49b3978565dfebd4",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "stopTimeout": 10
+    },
+    {
+      "service": "loki",
+      "id": "8398992c73d5fc0872c236e31c6d9bb18aea7d7ab601296694f6ed95751b59b3",
+      "image": "sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+      "imageReference": "grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "stopTimeout": 30
+    },
+    {
+      "service": "harden-llm-web",
+      "id": "cfc4c6e1908d7e2c2c86c2da044d8d38737af448115ee438241c28ce53cfe23e",
+      "image": "sha256:2572099e2bc6b8b968ed2a989a2f90938e4bcac25ecff96385b6e74766c83307",
+      "imageReference": "harden-llm-web:release-c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "version": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "revision": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "stopTimeout": 20
+    },
+    {
+      "service": "harden-llm-gateway",
+      "id": "f82b4a8641b20710c7750efc6bb767d294a555a68373feca179ad85e2d3a74c9",
+      "image": "sha256:d1c2f6cf777590d090d158f52756576820c3753651c0a6b58ea1cecbf5fff41a",
+      "imageReference": "harden-llm-gateway:release-c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "version": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "revision": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "stopTimeout": 70
+    },
+    {
+      "service": "prometheus",
+      "id": "4122d08a7710d0466c98671073133b9d1e85cc060f11345bc589f16ccfdd2bfb",
+      "image": "sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+      "imageReference": "prom/prometheus:v3.12.0@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "stopTimeout": 30
+    },
+    {
+      "service": "tempo",
+      "id": "3a3d4416cbea42537c684220d5ae6f59910bfc8632ee234b0c349fa6df67eefc",
+      "image": "sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
+      "imageReference": "grafana/tempo:2.10.5@sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "stopTimeout": 30
+    },
+    {
+      "service": "grafana",
+      "id": "93c87fe0939c4bd5bc0099cd97101209d96f32f2f9d0ef6e6663129c861dc571",
+      "image": "sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+      "imageReference": "grafana/grafana:13.0.2@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "stopTimeout": 30
+    },
+    {
+      "service": "harden-llm-batch-worker",
+      "id": "d4c25c2446831a45f9772ce751a440b4a43f26f54d1bfff98da23f161be225c7",
+      "image": "sha256:d1c2f6cf777590d090d158f52756576820c3753651c0a6b58ea1cecbf5fff41a",
+      "imageReference": "harden-llm-gateway:release-c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "version": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "revision": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd",
+      "status": "running",
+      "restarts": 0,
+      "stopTimeout": 120
+    }
+  ],
+  "supportContainersUnchanged": [
+    "otel-collector",
+    "loki",
+    "prometheus",
+    "tempo",
+    "grafana"
+  ],
+  "storageOwnersUnchanged": {
+    "postgres": "1121d3a95edbd6059bb641dc556c4a1deb9cd9b28c753779099c72d607e9786c",
+    "garage": "ce190d35981ea78c3809d04da816cf52fef36d6233d2f72270710ea332b73d7a"
+  },
+  "temporal": {
+    "observedAt": "2026-11-08T01:37:42.589Z",
+    "phase": "after",
+    "generation": 2,
+    "quiescing": false,
+    "outstanding": 0,
+    "startIntents": 0,
+    "workerContainer": "d4c25c2446831a45f9772ce751a440b4a43f26f54d1bfff98da23f161be225c7",
+    "workerImage": "sha256:d1c2f6cf777590d090d158f52756576820c3753651c0a6b58ea1cecbf5fff41a",
+    "queues": [
+      {
+        "queue": "harden-llm-batch-v1",
+        "type": "workflow",
+        "currentWorkerPollers": 1,
+        "lastAccessTimes": [
+          "2026-11-08T01:36:59.272469574Z"
+        ]
+      },
+      {
+        "queue": "harden-llm-batch-v1",
+        "type": "activity",
+        "currentWorkerPollers": 1,
+        "lastAccessTimes": [
+          "2026-11-08T01:36:59.272469574Z"
+        ]
+      },
+      {
+        "queue": "harden-llm-batch-v1/provider",
+        "type": "activity",
+        "currentWorkerPollers": 1,
+        "lastAccessTimes": [
+          "2026-11-08T01:36:59.251726334Z"
+        ]
+      }
+    ],
+    "accepted": true
+  },
+  "databasePoolGeneration": {
+    "generation": 2,
+    "mode": "active"
+  },
+  "retainedFailures": [
+    {
+      "kind": "original fixture completion race",
+      "report": "tmp/test-feedback/runner-1794059625515-3508864-9de1f7260f528b1c.json",
+      "reproduced": "Channel-held first handler reproduces posts=1 calls=2 before fixture cleanup; explicit completion synchronization preserves assertions."
+    },
+    {
+      "kind": "new regression RED",
+      "command": "go test -count=1 -run '^(TestResponsesClientPreservesUncertainty|TestHTTPClientUsesActualReferenceGatewayAndRecovery)$' ./httpclient ./internal/gateway/httpapi",
+      "result": "Five uncertainty cases and controlled fixture race failed before their fixes."
+    },
+    {
+      "kind": "test fixture construction",
+      "result": "Corrected the projection fixture stream field type and supplied an observed attempt rather than an invalid null attempts wire value; canonical validation unchanged."
+    },
+    {
+      "kind": "host resource pressure",
+      "report": "tmp/test-feedback/runner-1794097903304-3508909-effef4c2722ee151.json",
+      "result": "Runner startup/timeouts during measured memory and I/O pressure; retained failed report. Supported two-slot fast selection passed unchanged assertions; hosted default fast and full release passed."
+    }
+  ],
+  "limits": {
+    "ordinaryResponsesAndBatchItemBytes": 262144,
+    "gatewayBatchManifestBytes": 33554432,
+    "publicIngress": "Separate existing shared-Caddy 8 MB body bound; unchanged."
+  },
+  "limitations": [
+    "No browser testing; browser layout not checked.",
+    "No new live-provider inference or provider-throughput certification.",
+    "Downstream consumers must explicitly adopt the published Go client revision.",
+    "Issue #149 remains future request/response limit research."
+  ]
+}

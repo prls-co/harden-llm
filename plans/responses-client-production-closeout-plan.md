@@ -122,7 +122,9 @@ previous production images/configuration remain available for rollback.
    artifacts, with the documented production-config lifecycle.
 3. Verify the affected containers' image IDs, OCI revisions, release variables,
    binary version, health and restart state. Require the scoped candidate
-   checks and full descriptor check to report `equivalent`.
+   checks and the complementary support-service check, covering all eight
+   managed services, to report `equivalent`. The batch worker requires an
+   explicit expected release and a separate apply.
 4. Verify public gateway/web health and readiness, Portal login routing,
    missing/invalid bearer rejection, and an authenticated non-inference API
    operation using the server-held key without printing it. Where practical,
@@ -147,10 +149,15 @@ documentation-only successor, and all remaining follow-ups are stated exactly.
 | --- | --- | --- |
 | P01 reproduction | complete | New client regression failed in five uncertainty cases; held handler deterministically reproduced the retained `posts=1 calls=2` failure. See the [RCA](../docs/rca/responses-client-and-fixture-completion.md). |
 | P02 fixes/docs | complete | Typed uncertainty cause, real gateway projection cases, explicit fixture completion and restored OpenAPI manifest docs. Complete client/gateway/fixture race suites pass; OpenAPI copies match. |
-| P03 verification/merge | in progress | Local race log `/var/tmp/harden-pr148-race-corrected.log` passes. Default fast report `runner-1794097903304-3508909-effef4c2722ee151.json` retains runner startup/timeouts during measured host pressure; unchanged fast selection with supported `--candidate-slots 2` is running. Hosted default fast and merge remain pending. |
-| P04 release/images | pending | Required exact-source release run and image identities |
-| P05 production/closeout | pending | Required configuration equivalence, HTTP acceptance and durable receipt |
+| P03 verification/merge | complete | Local race suites and all ten fast tasks passed (`runner-1794098268869-3536122-8cb03798fbf3b280.json`, supported two-slot setting). Default failed pressure report `runner-1794097903304-3508909-effef4c2722ee151.json` is retained. Hosted default fast and CodeQL passed on PR head `6563770`; #148 merged as `c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd`. Merged-main fast/CodeQL also passed. |
+| P04 release/images | complete | [Release 42430881773](https://github.com/prls-co/harden-llm/actions/runs/42430881773), attempt 1, passed all 30 tasks and both retained integration subreports with empty cleanup errors/warnings. Clean-checkout gateway/worker image `sha256:d1c2f6cf777590d090d158f52756576820c3753651c0a6b58ea1cecbf5fff41a` and web image `sha256:2572099e2bc6b8b968ed2a989a2f90938e4bcac25ecff96385b6e74766c83307` have verified `c884eb8` revision/version labels; isolated gateway `version` matches. |
+| P05 production/closeout | complete | Worker-first and gateway/web applies converged. Both controller scopes cover all eight managed services and are equivalent; all 12 production HTTP checks pass. New worker query/pollers confirm active generation 2 and zero outstanding/start intents. Two jobs, 1,000 item/outcome fingerprints, 1,040 attempts, 40 profiles and three history rows are unchanged; support/storage owner identities and protected input hashes are retained. See the [production receipt](evidence/harden-llm/responses-client/2026-11-07-production-closeout.json) and [release record](../docs/release-certification.md#2026-11-07-responses-client-production-closeout). |
 
 Completion requires all five phases, not merely passing unit tests or a merged
 PR. Browser layout and live provider performance are not certified by this work.
 Issue #149's future size-limit research remains a separate follow-up.
+
+The production image identities are tied to application SHA `c884eb8`. The
+documentation-only closeout is published separately on `main`; it does not
+require or claim another application build. Final delivery verifies clean local
+and production source worktrees and local/tracking/remote `main` parity.

@@ -81,3 +81,14 @@ Execution and release evidence belong in the
 [closeout plan](../../plans/responses-client-production-closeout-plan.md) and
 [release certification](../release-certification.md). Local synthetic evidence
 does not certify live-provider behavior. Future limit research remains #149.
+
+## 5. Verified closeout
+
+PR #148 merged as `c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd` and the
+exact-source [browser-free release](https://github.com/prls-co/harden-llm/actions/runs/42430881773)
+passed all 30 tasks with no cleanup errors/warnings. Complete local package race
+suites, all ten fast tasks and hosted default fast/CodeQL checks also pass.
+The [production receipt](../../plans/evidence/harden-llm/responses-client/2026-11-07-production-closeout.json)
+records both deployed image identities, controller equivalence across eight
+managed services, twelve passing HTTP checks, new-worker Temporal readiness and
+unchanged retained data. No browser or paid provider inference was run.

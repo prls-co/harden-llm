@@ -21,7 +21,7 @@ See [the API contract](api/openapi.yaml), [architecture](docs/architecture.md),
 
 - Root Go package: stateless hardening client with one execution engine.
 - `stateful/`: provider effects, scoped PostgreSQL state and Garage artifacts.
-- `httpclient/`: HTTP-only Go client for the deployed profile/run reference API; no in-process provider effects or inference replay.
+- `httpclient/`: HTTP-only Go client for ordinary Responses and the deployed profile/run reference API; no in-process provider effects or inference replay.
 - `cmd/harden-llm-gateway/`: `/v1` inference and `/api/v1` reference HTTP gateway.
 - `internal/`: provider transports, recovery, cache, API codecs, telemetry, and tests.
 - `api/openapi.yaml`: authoritative gateway contract and Go/Phoenix boundary.
@@ -79,11 +79,13 @@ OpenAI-compatible clients use the API origin as their base URL with the same
 wrapper for supported OpenAI fields. See [API and Go library examples](docs/api-and-library.md)
 for request examples and the supported subset.
 
-Go services using key-scoped profiles and structured recovery over HTTP use
+Go services using ordinary Responses, key-scoped profiles or structured recovery
+over HTTP use
 [`github.com/prls-co/harden-llm/httpclient`](httpclient/README.md). It consumes
-the same `/api/v1` contract as the reusable Phoenix client, distinguishes a
-complete inference from uncertain history recording, and never retries an
-inference POST. It is separate from the root in-process stateless engine.
+the ordinary `/v1/responses` contract and the same `/api/v1` contract as the
+reusable Phoenix client. It preserves explicit execution uncertainty,
+distinguishes complete inference from uncertain history recording, and never
+retries an inference POST. It is separate from the root in-process stateless engine.
 
 ## CPA admission and batch jobs
 
