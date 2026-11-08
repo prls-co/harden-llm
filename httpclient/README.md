@@ -15,6 +15,7 @@ fragment. Explicit loopback HTTP is supported for local handler tests only;
 there is no failed-HTTPS fallback. The bearer must match the gateway's accepted
 key. A supplied `HTTPClient` is shallow-copied, not modified.
 
+- `Responses(ctx, input)` → one `POST /v1/responses`, using ordered messages, structured output and optional Harden diagnostics. The encoded request limit is 256 KiB.
 - `ListProfiles(ctx)` → `GET /api/v1/profiles`, returning `ProfilesEnvelope`.
 - `GetProfile(ctx, id)` → `GET /api/v1/profiles/{id}`, returning `ProfileDraft`.
 - `Run(ctx, input)` → one `POST /api/v1/run`, consuming its bounded SSE stream
@@ -62,6 +63,25 @@ gateway's 60-second limit. The HTTP deadline is at most 75 seconds, shortened
 by a caller deadline or shorter supplied client timeout. Redirects are disabled.
 Individual SSE frames are bounded to 16 MiB; the full stream to 16 MiB + 64 KiB.
 
+For `Responses`, a successful result carries original output text validated
+against the requested structured schema and any requested Harden metadata.
+`ResponsesInvalidOutput` denotes a received terminal response that violates the
+requested schema; it retains optional diagnostics and must not be replayed.
+`ResponsesFailure` retains the HTTP status, error code, original output text and
+available metadata for a definitive rejection or terminal failure.
+
+An `UnknownOutcomeError` means execution may have happened and must not be
+automatically replayed. Explicit `execution_unconfirmed` errors and the gateway's
+`x-should-retry: false` uncertainty signal override execution diagnostics. An
+execution ID identifies the call, not the certainty of its outcome. A valid
+received error is available through the unknown error's `*ResponsesUnconfirmed`
+cause, preserving status, code, partial output and optional diagnostics. It never
+also matches `*ResponsesFailure`. Treat output and diagnostics as sensitive;
+error strings omit remote content. The documented HTTP 409
+`tracking_id_conflict` is a pre-execution rejection and remains a
+`ResponsesFailure` despite its no-retry header. Local validation rejects before
+dispatch.
+
 ## Result and failure handling
 
 Inspect both the returned `RunOutcome` and `error`:
@@ -100,7 +120,7 @@ closes this request; it cannot promise to undo remote provider work.
 
 ## Verification
 
-Canonical case: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-482`.
+Canonical cases: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-482` (reference) and `TEST-422` (ordinary Responses).
 
 ```sh
 GOWORK=off go test -mod=readonly -race -count=1 ./httpclient ./api

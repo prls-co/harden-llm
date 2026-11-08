@@ -1522,6 +1522,28 @@ old assertions move to their new owner without weakening their purpose.
   - Pass criteria: Models/chat/responses accept the selected deployment bearer without login/profile/custom identity header. Errors/tools/final-only SSE match OpenAPI; cache-off calls succeed during storage/identity outage and direct calls create zero history entries. No incoming key/hash enters root Request or diagnostic payload. P02's TEST-425/439 add two-key authentication/cache isolation without changing this existing protocol oracle; rerun this gate after P02 composition changes.
   - Expected runtime: 10–45s.
 
+TEST-422 additionally covers the typed Go Responses client and encoded request
+budget: `go test -race -count=1 -run '^(TestResponsesClient|TestRequestBodyBudget)' ./httpclient ./internal/gateway/httpapi`.
+The client sends one ordered request, preserves terminal metadata and rejects
+malformed or unknown outcomes without replay. The gateway tests both known and
+unknown body lengths, ordered correction and JSON-escaped input within the
+existing 256 KiB encoded limit, and rejection above that limit before inference.
+The user explicitly retained this existing limit on 2026-11-07; the earlier
+full-source-sized acceptance requirement is superseded, not certified by smaller
+fixtures. These tests do not promise any token count fits the byte limit.
+This local evidence does not certify a deployed gateway.
+
+`TestResponsesClientPreservesUncertainty` and
+`TestResponsesClientGatewayUncertaintyProjection` additionally require uncertain
+502/504 and partial-output 429 outcomes to remain `UnknownOutcomeError`, even
+with an execution ID. Explicit `execution_unconfirmed` also overrides identity
+without the no-retry header. Received error facts survive as a
+`ResponsesUnconfirmed` cause, with no terminal-error match or remote-content
+error-string leakage. Known authentication/validation rejections and HTTP 409
+`tracking_id_conflict` remain definitive. Every case makes exactly one POST.
+The gateway projection case consumes the actual admission uncertainty wrapper
+and gateway error writer, rather than a separately invented wire envelope.
+
 ### TEST-423: Complete saved profiles and credential bindings
 
 - Type: unit; verifies: REQ-423, REQ-427, REQ-432.
@@ -2536,6 +2558,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Command: `go test -race ./internal/testfixture/... ./internal/gateway/httpapi -count=1`.
 - Owner contract: `reference.Decode` accepts one strict JSON object with `schemaVersion: "prls.reference-gateway-fixture.scenario.v1"` and nonempty `operations`. Each rule has an anchored `operationPattern` and ordered nonempty `steps`. A step has `match: {path, modelId, contains}`, `kind`, and only its required result fields. `path` is an exact local native path without authority/query/fragment; `modelId` is exact; `contains` is a nonblank substring of a decoded JSON string value, never a property name. Gemini model identity comes from its exact model route. `output` requires explicit string `text` (empty is valid); `http_error` requires integer `status` 400–599; `disconnect` and `wait_for_cancel` have no result fields. Missing/null output, incompatible fields (including forbidden zero/null fields), unknown fields/kinds, malformed/trailing JSON and invalid rules fail without echoing input.
 - Logical accounting wraps only authenticated `POST /api/v1/run` and delegates the original body to the real owner. Bearer rejection remains at the owner. Active logical IDs must match exactly one rule; native dispatch must match exactly one active operation's next step. Unknown, overlapping, ambiguous, out-of-order and exhausted requests fail without a default output or consuming another operation's steps. Independent IDs have independent cursors. Repeated completed IDs can make a Run POST with zero provider calls (cache or owner rejection), but any unexpected subsequent provider call fails.
+- `TestScenarioResponsePrecedesOperationCleanup` uses an owned TLS listener and channels to prove that a flushed response can precede deferred operation cleanup: overlapping reuse remains rejected, and reuse after handler completion reaches the owner with zero invented provider dispatches. The actual gateway/client case deliberately holds its first handler after the final SSE event and waits for outer fixture completion before reusing the same operation ID. Existing output/repair/rejection/grounding and exact accounting assertions remain unchanged; no sleeps, retries or global serialization hide the boundary.
 - An `output` step on exact `/v1/responses` may additionally declare `searchSources`: an explicit nonempty array of at most50 strict `{url,title}` records. URLs use the owner's existing HTTP(S), no-credentials policy, titles are nonblank, and duplicate URLs fail. Explicit null/empty/wrong types, unknown source fields, other protocols and any fault kind reject this field. A grounded step additionally requires an observed native `tools` entry with `type: "web_search"`; absent/incompatible tools reject without consuming it. The single shared native writer emits a completed `web_search_call` with `action.sources` followed by the original text message, through both ordinary JSON and native SSE. No normalized `SearchResult`, `HasSearchEvidence`, citations, provider counters, or engine outcome is injected. T0 strict cases and exact wire checks precede the actual gateway/client parser proof, which retains the original repair/rejection assertions and adds exactly one grounded Run/provider dispatch.
 - Fixture-only authenticated `GET /fixture/stats` uses `schemaVersion: "prls.reference-gateway-fixture.stats.v1"`; integer totals `runPostCount`, `providerRequestCount`, `unmatchedRunCount`, `unmatchedProviderCount`; and `operations` keyed by logical operation ID, each with integer `runPostCount`, `providerDispatchCount`, `consumedSteps`. Snapshot maps cannot mutate counters. Counters measure observed HTTP boundaries, not claimed result attempts. No prompts, credentials or DSNs appear in stats/errors.
 - Actual TEST-482 retains its original output, attempt/evidence, repair, selected model, recording-disabled, independent raw provider/POST counters and owner-rejection assertions. The strict fixture additionally requires exactly two Run POSTs, two provider dispatches/steps and zero unmatched requests. It uses the single native response writer shared with existing preset/recovery/transport/Temporal tests, not copied provider codecs or engine/recovery logic. Native network faults and concurrent logical isolation are race checked.
