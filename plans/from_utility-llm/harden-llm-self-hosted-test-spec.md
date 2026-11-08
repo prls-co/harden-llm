@@ -2577,3 +2577,14 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - The same structured seed requests native web search and its explicit scenario supplies only native source data. Fresh execution and SQL cache replay both retain exact independently expected source URL/title, `mode: "native"` and `executed: true`; replay has zero provider attempts and is not a fresh search. Each actual history row must independently contain that grounded evidence as well as the original output. No separate cache implementation, normalized fixture injection or weakening of the existing lifecycle/isolation oracle.
 - Two independent owned schemas/processes with the same synthetic bearer retain independent model outputs/cache/history. Stopping one closes its gateway, TLS provider and all `application_name`-identified SQL sessions without harming its sibling. Restart preserves actual history and reading it dispatches zero inference. A new local TLS port legitimately changes the actual upstream cache namespace; do not override cache identity or call this restart a cache-hit proof. Replay before restart and SQL row readback prove persistence.
 - Failed startup with a missing schema or incompatible existing schema emits no readiness and performs no reset. Readiness-writer failure closes owned HTTP/provider/SQL resources. No shared public table or sibling schema is removed or changed.
+
+
+### TEST-532: Importing tier-runner process interruption
+
+- Type / verifies: process-local Node regression; owned descendant cancellation for issue #107 under SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001.
+- Location: `scripts/test/run_test_tier_test.mjs`; fixture `scripts/test/fixtures/tier-runner-interruption.mjs`.
+- Command: `node --test --test-name-pattern='TEST-532 importing runner' scripts/test/run_test_tier_test.mjs`.
+- Fixtures/data: Unique private directory, three detached native Node workers and their GNU time wrappers, PID plus Linux `/proc` start identities; no Docker, browser, provider or credentials.
+- Deterministic controls: Wait for all three start records before signaling the importing parent; 30-second task timeout cannot explain cleanup within the asserted five-second cancellation budget. SIGTERM, SIGINT and TERM-resistant workers exercise actual process-group cancellation and the existing two-second escalation. The outer owner releases/terminates only identity-matched fixture processes on failure.
+- Pass criteria: The parent joins work and returns a failed run without dying from the signal; all six owned process identities are stopped; no cleanup errors. Existing overlap/resource-slot, first-failure and task-timeout assertions remain unchanged. SIGKILL of the owner is outside the graceful-cancellation contract.
+- Expected runtime: Under 10 seconds; 15-second deadline per interruption case.
