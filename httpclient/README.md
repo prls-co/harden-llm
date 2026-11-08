@@ -63,7 +63,24 @@ gateway's 60-second limit. The HTTP deadline is at most 75 seconds, shortened
 by a caller deadline or shorter supplied client timeout. Redirects are disabled.
 Individual SSE frames are bounded to 16 MiB; the full stream to 16 MiB + 64 KiB.
 
-For `Responses`, a successful result carries original output text validated against the requested structured schema and any requested Harden metadata. `ResponsesInvalidOutput` denotes a received terminal response that violates the requested schema; it retains optional diagnostics and must not be replayed. `ResponsesFailure` retains the HTTP status, error code, original output text and available metadata; treat output text as sensitive. An `UnknownOutcomeError` means execution may have happened and must not be automatically replayed. Local validation rejects before dispatch.
+For `Responses`, a successful result carries original output text validated
+against the requested structured schema and any requested Harden metadata.
+`ResponsesInvalidOutput` denotes a received terminal response that violates the
+requested schema; it retains optional diagnostics and must not be replayed.
+`ResponsesFailure` retains the HTTP status, error code, original output text and
+available metadata for a definitive rejection or terminal failure.
+
+An `UnknownOutcomeError` means execution may have happened and must not be
+automatically replayed. Explicit `execution_unconfirmed` errors and the gateway's
+`x-should-retry: false` uncertainty signal override execution diagnostics. An
+execution ID identifies the call, not the certainty of its outcome. A valid
+received error is available through the unknown error's `*ResponsesUnconfirmed`
+cause, preserving status, code, partial output and optional diagnostics. It never
+also matches `*ResponsesFailure`. Treat output and diagnostics as sensitive;
+error strings omit remote content. The documented HTTP 409
+`tracking_id_conflict` is a pre-execution rejection and remains a
+`ResponsesFailure` despite its no-retry header. Local validation rejects before
+dispatch.
 
 ## Result and failure handling
 

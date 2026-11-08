@@ -12,8 +12,10 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/httpclient"
@@ -75,14 +77,28 @@ func TestHTTPClientUsesActualReferenceGatewayAndRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	var inferencePOSTs atomic.Int32
+	firstHandlerReturned := make(chan struct{})
+	finishFirstHandler := make(chan struct{})
+	releaseFirstHandler := sync.OnceFunc(func() { close(finishFirstHandler) })
+	handlerCompleted := make(chan struct{}, 3)
 	handler := gateway.Handler()
-	server := httptest.NewServer(scenario.Gateway(key, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fixture := scenario.Gateway(key, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var post int32
 		if r.Method == http.MethodPost && r.URL.Path == "/api/v1/run" {
-			inferencePOSTs.Add(1)
+			post = inferencePOSTs.Add(1)
 		}
 		handler.ServeHTTP(w, r)
-	})))
+		if post == 1 {
+			close(firstHandlerReturned)
+			<-finishFirstHandler
+		}
+	}))
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fixture.ServeHTTP(w, r)
+		handlerCompleted <- struct{}{}
+	}))
 	t.Cleanup(server.Close)
+	t.Cleanup(releaseFirstHandler)
 	client, err := httpclient.New(httpclient.Config{BaseURL: server.URL, APIKey: key, HTTPClient: server.Client()})
 	if err != nil {
 		t.Fatal(err)
@@ -100,12 +116,31 @@ func TestHTTPClientUsesActualReferenceGatewayAndRecovery(t *testing.T) {
 	}
 	// A real pre-stream owner rejection must not invent complete attempt
 	// evidence or trigger another inference inside the client.
+	select {
+	case <-firstHandlerReturned:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first gateway handler did not finish its SSE response")
+	}
+	// Reading the flushed final SSE event does not prove the fixture's
+	// deferred operation cleanup has run. Synchronize that separate boundary
+	// before reusing the same logical operation ID.
+	releaseFirstHandler()
+	waitForHandler := func() {
+		t.Helper()
+		select {
+		case <-handlerCompleted:
+		case <-time.After(5 * time.Second):
+			t.Fatal("reference fixture handler did not finish its operation cleanup")
+		}
+	}
+	waitForHandler()
 	input.ProfileID = "missing-fixture-profile"
 	_, err = client.Run(context.Background(), input)
 	var rejected *httpclient.RejectedError
 	if !errors.As(err, &rejected) || calls.Load() != 2 || inferencePOSTs.Load() != 2 {
 		t.Fatalf("owner rejection misclassified or replayed: posts=%d calls=%d err=%v", inferencePOSTs.Load(), calls.Load(), err)
 	}
+	waitForHandler()
 	stats := scenario.Stats()
 	operation := stats.Operations[input.Origin.OperationID]
 	if stats.RunPostCount != 2 || stats.ProviderRequestCount != 2 || stats.UnmatchedRunCount != 0 || stats.UnmatchedProviderCount != 0 || operation.RunPostCount != 2 || operation.ProviderDispatchCount != 2 || operation.ConsumedSteps != 2 {
@@ -116,6 +151,7 @@ func TestHTTPClientUsesActualReferenceGatewayAndRecovery(t *testing.T) {
 	input.ProfileID, input.UserPrompt = profileID, "Return a grounded fixture object."
 	input.Origin.OperationID, input.WebSearch = "fixture-grounded-operation", true
 	grounded, err := client.Run(context.Background(), input)
+	waitForHandler()
 	expectedSources := []hardenllm.SearchSource{{URL: "https://example.invalid/company", Title: "Independent fixture source"}}
 	if err != nil || string(grounded.Result.Output) != `{"ok":true}` || grounded.Result.Search == nil || !grounded.Result.Search.Executed || grounded.Result.Search.Mode != "native" || !reflect.DeepEqual(grounded.Result.Search.Sources, expectedSources) || grounded.Evidence == nil || grounded.Evidence.ProviderAttemptCount != 1 || grounded.Recording.Status != "disabled" || calls.Load() != 3 || inferencePOSTs.Load() != 3 {
 		t.Fatal("actual parser/client failed to retain native grounded evidence or changed dispatch count")

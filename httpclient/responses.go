@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/prls-co/harden-llm/api"
@@ -60,6 +61,20 @@ type ResponsesFailure struct {
 }
 
 func (*ResponsesFailure) Error() string { return "harden Responses request failed" }
+
+// ResponsesUnconfirmed preserves received error facts without classifying the
+// inference as terminal. It is the typed cause of an UnknownOutcomeError.
+// OutputText and Harden may contain sensitive remote content; Error omits them.
+type ResponsesUnconfirmed struct {
+	StatusCode int
+	Code       string
+	OutputText string
+	Harden     json.RawMessage
+}
+
+func (*ResponsesUnconfirmed) Error() string {
+	return "harden Responses execution outcome is unconfirmed"
+}
 
 // ResponsesInvalidOutput is a received terminal response that does not satisfy
 // the requested schema. It retains only its model and optional diagnostics.
@@ -125,12 +140,21 @@ func (client *Client) Responses(ctx context.Context, input ResponsesInput) (Resp
 		if json.Unmarshal(raw, &envelope) != nil {
 			return out, &UnknownOutcomeError{Cause: &ProtocolError{}}
 		}
+		unconfirmed := func() error {
+			return &UnknownOutcomeError{Cause: &ResponsesUnconfirmed{StatusCode: response.StatusCode, Code: envelope.Error.Code, OutputText: envelope.OutputText, Harden: envelope.Harden}}
+		}
+		// The tracking conflict is a documented pre-execution rejection. Other
+		// no-retry responses can describe entered, uncertain provider work.
+		trackingConflict := response.StatusCode == http.StatusConflict && envelope.Error.Code == "tracking_id_conflict"
+		if envelope.Error.Code == "execution_unconfirmed" || (!trackingConflict && strings.EqualFold(strings.TrimSpace(response.Header.Get("x-should-retry")), "false")) {
+			return out, unconfirmed()
+		}
 		if response.StatusCode >= 500 {
 			var evidence struct {
 				ExecutionID string `json:"execution_id"`
 			}
 			if json.Unmarshal(envelope.Harden, &evidence) != nil || evidence.ExecutionID == "" {
-				return out, &UnknownOutcomeError{Cause: &ProtocolError{}}
+				return out, unconfirmed()
 			}
 		}
 		return out, &ResponsesFailure{StatusCode: response.StatusCode, Code: envelope.Error.Code, OutputText: envelope.OutputText, Harden: envelope.Harden}

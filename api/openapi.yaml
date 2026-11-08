@@ -38,7 +38,7 @@ paths:
         Opt-in self-hosted Temporal execution. Each item is one generation using
         the configured CPA upstream, gpt-6-luna and low reasoning. Caching,
         multi-step recovery and web search are disabled. The manifest is at most
-        256 KiB; each request is at most 256 KiB. Acceptance requires a durable
+        32 MiB; each request is at most 256 KiB. Acceptance requires a durable
         workflow-start acknowledgement. The idempotency key is scoped to the bearer.
       parameters:
         - name: Idempotency-Key

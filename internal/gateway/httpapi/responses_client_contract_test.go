@@ -4,6 +4,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,7 +14,48 @@ import (
 
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/httpclient"
+	"github.com/prls-co/harden-llm/stateful/batch"
 )
+
+// TEST-422 / TEST-517: Preserve uncertainty from the actual gateway projection.
+func TestResponsesClientGatewayUncertaintyProjection(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name   string
+		result hardenllm.ProviderResult
+		err    error
+		status int
+	}{
+		{"network", hardenllm.ProviderResult{ProviderDispatched: true}, &hardenllm.ProviderError{Category: "network", Code: "NETWORK_ERROR"}, 502},
+		{"partial refusal", hardenllm.ProviderResult{ProviderDispatched: true}, &hardenllm.ProviderError{Category: "rate_limit", Code: "rate_limit_exceeded", Status: 429}, 429},
+		{"timeout", hardenllm.ProviderResult{ProviderDispatched: true}, context.DeadlineExceeded, 504},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.status == 429 {
+				tc.result.Stream.OutputBytes = 1
+			}
+			_, uncertain := batch.ObserveProviderDispatch(tc.result, tc.err)
+			var calls atomic.Int32
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				(&API{}).writeCallError(w, uncertain, hardenllm.Result{CallID: "fixture-call", TraceID: "fixture-trace", Attempts: []hardenllm.Attempt{{Number: 1, ProviderUsed: true}}}, true)
+			}))
+			t.Cleanup(server.Close)
+			client, err := httpclient.New(httpclient.Config{BaseURL: server.URL, APIKey: proxyTestToken, HTTPClient: server.Client()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			input := httpclient.ResponsesInput{Model: "fixture-model", Input: []httpclient.ResponseMessage{{Role: "user", Content: "fixture"}}, Text: httpclient.ResponseText{Format: httpclient.ResponseFormat{Type: "json_schema", Name: "result", Schema: json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`), Strict: true}}, Harden: httpclient.ResponseControls{Diagnostics: true}}
+			_, err = client.Responses(context.Background(), input)
+			var unknown *httpclient.UnknownOutcomeError
+			var facts *httpclient.ResponsesUnconfirmed
+			var terminal *httpclient.ResponsesFailure
+			if !errors.As(err, &unknown) || !errors.As(err, &facts) || errors.As(err, &terminal) || facts.StatusCode != tc.status || !strings.Contains(string(facts.Harden), "fixture-call") || calls.Load() != 1 {
+				t.Fatalf("gateway uncertainty lost or replayed: error=%T calls=%d", err, calls.Load())
+			}
+		})
+	}
+}
 
 func TestResponsesClientActualGateway(t *testing.T) {
 	text := strings.Repeat("x", 128<<10)

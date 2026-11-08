@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -34,6 +35,72 @@ func loadScenario(t *testing.T, input string) *Scenario {
 		t.Fatal(err)
 	}
 	return scenario
+}
+
+// TEST-485: A flushed response does not imply deferred fixture cleanup ran.
+func TestScenarioResponsePrecedesOperationCleanup(t *testing.T) {
+	t.Parallel()
+	scenario := loadScenario(t, fixtureScenario)
+	release := make(chan struct{})
+	releaseHandler := sync.OnceFunc(func() { close(release) })
+	firstCompleted := make(chan struct{})
+	var ownerCalls atomic.Int32
+	fixture := scenario.Gateway("fixture-key", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		call := ownerCalls.Add(1)
+		_, _ = io.WriteString(w, "x")
+		if err := http.NewResponseController(w).Flush(); err != nil {
+			t.Error(err)
+			return
+		}
+		if call == 1 {
+			<-release
+		}
+	}))
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fixture.ServeHTTP(w, r)
+		if r.Header.Get("X-Fixture-Request") == "first" {
+			close(firstCompleted)
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(releaseHandler)
+	post := func(marker string) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/run", strings.NewReader(`{"origin":{"operationId":"fixture-operation"}}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer fixture-key")
+		req.Header.Set("X-Fixture-Request", marker)
+		response, err := server.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = response.Body.Close() })
+		return response
+	}
+	first := post("first")
+	if _, err := io.ReadFull(first.Body, make([]byte, 1)); err != nil || first.StatusCode != http.StatusOK {
+		t.Fatalf("first response: status=%d err=%v", first.StatusCode, err)
+	}
+	overlap := post("overlap")
+	if overlap.StatusCode != http.StatusConflict || ownerCalls.Load() != 1 {
+		t.Fatalf("overlapping fixture request reached owner: status=%d calls=%d", overlap.StatusCode, ownerCalls.Load())
+	}
+	releaseHandler()
+	select {
+	case <-firstCompleted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("fixture handler did not release its logical operation")
+	}
+	next := post("next")
+	if next.StatusCode != http.StatusOK || ownerCalls.Load() != 2 {
+		t.Fatalf("completed fixture operation could not be reused: status=%d calls=%d", next.StatusCode, ownerCalls.Load())
+	}
+	stats := scenario.Stats()
+	if stats.RunPostCount != 3 || stats.UnmatchedRunCount != 1 || stats.ProviderRequestCount != 0 || stats.Operations["fixture-operation"].RunPostCount != 2 {
+		t.Fatalf("fixture changed admission/provider accounting: %#v", stats)
+	}
 }
 
 func providerRequest(scenario *Scenario, path, model, marker string) *httptest.ResponseRecorder {
