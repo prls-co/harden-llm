@@ -1,14 +1,14 @@
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-049 TEST-281
 
 import assert from "node:assert/strict";
-import { afterEach, describe, test } from "node:test";
-import { spawnSync } from "node:child_process";
+import { after, afterEach, describe, test } from "node:test";
+import { spawn, spawnSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { main, resourceCleanupOptions, resolvedCommand, runCommand, runTasks, validateManifest, writeRunReport } from "../run-test-tier.mjs";
+import { main, watchProcessSignals, resourceCleanupOptions, resolvedCommand, runCommand, runTasks, validateManifest, writeRunReport } from "../run-test-tier.mjs";
 
 const TEST_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const fixtureSource = `
@@ -44,6 +44,9 @@ if (mode === "wait-for-release") {
 else setTimeout(() => finish(0), duration);
 `;
 
+const processCancellation = watchProcessSignals();
+after(() => processCancellation.dispose());
+
 const openFixtures = new Set();
 
 async function fixture() {
@@ -62,6 +65,65 @@ async function closeFixtures() {
 }
 
 afterEach(closeFixtures);
+
+// TEST-532 / issue #107: exercise the importing process, detached GNU time
+// wrappers and native workers. The outer test owns cleanup even if its oracle fails.
+for (const interrupt of ["SIGTERM", "SIGINT", "abort-resistant"]) {
+  test(`TEST-532 importing runner joins owned descendants after ${interrupt}`, { timeout: 15_000 }, async () => {
+    const data = await fixture();
+    const parent = spawn(process.execPath, [path.join(TEST_ROOT, "scripts/test/fixtures/tier-runner-interruption.mjs"), data.root, interrupt], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let diagnostics = "";
+    parent.stderr.on("data", chunk => { diagnostics += chunk.toString(); });
+    parent.stdout.resume();
+    const exited = new Promise(resolve => parent.once("close", (code, signal) => resolve({ code, signal })));
+    let identities = [];
+    const activeIdentity = async identity => {
+      try {
+        const stat = await fs.readFile(`/proc/${identity.pid}/stat`, "utf8");
+        const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+        return fields[19] === identity.start && fields[0] !== "Z";
+      } catch (error) {
+        if (error.code === "ENOENT") return false;
+        throw error;
+      }
+    };
+    let deadlineTimer;
+    try {
+      const deadline = Date.now() + 8_000;
+      while (Date.now() < deadline) {
+        const records = await events(data);
+        if (records.length === 3) { identities = records.flatMap(record => record.identities); break; }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      assert.equal(identities.length, 6, diagnostics || "three native workers and their wrappers must start before interruption");
+      const before = Date.now();
+      parent.kill(interrupt === "SIGINT" ? "SIGINT" : "SIGTERM");
+      const result = await Promise.race([
+        exited,
+        new Promise((_, reject) => { deadlineTimer = setTimeout(() => reject(new Error("owned cancellation exceeded five-second budget")), 5_000); }),
+      ]);
+      assert.equal(result.signal, null, "owner must join tasks and exit normally, not die before cleanup");
+      assert.equal(result.code, 1, diagnostics);
+      assert.ok(Date.now() - before < 5_000);
+      for (const identity of identities) assert.equal(await activeIdentity(identity), false, `owned PID ${identity.pid} survived cancellation`);
+      assert.equal((await fs.readdir(data.root)).includes("result.json"), true, "runner returns after descendant cleanup");
+      const report = JSON.parse(await fs.readFile(path.join(data.root, "result.json"), "utf8"));
+      assert.equal(report.accepted, false);
+      assert.deepEqual(report.cleanupErrors, []);
+    } finally {
+      clearTimeout(deadlineTimer);
+      // The release is understood even by the TERM-resistant fixture. Never
+      // signal a PID whose /proc start identity no longer matches this test.
+      await fs.writeFile(path.join(data.root, "release"), "release");
+      if (parent.exitCode === null && parent.signalCode === null) parent.kill("SIGTERM");
+      for (const identity of identities) if (await activeIdentity(identity)) process.kill(identity.pid, "SIGKILL");
+      if (parent.exitCode === null && parent.signalCode === null) parent.kill("SIGKILL");
+      await exited;
+    }
+  });
+}
 
 test("service pool manifests require the Compose file and published service ports", () => {
   const manifest = {
@@ -128,12 +190,13 @@ function task(fixtureData, id, resourceClass = "cpu", mode = "ok", duration = 80
 }
 
 async function runFixture(fixtureData, tasks, options = {}) {
-  const { environment = {}, ...runnerOptions } = options;
+  const { environment = {}, signal, ...runnerOptions } = options;
   return runTasks(tasks, {
     root: fixtureData.root,
     resourceClasses: resources(),
     environment: { HARDEN_LLM_FAKE_EVENTS: fixtureData.eventsPath, ...environment },
     runDirectory: path.join(fixtureData.root, "run"),
+    signal: signal ? AbortSignal.any([processCancellation.signal, signal]) : processCancellation.signal,
     ...runnerOptions,
   });
 }

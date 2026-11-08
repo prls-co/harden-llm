@@ -23,6 +23,22 @@ const MAX_PROJECT_RESOURCES = 1024;
 const MAX_RUN_REPORT_BYTES = 2 * 1024 * 1024;
 const REDACTED_SECRET_VALUES = new Set();
 
+// The executable host owns process signals. Library callers must pass the
+// returned signal into runTasks and dispose only after all owned work is joined.
+export function watchProcessSignals() {
+  const controller = new AbortController();
+  const onSignal = () => controller.abort();
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+  return {
+    signal: controller.signal,
+    dispose() {
+      process.removeListener("SIGINT", onSignal);
+      process.removeListener("SIGTERM", onSignal);
+    },
+  };
+}
+
 export async function loadManifest(manifestPath) {
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
   validateManifest(manifest);
@@ -227,14 +243,17 @@ async function runExternal(executable, args, options = {}) {
   child.stderr.on("data", (chunk) => stderr.append(chunk));
   let timedOut = false;
   let killTimer = null;
-  const terminate = () => terminateProcessGroup(child, "SIGTERM");
-  const abortHandler = () => terminate();
+  const terminate = () => {
+    terminateProcessGroup(child, "SIGTERM");
+    killTimer ??= setTimeout(() => terminateProcessGroup(child, "SIGKILL"), TASK_TIMEOUT_GRACE_MS);
+    killTimer.unref();
+  };
+  const abortHandler = terminate;
   options.signal?.addEventListener("abort", abortHandler, { once: true });
+  if (options.signal?.aborted) abortHandler();
   const timeoutTimer = options.timeoutMs ? setTimeout(() => {
     timedOut = true;
     terminate();
-    killTimer = setTimeout(() => terminateProcessGroup(child, "SIGKILL"), TASK_TIMEOUT_GRACE_MS);
-    killTimer.unref();
   }, options.timeoutMs) : null;
   const outcome = await new Promise((resolve) => {
     child.once("error", (error) => resolve({ error }));
@@ -1199,14 +1218,18 @@ export async function runCommand(task, options) {
     };
     const interval = setInterval(sampleRSS, 50);
     let killTimer = null;
+    const terminate = () => {
+      terminateProcessGroup(child, "SIGTERM");
+      killTimer ??= setTimeout(() => terminateProcessGroup(child, "SIGKILL"), TASK_TIMEOUT_GRACE_MS);
+      killTimer.unref();
+    };
     const timeoutTimer = setTimeout(() => {
       timedOut = true;
-      terminateProcessGroup(child, "SIGTERM");
-      killTimer = setTimeout(() => terminateProcessGroup(child, "SIGKILL"), TASK_TIMEOUT_GRACE_MS);
-      killTimer.unref();
+      terminate();
     }, task.timeoutMs);
-    const abortHandler = () => terminateProcessGroup(child, "SIGTERM");
+    const abortHandler = terminate;
     options.signal?.addEventListener("abort", abortHandler, { once: true });
+    if (options.signal?.aborted) abortHandler();
 
     const outcome = await new Promise((resolve) => {
       child.once("error", (error) => resolve({ error }));
@@ -1606,20 +1629,16 @@ export async function main(argv = process.argv.slice(2)) {
   }
   const manifest = await loadManifest(args.manifest);
   manifest.__manifestSHA256 = await sha256File(args.manifest);
-  const controller = new AbortController();
-  const onSignal = () => controller.abort();
-  process.once("SIGINT", onSignal);
-  process.once("SIGTERM", onSignal);
+  const cancellation = watchProcessSignals();
   try {
-    const result = await runSelection({ ...args, manifest, signal: controller.signal });
+    const result = await runSelection({ ...args, manifest, signal: cancellation.signal });
     const reportPath = args.output ?? path.join(args.root, "tmp", "test-feedback", `runner-${Date.now()}-${process.pid}-${randomBytes(8).toString("hex")}.json`);
     const output = { ...result, generatedAt: new Date().toISOString(), reportPath };
     await writeRunReport(output, reportPath);
     console.log(JSON.stringify({ accepted: output.accepted, selector: output.selector, taskCount: output.results.length, failure: output.firstFailure, cleanupErrors: output.cleanupErrors, cleanupWarnings: output.cleanupWarnings, output: reportPath }));
     return output.accepted ? 0 : 1;
   } finally {
-    process.removeListener("SIGINT", onSignal);
-    process.removeListener("SIGTERM", onSignal);
+    cancellation.dispose();
   }
 }
 

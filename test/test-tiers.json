@@ -80,7 +80,7 @@
     },
     {
       "id": "runner-contracts",
-      "testIds": ["TEST-049", "TEST-271", "TEST-272", "TEST-273", "TEST-275", "TEST-460"],
+      "testIds": ["TEST-049", "TEST-271", "TEST-272", "TEST-273", "TEST-275", "TEST-460", "TEST-532"],
       "tier": "T1",
       "resourceClass": "cpu",
       "command": ["node", "--test", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/test/test_resource_measurement_test.mjs", "scripts/test/test_coverage_test.mjs"],
@@ -91,7 +91,7 @@
       "credentialKeys": [],
       "requiredFor": ["baseline", "fast", "release"],
       "benchmarkLanes": ["fast-candidates"],
-      "pathSelectors": ["scripts/run-test-tier.mjs", "scripts/test-resource-lifecycle.mjs", "scripts/test/run_test_tier_test.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/measure-test-resources.mjs", "scripts/test/test_resource_measurement_test.mjs", "test/test-tiers.json", "scripts/test-coverage.mjs", "scripts/test/test_coverage_test.mjs", "plans/from_utility-llm/*test-spec.md", "plans/from_utility-llm/*frontend-spec.md"]
+      "pathSelectors": ["scripts/run-test-tier.mjs", "scripts/test-resource-lifecycle.mjs", "scripts/test/run_test_tier_test.mjs", "scripts/test/fixtures/tier-runner-interruption.mjs", "scripts/test/test_resource_lifecycle_test.mjs", "scripts/measure-test-resources.mjs", "scripts/test/test_resource_measurement_test.mjs", "test/test-tiers.json", "scripts/test-coverage.mjs", "scripts/test/test_coverage_test.mjs", "plans/from_utility-llm/*test-spec.md", "plans/from_utility-llm/*frontend-spec.md"]
     },
     {
       "id": "production-config-compose",

@@ -1,0 +1,377 @@
+TAP version 13
+# Subtest: TEST-532 importing runner joins owned descendants after SIGTERM
+ok 1 - TEST-532 importing runner joins owned descendants after SIGTERM
+  ---
+  duration_ms: 895.181268
+  type: 'test'
+  ...
+# Subtest: TEST-532 importing runner joins owned descendants after SIGINT
+ok 2 - TEST-532 importing runner joins owned descendants after SIGINT
+  ---
+  duration_ms: 686.530433
+  type: 'test'
+  ...
+# Subtest: TEST-532 importing runner joins owned descendants after abort-resistant
+ok 3 - TEST-532 importing runner joins owned descendants after abort-resistant
+  ---
+  duration_ms: 2778.665602
+  type: 'test'
+  ...
+# Subtest: service pool manifests require the Compose file and published service ports
+ok 4 - service pool manifests require the Compose file and published service ports
+  ---
+  duration_ms: 3.185945
+  type: 'test'
+  ...
+# Subtest: TEST-049 refuses the real Docker lifecycle boundary without a managed lease
+ok 5 - TEST-049 refuses the real Docker lifecycle boundary without a managed lease
+  ---
+  duration_ms: 368.252675
+  type: 'test'
+  ...
+# Subtest: TEST-281 cleanup budgets are per task until an invocation-wide cancellation tail begins
+ok 6 - TEST-281 cleanup budgets are per task until an invocation-wide cancellation tail begins
+  ---
+  duration_ms: 1.099477
+  type: 'test'
+  ...
+# Subtest: resource-aware tier runner
+    # Subtest: Docker-backed host tasks inherit managed resource identity
+    ok 1 - Docker-backed host tasks inherit managed resource identity
+      ---
+      duration_ms: 298.191707
+      type: 'test'
+      ...
+    # Subtest: container Compose fixtures inherit exact host resource ownership
+    ok 2 - container Compose fixtures inherit exact host resource ownership
+      ---
+      duration_ms: 2.857689
+      type: 'test'
+      ...
+    # Subtest: host resource identity requires Docker socket and host checkout access
+    ok 3 - host resource identity requires Docker socket and host checkout access
+      ---
+      duration_ms: 5.294822
+      type: 'test'
+      ...
+    # Subtest: container Mix builds use their own writable task directory for both mount layouts
+    ok 4 - container Mix builds use their own writable task directory for both mount layouts
+      ---
+      duration_ms: 1.702002
+      type: 'test'
+      ...
+    # Subtest: container socket access uses the host socket group without requiring Compose identity
+    ok 5 - container socket access uses the host socket group without requiring Compose identity
+      ---
+      duration_ms: 0.741322
+      type: 'test'
+      ...
+    # Subtest: isolates parallel Mix build output in runner-owned task directories
+    ok 6 - isolates parallel Mix build output in runner-owned task directories
+      ---
+      duration_ms: 4.967076
+      type: 'test'
+      ...
+    # Subtest: redacts explicitly declared credentials from task output and reports
+    ok 7 - redacts explicitly declared credentials from task output and reports
+      ---
+      duration_ms: 418.006167
+      type: 'test'
+      ...
+    # Subtest: honors dependency ordering and exposes a stable result record
+    ok 8 - honors dependency ordering and exposes a stable result record
+      ---
+      duration_ms: 791.389425
+      type: 'test'
+      ...
+    # Subtest: enforces resource slots while allowing independent resources to overlap
+    ok 9 - enforces resource slots while allowing independent resources to overlap
+      ---
+      duration_ms: 739.859458
+      type: 'test'
+      ...
+    # Subtest: keeps exclusive resources isolated from all other work
+    ok 10 - keeps exclusive resources isolated from all other work
+      ---
+      duration_ms: 2705.092468
+      type: 'test'
+      ...
+    # Subtest: cancels eligible siblings after the first causal failure
+    ok 11 - cancels eligible siblings after the first causal failure
+      ---
+      duration_ms: 570.69758
+      type: 'test'
+      ...
+    # Subtest: propagates an external abort through the child process group
+    ok 12 - propagates an external abort through the child process group
+      ---
+      duration_ms: 626.053195
+      type: 'test'
+      ...
+    # Subtest: terminates a task that exceeds its bounded timeout
+    ok 13 - terminates a task that exceeds its bounded timeout
+      ---
+      duration_ms: 176.134255
+      type: 'test'
+      ...
+    # Subtest: bounds captured output and preserves the child exit status
+    ok 14 - bounds captured output and preserves the child exit status
+      ---
+      duration_ms: 381.696103
+      type: 'test'
+      ...
+    1..14
+ok 7 - resource-aware tier runner
+  ---
+  duration_ms: 6725.738542
+  type: 'suite'
+  ...
+# Subtest: writes a unique private run report by default with task and lifecycle timings
+ok 8 - writes a unique private run report by default with task and lifecycle timings
+  ---
+  duration_ms: 300.391774
+  type: 'test'
+  ...
+# Subtest: refuses an oversized diagnostic report without leaving a partial artifact
+ok 9 - refuses an oversized diagnostic report without leaving a partial artifact
+  ---
+  duration_ms: 38.234678
+  type: 'test'
+  ...
+# Subtest: browser-free frontend tasks use process-owned HTTP ports
+ok 10 - browser-free frontend tasks use process-owned HTTP ports
+  ---
+  duration_ms: 8.929392
+  type: 'test'
+  ...
+# Subtest: endurance resource measurements isolate process-wide counters
+ok 11 - endurance resource measurements isolate process-wide counters
+  ---
+  duration_ms: 3.314921
+  type: 'test'
+  ...
+# Subtest: retry fixture retains every declared pair and required triple
+ok 12 - retry fixture retains every declared pair and required triple
+  ---
+  duration_ms: 17.899423
+  type: 'test'
+  ...
+# Subtest: coverage uses feasible domain tuples and permanent regression IDs
+ok 13 - coverage uses feasible domain tuples and permanent regression IDs
+  ---
+  duration_ms: 5.288793
+  type: 'test'
+  ...
+# Subtest: case closure rejects lost registration, gate and executable consumer
+ok 14 - case closure rejects lost registration, gate and executable consumer
+  ---
+  duration_ms: 13.507846
+  type: 'test'
+  ...
+# Subtest: TEST-271 registers a private durable receipt before service creation
+ok 15 - TEST-271 registers a private durable receipt before service creation
+  ---
+  duration_ms: 3081.978336
+  type: 'test'
+  ...
+# Subtest: TEST-271 refuses managed Docker work without a source revision
+ok 16 - TEST-271 refuses managed Docker work without a source revision
+  ---
+  duration_ms: 10.834045
+  type: 'test'
+  ...
+# Subtest: TEST-271 receipt validation or atomic-write failure prevents Docker mutation
+ok 17 - TEST-271 receipt validation or atomic-write failure prevents Docker mutation
+  ---
+  duration_ms: 1732.829305
+  type: 'test'
+  ...
+# Subtest: TEST-272 cleanup failures fail acceptance
+ok 18 - TEST-272 cleanup failures fail acceptance
+  ---
+  duration_ms: 15768.159572
+  type: 'test'
+  ...
+# Subtest: TEST-272 waits for a Docker container removal already in progress
+ok 19 - TEST-272 waits for a Docker container removal already in progress
+  ---
+  duration_ms: 8708.352502
+  type: 'test'
+  ...
+# Subtest: TEST-272 keeps cleanup pending when an in-progress Docker removal does not settle
+ok 20 - TEST-272 keeps cleanup pending when an in-progress Docker removal does not settle
+  ---
+  duration_ms: 9581.122926
+  type: 'test'
+  ...
+# Subtest: TEST-272 cleanup reporting preserves the first task failure and Compose warning
+ok 21 - TEST-272 cleanup reporting preserves the first task failure and Compose warning
+  ---
+  duration_ms: 3114.792593
+  type: 'test'
+  ...
+# Subtest: TEST-272 parent waits for the timed-out process group before cleanup
+ok 22 - TEST-272 parent waits for the timed-out process group before cleanup
+  ---
+  duration_ms: 7871.888422
+  type: 'test'
+  ...
+# Subtest: TEST-272 preserves volumes and networks attached to foreign containers
+ok 23 - TEST-272 preserves volumes and networks attached to foreign containers
+  ---
+  duration_ms: 8281.666175
+  type: 'test'
+  ...
+# Subtest: TEST-272 bounds hung inventory and retains a cleanup-pending receipt
+ok 24 - TEST-272 bounds hung inventory and retains a cleanup-pending receipt
+  ---
+  duration_ms: 2083.144398
+  type: 'test'
+  ...
+# Subtest: TEST-272 parent reconciles Go fixture receipts in the same run ledger
+ok 25 - TEST-272 parent reconciles Go fixture receipts in the same run ledger
+  ---
+  duration_ms: 4875.750717
+  type: 'test'
+  ...
+# Subtest: TEST-273 same-daemon runners serialize and leave exact crash receipts recoverable
+ok 26 - TEST-273 same-daemon runners serialize and leave exact crash receipts recoverable
+  ---
+  duration_ms: 7362.658179
+  type: 'test'
+  ...
+# Subtest: TEST-273 different daemon identities use separate locks and do not block
+ok 27 - TEST-273 different daemon identities use separate locks and do not block
+  ---
+  duration_ms: 5687.509313
+  type: 'test'
+  ...
+# Subtest: TEST-273 lock wait is bounded and timeout prevents Docker creation
+ok 28 - TEST-273 lock wait is bounded and timeout prevents Docker creation
+  ---
+  duration_ms: 7264.478983
+  type: 'test'
+  ...
+# Subtest: TEST-273 active receipt owner blocks recovery without mutating its record
+ok 29 - TEST-273 active receipt owner blocks recovery without mutating its record
+  ---
+  duration_ms: 1987.217763
+  type: 'test'
+  ...
+# Subtest: TEST-273 dead, reused-PID, and prior-boot owners are reconciled only with identity proof
+ok 30 - TEST-273 dead, reused-PID, and prior-boot owners are reconciled only with identity proof
+  ---
+  duration_ms: 17041.411857
+  type: 'test'
+  ...
+# Subtest: TEST-273 corrupt receipt is preserved and blocks ambiguous Docker recovery
+ok 31 - TEST-273 corrupt receipt is preserved and blocks ambiguous Docker recovery
+  ---
+  duration_ms: 7489.854523
+  type: 'test'
+  ...
+# Subtest: TEST-273 remote Docker endpoint is rejected before lock or mutation
+ok 32 - TEST-273 remote Docker endpoint is rejected before lock or mutation
+  ---
+  duration_ms: 51.593151
+  type: 'test'
+  ...
+# Subtest: TEST-273 pure task selection does not contact Docker or acquire the lock
+ok 33 - TEST-273 pure task selection does not contact Docker or acquire the lock
+  ---
+  duration_ms: 2914.495473
+  type: 'test'
+  ...
+# Subtest: TEST-273 fake-daemon fixtures do not inherit an unrelated parent lease
+ok 34 - TEST-273 fake-daemon fixtures do not inherit an unrelated parent lease
+  ---
+  duration_ms: 24459.511719
+  type: 'test'
+  ...
+# Subtest: TEST-273 parallel fake-daemon invocations keep fixture environments isolated
+ok 35 - TEST-273 parallel fake-daemon invocations keep fixture environments isolated
+  ---
+  duration_ms: 13704.198445
+  type: 'test'
+  ...
+# Subtest: TEST-273 nested managed runner reuses its parent's daemon lease
+ok 36 - TEST-273 nested managed runner reuses its parent's daemon lease
+  ---
+  duration_ms: 8423.49556
+  type: 'test'
+  ...
+# Subtest: TEST-275 parses byte and decimal/binary CLI units exactly
+ok 37 - TEST-275 parses byte and decimal/binary CLI units exactly
+  ---
+  duration_ms: 7.387493
+  type: 'test'
+  ...
+# Subtest: TEST-275 missing or unknown units remain unknown rather than zero
+ok 38 - TEST-275 missing or unknown units remain unknown rather than zero
+  ---
+  duration_ms: 0.961778
+  type: 'test'
+  ...
+# Subtest: TEST-275 attributes exact projects and keeps Docker memory, RSS, and sampled peaks distinct
+ok 39 - TEST-275 attributes exact projects and keeps Docker memory, RSS, and sampled peaks distinct
+  ---
+  duration_ms: 7.086784
+  type: 'test'
+  ...
+# Subtest: TEST-275 sums fractional Docker CPU percentages without applying integer-byte rules
+ok 40 - TEST-275 sums fractional Docker CPU percentages without applying integer-byte rules
+  ---
+  duration_ms: 0.732813
+  type: 'test'
+  ...
+# Subtest: TEST-275 malformed sample units are reported with provenance
+ok 41 - TEST-275 malformed sample units are reported with provenance
+  ---
+  duration_ms: 1.180282
+  type: 'test'
+  ...
+# Subtest: TEST-275 preserves cadence gaps, explicit host pressure, and unavailable inventories
+ok 42 - TEST-275 preserves cadence gaps, explicit host pressure, and unavailable inventories
+  ---
+  duration_ms: 6.421094
+  type: 'test'
+  ...
+# Subtest: TEST-275 samples exact project resources without inventing RSS or volume disk usage
+ok 43 - TEST-275 samples exact project resources without inventing RSS or volume disk usage
+  ---
+  duration_ms: 4.940424
+  type: 'test'
+  ...
+# Subtest: TEST-275 preserves precise unavailable-metric reasons without retaining Docker stats output
+ok 44 - TEST-275 preserves precise unavailable-metric reasons without retaining Docker stats output
+  ---
+  duration_ms: 2.456664
+  type: 'test'
+  ...
+# Subtest: TEST-275 reports which bounded Docker container sampling stage was unavailable
+ok 45 - TEST-275 reports which bounded Docker container sampling stage was unavailable
+  ---
+  duration_ms: 4.44996
+  type: 'test'
+  ...
+# Subtest: TEST-275 rejects mutable image tags from capacity fingerprints
+ok 46 - TEST-275 rejects mutable image tags from capacity fingerprints
+  ---
+  duration_ms: 3.04637
+  type: 'test'
+  ...
+# Subtest: TEST-275 preserves host headroom metrics
+ok 47 - TEST-275 preserves host headroom metrics
+  ---
+  duration_ms: 3.217727
+  type: 'test'
+  ...
+1..47
+# tests 60
+# suites 1
+# pass 60
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 163864.765913
