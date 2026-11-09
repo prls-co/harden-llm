@@ -76,10 +76,41 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 		writeRequestError(writer, err, "tools")
 		return
 	}
+	if input.WebSearchOptions != nil && len(tools) > 0 {
+		writeRequestError(writer, errors.New("web search cannot be combined with function tools"), "web_search_options")
+		return
+	}
 	choice, err := decodeToolChoice(input.ToolChoice, false)
 	if err != nil {
 		writeRequestError(writer, err, "tool_choice")
 		return
+	}
+	var webSearchTool json.RawMessage
+	if search := input.WebSearchOptions; search != nil {
+		tool := map[string]any{"type": "web_search"}
+		if search.SearchContextSize != "" {
+			tool["search_context_size"] = search.SearchContextSize
+		}
+		if search.UserLocation != nil {
+			location := map[string]any{"type": search.UserLocation.Type}
+			if a := search.UserLocation.Approximate; a != nil {
+				if a.Country != "" {
+					location["country"] = a.Country
+				}
+				if a.Region != "" {
+					location["region"] = a.Region
+				}
+				if a.City != "" {
+					location["city"] = a.City
+				}
+				if a.Timezone != "" {
+					location["timezone"] = a.Timezone
+				}
+			}
+			tool["user_location"] = location
+		}
+		webSearchTool, _ = json.Marshal(tool)
+		choice = hardenllm.ToolChoice{Mode: "required"}
 	}
 	callType, schema, err := chatOutputContract(input.ResponseFormat)
 	if err != nil {
@@ -121,7 +152,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 	defer tracked.close()
 	result, callErr := api.execute(ctx, connection, cache, timeout, recovery, hardenllm.Request{
 		ModelID: input.Model, Messages: messages, CallType: callType, Schema: schema, Tools: tools,
-		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(input.ReasoningEffort),
+		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(input.ReasoningEffort), WebSearch: input.WebSearchOptions != nil, WebSearchTool: webSearchTool,
 		ProviderOptions: options,
 	})
 	tracked.observeResult(result)
@@ -150,7 +181,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 			return
 		}
 		tracked.project(response)
-		api.streamChat(writer, request, input.Model, result, created, input.StreamOptions != nil && input.StreamOptions.IncludeUsage, diagnostics)
+		api.streamChat(writer, request, response)
 		return
 	}
 	tracked.project(response)

@@ -4,20 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	hardenllm "github.com/prls-co/harden-llm"
 )
 
-func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, model string, result hardenllm.Result, created int64, includeUsage, diagnostics bool) {
-	if _, err := chatResponse(model, result, created, includeUsage, diagnostics); err != nil {
-		writeRequestError(writer, err, "response")
-		return
-	}
-	content, calls, err := outputContent(result)
-	if err != nil {
-		writeRequestError(writer, err, "response")
-		return
-	}
+func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, final chatCompletionResponse) {
 	if request.Context().Err() != nil {
 		return
 	}
@@ -25,27 +14,33 @@ func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, mo
 	writer.Header().Set("Cache-Control", "no-cache")
 	writer.Header().Set("Connection", "keep-alive")
 	flusher := http.NewResponseController(writer)
-	id, object := "chatcmpl-"+result.CallID, "chat.completion.chunk"
 	writeChunk := func(chunk map[string]any) bool {
-		chunk["id"], chunk["object"], chunk["created"], chunk["model"] = id, object, created, model
+		chunk["id"], chunk["object"], chunk["created"], chunk["model"] = final.ID, "chat.completion.chunk", final.Created, final.Model
 		return writeSSEData(writer, flusher, chunk)
 	}
 	if !writeChunk(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]any{"role": "assistant"}, "finish_reason": nil}}}) {
 		return
 	}
-	for _, chunk := range outputChunks(content, 64<<10) {
-		if !writeChunk(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]any{"content": chunk}, "finish_reason": nil}}}) {
+	message := final.Choices[0].Message
+	content, _ := message.Content.(string)
+	chunks := outputChunks(content, 64<<10)
+	for i, chunk := range chunks {
+		delta := map[string]any{"content": chunk}
+		if i == len(chunks)-1 && len(message.Annotations) > 0 {
+			delta["annotations"] = message.Annotations
+		}
+		if !writeChunk(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": delta, "finish_reason": nil}}}) {
 			return
 		}
 	}
-	for index, call := range calls {
+	for index, call := range message.ToolCalls {
 		arguments := outputChunks(call.Function.Arguments, 64<<10)
 		if len(arguments) == 0 {
 			arguments = []string{""}
 		}
 		for partIndex, value := range arguments {
-			toolCall := map[string]any{"index": index, "function": map[string]any{"arguments": value}}
-			function := toolCall["function"].(map[string]any)
+			function := map[string]any{"arguments": value}
+			toolCall := map[string]any{"index": index, "function": function}
 			if partIndex == 0 {
 				toolCall["id"], toolCall["type"] = call.ID, "function"
 				function["name"] = call.Function.Name
@@ -55,22 +50,16 @@ func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, mo
 			}
 		}
 	}
-	finish := "stop"
-	if len(calls) > 0 {
-		finish = "tool_calls"
+	terminal := map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": final.Choices[0].FinishReason}}}
+	if final.Harden != nil {
+		terminal["harden"] = final.Harden
 	}
-	final := map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": finish}}}
-	if diagnostics {
-		final["harden"] = hardenExtension(result)
-	}
-	if !writeChunk(final) {
+	if !writeChunk(terminal) {
 		return
 	}
-	if includeUsage {
-		if usage := chatUsage(result.Accounting.Result.Usage); usage != nil {
-			if !writeChunk(map[string]any{"choices": []any{}, "usage": usage}) {
-				return
-			}
+	if final.Usage != nil {
+		if !writeChunk(map[string]any{"choices": []any{}, "usage": final.Usage}) {
+			return
 		}
 	}
 	_, _ = fmt.Fprint(writer, "data: [DONE]\n\n")

@@ -21,25 +21,41 @@ type hardenRequest struct {
 }
 
 type chatRequest struct {
-	Model               string            `json:"model"`
-	Messages            []json.RawMessage `json:"messages"`
-	Tools               []json.RawMessage `json:"tools,omitempty"`
-	ToolChoice          json.RawMessage   `json:"tool_choice,omitempty"`
-	ResponseFormat      json.RawMessage   `json:"response_format,omitempty"`
-	Stream              bool              `json:"stream,omitempty"`
-	StreamOptions       *streamOptions    `json:"stream_options,omitempty"`
-	N                   *int              `json:"n,omitempty"`
-	Store               *bool             `json:"store,omitempty"`
-	MaxTokens           *int              `json:"max_tokens,omitempty"`
-	MaxCompletionTokens *int              `json:"max_completion_tokens,omitempty"`
-	Temperature         *float64          `json:"temperature,omitempty"`
-	TopP                *float64          `json:"top_p,omitempty"`
-	FrequencyPenalty    *float64          `json:"frequency_penalty,omitempty"`
-	PresencePenalty     *float64          `json:"presence_penalty,omitempty"`
-	Seed                *int64            `json:"seed,omitempty"`
-	Stop                json.RawMessage   `json:"stop,omitempty"`
-	ReasoningEffort     string            `json:"reasoning_effort,omitempty"`
-	Harden              hardenRequest     `json:"harden,omitempty"`
+	Model               string                `json:"model"`
+	Messages            []json.RawMessage     `json:"messages"`
+	Tools               []json.RawMessage     `json:"tools,omitempty"`
+	ToolChoice          json.RawMessage       `json:"tool_choice,omitempty"`
+	ResponseFormat      json.RawMessage       `json:"response_format,omitempty"`
+	Stream              bool                  `json:"stream,omitempty"`
+	StreamOptions       *streamOptions        `json:"stream_options,omitempty"`
+	N                   *int                  `json:"n,omitempty"`
+	Store               *bool                 `json:"store,omitempty"`
+	MaxTokens           *int                  `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int                  `json:"max_completion_tokens,omitempty"`
+	Temperature         *float64              `json:"temperature,omitempty"`
+	TopP                *float64              `json:"top_p,omitempty"`
+	FrequencyPenalty    *float64              `json:"frequency_penalty,omitempty"`
+	PresencePenalty     *float64              `json:"presence_penalty,omitempty"`
+	Seed                *int64                `json:"seed,omitempty"`
+	Stop                json.RawMessage       `json:"stop,omitempty"`
+	ReasoningEffort     string                `json:"reasoning_effort,omitempty"`
+	WebSearchOptions    *chatWebSearchOptions `json:"web_search_options,omitempty"`
+	Harden              hardenRequest         `json:"harden,omitempty"`
+}
+
+type chatWebSearchOptions struct {
+	SearchContextSize string              `json:"search_context_size,omitempty"`
+	UserLocation      *chatSearchLocation `json:"user_location,omitempty"`
+}
+type chatSearchLocation struct {
+	Type        string                   `json:"type"`
+	Approximate *chatApproximateLocation `json:"approximate,omitempty"`
+}
+type chatApproximateLocation struct {
+	Country  string `json:"country,omitempty"`
+	Region   string `json:"region,omitempty"`
+	City     string `json:"city,omitempty"`
+	Timezone string `json:"timezone,omitempty"`
 }
 
 type streamOptions struct {

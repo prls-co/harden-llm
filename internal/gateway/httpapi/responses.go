@@ -29,9 +29,10 @@ type chatCompletionChoice struct {
 }
 
 type chatMessageOutput struct {
-	Role      string               `json:"role"`
-	Content   any                  `json:"content"`
-	ToolCalls []chatToolCallOutput `json:"tool_calls,omitempty"`
+	Role        string               `json:"role"`
+	Content     any                  `json:"content"`
+	ToolCalls   []chatToolCallOutput `json:"tool_calls,omitempty"`
+	Annotations []any                `json:"annotations,omitempty"`
 }
 
 type chatToolCallOutput struct {
@@ -62,6 +63,7 @@ func chatResponse(model string, result hardenllm.Result, created int64, includeU
 		return chatCompletionResponse{}, err
 	}
 	message := chatMessageOutput{Role: "assistant"}
+	message.Annotations = annotations(result, content, chatCitation)
 	if content != "" || len(calls) == 0 {
 		message.Content = content
 	}
@@ -156,6 +158,10 @@ func annotations(result hardenllm.Result, text string, shape func(hardenllm.Sear
 
 func responsesCitation(c hardenllm.SearchCitation) any {
 	return map[string]any{"type": "url_citation", "start_index": c.StartIndex, "end_index": c.EndIndex, "url": c.URL, "title": c.Title}
+}
+
+func chatCitation(c hardenllm.SearchCitation) any {
+	return map[string]any{"type": "url_citation", "url_citation": map[string]any{"start_index": c.StartIndex, "end_index": c.EndIndex, "url": c.URL, "title": c.Title}}
 }
 
 func responsesResponse(model string, result hardenllm.Result, created int64, diagnostics bool, parallelToolCalls bool, includeSources bool) (map[string]any, error) {

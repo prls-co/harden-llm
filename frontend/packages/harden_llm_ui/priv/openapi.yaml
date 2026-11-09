@@ -2110,6 +2110,24 @@ components:
             - type: string
               enum: [auto, none, required]
             - $ref: '#/components/schemas/ChatNamedToolChoice'
+        web_search_options:
+          type: object
+          additionalProperties: false
+          properties:
+            search_context_size: {type: string}
+            user_location:
+              type: object
+              additionalProperties: false
+              properties:
+                type: {type: string}
+                approximate:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    country: {type: string}
+                    region: {type: string}
+                    city: {type: string}
+                    timezone: {type: string}
         response_format:
           oneOf:
             - type: object
@@ -2159,7 +2177,7 @@ components:
         - type: object
           required: [role]
           properties:
-            role: {const: assistant}
+            role: {type: string, enum: [assistant]}
             content:
               oneOf:
                 - {type: string}
@@ -2173,7 +2191,7 @@ components:
         - type: object
           required: [role, tool_call_id, content]
           properties:
-            role: {const: tool}
+            role: {type: string, enum: [tool]}
             tool_call_id: {type: string, minLength: 1}
             content: {type: string}
             name: {type: string}
@@ -2412,6 +2430,23 @@ components:
                   tool_calls:
                     type: array
                     items: {$ref: '#/components/schemas/ChatToolCall'}
+                  annotations:
+                    type: array
+                    items:
+                      type: object
+                      required: [type, url_citation]
+                      additionalProperties: false
+                      properties:
+                        type: {type: string, enum: [url_citation]}
+                        url_citation:
+                          type: object
+                          required: [start_index, end_index, url, title]
+                          additionalProperties: false
+                          properties:
+                            start_index: {type: integer, minimum: 0}
+                            end_index: {type: integer, minimum: 1}
+                            url: {type: string, format: uri}
+                            title: {type: string}
                 additionalProperties: false
               finish_reason: {type: string, enum: [stop, tool_calls]}
             additionalProperties: false
