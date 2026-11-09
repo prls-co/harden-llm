@@ -92,13 +92,27 @@ func TestChatWebSearchNative(t *testing.T) {
 	}
 	msg := body["choices"].([]any)[0].(map[string]any)["message"].(map[string]any)
 	annotations, _ := msg["annotations"].([]any)
-	if len(annotations) != 2 {
-		t.Fatalf("missing citations: %#v", msg)
+	wantAnnotations := []any{
+		map[string]any{"type": "url_citation", "url_citation": map[string]any{"start_index": float64(6), "end_index": float64(10), "url": "https://example.org/a", "title": "A"}},
+		map[string]any{"type": "url_citation", "url_citation": map[string]any{"start_index": float64(11), "end_index": float64(12), "url": "https://example.org/a", "title": "A"}},
+	}
+	if !reflect.DeepEqual(annotations, wantAnnotations) {
+		t.Fatalf("incorrect citations: %#v", annotations)
 	}
 	for _, invalid := range []string{`{"model":"fixture","messages":[{"role":"user","content":"hello"}],"web_search_options":{"user_location":{"unknown":1}}}`, `{"model":"fixture","messages":[{"role":"user","content":"hello"}],"web_search_options":{},"tools":[{"type":"function","function":{"name":"f","parameters":{"type":"object"}}}]}`} {
 		w := send(invalid)
 		if w.Code != 400 || count.Load() != 1 {
 			t.Fatalf("invalid search request dispatched: status=%d count=%d", w.Code, count.Load())
+		}
+		if strings.Contains(invalid, `"tools"`) {
+			var failure struct {
+				Error struct {
+					Param string `json:"param"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &failure); err != nil || failure.Error.Param != "web_search_options" {
+				t.Fatalf("wrong mixed-tools error: %s (%v)", w.Body.String(), err)
+			}
 		}
 	}
 	stream := send(`{"model":"fixture","messages":[{"role":"user","content":"hello"}],"web_search_options":{},"stream":true}`)
@@ -200,5 +214,23 @@ func TestChatWebSearchFallback(t *testing.T) {
 	msg := response["choices"].([]any)[0].(map[string]any)["message"].(map[string]any)
 	if msg["content"] != "fallback answer" || msg["annotations"] != nil {
 		t.Fatalf("fallback invented citation: %#v", msg)
+	}
+}
+
+// The expected JSON is the byte layout of chatResponse on origin/main for the
+// same fixed result, before search annotations were added.
+func TestChatWebSearchNonSearchGolden(t *testing.T) {
+	result := hardenllm.Result{CallID: "fixture", Output: "answer"}
+	response, err := chatResponse("model", result, 1, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"id":"chatcmpl-fixture","object":"chat.completion","created":1,"model":"model","choices":[{"index":0,"message":{"role":"assistant","content":"answer"},"finish_reason":"stop"}]}`
+	if string(raw) != want {
+		t.Fatalf("non-search Chat response changed: %s", raw)
 	}
 }

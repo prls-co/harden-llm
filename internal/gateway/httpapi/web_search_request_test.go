@@ -109,8 +109,13 @@ func TestWebSearchRequestParityGatewayToProvider(t *testing.T) {
 				t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 			}
 			got := <-received
-			if _, ok := got["tool_choice"]; ok != choice.wantChoice {
+			if value, ok := got["tool_choice"]; ok != choice.wantChoice {
 				t.Fatalf("choice=%#v", got)
+			} else if ok {
+				selected, valid := value.(map[string]any)
+				if !valid || len(selected) != 1 || selected["type"] != "web_search" {
+					t.Fatalf("required search must select the search tool: %#v", value)
+				}
 			}
 			if _, ok := got["tools"]; ok != choice.wantTool {
 				t.Fatalf("tools=%#v", got)
