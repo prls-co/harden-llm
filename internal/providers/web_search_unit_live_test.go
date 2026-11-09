@@ -115,9 +115,11 @@ func TestWebSearchIndexUnitLive(t *testing.T) {
 					return answer[c.Start:c.End], true
 				}
 			}
-			for unit := range consistent {
+			for _, unit := range []string{"code points", "UTF-16", "UTF-8 bytes"} {
 				substring, ok := extract(unit)
-				consistent[unit] = consistent[unit] && ok && host != "" && strings.Contains(substring, host)
+				match := ok && host != "" && strings.Contains(substring, host)
+				fmt.Fprintf(&report, "  - %s: in bounds and contains host: %t\n", unit, match)
+				consistent[unit] = consistent[unit] && match
 			}
 		}
 		matches := []string{}
