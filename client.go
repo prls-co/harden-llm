@@ -101,8 +101,16 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	if request.CallType != CallTypeText && request.CallType != CallTypeStructured {
 		return Result{}, fmt.Errorf("hardenllm: call type must be %q or %q", CallTypeText, CallTypeStructured)
 	}
-	if err := validateTools(request.Tools, request.ToolChoice); err != nil {
+	if err := validateTools(request.Tools, request.ToolChoice, request.WebSearch); err != nil {
 		return Result{}, err
+	}
+	if len(request.WebSearchTool) > 0 {
+		var tool struct {
+			Type string `json:"type"`
+		}
+		if !request.WebSearch || json.Unmarshal(request.WebSearchTool, &tool) != nil || !coreruntime.WebSearchToolTypes[tool.Type] {
+			return Result{}, errors.New("hardenllm: invalid web search tool")
+		}
 	}
 	if request.CallType == CallTypeStructured && len(request.Tools) > 0 {
 		return Result{}, errors.New("hardenllm: structured output and function tools cannot be combined")
@@ -143,7 +151,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		ModelID:     request.ModelID, Messages: cloneMessages(request.Messages), CallType: string(request.CallType),
 		Schema: append([]byte(nil), request.Schema...), Tools: cloneTools(request.Tools),
 		ToolChoice: request.ToolChoice, ReasoningEffort: string(request.ReasoningEffort),
-		WebSearch: request.WebSearch,
+		WebSearch: request.WebSearch, WebSearchTool: append(json.RawMessage(nil), request.WebSearchTool...),
 		Origin: coreruntime.Origin{
 			Client: request.Origin.Client, Component: request.Origin.Component, OperationID: request.Origin.OperationID,
 			ParentRunID: request.Origin.ParentRunID, JobID: request.Origin.JobID, TestRunID: request.Origin.TestRunID,

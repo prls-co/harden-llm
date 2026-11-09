@@ -462,6 +462,12 @@ func prepareNextPlannedWork(ctx context.Context, executor Executor, selectedConn
 		selectedConnection = current.generationBinding.Connection
 		credential = current.generationBinding.Credential
 	}
+	if baseCall.WebSearch {
+		call.WebSearchTool = nil
+		if len(call.Tools) == 0 && call.ToolChoice.Mode == "required" {
+			call.ToolChoice = ToolChoice{}
+		}
+	}
 	call.Repair = &RepairRequest{Attempt: attempt + 1, MaxAttempts: policy.MaxAttempts, Stage: next, Branch: current.branch, TargetSchema: append(json.RawMessage(nil), baseCall.Schema...), History: append([]RepairHistoryEntry(nil), history...)}
 	nextWork, err := preparePlannedWork(ctx, executor, selectedConnection, credential, call, current.branch, next, &target, call.Repair)
 	if err != nil {

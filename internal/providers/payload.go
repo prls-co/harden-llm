@@ -104,7 +104,7 @@ func validatePayloadCapabilities(connection runtime.Connection, call runtime.Cal
 			return &retry.ValidationError{Field: "tool_choice", Message: "was supplied through both the canonical tool field and provider options"}
 		}
 	}
-	if (call.ToolChoice.Mode == "required" || call.ToolChoice.Mode == "function") && len(call.Tools) == 0 {
+	if (call.ToolChoice.Mode == "required" || call.ToolChoice.Mode == "function") && len(call.Tools) == 0 && !call.WebSearch {
 		return &retry.ValidationError{Field: "tool_choice", Message: "requires at least one function tool"}
 	}
 	if call.ToolChoice.Mode == "function" {
@@ -577,13 +577,17 @@ func buildResponsesPayload(connection runtime.Connection, call runtime.Call, opt
 		}
 	}
 	if nativeWebSearchEnabled(connection, call) {
-		addNativeWebSearch(payload)
+		addNativeWebSearch(payload, call)
 	}
 	return payload, nil
 }
 
+func searchRequested(call runtime.Call) bool {
+	return call.WebSearch && call.ToolChoice.Mode != "none"
+}
+
 func nativeWebSearchEnabled(connection runtime.Connection, call runtime.Call) bool {
-	if !call.WebSearch || !connection.SupportsWebSearch {
+	if !searchRequested(call) || !connection.SupportsWebSearch {
 		return false
 	}
 	switch connection.APIInferenceType {
@@ -600,13 +604,16 @@ func nativeWebSearchEnabled(connection runtime.Connection, call runtime.Call) bo
 	}
 }
 
-func addNativeWebSearch(payload map[string]any) {
+func addNativeWebSearch(payload map[string]any, call runtime.Call) {
 	// manageSearchOptions already validated tools and removed search overrides.
-	payload["tools"] = append(arrayValue(payload["tools"]), map[string]any{"type": "web_search"})
-	// The UI toggle is an explicit request to search, so do not leave the
-	// Responses API's default "auto" behavior in charge of whether a search
-	// happens.
-	payload["tool_choice"] = map[string]any{"type": "web_search"}
+	tool := map[string]any{"type": "web_search"}
+	if len(call.WebSearchTool) > 0 {
+		_ = json.Unmarshal(call.WebSearchTool, &tool)
+	}
+	payload["tools"] = append(arrayValue(payload["tools"]), tool)
+	if call.ToolChoice.Mode == "required" {
+		payload["tool_choice"] = map[string]any{"type": "web_search"}
+	}
 	addWebSearchSources(payload)
 }
 

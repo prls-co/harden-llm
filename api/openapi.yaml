@@ -181,8 +181,8 @@ paths:
       description: >-
         Accepts string input or ordered text and function-call items. The API
         is stateless: `store` may be omitted or false, and server-side
-        conversation fields are rejected. `include` is unsupported because
-        upstream-only projections are not preserved in the normalized result.
+        conversation fields are rejected. `include` supports
+        `web_search_call.action.sources`.
         The encoded request body is limited to 256 KiB. Streaming emits the
         completed hardened result using typed Responses events; it does not
         expose provisional provider output.
@@ -2270,13 +2270,21 @@ components:
               - type: object
                 required: [type]
                 properties:
-                  type: {const: web_search}
-                additionalProperties: false
+                  type: {type: string, enum: [web_search, web_search_2025_08_26, web_search_preview, web_search_preview_2025_03_11]}
+                additionalProperties: true
         tool_choice:
           oneOf:
             - type: string
               enum: [auto, none, required]
             - {$ref: '#/components/schemas/ResponseNamedToolChoice'}
+            - type: object
+              required: [type]
+              properties:
+                type: {type: string, enum: [web_search, web_search_2025_08_26, web_search_preview, web_search_preview_2025_03_11]}
+              additionalProperties: false
+        include:
+          type: array
+          items: {type: string, enum: [web_search_call.action.sources]}
         text:
           type: object
           required: [format]
@@ -2314,18 +2322,26 @@ components:
           required: [role, content]
           properties:
             type: {type: string, enum: [message]}
+            id: {type: string}
+            status: {type: string}
             role: {type: string, enum: [system, developer, user, assistant]}
-            content: {$ref: '#/components/schemas/TextContent'}
+            content: {$ref: '#/components/schemas/ResponseInputContent'}
           additionalProperties: false
         - type: object
           required: [type, call_id, name, arguments]
           properties:
             type: {const: function_call}
             id: {type: string}
+            status: {type: string}
             call_id: {type: string, minLength: 1}
             name: {type: string, minLength: 1}
             arguments: {type: string}
           additionalProperties: false
+        - type: object
+          required: [type]
+          properties:
+            type: {type: string, enum: [web_search_call]}
+          additionalProperties: true
         - type: object
           required: [type, call_id, output]
           properties:
@@ -2333,6 +2349,26 @@ components:
             call_id: {type: string, minLength: 1}
             output: {type: string}
           additionalProperties: false
+    ResponseInputContent:
+      oneOf:
+        - {type: string}
+        - type: array
+          minItems: 1
+          items:
+            oneOf:
+              - type: object
+                required: [type, text]
+                properties:
+                  type: {type: string, enum: [input_text]}
+                  text: {type: string}
+                additionalProperties: false
+              - type: object
+                required: [type, text]
+                properties:
+                  type: {type: string, enum: [output_text]}
+                  text: {type: string}
+                  annotations: {type: array, items: {type: object}}
+                additionalProperties: false
     ResponseFunctionTool:
       type: object
       required: [type, name, parameters]

@@ -93,6 +93,11 @@ func TestReferenceRunValues(t *testing.T) {
 		if fmt.Sprint(resolved.request.RecoveryPolicy.Rerun.Target.ProviderOptions["max_tokens"]) != "16000" {
 			t.Fatal("new-model leaf inherited generation override")
 		}
+		input.WebSearch = true
+		searchResolved, err := s.resolveRun(context.Background(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", input)
+		if err != nil || searchResolved.request.ToolChoice.Mode != "required" || !searchResolved.request.WebSearch {
+			t.Fatalf("reference search must require search: request=%#v err=%v", searchResolved.request, err)
+		}
 		resolved.request.ProviderOptions["max_tokens"] = 99
 		if input.ProviderOptions["max_tokens"] != 8 || !sameJSON(s.config.Presets["CPA Responses"].Definition, preset.Definition) {
 			t.Fatal("resolved settings mutate caller or template")

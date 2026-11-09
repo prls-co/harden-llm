@@ -292,6 +292,9 @@ func (s *Service) resolveRun(ctx context.Context, hash string, input RunInput) (
 	data, _ := json.Marshal(input.UserPrompt)
 	messages = append(messages, hardenllm.Message{Role: "user", Content: data})
 	resolved.request = hardenllm.Request{ConnectionID: "generation", ModelID: model, Messages: messages, CallType: input.CallType, Schema: bytes.Clone(input.Schema), WebSearch: input.WebSearch, ProviderOptions: options, CacheMode: input.CacheMode, CacheVersion: input.CacheVersion, RecoveryPolicy: policy, Origin: input.Origin, Progress: input.Progress}
+	if input.WebSearch {
+		resolved.request.ToolChoice = hardenllm.ToolChoice{Mode: "required"}
+	}
 	if resolved.request.CacheMode == "" {
 		resolved.request.CacheMode = hardenllm.CacheModeOff
 	}

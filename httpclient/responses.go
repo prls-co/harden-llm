@@ -39,11 +39,14 @@ type ResponseControls struct {
 	Diagnostics bool                      `json:"diagnostics,omitempty"`
 }
 type ResponsesInput struct {
-	Model     string             `json:"model"`
-	Input     []ResponseMessage  `json:"input"`
-	Text      ResponseText       `json:"text"`
-	Reasoning *ResponseReasoning `json:"reasoning,omitempty"`
-	Harden    ResponseControls   `json:"harden"`
+	Model      string             `json:"model"`
+	Input      []ResponseMessage  `json:"input"`
+	Text       ResponseText       `json:"text"`
+	Reasoning  *ResponseReasoning `json:"reasoning,omitempty"`
+	Harden     ResponseControls   `json:"harden"`
+	Tools      []json.RawMessage  `json:"tools,omitempty"`
+	ToolChoice json.RawMessage    `json:"tool_choice,omitempty"`
+	Include    []string           `json:"include,omitempty"`
 }
 type ResponsesOutput struct {
 	Model      string          `json:"model"`
@@ -104,8 +107,13 @@ func (client *Client) Responses(ctx context.Context, input ResponsesInput) (Resp
 			return out, &ProtocolError{}
 		}
 	}
+	for _, item := range input.Include {
+		if !utf8.ValidString(item) {
+			return out, &ProtocolError{}
+		}
+	}
 	body, err := json.Marshal(input)
-	if err != nil || len(body) > maximumRequestBytes || api.Validate("ResponseRequest", body) != nil {
+	if err != nil || !utf8.Valid(body) || len(body) > maximumRequestBytes || api.Validate("ResponseRequest", body) != nil {
 		return out, &ProtocolError{}
 	}
 	normalizedSchema, err := schema.Normalize(input.Text.Format.Schema)

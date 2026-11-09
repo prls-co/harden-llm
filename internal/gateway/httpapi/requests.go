@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
 type hardenRequest struct {
@@ -207,34 +208,40 @@ func parseHarden(value hardenRequest) (connection string, cache hardenllm.CacheM
 	return strings.TrimSpace(value.Upstream), value.Cache, timeout, recovery, value.Diagnostics, nil
 }
 
-func decodeTools(values []json.RawMessage, responses bool) ([]hardenllm.FunctionTool, bool, error) {
+func decodeTools(values []json.RawMessage, responses bool) ([]hardenllm.FunctionTool, json.RawMessage, error) {
 	tools := make([]hardenllm.FunctionTool, 0, len(values))
-	webSearch := false
+	var webSearch json.RawMessage
 	for _, encoded := range values {
+		var head struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(encoded, &head) != nil {
+			return nil, nil, errors.New("invalid tool")
+		}
+		if responses && runtime.WebSearchToolTypes[head.Type] {
+			if webSearch != nil {
+				return nil, nil, errors.New("only one web search tool is supported")
+			}
+			webSearch = append(json.RawMessage(nil), encoded...)
+			continue
+		}
 		decoder := json.NewDecoder(bytes.NewReader(encoded))
 		decoder.DisallowUnknownFields()
 		var value functionToolWire
 		if err := decoder.Decode(&value); err != nil {
-			return nil, false, errors.New("tools must contain supported function tool definitions")
-		}
-		if responses && value.Type == "web_search" {
-			if value.Name != "" || value.Description != "" || len(value.Parameters) != 0 || value.Strict != nil || value.Function != nil || webSearch {
-				return nil, false, errors.New("only one plain web_search tool is supported")
-			}
-			webSearch = true
-			continue
+			return nil, nil, errors.New("tools must contain supported function tool definitions")
 		}
 		if value.Type != "function" {
-			return nil, false, errors.New("only function tools and the Responses web_search tool are supported")
+			return nil, nil, errors.New("only function tools and the Responses web_search tool are supported")
 		}
 		if !responses {
 			if value.Function == nil || value.Name != "" || len(value.Parameters) != 0 {
-				return nil, false, errors.New("Chat Completions function tools must use the function object")
+				return nil, nil, errors.New("Chat Completions function tools must use the function object")
 			}
 			tools = append(tools, hardenllm.FunctionTool{Name: value.Function.Name, Description: value.Function.Description, Parameters: value.Function.Parameters, Strict: value.Function.Strict})
 		} else {
 			if value.Function != nil {
-				return nil, false, errors.New("Responses function tools must define name and parameters directly")
+				return nil, nil, errors.New("Responses function tools must define name and parameters directly")
 			}
 			tools = append(tools, hardenllm.FunctionTool{Name: value.Name, Description: value.Description, Parameters: value.Parameters, Strict: value.Strict})
 		}
@@ -252,6 +259,16 @@ func decodeToolChoice(encoded json.RawMessage, responses bool) (hardenllm.ToolCh
 			return hardenllm.ToolChoice{Mode: mode}, nil
 		}
 		return hardenllm.ToolChoice{}, errors.New("tool_choice must be auto, none, required or a named function")
+	}
+	if responses {
+		var searchChoice struct {
+			Type string `json:"type"`
+		}
+		decoder := json.NewDecoder(bytes.NewReader(encoded))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&searchChoice) == nil && runtime.WebSearchToolTypes[searchChoice.Type] {
+			return hardenllm.ToolChoice{Mode: "required"}, nil
+		}
 	}
 	decoder := json.NewDecoder(bytes.NewReader(encoded))
 	decoder.DisallowUnknownFields()
@@ -351,7 +368,7 @@ func decodeResponsesInput(encoded json.RawMessage, instructions string) ([]harde
 		itemType := rawString(fields["type"])
 		switch itemType {
 		case "", "message":
-			if err := allowFields(fields, "type", "role", "content"); err != nil {
+			if err := allowFields(fields, "type", "role", "content", "id", "status"); err != nil {
 				return nil, err
 			}
 			role := rawString(fields["role"])
@@ -364,7 +381,7 @@ func decodeResponsesInput(encoded json.RawMessage, instructions string) ([]harde
 			}
 			messages = append(messages, hardenllm.Message{Role: role, Content: marshalRaw(content)})
 		case "function_call":
-			if err := allowFields(fields, "type", "id", "call_id", "name", "arguments"); err != nil {
+			if err := allowFields(fields, "type", "id", "status", "call_id", "name", "arguments"); err != nil {
 				return nil, err
 			}
 			arguments := rawString(fields["arguments"])
@@ -380,6 +397,9 @@ func decodeResponsesInput(encoded json.RawMessage, instructions string) ([]harde
 			} else {
 				messages = append(messages, hardenllm.Message{Role: "assistant", Content: marshalRaw(""), ToolCalls: []hardenllm.ToolCall{call}})
 			}
+		case "web_search_call":
+			// A prior tool item is provenance, not conversation text.
+			continue
 		case "function_call_output":
 			if err := allowFields(fields, "type", "call_id", "output"); err != nil {
 				return nil, err
@@ -412,10 +432,17 @@ func decodeResponseText(encoded json.RawMessage) (string, error) {
 	var builder strings.Builder
 	for _, part := range parts {
 		var fields map[string]json.RawMessage
-		if json.Unmarshal(part, &fields) != nil || fields == nil || allowFields(fields, "type", "text") != nil {
+		if json.Unmarshal(part, &fields) != nil || fields == nil {
 			return "", errors.New("message content supports only text parts")
 		}
 		kind := rawString(fields["type"])
+		if kind == "output_text" {
+			if allowFields(fields, "type", "text", "annotations") != nil {
+				return "", errors.New("message content supports only text parts")
+			}
+		} else if allowFields(fields, "type", "text") != nil {
+			return "", errors.New("message content supports only text parts")
+		}
 		if kind != "input_text" && kind != "output_text" {
 			return "", errors.New("message content supports only input_text and output_text parts")
 		}

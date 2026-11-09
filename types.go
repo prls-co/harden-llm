@@ -85,6 +85,7 @@ type Request struct {
 	ToolChoice         ToolChoice              `json:"toolChoice,omitempty"`
 	ReasoningEffort    ReasoningEffort         `json:"reasoning_effort,omitempty"`
 	WebSearch          bool                    `json:"webSearch,omitempty"`
+	WebSearchTool      json.RawMessage         `json:"webSearchTool,omitempty"`
 	ProviderOptions    map[string]any          `json:"providerOptions,omitempty"`
 	Context            ObservabilityContext    `json:"-"`
 	CacheMode          CacheMode               `json:"cacheMode,omitempty"`

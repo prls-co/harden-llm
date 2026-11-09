@@ -65,3 +65,15 @@ func TestSearchProvenanceReferenceContract(t *testing.T) {
 		t.Fatal("unknown call field accepted")
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-535
+func TestWebSearchRequestParitySchema(t *testing.T) {
+	body := []byte(`{"model":"fixture","input":[{"type":"web_search_call","id":"ws_1","status":"completed","action":{"type":"search","query":"q"}},{"type":"message","id":"msg_1","status":"completed","role":"assistant","content":[{"type":"output_text","text":"answer","annotations":[]}]},{"role":"user","content":"next"}],"tools":[{"type":"web_search_preview","filters":{"blocked_domains":["example.test"]}}],"tool_choice":{"type":"web_search_preview"},"include":["web_search_call.action.sources"]}`)
+	if err := Validate("ResponseRequest", body); err != nil {
+		t.Fatal(err)
+	}
+	invalid := []byte(`{"model":"fixture","input":[{"role":"user","content":[{"type":"input_text","text":"hello","annotations":[]}]}]}`)
+	if err := Validate("ResponseRequest", invalid); err == nil {
+		t.Fatal("annotations are only supported on output_text")
+	}
+}

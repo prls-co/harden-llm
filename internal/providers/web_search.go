@@ -43,7 +43,7 @@ type webSearchResult struct {
 }
 
 func fallbackWebSearch(connection runtime.Connection, call runtime.Call) *preparedWebSearch {
-	if !call.WebSearch || nativeWebSearchEnabled(connection, call) {
+	if !searchRequested(call) || nativeWebSearchEnabled(connection, call) {
 		return nil
 	}
 	state := &webSearchResult{}
@@ -56,7 +56,7 @@ func fallbackWebSearch(connection runtime.Connection, call runtime.Call) *prepar
 }
 
 func operationPayload(payload map[string]any, connection runtime.Connection, call runtime.Call) map[string]any {
-	if !call.WebSearch || nativeWebSearchEnabled(connection, call) {
+	if !searchRequested(call) || nativeWebSearchEnabled(connection, call) {
 		return payload
 	}
 	operation := cloneMap(payload)

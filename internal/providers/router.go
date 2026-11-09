@@ -122,6 +122,17 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 	if err := validateConnection(connection, call); err != nil {
 		return runtime.PreparedOperation{}, err
 	}
+	if searchRequested(call) && !(connection.APIInferenceType == "responses" && nativeWebSearchEnabled(connection, call)) && len(call.WebSearchTool) > 0 {
+		var tool map[string]json.RawMessage
+		if err := json.Unmarshal(call.WebSearchTool, &tool); err != nil {
+			return runtime.PreparedOperation{}, &retry.ValidationError{Field: "tools", Message: "invalid web search tool"}
+		}
+		for key := range tool {
+			if key != "type" && key != "search_context_size" && key != "user_location" {
+				return runtime.PreparedOperation{}, &retry.ValidationError{Field: "tools", Message: key + " requires an upstream with native OpenAI web search"}
+			}
+		}
+	}
 	provider, protocol, path, payload, semanticHeaders, err := buildPayload(connection, call)
 	if err != nil {
 		return runtime.PreparedOperation{}, err
@@ -161,7 +172,7 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 		callType: call.CallType, timeout: timeout, operation: operation,
 		webSearch: fallbackWebSearch(connection, call),
 	}
-	if call.WebSearch {
+	if searchRequested(call) {
 		request.searchMode = "jina"
 		if nativeWebSearchEnabled(connection, call) {
 			request.searchMode = "native"

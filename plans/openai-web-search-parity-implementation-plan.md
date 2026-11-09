@@ -873,7 +873,7 @@ Update `docs/api-and-library.md`, and the `/v1` section found with
 | ID | Name | Command |
 |---|---|---|
 | TEST-534 | Canonical provenance, normalization and cache | `go test . ./api ./internal/runtime ./internal/providers -run 'TestSearchProvenance' -count=1` |
-| TEST-535 | Request parity | `go test ./internal/gateway/httpapi ./httpclient -run 'TestWebSearchRequestParity' -count=1` |
+| TEST-535 | Request parity | `go test ./api ./httpclient ./internal/gateway/httpapi ./internal/providers ./internal/runtime ./stateful -run 'TestWebSearchRequestParity|TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory' -count=1` |
 | TEST-536 | Responses projection, stream and typed output | `go test ./internal/gateway/httpapi ./httpclient -run 'TestResponsesSearchProjection' -count=1` |
 | TEST-537 | Chat search | `go test ./internal/gateway/httpapi -run 'TestChatWebSearch' -count=1` |
 | TEST-538 | OpenAPI and SDK contract | `go test ./internal/gateway/httpapi -run 'TestOpenAIWebSearchContract' -count=1` |

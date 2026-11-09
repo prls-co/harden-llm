@@ -20,7 +20,18 @@ import (
 	"github.com/prls-co/harden-llm/internal/schema"
 )
 
-func TestSearchProvenanceRepair(t *testing.T) {
+func TestSearchProvenanceRepair(t *testing.T) { testSearchProvenanceRepair(t, false, false) }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-535
+func TestWebSearchRequestParityRequiredRepair(t *testing.T) {
+	testSearchProvenanceRepair(t, true, false)
+}
+
+func TestWebSearchRequestParityRequiredRepairModel(t *testing.T) {
+	testSearchProvenanceRepair(t, true, true)
+}
+
+func testSearchProvenanceRepair(t *testing.T, required, alternate bool) {
 	for _, stream := range []bool{false, true} {
 		for _, malformed := range []bool{false, true} {
 			t.Run(fmt.Sprintf("stream=%v/malformed=%v", stream, malformed), func(t *testing.T) {
@@ -32,6 +43,9 @@ func TestSearchProvenanceRepair(t *testing.T) {
 						return
 					}
 					calls++
+					if calls == 2 && alternate && body["model"] != "repair-model" {
+						t.Errorf("repair target lost: %#v", body["model"])
+					}
 					output := []any{}
 					if len(arrayValue(body["tools"])) > 0 {
 						searched++
@@ -61,7 +75,14 @@ func TestSearchProvenanceRepair(t *testing.T) {
 				conn := runtime.Connection{ID: "research", Provider: "openai", APIInferenceType: "responses", BaseURL: server.URL, SupportsWebSearch: true}
 				contract := json.RawMessage(`{"type":"object","required":["ok"],"properties":{"ok":{"type":"boolean"}},"additionalProperties":false}`)
 				call := runtime.Call{ModelID: "research", CallType: "structured", Messages: providerMessages("", "test"), WebSearch: true, Schema: contract, ValidateStructured: func(v any) error { return schema.ValidateValue(contract, v) }}
-				config := retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, JSONRepair: &retry.RepairPlan{Initial: retry.RecoveryTarget{Source: "generation"}}}}
+				if required {
+					call.ToolChoice = runtime.ToolChoice{Mode: "required"}
+				}
+				target := retry.RecoveryTarget{Source: "generation"}
+				if alternate {
+					target = retry.RecoveryTarget{Source: "model", ModelID: "repair-model"}
+				}
+				config := retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, JSONRepair: &retry.RepairPlan{Initial: target}}}
 				cache := &searchMemoryCache{values: map[string]runtime.CachedResult{}}
 				record, err := runtime.Execute(context.Background(), router, conn, runtime.Credential{APIKey: "synthetic"}, call, config, cache, cachekey.ModeCache, cachekey.DefaultVersion, "research", "trace")
 				executed := record.Search != nil && record.Search.Executed
