@@ -3211,3 +3211,41 @@ throughput are not certified. Downstream products must explicitly adopt the
 published Go client revision. This release preserves the existing CPA policy,
 provider prompts, extraction schemas, credentials, accepted jobs and shared
 infrastructure. The documentation-only closeout requires no application rebuild.
+
+
+## 2026-11-09: Real-provider qualification and token-limit production closeout
+
+PR [#152](https://github.com/prls-co/harden-llm/pull/152) is merged. Application
+source `94c7f7562c84b55d681cf4d11ee676ee59dd0bd5` passed the exact-source
+[browser-free release](https://github.com/prls-co/harden-llm/actions/runs/42572665015),
+attempt 1: all 30 tasks passed, zero cleanup errors/warnings.
+The [production receipt](../plans/evidence/harden-llm/real-provider-151/2026-11-09-production.json)
+records the source/image/configuration identities and retained-data checks.
+
+- Gateway and batch worker now use `harden-llm-gateway:release-94c7f7562c84b55d681cf4d11ee676ee59dd0bd5`,
+  ID `sha256:baf387d9661d21f351439ce024f2b944003519db5b65861639e231ef98816363`.
+  Source/revision/version/platform and actual executable version were verified.
+- The existing image was separately inspected after the exporter reported a
+  context-deadline error following completed naming/unpacking. It was reused
+  after identity/version verification; its tag was not overwritten or rebuilt.
+- Worker then gateway converged through the scoped controller. Both have zero
+  restarts; all eight managed services are equivalent. New worker identity is
+  present on workflow, control-activity and provider-activity queues.
+- All 12 public HTTP checks pass. The explicit targeted production regression
+  succeeds with native output limit 4096 over the preset legacy default: one
+  provider attempt, then an identical SQL cache hit with zero provider attempts.
+  Both acceptance-owned history records were removed via their exact IDs (204).
+- The original two jobs, 1000 completed items/outcomes, 1177 original attempts,
+  three reference history rows, profiles and credentials retain their fingerprints.
+  Concurrent ordinary traffic legitimately advanced total attempts to 1358;
+  there are no unsettled attempts or active items at final audit. Protected
+  input hashes, frontend and shared-service container/image identities are unchanged.
+- The previous gateway image and protected descriptor checkpoint remain for
+  rollback. The owned build source worktree was removed after verification.
+
+Query Analytics PR #13 remains blocked on [Agent CI #24](https://github.com/prls-co/agent-ci/issues/24)
+(the live runner-group workflow allowlist excludes its pinned core), pending
+coordinated upstream/image certification and its separate deployment gates.
+It was not merged or deployed by this closeout. No browser ran; layout is not
+checked. The documentation-only successor does not rebuild or relabel the
+verified application image.

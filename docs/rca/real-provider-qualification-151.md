@@ -7,7 +7,7 @@ provider fixture and authorized actual Query Analytics → NER/Clustering → Ha
 → provider qualification, existing cache reuse, and retirement of the simulator.
 This supersedes the issue's original request for Responses scenario activation.
 Small deterministic tests protecting concrete production boundaries remain.
-Main/production promotion and browser testing are not part of this change.
+The later user instruction to finish production readiness authorized main promotion and the scoped gateway/worker rollout. Browser testing remains excluded.
 
 ## 2. Actual defect found
 
@@ -86,3 +86,15 @@ local processes and a real upstream; it is not evidence of a promoted or
 deployed Query Analytics release. Existing unrelated dirty owner checkouts are
 reported as such and left untouched. Deploying the adapter fix remains a
 separate explicit production promotion.
+
+## 6. Production closeout
+
+PR #152 is merged and source `94c7f7562c84b55d681cf4d11ee676ee59dd0bd5`
+is deployed to the gateway and worker after all 30 exact-source release tasks
+passed. The targeted deployed token-limit request succeeded, and the repeated
+request was served from SQL cache without provider dispatch. Twelve HTTP
+checks, all eight controller scopes, new worker pollers, original-data
+fingerprints and unchanged shared owners pass. See the
+[production receipt](../../plans/evidence/harden-llm/real-provider-151/2026-11-09-production.json).
+Query Analytics remains a separately blocked draft; Agent CI #24 records its
+runner allowlist activation prerequisite. No browser or consumer deployment is claimed.

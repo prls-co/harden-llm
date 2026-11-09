@@ -1,0 +1,623 @@
+{
+  "schemaVersion": 1,
+  "accepted": true,
+  "verifiedAt": "2026-11-09T13:47:19.587459+00:00",
+  "branch": "main",
+  "pullRequest": 152,
+  "applicationSourceSHA": "94c7f7562c84b55d681cf4d11ee676ee59dd0bd5",
+  "url": "https://harden-llm.prls.co/",
+  "authorization": "User explicitly requested finishing production readiness, including the remaining merge/deployment/verification work.",
+  "images": {
+    "gatewayAndWorker": {
+      "tag": "harden-llm-gateway:release-94c7f7562c84b55d681cf4d11ee676ee59dd0bd5",
+      "id": "sha256:baf387d9661d21f351439ce024f2b944003519db5b65861639e231ef98816363",
+      "source": "https://github.com/prls-co/harden-llm",
+      "revision": "94c7f7562c84b55d681cf4d11ee676ee59dd0bd5",
+      "version": "94c7f7562c84b55d681cf4d11ee676ee59dd0bd5",
+      "platform": "linux/amd64",
+      "buildAcknowledgement": "exporter reported context deadline exceeded after naming/unpacking; existing artifact separately verified and reused without rebuild"
+    },
+    "unchangedWeb": {
+      "id": "sha256:2572099e2bc6b8b968ed2a989a2f90938e4bcac25ecff96385b6e74766c83307",
+      "sourceSHA": "c884eb8f7b6d0c48282ee8e9f7077abb5b0d96fd"
+    }
+  },
+  "release": {
+    "databaseId": 42572665015,
+    "attempt": 1,
+    "headSha": "94c7f7562c84b55d681cf4d11ee676ee59dd0bd5",
+    "headBranch": "main",
+    "event": "workflow_dispatch",
+    "conclusion": "success",
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/42572665015"
+  },
+  "releaseCertification": {
+    "accepted": true,
+    "taskCount": 30,
+    "manifestSHA256": "9dca24aa80d8c028a5259f597c323cc59aac6acc5400c4a247f9356a5935dfa5",
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "tasks": [
+      {
+        "taskId": "go-format",
+        "status": 0,
+        "wallTimeMs": 859
+      },
+      {
+        "taskId": "go-lint",
+        "status": 0,
+        "wallTimeMs": 44544
+      },
+      {
+        "taskId": "go-build",
+        "status": 0,
+        "wallTimeMs": 28297
+      },
+      {
+        "taskId": "go-static",
+        "status": 0,
+        "wallTimeMs": 29545
+      },
+      {
+        "taskId": "runner-contracts",
+        "status": 0,
+        "wallTimeMs": 114434
+      },
+      {
+        "taskId": "production-config-compose",
+        "status": 0,
+        "wallTimeMs": 2160
+      },
+      {
+        "taskId": "go-unit",
+        "status": 0,
+        "wallTimeMs": 78393
+      },
+      {
+        "taskId": "go-parity",
+        "status": 0,
+        "wallTimeMs": 59572
+      },
+      {
+        "taskId": "go-integration",
+        "status": 0,
+        "wallTimeMs": 44453
+      },
+      {
+        "taskId": "go-temporal-integration",
+        "status": 0,
+        "wallTimeMs": 100899
+      },
+      {
+        "taskId": "go-integration-race",
+        "status": 0,
+        "wallTimeMs": 131917
+      },
+      {
+        "taskId": "go-api",
+        "status": 0,
+        "wallTimeMs": 50633
+      },
+      {
+        "taskId": "go-observability",
+        "status": 0,
+        "wallTimeMs": 13904
+      },
+      {
+        "taskId": "go-compose",
+        "status": 0,
+        "wallTimeMs": 228682
+      },
+      {
+        "taskId": "go-compose-contract",
+        "status": 0,
+        "wallTimeMs": 2729
+      },
+      {
+        "taskId": "go-race",
+        "status": 0,
+        "wallTimeMs": 591669
+      },
+      {
+        "taskId": "go-vulnerability",
+        "status": 0,
+        "wallTimeMs": 21293
+      },
+      {
+        "taskId": "frontend-ui-package",
+        "status": 0,
+        "wallTimeMs": 97428
+      },
+      {
+        "taskId": "frontend-format",
+        "status": 0,
+        "wallTimeMs": 158337
+      },
+      {
+        "taskId": "frontend-compile",
+        "status": 0,
+        "wallTimeMs": 195508
+      },
+      {
+        "taskId": "frontend-deterministic",
+        "status": 0,
+        "wallTimeMs": 282954
+      },
+      {
+        "taskId": "client-core",
+        "status": 0,
+        "wallTimeMs": 367
+      },
+      {
+        "taskId": "run-progress-client",
+        "status": 0,
+        "wallTimeMs": 606
+      },
+      {
+        "taskId": "frontend-deps-audit",
+        "status": 0,
+        "wallTimeMs": 203640
+      },
+      {
+        "taskId": "frontend-hex-audit",
+        "status": 0,
+        "wallTimeMs": 3342
+      },
+      {
+        "taskId": "frontend-assets-deploy",
+        "status": 0,
+        "wallTimeMs": 124769
+      },
+      {
+        "taskId": "frontend-pagination-asset-check",
+        "status": 0,
+        "wallTimeMs": 103744
+      },
+      {
+        "taskId": "frontend-release",
+        "status": 0,
+        "wallTimeMs": 52955
+      },
+      {
+        "taskId": "backend-verify-baseline",
+        "status": 0,
+        "wallTimeMs": 345247
+      },
+      {
+        "taskId": "frontend-gateway-workflows",
+        "status": 0,
+        "wallTimeMs": 471962
+      }
+    ]
+  },
+  "rollout": {
+    "selectedServices": [
+      "harden-llm-batch-worker",
+      "harden-llm-gateway"
+    ],
+    "order": "worker, then gateway",
+    "applicationController": "equivalent; both services; expected release matches application SHA",
+    "supportController": "equivalent; all six complementary managed services",
+    "preApplyDrain": {
+      "unsettled": 0,
+      "withoutStop": 0,
+      "activeItems": 0
+    },
+    "workerPollers": [
+      {
+        "name": "control-workflow",
+        "newWorkerIdentityPresent": true
+      },
+      {
+        "name": "control-activity",
+        "newWorkerIdentityPresent": true
+      },
+      {
+        "name": "provider-activity",
+        "newWorkerIdentityPresent": true
+      }
+    ]
+  },
+  "runtimeBefore": {
+    "harden-llm-harden-llm-gateway-1": {
+      "containerId": "f82b4a8641b20710c7750efc6bb767d294a555a68373feca179ad85e2d3a74c9",
+      "image": "sha256:d1c2f6cf777590d090d158f52756576820c3753651c0a6b58ea1cecbf5fff41a",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-harden-llm-batch-worker-1": {
+      "containerId": "d4c25c2446831a45f9772ce751a440b4a43f26f54d1bfff98da23f161be225c7",
+      "image": "sha256:d1c2f6cf777590d090d158f52756576820c3753651c0a6b58ea1cecbf5fff41a",
+      "status": "running",
+      "health": null,
+      "restartCount": 0
+    },
+    "harden-llm-harden-llm-web-1": {
+      "containerId": "cfc4c6e1908d7e2c2c86c2da044d8d38737af448115ee438241c28ce53cfe23e",
+      "image": "sha256:2572099e2bc6b8b968ed2a989a2f90938e4bcac25ecff96385b6e74766c83307",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "prls-control-plane-postgres-1": {
+      "containerId": "1121d3a95edbd6059bb641dc556c4a1deb9cd9b28c753779099c72d607e9786c",
+      "image": "sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "garage-shared-garage-shared-1": {
+      "containerId": "ce190d35981ea78c3809d04da816cf52fef36d6233d2f72270710ea332b73d7a",
+      "image": "sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-otel-collector-1": {
+      "containerId": "32daddb31bd7018423b62b1ee1ad270b2241fc777489b89bb33d005d7b73c1d3",
+      "image": "sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-prometheus-1": {
+      "containerId": "4122d08a7710d0466c98671073133b9d1e85cc060f11345bc589f16ccfdd2bfb",
+      "image": "sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-grafana-1": {
+      "containerId": "93c87fe0939c4bd5bc0099cd97101209d96f32f2f9d0ef6e6663129c861dc571",
+      "image": "sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-loki-1": {
+      "containerId": "8398992c73d5fc0872c236e31c6d9bb18aea7d7ab601296694f6ed95751b59b3",
+      "image": "sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-tempo-1": {
+      "containerId": "3a3d4416cbea42537c684220d5ae6f59910bfc8632ee234b0c349fa6df67eefc",
+      "image": "sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    }
+  },
+  "runtimeAfter": {
+    "harden-llm-harden-llm-gateway-1": {
+      "containerId": "2805e9d5b568b98145bb19cefd9f135e29d33e9f6bc836c001b1723a7667a1cd",
+      "image": "sha256:baf387d9661d21f351439ce024f2b944003519db5b65861639e231ef98816363",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-harden-llm-batch-worker-1": {
+      "containerId": "dc19dbea8eb297972680fb6f7fcdfec1e3ebb7bbbd25be40cee43f0f043044d4",
+      "image": "sha256:baf387d9661d21f351439ce024f2b944003519db5b65861639e231ef98816363",
+      "status": "running",
+      "health": null,
+      "restartCount": 0
+    },
+    "harden-llm-harden-llm-web-1": {
+      "containerId": "cfc4c6e1908d7e2c2c86c2da044d8d38737af448115ee438241c28ce53cfe23e",
+      "image": "sha256:2572099e2bc6b8b968ed2a989a2f90938e4bcac25ecff96385b6e74766c83307",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "prls-control-plane-postgres-1": {
+      "containerId": "1121d3a95edbd6059bb641dc556c4a1deb9cd9b28c753779099c72d607e9786c",
+      "image": "sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "garage-shared-garage-shared-1": {
+      "containerId": "ce190d35981ea78c3809d04da816cf52fef36d6233d2f72270710ea332b73d7a",
+      "image": "sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-otel-collector-1": {
+      "containerId": "32daddb31bd7018423b62b1ee1ad270b2241fc777489b89bb33d005d7b73c1d3",
+      "image": "sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-prometheus-1": {
+      "containerId": "4122d08a7710d0466c98671073133b9d1e85cc060f11345bc589f16ccfdd2bfb",
+      "image": "sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-grafana-1": {
+      "containerId": "93c87fe0939c4bd5bc0099cd97101209d96f32f2f9d0ef6e6663129c861dc571",
+      "image": "sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-loki-1": {
+      "containerId": "8398992c73d5fc0872c236e31c6d9bb18aea7d7ab601296694f6ed95751b59b3",
+      "image": "sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-tempo-1": {
+      "containerId": "3a3d4416cbea42537c684220d5ae6f59910bfc8632ee234b0c349fa6df67eefc",
+      "image": "sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
+      "status": "running",
+      "health": "healthy",
+      "restartCount": 0
+    }
+  },
+  "httpChecks": [
+    {
+      "name": "gateway-health",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "name": "gateway-ready",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "name": "missing-bearer",
+      "status": 401,
+      "expected": 401,
+      "pass": true,
+      "errorCode": "invalid_api_key"
+    },
+    {
+      "name": "invalid-bearer",
+      "status": 401,
+      "expected": 401,
+      "pass": true,
+      "errorCode": "invalid_api_key"
+    },
+    {
+      "name": "feature-status",
+      "status": 200,
+      "expected": 200,
+      "pass": true,
+      "features": {
+        "storage": "configured",
+        "historyStatus": "configured",
+        "artifacts": "configured",
+        "credentials": "configured"
+      },
+      "historyRows": 3
+    },
+    {
+      "name": "profiles",
+      "status": 200,
+      "expected": 200,
+      "pass": true,
+      "profileCount": 40,
+      "bodySHA256": "c4575f5177256de5d32eae0cf26efa98730c34b9024b60bc3eb37d22e8167b3f"
+    },
+    {
+      "name": "missing-job",
+      "status": 404,
+      "expected": 404,
+      "pass": true,
+      "errorCode": "not_found"
+    },
+    {
+      "name": "missing-request-status",
+      "status": 404,
+      "expected": 404,
+      "pass": true,
+      "errorCode": "request_not_found"
+    },
+    {
+      "name": "responses-invalid-before-inference",
+      "status": 400,
+      "expected": 400,
+      "pass": true,
+      "errorCode": "invalid_request"
+    },
+    {
+      "name": "responses-encoded-bound",
+      "status": 413,
+      "expected": 413,
+      "pass": true,
+      "errorCode": "request_too_large"
+    },
+    {
+      "name": "batch-manifest-above-256k-validation",
+      "status": 400,
+      "expected": 400,
+      "pass": true,
+      "errorCode": "invalid_request"
+    },
+    {
+      "name": "portal-login",
+      "status": 200,
+      "expected": 200,
+      "pass": true,
+      "contentType": "text/html; charset=utf-8",
+      "probeCorrection": "initial Accept: application/json correctly returned 406; login is an HTML endpoint"
+    }
+  ],
+  "targetedProductionAcceptance": {
+    "accepted": true,
+    "applicationSource": "94c7f7562c84b55d681cf4d11ee676ee59dd0bd5",
+    "automaticInferenceReplay": false,
+    "calls": [
+      {
+        "runId": "dca69913-3fa6-46c1-b840-998f88edb45a",
+        "model": "gpt-6-luna",
+        "cacheServed": false,
+        "providerAttempts": 1,
+        "recording": "saved",
+        "providerUsage": {
+          "inputTokens": 67,
+          "cacheReadTokens": 0,
+          "cacheCreationTokens": 0,
+          "outputTokens": 14,
+          "reasoningTokens": 0,
+          "promptTokens": 67,
+          "completionTokens": 14,
+          "totalTokens": 81,
+          "status": "complete"
+        },
+        "providerCost": {
+          "knownSubtotalUsd": 1.37e-05,
+          "status": "exact",
+          "source": "profile",
+          "knownObservations": 1,
+          "unknownObservations": 0
+        }
+      },
+      {
+        "runId": "ccb0485b-9eea-43ec-9892-b786b6dbaf06",
+        "model": "gpt-6-luna",
+        "cacheServed": true,
+        "providerAttempts": 0,
+        "recording": "saved",
+        "providerUsage": {
+          "inputTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheCreationTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "promptTokens": 0,
+          "completionTokens": 0,
+          "totalTokens": 0,
+          "status": "unavailable"
+        },
+        "providerCost": {
+          "knownSubtotalUsd": 0,
+          "status": "unavailable",
+          "source": "",
+          "knownObservations": 0,
+          "unknownObservations": 0
+        }
+      }
+    ],
+    "nativeOutputTokenLimit": 4096,
+    "ownedHistoryCleanupHTTP": [
+      204,
+      204
+    ],
+    "profile": "CPA gpt-6-luna",
+    "purpose": "explicit targeted token-limit and result-cache acceptance",
+    "url": "https://harden-llm.prls.co/"
+  },
+  "retainedDataBefore": {
+    "profiles": {
+      "count": 0,
+      "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "credentials": {
+      "count": 0,
+      "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "history": {
+      "count": 3,
+      "fingerprint": "ebc1334c15b56962c6edc160e280c6e8"
+    },
+    "batch_jobs": {
+      "count": 2,
+      "fingerprint": "2473610afce418b40ffd6d655ba85b54"
+    },
+    "batch_items": {
+      "count": 1000,
+      "fingerprint": "64ebf1ad487520fb2d8d514ebec6223d"
+    },
+    "batch_attempts": {
+      "count": 1177,
+      "fingerprint": "8921814f60febc0ef1ef0e177765b3b9"
+    },
+    "batchStates": [
+      "succeeded|1000"
+    ]
+  },
+  "retainedDataAfter": {
+    "profiles": {
+      "count": 0,
+      "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "credentials": {
+      "count": 0,
+      "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "history": {
+      "count": 3,
+      "fingerprint": "ebc1334c15b56962c6edc160e280c6e8"
+    },
+    "batch_jobs": {
+      "count": 2,
+      "fingerprint": "2473610afce418b40ffd6d655ba85b54"
+    },
+    "batch_items": {
+      "count": 1000,
+      "fingerprint": "64ebf1ad487520fb2d8d514ebec6223d"
+    },
+    "batch_attempts": {
+      "count": 1177,
+      "fingerprint": "8921814f60febc0ef1ef0e177765b3b9"
+    },
+    "batchStates": [
+      "succeeded|1000"
+    ],
+    "currentAdmission": {
+      "totalAttempts": 1358,
+      "unsettled": 0,
+      "withoutStop": 0,
+      "activeItems": 0
+    }
+  },
+  "originalAttemptBoundary": {
+    "cutoff": "2026-11-09T06:24:23+00:00",
+    "count": 1177,
+    "fingerprint": "8921814f60febc0ef1ef0e177765b3b9"
+  },
+  "protectedInputSHA256": {
+    "/home/kirill/p/harden-llm-production/.env": "7b8e809d7e15fa5b84a245b8926e5354c35340b3e4ef15c324d6ec33bc99d390",
+    "/home/kirill/p/harden-llm/.env": "acc7c62165006c1b496f710014604859374c7104b46b1b39b354c0437846aaec",
+    "/home/kirill/.config/prls-agent-platform/observability/live.env": "5826d070c085c8833a808bffa33273b31ae964feba41070179199b4eafef1731",
+    "/home/kirill/p/harden-llm/config/upstreams.local.json": "77ba0e35287d7eac3084fdd3aabddeb1701ed61d4e8a4f1e61e75a126f584729"
+  },
+  "descriptor": {
+    "beforeSHA256": "32e525d51295736cf06aea1503a577633f6888b7f846f8d4d73a2cac28385aa9",
+    "afterSHA256": "6bac776ad4c0d10d1c5950c85b7c43134d3e4adbca25f1be380aac6504e58d87",
+    "mode": "0o600",
+    "privateRollbackCheckpoint": "/home/kirill/.config/harden-llm/real-provider-151-20261109T062423Z/production.before.json",
+    "changedFields": "Only gateway/worker service image references, expected image IDs and release identity fields."
+  },
+  "buildCleanup": {
+    "ownedSource": "/var/tmp/harden-llm-151-build.rgkjzuws/source",
+    "cleanBeforeRemoval": true,
+    "removed": true,
+    "existingReleaseImageRebuilt": false
+  },
+  "diagnosticDispositions": [
+    "Docker build/export returned a context-deadline error after naming/unpacking. The existing image was independently verified for source/version/platform and isolated executable version, then reused without overwrite/rebuild.",
+    "The initial Portal probe used Accept application/json and correctly received 406. Its HTML request received 200; original probe evidence is retained privately.",
+    "Concurrent ordinary production traffic increased ledger totals; all original 1177 attempt rows, both retained jobs, 1000 items/outcomes and original reference records retain their before fingerprints. Only the two acceptance-owned history IDs were deleted through the API."
+  ],
+  "consumer": {
+    "pullRequest": "https://github.com/prls-co/query-analytics/pull/13",
+    "status": "blocked; unmerged and not deployed",
+    "CIBlocker": "https://github.com/prls-co/agent-ci/issues/24",
+    "otherReleaseGates": "VERSION-LOCK pending coordinated upstream certification; deployment image digest placeholder; consumer origin/Portal and active-old-job disposition remain separate."
+  },
+  "browser": "not run; layout not checked",
+  "costInterpretation": "Targeted provider cost is a diagnostic profile-rate equivalent, not an invoice."
+}
