@@ -1,6 +1,6 @@
 package httpapi
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-537
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-534 TEST-537
 
 import (
 	"context"
@@ -167,7 +167,7 @@ func TestChatWebSearchFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var searchCalls, providerCalls atomic.Int32
+	var searchCalls, providerCalls, repairCalls atomic.Int32
 	upstream := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			searchCalls.Add(1)
@@ -180,7 +180,22 @@ func TestChatWebSearchFallback(t *testing.T) {
 			return
 		}
 		providerCalls.Add(1)
+		var input struct {
+			Model string `json:"model"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			t.Error(err)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
+		if input.Model == "repair-fixture" {
+			answer := `{"ok":true}`
+			if repairCalls.Add(1) == 1 {
+				answer = `{"ok":`
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"finish_reason": "stop", "message": map[string]any{"content": answer}}}})
+			return
+		}
 		fmt.Fprint(w, `{"choices":[{"finish_reason":"stop","message":{"content":"fallback answer"}}]}`)
 	}))
 	upstream.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}}
@@ -250,6 +265,36 @@ func TestChatWebSearchFallback(t *testing.T) {
 			firstOutput = items
 		} else if w.Header().Get("Cache-Status") != "harden-llm; hit" || !reflect.DeepEqual(firstOutput, items) {
 			t.Fatalf("cached fallback lost evidence or identity: header=%q output=%#v", w.Header().Get("Cache-Status"), items)
+		}
+	}
+	const repairedRequest = `{"model":"repair-fixture","input":"hello","tools":[{"type":"web_search"}],"tool_choice":"required","include":["web_search_call.action.sources"],"harden":{"cache":"cache"},"text":{"format":{"type":"json_schema","name":"answer","strict":true,"schema":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}}}`
+	var repairedOutput any
+	for attempt := 0; attempt < 2; attempt++ {
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(repairedRequest))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+proxyTestToken)
+		w := httptest.NewRecorder()
+		handler.Handler().ServeHTTP(w, req)
+		if w.Code != 200 || searchCalls.Load() != 3 || providerCalls.Load() != 4 || repairCalls.Load() != 2 {
+			t.Fatalf("repaired fallback attempt=%d status=%d search=%d provider=%d repair=%d body=%s", attempt, w.Code, searchCalls.Load(), providerCalls.Load(), repairCalls.Load(), w.Body.String())
+		}
+		var body map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		items := body["output"].([]any)
+		if len(items) != 2 {
+			t.Fatalf("repaired fallback lost search evidence: %#v", items)
+		}
+		action := items[0].(map[string]any)["action"].(map[string]any)
+		wantSources := []any{map[string]any{"type": "url", "url": "https://example.test/source"}}
+		if action["type"] != "search" || !reflect.DeepEqual(action["sources"], wantSources) || !json.Valid([]byte(body["output_text"].(string))) {
+			t.Fatalf("repaired fallback lost source or output: %#v", body)
+		}
+		if attempt == 0 {
+			repairedOutput = items
+		} else if w.Header().Get("Cache-Status") != "harden-llm; hit" || !reflect.DeepEqual(repairedOutput, items) {
+			t.Fatalf("cached repaired fallback changed: header=%q output=%#v", w.Header().Get("Cache-Status"), items)
 		}
 	}
 }
