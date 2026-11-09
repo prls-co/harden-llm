@@ -140,6 +140,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 		writeRequestError(writer, err, "response")
 		return
 	}
+	writeCacheStatus(writer, result)
 	if input.Stream {
 		if err := validateResponseSize(response); err != nil {
 			if tracked != nil {
@@ -184,7 +185,7 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 	if input.ParallelToolCalls != nil {
 		parallelToolCalls = *input.ParallelToolCalls
 	}
-	response, err := responsesResponse(input.Model, result, created, diagnostics, parallelToolCalls)
+	response, err := responsesResponse(input.Model, result, created, diagnostics, parallelToolCalls, prepared.IncludeSearchSources)
 	if err != nil {
 		if tracked != nil {
 			tracked.session.Finish("failed", "response_projection_error", true)
@@ -192,6 +193,7 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 		writeRequestError(writer, err, "response")
 		return
 	}
+	writeCacheStatus(writer, result)
 	if input.Stream {
 		if err := validateResponseSize(response); err != nil {
 			if tracked != nil {
@@ -201,11 +203,17 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 			return
 		}
 		tracked.project(response)
-		api.streamResponses(writer, request, input.Model, result, created, diagnostics, parallelToolCalls)
+		api.streamResponses(writer, request, response)
 		return
 	}
 	tracked.project(response)
 	writeJSON(writer, http.StatusOK, response, maximumResponseBytes)
+}
+
+func writeCacheStatus(writer http.ResponseWriter, result hardenllm.Result) {
+	if result.Cache.Served {
+		writer.Header().Set("Cache-Status", "harden-llm; hit")
+	}
 }
 
 type preparedResponses struct {

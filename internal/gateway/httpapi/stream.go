@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	hardenllm "github.com/prls-co/harden-llm"
 )
@@ -78,17 +77,7 @@ func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, mo
 	_ = flusher.Flush()
 }
 
-func (api *API) streamResponses(writer http.ResponseWriter, request *http.Request, model string, result hardenllm.Result, created int64, diagnostics, parallelToolCalls bool) {
-	final, err := responsesResponse(model, result, created, diagnostics, parallelToolCalls)
-	if err != nil {
-		writeRequestError(writer, err, "response")
-		return
-	}
-	content, calls, err := outputContent(result)
-	if err != nil {
-		writeRequestError(writer, err, "response")
-		return
-	}
+func (api *API) streamResponses(writer http.ResponseWriter, request *http.Request, final map[string]any) {
 	if request.Context().Err() != nil {
 		return
 	}
@@ -97,74 +86,104 @@ func (api *API) streamResponses(writer http.ResponseWriter, request *http.Reques
 	writer.Header().Set("Connection", "keep-alive")
 	flusher := http.NewResponseController(writer)
 	sequence := 0
-	responseID := "resp_" + result.CallID
-	base := map[string]any{"id": responseID, "object": "response", "created_at": created, "status": "in_progress", "model": model, "output": []any{}}
+	base := map[string]any{"id": final["id"], "object": "response", "created_at": final["created_at"], "status": "in_progress", "model": final["model"], "output": []any{}}
 	if !writeResponseEvent(writer, flusher, &sequence, "response.created", map[string]any{"response": base}) {
 		return
 	}
 	if !writeResponseEvent(writer, flusher, &sequence, "response.in_progress", map[string]any{"response": base}) {
 		return
 	}
-	outputIndex := 0
-	if content != "" || len(calls) == 0 {
-		itemID := "msg_" + result.CallID
-		item := map[string]any{"id": itemID, "type": "message", "status": "in_progress", "role": "assistant", "content": []any{}}
-		if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.added", map[string]any{"output_index": outputIndex, "item": item}) {
-			return
+	for index, raw := range final["output"].([]any) {
+		item := raw.(map[string]any)
+		id := item["id"].(string)
+		added := make(map[string]any, len(item))
+		for key, value := range item {
+			added[key] = value
 		}
-		part := map[string]any{"type": "output_text", "text": "", "annotations": []any{}}
-		if !writeResponseEvent(writer, flusher, &sequence, "response.content_part.added", map[string]any{"output_index": outputIndex, "content_index": 0, "part": part}) {
-			return
-		}
-		for _, chunk := range outputChunks(content, 64<<10) {
-			if !writeResponseEvent(writer, flusher, &sequence, "response.output_text.delta", map[string]any{"output_index": outputIndex, "content_index": 0, "delta": chunk}) {
+		added["status"] = "in_progress"
+		switch item["type"] {
+		case "web_search_call":
+			if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.added", map[string]any{"output_index": index, "item": added}) {
 				return
 			}
-		}
-		part["text"] = content
-		if !writeResponseEvent(writer, flusher, &sequence, "response.output_text.done", map[string]any{"output_index": outputIndex, "content_index": 0, "text": content}) {
-			return
-		}
-		if !writeResponseEvent(writer, flusher, &sequence, "response.content_part.done", map[string]any{"output_index": outputIndex, "content_index": 0, "part": part}) {
-			return
-		}
-		item["status"], item["content"] = "completed", []any{part}
-		if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.done", map[string]any{"output_index": outputIndex, "item": item}) {
-			return
-		}
-		outputIndex++
-	}
-	for _, call := range calls {
-		itemID := call.ItemID
-		if itemID == "" {
-			itemID = "fc_" + result.CallID + "_" + strconv.Itoa(outputIndex)
-		}
-		item := map[string]any{
-			"id": itemID, "type": "function_call", "status": "in_progress", "call_id": call.ID,
-			"name": call.Function.Name, "arguments": "",
-		}
-		if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.added", map[string]any{"output_index": outputIndex, "item": item}) {
-			return
-		}
-		for _, chunk := range outputChunks(call.Function.Arguments, 64<<10) {
-			if !writeResponseEvent(writer, flusher, &sequence, "response.function_call_arguments.delta", map[string]any{"output_index": outputIndex, "item_id": itemID, "delta": chunk}) {
+			events := []string{"in_progress"}
+			status, _ := item["status"].(string)
+			if status == "searching" || status == "completed" {
+				events = append(events, "searching")
+			}
+			if status == "completed" {
+				events = append(events, "completed")
+			}
+			for _, status := range events {
+				if !writeResponseEvent(writer, flusher, &sequence, "response.web_search_call."+status, map[string]any{"output_index": index, "item_id": id}) {
+					return
+				}
+			}
+		case "message":
+			added["content"] = []any{}
+			if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.added", map[string]any{"output_index": index, "item": added}) {
 				return
 			}
-		}
-		if !writeResponseEvent(writer, flusher, &sequence, "response.function_call_arguments.done", map[string]any{"output_index": outputIndex, "item_id": itemID, "arguments": call.Function.Arguments}) {
+			for partIndex, partRaw := range item["content"].([]any) {
+				part := partRaw.(map[string]any)
+				text, _ := part["text"].(string)
+				blank := map[string]any{"type": "output_text", "text": "", "annotations": []any{}}
+				fields := func() map[string]any {
+					return map[string]any{"output_index": index, "content_index": partIndex, "item_id": id}
+				}
+				f := fields()
+				f["part"] = blank
+				if !writeResponseEvent(writer, flusher, &sequence, "response.content_part.added", f) {
+					return
+				}
+				for _, chunk := range outputChunks(text, 64<<10) {
+					f = fields()
+					f["delta"] = chunk
+					if !writeResponseEvent(writer, flusher, &sequence, "response.output_text.delta", f) {
+						return
+					}
+				}
+				for annotationIndex, annotation := range part["annotations"].([]any) {
+					f = fields()
+					f["annotation_index"] = annotationIndex
+					f["annotation"] = annotation
+					if !writeResponseEvent(writer, flusher, &sequence, "response.output_text.annotation.added", f) {
+						return
+					}
+				}
+				f = fields()
+				f["text"] = text
+				if !writeResponseEvent(writer, flusher, &sequence, "response.output_text.done", f) {
+					return
+				}
+				f = fields()
+				f["part"] = part
+				if !writeResponseEvent(writer, flusher, &sequence, "response.content_part.done", f) {
+					return
+				}
+			}
+		case "function_call":
+			added["arguments"] = ""
+			if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.added", map[string]any{"output_index": index, "item": added}) {
+				return
+			}
+			args, _ := item["arguments"].(string)
+			for _, chunk := range outputChunks(args, 64<<10) {
+				if !writeResponseEvent(writer, flusher, &sequence, "response.function_call_arguments.delta", map[string]any{"output_index": index, "item_id": id, "delta": chunk}) {
+					return
+				}
+			}
+			if !writeResponseEvent(writer, flusher, &sequence, "response.function_call_arguments.done", map[string]any{"output_index": index, "item_id": id, "arguments": args}) {
+				return
+			}
+		default:
 			return
 		}
-		item["status"], item["arguments"] = "completed", call.Function.Arguments
-		if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.done", map[string]any{"output_index": outputIndex, "item": item}) {
+		if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.done", map[string]any{"output_index": index, "item": item}) {
 			return
 		}
-		outputIndex++
 	}
-	final["sequence_number"] = sequence
-	final["type"] = "response.completed"
-	if !writeSSEEvent(writer, flusher, "response.completed", final) {
-		return
-	}
+	writeResponseEvent(writer, flusher, &sequence, "response.completed", map[string]any{"response": final})
 }
 
 func writeResponseEvent(writer http.ResponseWriter, flusher *http.ResponseController, sequence *int, name string, fields map[string]any) bool {

@@ -57,6 +57,10 @@ type ToolCall = coreruntime.ToolCall
 type FunctionCall = coreruntime.FunctionCall
 type FunctionTool = coreruntime.FunctionTool
 type ToolChoice = coreruntime.ToolChoice
+
+// IsWebSearchToolType reports whether the wire tool name denotes web search.
+func IsWebSearchToolType(value string) bool { return coreruntime.WebSearchToolTypes[value] }
+
 type AssistantToolCall = coreruntime.AssistantToolCall
 type AssistantOutput = coreruntime.AssistantOutput
 
@@ -148,6 +152,8 @@ type Origin struct {
 type SchemaContractError = contractschema.ContractError
 
 type Result struct {
+	// ProjectionCallID is the producer call identity used for cached output item IDs.
+	ProjectionCallID string `json:"-"`
 	// AssistantText is original model evidence for protocol projections.
 	AssistantText    string `json:"-"`
 	Search           *SearchResult
@@ -191,6 +197,7 @@ type SearchResult = coreruntime.SearchResult
 type SearchCall = coreruntime.SearchCall
 type SearchAction = coreruntime.SearchAction
 type SearchSource = coreruntime.SearchSource
+type SearchCitation = coreruntime.SearchCitation
 
 // CallType identifies text or contracted structured-output execution.
 type CallType string

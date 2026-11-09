@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	hardenllm "github.com/prls-co/harden-llm"
-	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
 type hardenRequest struct {
@@ -218,7 +217,7 @@ func decodeTools(values []json.RawMessage, responses bool) ([]hardenllm.Function
 		if json.Unmarshal(encoded, &head) != nil {
 			return nil, nil, errors.New("invalid tool")
 		}
-		if responses && runtime.WebSearchToolTypes[head.Type] {
+		if responses && hardenllm.IsWebSearchToolType(head.Type) {
 			if webSearch != nil {
 				return nil, nil, errors.New("only one web search tool is supported")
 			}
@@ -266,7 +265,7 @@ func decodeToolChoice(encoded json.RawMessage, responses bool) (hardenllm.ToolCh
 		}
 		decoder := json.NewDecoder(bytes.NewReader(encoded))
 		decoder.DisallowUnknownFields()
-		if decoder.Decode(&searchChoice) == nil && runtime.WebSearchToolTypes[searchChoice.Type] {
+		if decoder.Decode(&searchChoice) == nil && hardenllm.IsWebSearchToolType(searchChoice.Type) {
 			return hardenllm.ToolChoice{Mode: "required"}, nil
 		}
 	}

@@ -271,6 +271,12 @@ status. They do not describe timing; this is documented.
 - Store `AssistantText` in `cachedProviderProjection` (`client_cache.go:21`).
   Structured cache hits currently re-encode the JSON (`responses.go:145`),
   which would break the citation hash.
+- Preserve the producing call ID in the cache projection and use it only for
+  generated search/output item IDs on a replay. Each replay retains its own
+  response, execution and trace IDs. A provider-to-handler regression exposed
+  that otherwise the required byte-equivalent cached output changes its message
+  ID even though its search facts remain identical. The projection version bump
+  already separates old rows; no second cache identity is introduced.
 - A hit sets `Cache-Status: harden-llm; hit` (RFC 9211). Replayed items
   describe the original answer, and the header says it was not a fresh search.
 
@@ -546,7 +552,9 @@ WebSearchTool json.RawMessage `json:"webSearchTool,omitempty"`
 Copy it where `WebSearch` is copied (`client.go:146`). In `client.go`, reject
 it unless `WebSearch` is true and it is a JSON object whose `type` is one of
 the four recognized spellings. Define that set once, as
-`runtime.WebSearchToolTypes`, and use it everywhere.
+`runtime.WebSearchToolTypes`. The gateway uses the root-library
+`IsWebSearchToolType` function rather than importing internal runtime types;
+the repository's `TestImplementationBoundaries` enforces this boundary.
 
 ### 7.2 Tool choice treats search as a tool
 
@@ -589,7 +597,7 @@ the four recognized spellings. Define that set once, as
 
 - `decodeTools` (`requests.go:210`): decode `{"type": string}` first, without
   strict mode. If the request is Responses and
-  `runtime.WebSearchToolTypes[type]` is true, keep the raw object as the search
+  `hardenllm.IsWebSearchToolType(type)` is true, keep the raw object as the search
   tool; a second search tool returns 400. Otherwise use the existing strict
   function-tool path. Return the raw search tool instead of the boolean.
 - `decodeToolChoice` (`requests.go:245`): accept `{"type": t}` for a recognized

@@ -18,6 +18,7 @@ type Cache interface {
 }
 
 type CachedResult struct {
+	ProjectionCallID string          `json:"projectionCallId,omitempty"`
 	ProviderResult   ProviderResult  `json:"providerResult"`
 	Producer         ExecutionTarget `json:"producer"`
 	GenerationTarget ExecutionTarget `json:"generationTarget,omitempty"`

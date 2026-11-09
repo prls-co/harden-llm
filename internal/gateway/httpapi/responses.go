@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -88,24 +90,89 @@ func chatResponse(model string, result hardenllm.Result, created int64, includeU
 	return response, nil
 }
 
-func responsesResponse(model string, result hardenllm.Result, created int64, diagnostics bool, parallelToolCalls bool) (map[string]any, error) {
+func outputItemID(id, prefix, callID string, index int) string {
+	if id != "" {
+		return id
+	}
+	return prefix + "_" + callID + "_" + strconv.Itoa(index)
+}
+
+// Cached search items retain the producer's item IDs while the response keeps
+// the current call ID for request tracking.
+func projectionCallID(result hardenllm.Result) string {
+	if result.Search != nil && result.Cache.Served && result.ProjectionCallID != "" {
+		return result.ProjectionCallID
+	}
+	return result.CallID
+}
+
+func searchCallItems(result hardenllm.Result, includeSources bool) []any {
+	items := []any{}
+	if result.Search == nil {
+		return items
+	}
+	for index, call := range result.Search.Calls {
+		item := map[string]any{"id": outputItemID(call.ID, "ws", projectionCallID(result), index), "type": "web_search_call", "status": call.Status}
+		if call.Action != nil {
+			a := call.Action
+			action := map[string]any{"type": a.Type}
+			if a.Query != "" {
+				action["query"] = a.Query
+			}
+			if a.URL != "" {
+				action["url"] = a.URL
+			}
+			if a.Pattern != "" {
+				action["pattern"] = a.Pattern
+			}
+			if includeSources {
+				sources := make([]any, 0, len(call.Sources))
+				for _, s := range call.Sources {
+					sources = append(sources, map[string]any{"type": "url", "url": s.URL})
+				}
+				action["sources"] = sources
+			}
+			item["action"] = action
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func annotations(result hardenllm.Result, text string, shape func(hardenllm.SearchCitation) any) []any {
+	output := []any{}
+	if result.Search == nil || len(result.Search.Citations) == 0 {
+		return output
+	}
+	sum := sha256.Sum256([]byte(text))
+	if hex.EncodeToString(sum[:]) != result.Search.CitationTextSHA256 {
+		return output
+	}
+	for _, citation := range result.Search.Citations {
+		output = append(output, shape(citation))
+	}
+	return output
+}
+
+func responsesCitation(c hardenllm.SearchCitation) any {
+	return map[string]any{"type": "url_citation", "start_index": c.StartIndex, "end_index": c.EndIndex, "url": c.URL, "title": c.Title}
+}
+
+func responsesResponse(model string, result hardenllm.Result, created int64, diagnostics bool, parallelToolCalls bool, includeSources bool) (map[string]any, error) {
 	content, calls, err := outputContent(result)
 	if err != nil {
 		return nil, err
 	}
 	id := "resp_" + result.CallID
-	output := make([]any, 0, 1+len(calls))
+	output := searchCallItems(result, includeSources)
 	if content != "" || len(calls) == 0 {
 		output = append(output, map[string]any{
-			"id": "msg_" + result.CallID, "type": "message", "status": "completed", "role": "assistant",
-			"content": []any{map[string]any{"type": "output_text", "text": content, "annotations": []any{}}},
+			"id": "msg_" + projectionCallID(result), "type": "message", "status": "completed", "role": "assistant",
+			"content": []any{map[string]any{"type": "output_text", "text": content, "annotations": annotations(result, content, responsesCitation)}},
 		})
 	}
 	for index, call := range calls {
-		itemID := call.ItemID
-		if itemID == "" {
-			itemID = "fc_" + result.CallID + "_" + strconv.Itoa(index)
-		}
+		itemID := outputItemID(call.ItemID, "fc", result.CallID, index)
 		output = append(output, map[string]any{
 			"id": itemID, "type": "function_call", "status": "completed", "call_id": call.ID,
 			"name": call.Function.Name, "arguments": call.Function.Arguments,

@@ -287,6 +287,7 @@ type ResultSource struct {
 }
 
 type CallRecord struct {
+	ProjectionCallID     string
 	AssistantText        string
 	Search               *SearchResult
 	CallID               string

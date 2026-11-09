@@ -197,7 +197,7 @@ func (api *API) jobResult(w http.ResponseWriter, r *http.Request) {
 
 // EncodeBatchResponse reuses the ordinary Responses output contract in workers.
 func EncodeBatchResponse(g batch.Generation, result hardenllm.Result, at time.Time) (json.RawMessage, error) {
-	v, err := responsesResponse(g.ModelID, result, at.Unix(), true, g.ParallelToolCalls)
+	v, err := responsesResponse(g.ModelID, result, at.Unix(), true, g.ParallelToolCalls, false)
 	if err != nil {
 		return nil, err
 	}

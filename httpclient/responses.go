@@ -49,9 +49,41 @@ type ResponsesInput struct {
 	Include    []string           `json:"include,omitempty"`
 }
 type ResponsesOutput struct {
-	Model      string          `json:"model"`
-	OutputText string          `json:"output_text"`
-	Harden     json.RawMessage `json:"harden"`
+	Model      string               `json:"model"`
+	OutputText string               `json:"output_text"`
+	Harden     json.RawMessage      `json:"harden"`
+	Output     []ResponseOutputItem `json:"output"`
+}
+
+type ResponseOutputItem struct {
+	ID      string                  `json:"id"`
+	Type    string                  `json:"type"`
+	Status  string                  `json:"status"`
+	Action  *ResponseSearchAction   `json:"action,omitempty"`
+	Content []ResponseOutputContent `json:"content,omitempty"`
+}
+type ResponseSearchAction struct {
+	Type    string                 `json:"type"`
+	Query   string                 `json:"query,omitempty"`
+	URL     string                 `json:"url,omitempty"`
+	Pattern string                 `json:"pattern,omitempty"`
+	Sources []ResponseSearchSource `json:"sources,omitempty"`
+}
+type ResponseSearchSource struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
+}
+type ResponseOutputContent struct {
+	Type        string               `json:"type"`
+	Text        string               `json:"text"`
+	Annotations []ResponseAnnotation `json:"annotations"`
+}
+type ResponseAnnotation struct {
+	Type       string `json:"type"`
+	StartIndex int    `json:"start_index"`
+	EndIndex   int    `json:"end_index"`
+	URL        string `json:"url"`
+	Title      string `json:"title"`
 }
 
 // ResponsesFailure preserves the authoritative terminal error and optional

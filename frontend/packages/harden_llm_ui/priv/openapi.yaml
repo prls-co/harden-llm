@@ -2464,7 +2464,18 @@ components:
                       properties:
                         type: {const: output_text}
                         text: {type: string}
-                        annotations: {type: array, items: {type: object}}
+                        annotations:
+                          type: array
+                          items:
+                            type: object
+                            required: [type, start_index, end_index, url, title]
+                            properties:
+                              type: {type: string, enum: [url_citation]}
+                              start_index: {type: integer, minimum: 0}
+                              end_index: {type: integer, minimum: 1}
+                              url: {type: string, format: uri}
+                              title: {type: string}
+                            additionalProperties: false
                       additionalProperties: false
                 additionalProperties: false
               - type: object
@@ -2476,6 +2487,31 @@ components:
                   call_id: {type: string}
                   name: {type: string}
                   arguments: {type: string}
+                additionalProperties: false
+              - type: object
+                required: [id, type, status]
+                properties:
+                  id: {type: string}
+                  type: {type: string, enum: [web_search_call]}
+                  status: {type: string}
+                  action:
+                    type: object
+                    required: [type]
+                    properties:
+                      type: {type: string}
+                      query: {type: string}
+                      url: {type: string, format: uri}
+                      pattern: {type: string}
+                      sources:
+                        type: array
+                        items:
+                          type: object
+                          required: [type, url]
+                          properties:
+                            type: {type: string, enum: [url]}
+                            url: {type: string, format: uri}
+                          additionalProperties: false
+                    additionalProperties: false
                 additionalProperties: false
         output_text: {type: string}
         parallel_tool_calls: {type: boolean}
