@@ -189,9 +189,10 @@ func TestChatWebSearchFallback(t *testing.T) {
 	roots := x509.NewCertPool()
 	roots.AddCert(cert)
 	dialer := &net.Dialer{}
-	service, err := stateful.NewService(stateful.Config{Client: stateful.ClientOptions{Connections: []hardenllm.Connection{{ID: "fallback", Provider: "openai", Protocol: "chat-completions", BaseURL: upstream.URL + "/v1", CacheDomain: "test", APIKey: "synthetic"}}, DefaultConnection: "fallback", WebSearch: stateful.WebSearchOptions{JinaAPIKey: "synthetic"}, EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}, Resolver: chatJinaResolver{}, DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+	options := stateful.ClientOptions{Connections: []hardenllm.Connection{{ID: "fallback", Provider: "openai", Protocol: "chat-completions", BaseURL: upstream.URL + "/v1", CacheDomain: "test", APIKey: "synthetic"}}, DefaultConnection: "fallback", WebSearch: stateful.WebSearchOptions{JinaAPIKey: "synthetic"}, Cache: &projectionCache{records: make(map[string]hardenllm.CacheRecord)}, EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}, Resolver: chatJinaResolver{}, DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
 		return dialer.DialContext(ctx, network, upstream.Listener.Addr().String())
-	}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}}})
+	}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}}
+	service, err := stateful.NewService(stateful.Config{Client: options})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,6 +200,11 @@ func TestChatWebSearchFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	client, err := stateful.NewClient(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"fixture","messages":[{"role":"user","content":"hello"}],"web_search_options":{}}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+proxyTestToken)
@@ -214,6 +220,37 @@ func TestChatWebSearchFallback(t *testing.T) {
 	msg := response["choices"].([]any)[0].(map[string]any)["message"].(map[string]any)
 	if msg["content"] != "fallback answer" || msg["annotations"] != nil {
 		t.Fatalf("fallback invented citation: %#v", msg)
+	}
+	const cachedRequest = `{"model":"fixture","input":"hello","tools":[{"type":"web_search"}],"include":["web_search_call.action.sources"],"harden":{"cache":"cache"}}`
+	var firstOutput any
+	for attempt := 0; attempt < 2; attempt++ {
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(cachedRequest))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+proxyTestToken)
+		w := httptest.NewRecorder()
+		handler.Handler().ServeHTTP(w, req)
+		if w.Code != 200 || searchCalls.Load() != 2 || providerCalls.Load() != 2 {
+			t.Fatalf("cached fallback attempt=%d status=%d search=%d provider=%d body=%s", attempt, w.Code, searchCalls.Load(), providerCalls.Load(), w.Body.String())
+		}
+		var body map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		items := body["output"].([]any)
+		if len(items) != 2 {
+			t.Fatalf("fallback lost search evidence: %#v", items)
+		}
+		search := items[0].(map[string]any)
+		action := search["action"].(map[string]any)
+		wantSources := []any{map[string]any{"type": "url", "url": "https://example.test/source"}}
+		if search["type"] != "web_search_call" || action["type"] != "search" || !reflect.DeepEqual(action["sources"], wantSources) {
+			t.Fatalf("fallback search evidence changed: %#v", search)
+		}
+		if attempt == 0 {
+			firstOutput = items
+		} else if w.Header().Get("Cache-Status") != "harden-llm; hit" || !reflect.DeepEqual(firstOutput, items) {
+			t.Fatalf("cached fallback lost evidence or identity: header=%q output=%#v", w.Header().Get("Cache-Status"), items)
+		}
 	}
 }
 
