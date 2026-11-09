@@ -1,0 +1,15 @@
+=== RUN   TestLiveProviderServicesCompleteRunAndExport
+    live_provider_services_test.go:38: native owner=harden-llm command=gateway source=33a092410a4d61c9a544ece969f1f4cbacaf04ef source_dirty=true binary_sha256=cc9edc32eb402d36e410f28916372b238e5ec060504314ec1dcf210400bfb48a (not a published release)
+    live_provider_services_test.go:39: native owner=prls-control-plane runtime=node22.22.1 source=37ed84137e8b5e98c6af91fd3e5f441685a07446 source_dirty=true fixture_sha256=2a1981b446644d9d1c62bb0f9da43b961762d52c8deafa274e8d8c07b9d4ffe6 (not a published release)
+    live_provider_services_test.go:40: native owner=ner-go command=api source=a452be7067e0590c17b9fb4b536be5f519e3f70a source_dirty=false binary_sha256=ee17eb85f818340fbae2a45306c082c3b440f8ef6682d6b9d7bb341397b5a1ad (not a published release)
+    live_provider_services_test.go:40: native owner=ner-go command=worker source=a452be7067e0590c17b9fb4b536be5f519e3f70a source_dirty=false binary_sha256=a7268df346ebfd500b2346cada556c5b122381629e5a82ffaace9b5de2969029 (not a published release)
+    live_provider_services_test.go:41: native owner=clustering-go command=api source=8f36bf6d041f5b876c7fd8f7e8eb219c6cad4fd7 source_dirty=true binary_sha256=76c77a3913aa5e421a4416ac201e8955f1b1d2997662889ce75c45dd692f628a (not a published release)
+    live_provider_services_test.go:41: native owner=clustering-go command=worker source=8f36bf6d041f5b876c7fd8f7e8eb219c6cad4fd7 source_dirty=true binary_sha256=ca681df17de5d09ab3de52d574539e56ff8d159e4a3d1c5cf6b1fee3cd22de8a (not a published release)
+    live_provider_services_test.go:42: native owner=query-analytics command=api source=11d6febbf2b41aa5dbe54c9c9607bd23477ff606 source_dirty=true binary_sha256=d61bc4e3788da0bdfd3152ae9153e94457808b92baa02fedf9f7d4342b771923 (not a published release)
+    live_provider_services_test.go:42: native owner=query-analytics command=worker source=11d6febbf2b41aa5dbe54c9c9607bd23477ff606 source_dirty=true binary_sha256=6a4832e65e841409ccfe340e697d3b033c59fff72964b007619c6374653bdaab (not a published release)
+    live_provider_services_test.go:237: live receipt run=qar_8e3ef518bb703c10a5a8e624c5ac6cd8 model=gpt-6-luna entities=2 clusters=2 reference_history=14 report_sha256=7d04d798df4128e63f64e558727aa81c5926673c6bcd587b2d8ff0000aa8995e export_sha256=6e5cd8057f022fd0dad361d19501ee2c7e5ed189e43b11920281852b9bd32c03 NER_calls=1
+    live_provider_services_test.go:253: live cache receipt call=1 served=false provider_attempts=1
+    live_provider_services_test.go:253: live cache receipt call=2 served=true provider_attempts=0
+--- PASS: TestLiveProviderServicesCompleteRunAndExport (55.66s)
+PASS
+ok  	github.com/prls-co/query-analytics/integration	56.736s
