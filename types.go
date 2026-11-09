@@ -187,6 +187,8 @@ type BranchCache struct {
 }
 
 type SearchResult = coreruntime.SearchResult
+type SearchCall = coreruntime.SearchCall
+type SearchAction = coreruntime.SearchAction
 type SearchSource = coreruntime.SearchSource
 
 // CallType identifies text or contracted structured-output execution.

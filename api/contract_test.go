@@ -50,3 +50,18 @@ func TestCanonicalProfileIdentifiers(t *testing.T) {
 		}
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-534
+func TestSearchProvenanceReferenceContract(t *testing.T) {
+	for _, body := range []string{
+		`{"mode":"native","executed":true,"sources":[],"costStatus":"unavailable"}`,
+		`{"mode":"native","executed":true,"sources":[{"url":"https://example.test","title":"Source"}],"costStatus":"unavailable","calls":[{"id":"ws_1","status":"completed","action":{"type":"search","query":"q"},"sources":[{"url":"https://example.test","title":"Source"}]}],"citationTextSha256":"abcd","incomplete":true}`,
+	} {
+		if err := Validate("ReferenceWebSearchResult", []byte(body)); err != nil {
+			t.Errorf("valid search evidence rejected: %v", err)
+		}
+	}
+	if err := Validate("ReferenceWebSearchResult", []byte(`{"mode":"native","executed":true,"sources":[],"costStatus":"unavailable","calls":[{"status":"completed","unexpected":true}]}`)); err == nil {
+		t.Fatal("unknown call field accepted")
+	}
+}

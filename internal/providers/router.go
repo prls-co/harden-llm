@@ -38,7 +38,7 @@ var cpaCorrelationSuffix = regexp.MustCompile(`(?i)-([a-f0-9]{8})$`)
 const (
 	defaultMaxResponseBytes   = 16 << 20
 	defaultAnthropicVersion   = "2023-06-01"
-	responseProjectionVersion = "v4"
+	responseProjectionVersion = "v5"
 )
 
 var (
@@ -248,7 +248,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 				return result, preferAccountingFailure(normalizeErr, streamErr)
 			}
 			if normalizeErr != nil {
-				clearProviderOutput(&result)
+				clearNormalizationOutput(&result, normalizeErr)
 				return result, normalizeErr
 			}
 			return result, nil
@@ -312,7 +312,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 				return result, preferAccountingFailure(normalizeErr, streamErr)
 			}
 			if normalizeErr != nil {
-				clearProviderOutput(&result)
+				clearNormalizationOutput(&result, normalizeErr)
 				return result, normalizeErr
 			}
 			return result, nil
@@ -330,7 +330,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		operation.StreamProgress(nonStreamingDiagnostics)
 	}
 	if err != nil {
-		clearProviderOutput(&result)
+		clearNormalizationOutput(&result, err)
 		return result, err
 	}
 	return result, nil
@@ -377,6 +377,16 @@ func preferAccountingFailure(accountingFailure, fallback error) error {
 
 func providerResponseReadFailure() error {
 	return &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
+}
+
+// A completed response can provide search evidence even when its JSON needs repair.
+func clearNormalizationOutput(result *runtime.ProviderResult, failure error) {
+	var providerError *retry.ProviderError
+	if errors.As(failure, &providerError) && providerError.Code == "STRUCTURED_PARSE" {
+		result.Output = nil
+		return
+	}
+	clearProviderOutput(result)
 }
 
 func clearProviderOutput(result *runtime.ProviderResult) {

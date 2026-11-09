@@ -33,6 +33,7 @@ type Searcher interface {
 type preparedWebSearch struct {
 	connection runtime.Connection
 	call       runtime.Call
+	query      string
 	state      *webSearchResult
 }
 
@@ -46,11 +47,12 @@ func fallbackWebSearch(connection runtime.Connection, call runtime.Call) *prepar
 		return nil
 	}
 	state := &webSearchResult{}
+	query := boundedWebSearchQuery(lastUserText(call.Messages))
 	if call.SearchMemo != nil {
-		stored, _ := call.SearchMemo.LoadOrStore(boundedWebSearchQuery(lastUserText(call.Messages)), state)
+		stored, _ := call.SearchMemo.LoadOrStore(query, state)
 		state = stored.(*webSearchResult)
 	}
-	return &preparedWebSearch{connection: connection, call: call, state: state}
+	return &preparedWebSearch{connection: connection, call: call, query: query, state: state}
 }
 
 func operationPayload(payload map[string]any, connection runtime.Connection, call runtime.Call) map[string]any {
@@ -77,7 +79,7 @@ func (search *preparedWebSearch) results(ctx context.Context, searcher Searcher)
 	if searcher == nil {
 		return "", errors.New("providers: web-search fallback is not configured")
 	}
-	result, err := searcher.Search(ctx, boundedWebSearchQuery(lastUserText(search.call.Messages)))
+	result, err := searcher.Search(ctx, search.query)
 	if err != nil {
 		return "", err
 	}

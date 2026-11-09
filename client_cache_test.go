@@ -34,7 +34,8 @@ func TestSearchCachePersistenceProjection(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			cache := &memoryCache{records: make(map[string]CacheRecord)}
 			fixture := fixtureProviderResult()
-			fixture.Search = &SearchResult{Mode: mode, Executed: true, CostStatus: "unavailable", Sources: []SearchSource{{URL: "https://example.test/source", Title: "Source"}}, Citations: []coreruntime.SearchCitation{{URL: "https://example.test/source", Title: "Source", StartIndex: 0, EndIndex: 2}}}
+			fixture.AssistantText = "Apples, bananas"
+			fixture.Search = &SearchResult{CitationTextSHA256: "933a3697a2a4ca5d99041b1b0168760cd8950b41879b7f49bc3ed4dec5b776f7", Mode: mode, Executed: true, CostStatus: "unavailable", Sources: []SearchSource{{URL: "https://example.test/source", Title: "Source"}}, Citations: []coreruntime.SearchCitation{{URL: "https://example.test/source", Title: "Source", StartIndex: 0, EndIndex: 2}}}
 			executor := &fixedExecutor{result: fixture}
 			client, err := New(testOptionsWith(cache))
 			if err != nil {
@@ -692,5 +693,23 @@ func sequenceIDs() func() (string, error) {
 	return func() (string, error) {
 		next++
 		return string(rune('a' + next)), nil
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-534
+func TestSearchProvenanceCacheProjection(t *testing.T) {
+	store := &memoryCache{records: make(map[string]CacheRecord)}
+	adapter := &cacheAdapter{store: store}
+	search := &SearchResult{Mode: "native", Executed: true, CostStatus: "unavailable", Sources: []SearchSource{{URL: "https://example.test/a", Title: "A"}}, Calls: []SearchCall{{ID: "ws_1", Status: "completed", Action: &SearchAction{Type: "search", Query: "q"}, Sources: []SearchSource{{URL: "https://example.test/a", Title: "A"}}}}, CitationTextSHA256: "2b82c37965faf7db40dae134cc94675e0f6dac048a0173a1861b6ed1b8db7d5b", Citations: []coreruntime.SearchCitation{{URL: "https://example.test/a", Title: "A", StartIndex: 0, EndIndex: 1}}, Incomplete: true}
+	want := coreruntime.CachedResult{ProviderResult: coreruntime.ProviderResult{Search: search, Output: map[string]any{"answer": "ok"}, AssistantText: `{"answer":"ok"}`}}
+	if err := adapter.Set(context.Background(), "hash", "v", want); err != nil {
+		t.Fatal(err)
+	}
+	got, found, err := adapter.Get(context.Background(), "hash", "v")
+	if err != nil || !found {
+		t.Fatalf("cache get: found=%v err=%v", found, err)
+	}
+	if got.ProviderResult.AssistantText != want.ProviderResult.AssistantText || !reflect.DeepEqual(got.ProviderResult.Search, search) {
+		t.Fatalf("search or original text lost: %#v", got.ProviderResult)
 	}
 }

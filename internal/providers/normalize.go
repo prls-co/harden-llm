@@ -70,6 +70,7 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any)
 			RawResponse: string(mustJSON(response)), Category: retry.CategoryEmpty,
 		}
 	}
+	partial.Search = normalizeSearch(prepared, response)
 	if prepared.callType == "structured" && output == nil {
 		parsed, _, parseErr := contractschema.ParseProviderOutput(text)
 		if parseErr != nil {
@@ -83,7 +84,7 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any)
 		output = text
 	}
 	return runtime.ProviderResult{
-		Search: normalizeSearch(prepared, response),
+		Search: partial.Search,
 		Output: output, AssistantText: text, Accounting: ledger,
 	}, nil
 }

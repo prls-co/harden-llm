@@ -1249,6 +1249,37 @@ components:
           enum: [native, jina]
         executed: {type: boolean}
         costStatus: {type: string, const: unavailable}
+        incomplete: {type: boolean}
+        citationTextSha256: {type: string}
+        calls:
+          type: array
+          maxItems: 32
+          items:
+            type: object
+            additionalProperties: false
+            required: [status]
+            properties:
+              id: {type: string}
+              status: {type: string}
+              action:
+                type: object
+                additionalProperties: false
+                required: [type]
+                properties:
+                  type: {type: string}
+                  query: {type: string}
+                  url: {type: string, format: uri}
+                  pattern: {type: string}
+              sources:
+                type: array
+                maxItems: 200
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [url, title]
+                  properties:
+                    url: {type: string, format: uri}
+                    title: {type: string}
         entryPointHtml: {type: string, maxLength: 32768, description: 'Provider search
             suggestions. Display only in a sandboxed iframe, never as trusted application
             HTML.'}

@@ -3,17 +3,20 @@
 ## 1. Metadata and rules
 
 - Issue: <https://github.com/prls-co/harden-llm/issues/137>.
-- Plan ID: `PLAN-HLLM-WEB-SEARCH-PARITY-001`, version 3.0, 2026-11-08.
-  Version 3 resolves the plan review (section 13) and replaces version 2.
+- Plan ID: `PLAN-HLLM-WEB-SEARCH-PARITY-001`, version 3.1, 2026-11-09.
+  Version 3 resolves the plan review (section 13). Version 3.1 adds the
+  accepted minimum fixes and implementation sequence in section 14.
 - Base revision: `origin/main` at `33a0924`. Every `file:line` below is from
-  that commit; search for the quoted symbol if lines have moved.
+  that commit unless stated otherwise; search for the quoted symbol if lines
+  have moved. Section 14 was researched at `512f6ef`; implementation starts
+  from current `origin/main`, not the historical baseline.
 - Owner decisions: canonical provenance (RCA option 1) with request-side
   parity; Chat search through `web_search_options` for any model (A2);
   standard `tool_choice` semantics; cache replay keeps provenance; one probe of
   citation index units, run only after an explicit confirmation.
 - Test catalog: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`. Test IDs are allocated
-  in Phase 0 (section 5.1). This plan uses the placeholders `TEST-W1` to
-  `TEST-W5`.
+  in Phase 0 (section 5.1). This plan uses the placeholders `TEST-534` to
+  `TEST-538`.
 
 ### 1.1 Implementer rules
 
@@ -70,15 +73,18 @@ retrieved reference cannot be told apart from a recalled one.
 | L7 | `requests.go:326–420` (`decodeResponsesInput`) | Output items sent back as input (stateless multi-turn) are rejected |
 | L8 | `httpclient/responses.go:41–52` | The typed client cannot send tools, `tool_choice` or `include`, and does not expose `output` |
 
-Consumers affected, checked in the sibling repositories on 2026-11-08:
+Consumers affected, checked in the sibling repositories on 2026-11-08 and
+updated where noted on 2026-11-09:
 
 - `ner-go`, the NER consumer named in the issue, calls `/v1/responses` through
   Harden's typed `httpclient` (`internal/ner/harden_caller.go:74,130`), not the
   OpenAI SDK. L8 blocks it.
-- `query-analytics` calls the Go library with `WebSearch: true`
-  (`internal/agent/capabilities/harden.go:152`). It rejects enrichment without
-  observed search (`internal/agent/domain/enrichment.go:44`), so it depends on
-  today's forced search (section 4.4).
+- The local `query-analytics` candidate, rechecked on 2026-11-09, calls
+  `httpclient.Client.Run` through the reference API with `WebSearch: true`
+  (`internal/agent/capabilities/harden.go`). It rejects enrichment without
+  observed search (`internal/agent/domain/enrichment.go`), so it depends on
+  the reference API preserving forced search (section 4.4). This candidate
+  source is not evidence of a deployed consumer release.
 - `clustering-go` does not use search.
 
 ## 3. Supported contract
@@ -219,9 +225,10 @@ Go callers that relied on `WebSearch: true` forcing search must set
 `ToolChoice{Mode: "required"}`:
 
 - the reference API (`stateful/resolve.go:294`), changed in Phase 2;
-- `query-analytics` (`internal/agent/capabilities/harden.go:152`), changed when
-  it bumps `harden-llm` (section 10.4);
 - the existing tests listed in section 4.9.
+
+The current Query Analytics candidate uses the reference API, whose adapter
+sets this choice. It does not need to add a library-only field to `RunInput`.
 
 ### 4.5 Output order
 
@@ -325,9 +332,9 @@ git fetch origin
   done; } | grep -o 'TEST-[0-9]\+' | sed 's/TEST-//' | sort -n | tail -1
 ```
 
-Take the next five numbers. On 2026-11-08 the highest was `TEST-533`
-(PR #152), so these would be `TEST-534` to `TEST-538`. Replace `TEST-W1` to
-`TEST-W5` everywhere with them.
+Allocated on 2026-11-09 after fetching `origin`: the highest catalog ID was
+`TEST-533`, with no open PRs. The five IDs are `TEST-534` to `TEST-538`.
+Recheck for collisions if the base changes before merge.
 
 ### 5.2 Catalog
 
@@ -392,7 +399,7 @@ independently. Canonical offsets are code points (today's code,
   `plans/evidence/harden-llm/web-search-parity/<UTC timestamp>/probe.md`. Store
   no keys and no full responses.
 
-## 6. Phase 1 — canonical provenance (`TEST-W1`)
+## 6. Phase 1 — canonical provenance (`TEST-534`)
 
 ### 6.1 Types (`internal/runtime/search.go:12`)
 
@@ -467,6 +474,9 @@ Replace the literal `50` at `search.go:55` with `MaxSearchSources`.
    `:68`. When at least one citation is admitted, set `CitationTextSHA256` to
    the hex SHA-256 of that content part's text.
 5. Keep the existing `Executed` rules unchanged.
+6. Apply section 14.2 in this phase: normalize evidence before structured
+   parsing, preserve it on the router's specific parse-failure path, and let
+   Jina's source-admission helper see all URL matches.
 
 ### 6.4 Jina query computed once (`internal/providers/web_search.go`)
 
@@ -492,7 +502,7 @@ strings (section 3.2). Copy the file to
 `frontend/packages/harden_llm_ui/priv/openapi.yaml` and check with
 `cmp api/openapi.yaml frontend/packages/harden_llm_ui/priv/openapi.yaml`.
 
-### 6.7 Tests — `TEST-W1` `TestSearchProvenance*`
+### 6.7 Tests — `TEST-534` `TestSearchProvenance*`
 
 Files: `internal/providers/search_provenance_test.go`,
 `internal/runtime/search_test.go` and `client_cache_test.go`.
@@ -521,7 +531,7 @@ Files: `internal/providers/search_provenance_test.go`,
 8. A cache round trip keeps calls, citations, hash, `Incomplete` and the
    structured `AssistantText` byte-for-byte.
 
-## 7. Phase 2 — request parity (`TEST-W2`)
+## 7. Phase 2 — request parity (`TEST-535`)
 
 ### 7.1 Library request (`types.go:77`, `internal/runtime/types.go:88`, `client.go`)
 
@@ -572,6 +582,8 @@ the four recognized spellings. Define that set once, as
 - `stateful/resolve.go:294`: set `ToolChoice: hardenllm.ToolChoice{Mode: "required"}`
   when `input.WebSearch` is true.
 - Update the tests from section 4.9 item 2.
+- Apply the repair transition and regression from section 14.3 in this same
+  phase, before committing the newly accepted `required` search behavior.
 
 ### 7.3 Gateway (`requests.go`, `handlers.go`)
 
@@ -625,7 +637,7 @@ These fields are ignored and never forwarded.
   validates `output_text` against the schema. It therefore models search calls
   and the message, not `function_call` items.
 
-### 7.6 Tests — `TEST-W2` `TestWebSearchRequestParity*`
+### 7.6 Tests — `TEST-535` `TestWebSearchRequestParity*`
 
 File: `internal/gateway/httpapi/web_search_request_test.go`, using
 `newContractAPI` (`openai_contract_test.go:239`) with a body-recording
@@ -649,7 +661,7 @@ upstream. Add a second connection for non-native cases.
    containing `"\xff"` inside a string, returns `*ProtocolError` with zero
    requests to the test server.
 
-## 8. Phase 3 — Responses projection, stream, typed client output (`TEST-W3`)
+## 8. Phase 3 — Responses projection, stream, typed client output (`TEST-536`)
 
 ### 8.1 Shared helpers (`internal/gateway/httpapi/responses.go`)
 
@@ -735,7 +747,7 @@ Finish with `response.completed` carrying `final`. Delete the second
   }
   ```
 
-### 8.6 Tests — `TEST-W3` `TestResponsesSearchProjection*`
+### 8.6 Tests — `TEST-536` `TestResponsesSearchProjection*`
 
 File: `internal/gateway/httpapi/web_search_projection_test.go`. Run the fixtures
 through the real provider path with diagnostics off.
@@ -763,7 +775,7 @@ through the real provider path with diagnostics off.
 10. Typed client: `Client.Responses` decodes `Output` with exact calls and
     annotations through the real handler.
 
-## 9. Phase 4 — Chat search (`TEST-W4`)
+## 9. Phase 4 — Chat search (`TEST-537`)
 
 ### 9.1 Request (`requests.go:23`, `handlers.go:44`)
 
@@ -793,7 +805,7 @@ Function tools combined with `web_search_options` → 400 with param
   section 5.4 records.
 - OpenAPI, same commit: Chat `web_search_options` and message `annotations`.
 
-### 9.3 Tests — `TEST-W4` `TestChatWebSearch*`
+### 9.3 Tests — `TEST-537` `TestChatWebSearch*`
 
 File: `internal/gateway/httpapi/chat_web_search_test.go`.
 
@@ -808,11 +820,11 @@ File: `internal/gateway/httpapi/chat_web_search_test.go`.
 5. The non-search body equals the `main` golden.
 6. Stream: the content and annotations equal the non-streamed message.
 
-## 10. Phase 5 — SDK contract, docs, consumers (`TEST-W5`)
+## 10. Phase 5 — SDK contract, docs, consumers (`TEST-538`)
 
 ### 10.1 Schema validation
 
-Extend `openapi_contract_test.go` so the bodies from `TEST-W3` and `TEST-W4`
+Extend `openapi_contract_test.go` so the bodies from `TEST-536` and `TEST-537`
 validate against the schema.
 
 ### 10.2 OpenAI SDK (`openai_contract_test.go`, `openai-go v1.12.0`)
@@ -844,10 +856,10 @@ Update `docs/api-and-library.md`, and the `/v1` section found with
 
 ### 10.4 Consumers (release checklist in the PR description)
 
-1. `query-analytics`: when bumping `harden-llm`, set
-   `ToolChoice: hardenllm.ToolChoice{Mode: "required"}` at
-   `internal/agent/capabilities/harden.go:152`. Its enrichment requires
-   observed search.
+1. `query-analytics`: keep `RunInput.WebSearch` and verify that the reference
+   API supplies the required search choice. Its enrichment requires observed
+   search. Update the typed-client dependency as required by section 4.8;
+   do not add a library-only `ToolChoice` field to the reference request.
 2. `ner-go`: to use search, add the search tool and `include` to the
    `ResponsesInput` built at `internal/ner/harden_caller.go:130`, and read
    `Output`. That is the consumer's change and is not part of this PR.
@@ -860,11 +872,11 @@ Update `docs/api-and-library.md`, and the `/v1` section found with
 
 | ID | Name | Command |
 |---|---|---|
-| TEST-W1 | Canonical provenance, normalization and cache | `go test . ./internal/runtime ./internal/providers -run 'TestSearchProvenance' -count=1` |
-| TEST-W2 | Request parity | `go test ./internal/gateway/httpapi ./httpclient -run 'TestWebSearchRequestParity' -count=1` |
-| TEST-W3 | Responses projection, stream and typed output | `go test ./internal/gateway/httpapi ./httpclient -run 'TestResponsesSearchProjection' -count=1` |
-| TEST-W4 | Chat search | `go test ./internal/gateway/httpapi -run 'TestChatWebSearch' -count=1` |
-| TEST-W5 | OpenAPI and SDK contract | `go test ./internal/gateway/httpapi -run 'TestOpenAIWebSearchContract' -count=1` |
+| TEST-534 | Canonical provenance, normalization and cache | `go test . ./api ./internal/runtime ./internal/providers -run 'TestSearchProvenance' -count=1` |
+| TEST-535 | Request parity | `go test ./internal/gateway/httpapi ./httpclient -run 'TestWebSearchRequestParity' -count=1` |
+| TEST-536 | Responses projection, stream and typed output | `go test ./internal/gateway/httpapi ./httpclient -run 'TestResponsesSearchProjection' -count=1` |
+| TEST-537 | Chat search | `go test ./internal/gateway/httpapi -run 'TestChatWebSearch' -count=1` |
+| TEST-538 | OpenAPI and SDK contract | `go test ./internal/gateway/httpapi -run 'TestOpenAIWebSearchContract' -count=1` |
 
 Before the PR:
 
@@ -885,13 +897,13 @@ Acceptance against issue #137 section 4:
 
 | Issue item | Covered by |
 |---|---|
-| (1) `include` acceptance and propagation | `TEST-W2` (3), `TEST-W3` (1) |
-| (2) Search calls and citations without diagnostics | `TEST-W1`, `TEST-W3` |
-| (3) Streamed and non-streamed parity | `TEST-W3` (9), `TEST-W4` (6) |
-| (4) Structured JSON with valid citation positions | `TEST-W1` (2), `TEST-W3` (2–3) |
-| (5) Search off, enabled-but-unreported, missing metadata, cache replay | `TEST-W1` (3–6), `TEST-W3` (5–7) |
-| (6) Chat Completions citations | `TEST-W4` |
-| (7) OpenAI SDK consumption | `TEST-W5` |
+| (1) `include` acceptance and propagation | `TEST-535` (3), `TEST-536` (1) |
+| (2) Search calls and citations without diagnostics | `TEST-534`, `TEST-536` |
+| (3) Streamed and non-streamed parity | `TEST-536` (9), `TEST-537` (6) |
+| (4) Structured JSON with valid citation positions | `TEST-534` (2), `TEST-536` (2–3) |
+| (5) Search off, enabled-but-unreported, missing metadata, cache replay | `TEST-534` (3–6), `TEST-536` (5–7) |
+| (6) Chat Completions citations | `TEST-537` |
+| (7) OpenAI SDK consumption | `TEST-538` |
 
 ## 12. Out of scope (open one follow-up issue each)
 
@@ -908,13 +920,102 @@ Acceptance against issue #137 section 4:
 |---|---|
 | Stale base branch and colliding test IDs | Base on `origin/main` (`dev` is 167 commits behind); allocate IDs by command against `main` and open PRs (sections 1.2 and 5.1) |
 | Invented calls and source attribution | Evidence policy (4.2): no call from sources alone; unassociated sources stay at result level; explicit Jina policy |
-| Source bound did not hold | Named limits for calls, unique URLs and total references; truncation is represented by `Incomplete`; duplicate and oversized cases tested (4.3, `TEST-W1` 3–4) |
+| Source bound did not hold | Named limits for calls, unique URLs and total references; truncation is represented by `Incomplete`; duplicate and oversized cases tested (4.3, `TEST-534` 3–4) |
 | Search-choice semantics incomplete | Per-upstream table with explicit, documented deviations; `required` keeps the specific tool choice; Go callers, including `query-analytics`, are listed (4.4, 10.4) |
 | Ordering and lifecycle undefined | Retained, omitted and normalized items defined (4.5); events per status for all four statuses plus unknown ones (4.6), each tested |
 | Probe could not support its claims | A streamed Chat call within the two-call budget, a conclusiveness criterion, a defined inconclusive outcome, a separate result per API, and "observed", not "guaranteed" (5.4) |
 | Docker rule contradiction | Docker only for the final `make verify` (1.1 rule 7) |
-| Absent or unknown upstream fields | Defined by representability (4.3) and tested (`TEST-W1` 3) |
+| Absent or unknown upstream fields | Defined by representability (4.3) and tested (`TEST-534` 3) |
 | Implied full OpenAI parity | Explicit supported subset (3); the tool object is forwarded unchanged to OpenAI; other upstreams accept only hints |
 | Found during this revision: typed client gap (L8) | `ner-go` uses `httpclient`, so input and output fields are added (7.5, 8.5) |
 | Found during this revision: strict-schema clients reject added fields | OpenAPI changes ship with their wire change; deployment order defined (1.1 rule 2, 4.8) |
-| Found after this revision: invalid UTF-8 passes through the new typed-client fields | Raw bytes are rejected before dispatch (7.5) and tested (`TEST-W2` 8) |
+| Found after this revision: invalid UTF-8 passes through the new typed-client fields | Raw bytes are rejected before dispatch (7.5) and tested (`TEST-535` 8) |
+
+## 14. Accepted minimum fixes (version 3.1)
+
+### 14.1 Scope and evidence
+
+Implement the accepted choices `1A`, `2A`, `3B` as local changes in the existing
+functions. The [production-impact research](evidence/harden-llm/web-search-parity/2026-11-09-production-impact-research.md)
+reproduced the failures through the provider router, runtime recovery and cache.
+It did not establish production incident frequency. The local scratch patch is
+an experiment, not a patch to apply blindly or a new test framework.
+
+These corrections add no public types, configuration, dependencies, persistence
+fields or telemetry. Reuse the provenance fields, test IDs and fixtures already
+specified by this plan. Do not introduce a repair framework or custom URL
+scanner. The exploratory patch was small; its line count is evidence of scope,
+not a target or limit for implementation.
+
+### 14.2 Phase 1: preserve evidence and correct Jina extraction
+
+1. Extend `TestSearchProvenance*` (`TEST-534`) before editing application code.
+   Use the real router with a local `httptest` upstream, the existing runtime
+   repair policy and a process-local cache. Reproduce searched malformed JSON
+   followed by successful repair. Keep valid JSON that fails schema validation
+   as a separate control. Cover ordinary JSON and completed SSE responses.
+2. In `normalizeDecodedResponse` (`internal/providers/normalize.go`), invoke
+   `normalizeSearch` once after accounting, completion, envelope, refusal and
+   empty-output checks, before structured JSON parsing. Attach it to the
+   partial result and reuse it on success. Preserve the original parse error.
+3. At the router's three normalization-error exits (JSON, streamed SSE and
+   buffered SSE), preserve normalized search only for `STRUCTURED_PARSE` from
+   a completed, admitted envelope. Keep output absent. Use one small private
+   helper/condition shared by these exits. Leave transport/read failures and
+   interrupted-stream clearing on the existing `clearProviderOutput` path.
+4. For Jina in `normalizeSearch`, use `FindAllString(context, -1)`. Let the
+   existing admission helper perform validation, deduplication and the source
+   cap. Test repeated URLs followed by a distinct URL, duplicate-only input,
+   and 51 distinct URLs. With the parent phase's `Incomplete` field, only
+   actual omissions/invalid evidence set the flag; duplicates alone do not.
+5. Require repaired results to retain observed search and sources. A repeated
+   request must replay that evidence from cache without another provider or
+   Jina dispatch. Keep HTTP errors, incomplete responses, refusals and
+   unterminated streams rejected with neither output nor search evidence.
+
+The Jina change is a small adjacent correction. If it requires a broader
+redesign, defer that redesign rather than expanding native-search parity.
+Do not skip or weaken a failing assertion to complete the phase.
+
+### 14.3 Phase 2: keep required search out of repair
+
+1. Extend `TestWebSearchRequestParity*` (`TEST-535`) with required search followed
+   by malformed-JSON repair and schema-invalid-JSON repair. The generation must
+   send the required search tool. First confirm that admitting canonical
+   `required` without the transition fix rejects repair before its dispatch.
+2. In `prepareNextPlannedWork` (`internal/runtime/recovery_execute.go`), after
+   selecting the repair call and before `Executor.Prepare`, disable search and
+   clear its `WebSearchTool` and search-specific required choice together.
+   Mutate the repair copy only. Keep saved generation settings for reruns;
+   do not alter function-tool choice semantics or relax provider validation.
+3. Assert that generation plus successful repair makes exactly two provider
+   dispatches with one search, and that repair has no search tool or search
+   choice. Cover a generation-sourced repair and an explicit model target
+   through the existing recovery test fixtures. Check that genuine rerun
+   generation still receives the original search settings.
+
+Do not add canonical required-search support as an independent prerequisite
+patch solely to fix its repair path. Ship the guard and transition together
+with the parent phase's request-parity changes.
+
+### 14.4 Phase 3: public projection and completion
+
+Extend the existing `TEST-536` repair case to exercise both malformed JSON and
+schema-invalid JSON through the public handler. Request source inclusion and
+require retained calls and sources on the repaired result, valid final JSON,
+and empty annotations when
+the returned text differs from the citation hash. Check the same behavior on
+cache replay. Reuse section 8's JSON/SSE parity coverage rather than adding a
+second projection implementation or test harness.
+
+Run the focused `TEST-534` to `TEST-536` commands from section 11 during their
+phases, then the changed provider/runtime packages under the race detector:
+
+```sh
+go test -race ./internal/providers ./internal/runtime -count=1
+```
+
+Complete the parent plan's normal gates before its PR; these corrections add
+no extra Docker, release-certification, browser or paid-provider gate. Record
+test commands/results and remaining release gates. Planning and local tests
+are not deployment evidence. This amendment authorizes no production promotion.

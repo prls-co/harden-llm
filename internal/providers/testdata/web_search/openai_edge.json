@@ -1,0 +1,61 @@
+{
+  "status": "completed",
+  "output": [
+    {
+      "id": "ws_empty",
+      "type": "web_search_call",
+      "status": "completed"
+    },
+    {
+      "id": "ws_cancelled",
+      "type": "web_search_call",
+      "status": "cancelled",
+      "action": {
+        "type": "search",
+        "query": "q",
+        "sources": [
+          {
+            "type": "url",
+            "url": "https://example.org/a"
+          },
+          {
+            "type": "api",
+            "name": "oai-sports"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ws_missing",
+      "type": "web_search_call",
+      "action": {
+        "type": "search"
+      }
+    },
+    {
+      "type": "message",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Answer"
+        }
+      ]
+    },
+    {
+      "id": "ws_find",
+      "type": "web_search_call",
+      "status": "completed",
+      "action": {
+        "type": "find_in_page",
+        "url": "https://example.org/a",
+        "pattern": "p",
+        "sources": [
+          {
+            "type": "url",
+            "url": "https://example.org/a"
+          }
+        ]
+      }
+    }
+  ]
+}

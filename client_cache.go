@@ -19,6 +19,7 @@ type cacheAdapter struct {
 }
 
 type cachedProviderProjection struct {
+	AssistantText    string                        `json:"assistantText,omitempty"`
 	Search           *coreruntime.SearchResult     `json:"search,omitempty"`
 	Output           any                           `json:"output"`
 	Accounting       coreruntime.Ledger            `json:"accounting"`
@@ -50,8 +51,9 @@ func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersio
 	}
 	return coreruntime.CachedResult{
 		ProviderResult: coreruntime.ProviderResult{
-			Search: projection.Search,
-			Output: projection.Output, Accounting: projection.Accounting,
+			AssistantText: projection.AssistantText,
+			Search:        projection.Search,
+			Output:        projection.Output, Accounting: projection.Accounting,
 			Stream: projection.Stream,
 		},
 		Producer: projection.Producer, GenerationTarget: projection.GenerationTarget, CompletedBy: projection.CompletedBy,
@@ -63,8 +65,9 @@ func (adapter *cacheAdapter) Set(ctx context.Context, operationHash, cacheVersio
 		return errors.New("hardenllm: cannot cache a provider result without output")
 	}
 	providerJSON, err := json.Marshal(cachedProviderProjection{
-		Search: result.ProviderResult.Search,
-		Output: result.ProviderResult.Output, Accounting: result.ProviderResult.Accounting, Producer: result.Producer,
+		AssistantText: result.ProviderResult.AssistantText,
+		Search:        result.ProviderResult.Search,
+		Output:        result.ProviderResult.Output, Accounting: result.ProviderResult.Accounting, Producer: result.Producer,
 		Stream:           result.ProviderResult.Stream,
 		GenerationTarget: result.GenerationTarget, CompletedBy: result.CompletedBy,
 	})

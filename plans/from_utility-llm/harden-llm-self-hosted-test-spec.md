@@ -2582,3 +2582,19 @@ no claim of new native worker-kill, provider-fault or deployed qualification.
 - Command: `go test -race ./internal/providers -count=1`.
 - Oracle: Responses emits only `max_output_tokens`. An explicit native limit wins over profile legacy defaults; legacy-only input retains the existing conversion and alias precedence. Both `max_tokens` and `max_completion_tokens` are removed from the wire without mutating caller options.
 - Evidence: Issue #151 real CPA qualification returned HTTP 400 with `Unsupported parameter: max_tokens` when the composed request contained native 4096 and legacy 16000. The new regression failed before the fix. The historical edge-parity expectation preserving unsupported aliases is corrected intentionally; model prompts, JSON schemas, recovery policy and accounting are unchanged.
+
+## 35. OpenAI web-search parity (issue #137)
+
+These tests use synthetic provider responses and process-owned fixtures. No
+browser, external provider, or live credentials are required. Their commands
+are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`,
+`TestResponsesSearchProjection`, `TestChatWebSearch`, and
+`TestOpenAIWebSearchContract` prefixes respectively.
+
+| ID | Tier / owner | Command | Acceptance oracle |
+| --- | --- | --- | --- |
+| TEST-534 | T0–T1; runtime/provider/cache | `go test . ./api ./internal/runtime ./internal/providers -run 'TestSearchProvenance' -count=1` | Bounded, evidence-backed calls, source association, text-bound citations, repair and cache replay agree across providers and the reference schema. |
+| TEST-535 | T1; gateway/client | `go test ./internal/gateway/httpapi ./httpclient -run 'TestWebSearchRequestParity' -count=1` | Supported request options, tool choice, source inclusion and prior output items map correctly, and invalid constraints dispatch nothing. |
+| TEST-536 | T1; gateway/client | `go test ./internal/gateway/httpapi ./httpclient -run 'TestResponsesSearchProjection' -count=1` | Responses search calls, sources, text-bound annotations and stream events agree, including repair and cache replay. |
+| TEST-537 | T1; gateway | `go test ./internal/gateway/httpapi -run 'TestChatWebSearch' -count=1` | Chat search request, annotations, streaming and invalid combinations preserve the supported contract. |
+| TEST-538 | T1; gateway | `go test ./internal/gateway/httpapi -run 'TestOpenAIWebSearchContract' -count=1` | The published schema validates actual Responses/Chat outputs and the pinned OpenAI SDK consumes standard search metadata. |
