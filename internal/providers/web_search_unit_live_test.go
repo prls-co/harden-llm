@@ -2,6 +2,8 @@
 
 package providers
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-534
+
 import (
 	"bufio"
 	"bytes"
