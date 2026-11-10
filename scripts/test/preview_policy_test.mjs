@@ -166,6 +166,15 @@ test("preview gateway bounds Go memory and uses the shared identity contract", a
   assert.match(launcher, /delete credentials\.OPERATOR_PASSWORD/); // Remove credentials from preview state written by the retired flow.
 });
 
+test("preview gateway receives each approved optional provider credential", async () => {
+  const compose = await readFile(new URL("../../deploy/preview/compose.yml", import.meta.url), "utf8");
+  const gateway = compose.split("\n  gateway:\n")[1]?.split("\n  gateway-schema:\n")[0];
+  assert.ok(gateway, "gateway service must exist");
+  for (const name of ["GEMINI_API_KEY", "NOVITA_API_KEY", "OPENROUTER_API_KEY", "PERPLEXITY_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]) {
+    assert.ok(gateway.includes(`      ${name}: \${${name}:-}\n`), `${name} must be passed from the shared environment`);
+  }
+});
+
 test("preview templates expose no host ports or production telemetry and protect generated dotenv", async () => {
   const compose = await readFile(new URL("../../deploy/preview/compose.yml", import.meta.url), "utf8");
   assert.doesNotMatch(compose, /\bports:|docker\.sock/);
