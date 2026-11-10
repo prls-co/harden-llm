@@ -66,11 +66,16 @@ reference result retains unassociated sources, and its `incomplete` field
 indicates dropped or unrepresentable search evidence. Image results, non-URL
 sources, and Anthropic and Gemini citation offsets are not exposed as `/v1`
 annotations. Citations are returned only when their indexed answer text is
-unchanged. Offsets use Unicode code points; the units used by OpenAI APIs have
-not yet been independently verified.
+unchanged. Harden uses Unicode code-point offsets. A two-call OpenAI probe on
+2026-11-10 using `gpt-5` for Responses and `gpt-5-search-api` for Chat was
+inconclusive for both APIs: code points, UTF-16 units and UTF-8 bytes all met
+the probe's criterion. OpenAI's offset units therefore remain unverified.
 
-Streams are generated from the completed result. Search lifecycle events
-reflect the final status, not the timing of upstream work. A
+Streams are generated from the completed result. Chat emits annotations in the
+last content chunk. The probe observed a streamed Chat annotation in chunk 3
+but did not record its position relative to the final content chunk, so this
+placement remains unverified against OpenAI. Search lifecycle events reflect
+the final status, not the timing of upstream work. A
 `Cache-Status: harden-llm; hit` header means the search evidence and answer
 were replayed from cache; generated output item IDs retain the producing call's
 identity. Each response retains its own response and execution IDs.
