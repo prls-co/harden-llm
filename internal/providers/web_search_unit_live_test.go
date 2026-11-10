@@ -21,8 +21,8 @@ import (
 	"unicode/utf8"
 )
 
-// TestWebSearchIndexUnitLive performs exactly one request per endpoint. Run only
-// after explicit approval for the two paid calls described in the parity plan.
+// TestWebSearchIndexUnitLive performs one request per endpoint by default.
+// Chat-only mode performs one request and requires separate explicit approval.
 func TestWebSearchIndexUnitLive(t *testing.T) {
 	if os.Getenv("HLLM_WEB_SEARCH_PROBE_CONFIRMED") != "yes" {
 		t.Skip("explicit two-call approval required")
@@ -69,13 +69,13 @@ func TestWebSearchIndexUnitLive(t *testing.T) {
 	}
 	var report strings.Builder
 	fmt.Fprintf(&report, "# Web search index probe\n\nUTC: %s\n\n", time.Now().UTC().Format(time.RFC3339))
-	analyze := func(label, model, answer string, annotations []citation, placements []int, err error) {
+	analyze := func(label, model, answer string, annotations []citation, placements, contentPlacements []int, err error) {
 		fmt.Fprintf(&report, "## %s\n\nModel: `%s`\n\n", label, model)
 		if err != nil {
 			fmt.Fprintf(&report, "Request failed: %s. Result: inconclusive.\n\n", err)
 			return
 		}
-		fmt.Fprintf(&report, "Annotations: %d; stream chunk positions: %v\n\n", len(annotations), placements)
+		fmt.Fprintf(&report, "Annotations: %d; annotation chunk positions: %v; content chunk positions: %v (zero-indexed)\n\n", len(annotations), placements, contentPlacements)
 		consistent := map[string]bool{"code points": true, "UTF-16": true, "UTF-8 bytes": true}
 		after := false
 		for _, c := range annotations {
@@ -136,7 +136,12 @@ func TestWebSearchIndexUnitLive(t *testing.T) {
 			fmt.Fprintf(&report, "\nResult: %s.\n\n", matches[0])
 		}
 	}
-	data, e1 := request("responses", map[string]any{"model": model, "input": prompt, "tools": []any{map[string]any{"type": "web_search"}}, "tool_choice": "required"})
+	var data []byte
+	var e1 error
+	chatOnly := os.Getenv("HLLM_WEB_SEARCH_PROBE_CHAT_ONLY") == "yes"
+	if !chatOnly {
+		data, e1 = request("responses", map[string]any{"model": model, "input": prompt, "tools": []any{map[string]any{"type": "web_search"}}, "tool_choice": "required"})
+	}
 	var response struct {
 		Output []struct {
 			Type    string `json:"type"`
@@ -148,7 +153,7 @@ func TestWebSearchIndexUnitLive(t *testing.T) {
 	}
 	var text string
 	var citations []citation
-	if e1 == nil {
+	if !chatOnly && e1 == nil {
 		e1 = json.Unmarshal(data, &response)
 		for _, item := range response.Output {
 			if item.Type == "message" {
@@ -159,11 +164,13 @@ func TestWebSearchIndexUnitLive(t *testing.T) {
 			}
 		}
 	}
-	analyze("Responses", model, text, citations, nil, e1)
+	if !chatOnly {
+		analyze("Responses", model, text, citations, nil, nil, e1)
+	}
 	data, e2 := request("chat/completions", map[string]any{"model": "gpt-5-search-api", "messages": []any{map[string]any{"role": "user", "content": prompt}}, "web_search_options": map[string]any{}, "stream": true})
 	text = ""
 	citations = nil
-	var placements []int
+	var placements, contentPlacements []int
 	if e2 == nil {
 		scanner := bufio.NewScanner(bytes.NewReader(data))
 		scanner.Buffer(make([]byte, 4096), 8<<20)
@@ -188,6 +195,9 @@ func TestWebSearchIndexUnitLive(t *testing.T) {
 				break
 			}
 			for _, choice := range chunk.Choices {
+				if choice.Delta.Content != "" {
+					contentPlacements = append(contentPlacements, index)
+				}
 				text += choice.Delta.Content
 				for _, a := range choice.Delta.Annotations {
 					citations = append(citations, a.URLCitation)
@@ -200,7 +210,7 @@ func TestWebSearchIndexUnitLive(t *testing.T) {
 			e2 = scanner.Err()
 		}
 	}
-	analyze("Chat Completions stream", "gpt-5-search-api", text, citations, placements, e2)
+	analyze("Chat Completions stream", "gpt-5-search-api", text, citations, placements, contentPlacements, e2)
 	dir := filepath.Join("..", "..", "plans", "evidence", "harden-llm", "web-search-parity", time.Now().UTC().Format("20060102T150405Z"))
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
