@@ -74,9 +74,10 @@ the probe's criterion. OpenAI's offset units therefore remain unverified.
 Streams are generated from the completed result. Chat emits annotations in the
 last content chunk. The probe observed a streamed Chat annotation in chunk 3
 (zero-indexed) but did not record its position relative to the final content
-chunk, so this
-placement remains unverified against OpenAI. Search lifecycle events reflect
-the final status, not the timing of upstream work. A
+chunk. An approved Chat-only follow-up on 2026-11-10 received HTTP 429 and
+produced no further placement evidence, so placement remains unverified against
+OpenAI. Search lifecycle events reflect the final status, not the timing of
+upstream work. A
 `Cache-Status: harden-llm; hit` header means the search evidence and answer
 were replayed from cache; generated output item IDs retain the producing call's
 identity. Each response retains its own response and execution IDs.
