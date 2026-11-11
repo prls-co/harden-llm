@@ -559,6 +559,14 @@ func buildResponsesPayload(connection runtime.Connection, call runtime.Call, opt
 		"model": call.ModelID,
 		"input": input,
 	}
+	// Ordinary callers (including NER) receive a buffered, validated result,
+	// but CPA must stream upstream so generation does not consume the response
+	// header budget. Keep an explicitly selected transport mode unchanged.
+	if strings.EqualFold(connection.Provider, "cpa") {
+		if _, explicit := normalized["stream"]; !explicit {
+			payload["stream"] = true
+		}
+	}
 	for key, value := range normalized {
 		payload[key] = value
 	}

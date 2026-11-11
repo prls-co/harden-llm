@@ -1533,6 +1533,17 @@ full-source-sized acceptance requirement is superseded, not certified by smaller
 fixtures. These tests do not promise any token count fits the byte limit.
 This local evidence does not certify a deployed gateway.
 
+`TestOrdinaryCPAResponsesCompletesAfterHeaderBudgetWithoutIncreasingDeadline`
+additionally exercises the ordinary typed Responses client, real gateway,
+stateful core and local TLS provider with completion after the response-header
+budget but before the generation deadline. CPA upstream streaming must deliver
+headers early while the client still receives one complete validated JSON
+result, with one provider dispatch and unchanged logical deadline. Explicit
+provider stream selections and other provider protocols retain their behavior.
+This prevents the Query Analytics weather/NER 30-second header cutoff; passing
+NER's short source corpus alone did not cover that generation timing boundary.
+
+
 `TestResponsesClientPreservesUncertainty` and
 `TestResponsesClientGatewayUncertaintyProjection` additionally require uncertain
 502/504 and partial-output 429 outcomes to remain `UnknownOutcomeError`, even
