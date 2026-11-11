@@ -34,11 +34,19 @@ export function changedServices(paths) {
   for (const p of paths) {
     // Compose/routing configuration is applied by deployEnvironment; it is not
     // an application image input and must not trigger either image build.
-    if (/^frontend\/(lib\/|assets\/|config\/|priv\/|mix\.(exs|lock)$|Dockerfile$|\.dockerignore$)/.test(p)) selected.add("web");
-    if ((/^(Dockerfile|\.dockerignore|go\.mod|go\.sum)$/.test(p) || /^(internal\/|cmd\/|[^/]+\.go$)/.test(p)) &&
+    if (/^frontend\/(packages\/[^/]+\/)?(lib\/|assets\/|config\/|priv\/|mix\.(exs|lock)$|Dockerfile$|\.dockerignore$)/.test(p)) selected.add("web");
+    if ((/^(Dockerfile|\.dockerignore|go\.mod|go\.sum)$/.test(p) || p === "api/openapi.yaml" ||
+        (/^(internal\/|cmd\/|stateful\/|httpclient\/|api\/|[^/]+\.go$)/.test(p) && p.endsWith(".go"))) &&
         !p.endsWith("_test.go") && !/^internal\/(testkit|integrationtest|smoke|deploytest)\//.test(p)) selected.add("gateway");
   }
   return ["gateway", "web"].filter(s => selected.has(s));
+}
+
+export function changedComponentServices(components, pathsSince) {
+  return ["gateway", "web"].filter(service => {
+    const release = components[service]?.release;
+    return !release || changedServices(pathsSince(release)).includes(service);
+  });
 }
 
 export function deploymentAllowed({ branch, sameRepository, enabled, success, sha, tip }) {

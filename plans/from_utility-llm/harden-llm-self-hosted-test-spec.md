@@ -809,7 +809,11 @@ runtime contract or the meaning of `make verify`.
 - Canonical specification: `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`.
 - T0/T1: branch identities are stable and collision-resistant; production/dev
   cleanup boundaries are enforced; current same-repository passing revisions
-  alone qualify; changed paths select only affected images; automatic fast,
+  alone qualify; changed paths select only affected images, including Go
+  `stateful`, `httpclient`, embedded OpenAPI and reusable Phoenix package inputs.
+  Compare each actual component source rather than the last reconciled branch
+  tip so a previously missed rebuild is recovered; docs/tests alone reuse images.
+  Automatic fast,
   baseline, and release selectors cannot launch browsers. Initial preview-host
   setup requires the explicit preview Cloudflare token, trims it, and rejects
   missing/blank values even when a generic Cloudflare variable is present; the

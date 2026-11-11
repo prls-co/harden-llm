@@ -7,7 +7,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { parseEnv } from "node:util";
-import { branchIdentity, changedServices } from "./preview-policy.mjs";
+import { branchIdentity, changedComponentServices } from "./preview-policy.mjs";
 import { applicationEnvironment } from "./deployment-configuration.mjs";
 
 export const configPath = path.join(os.homedir(), ".config/harden-llm-preview/host.json");
@@ -181,8 +181,10 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
   if (tip !== sha) throw new Error("Branch advanced before deployment; wait for its latest passing CI");
   const directory = environmentDirectory(c, branch);
   const source = path.join(directory, "source");
-  const changes = state.sha ? command("git", ["-C", c.sourceRepository, "diff", "--name-only", state.sha, sha]).split("\n") : [];
-  const services = state.sha ? changedServices(changes) : ["gateway", "web"];
+  // A previous rollout can record the branch tip while reusing an older image.
+  // Compare actual image sources so missing input rules recover on the next run.
+  const services = changedComponentServices(state.components, release =>
+    command("git", ["-C", c.sourceRepository, "diff", "--name-only", release, sha]).split("\n"));
   const sourceExists = await fs.access(path.join(source, ".git")).then(() => true, e => { if (e.code === "ENOENT") return false; throw e; });
   if (!sourceExists) command("git", ["-C", c.sourceRepository, "worktree", "add", "--detach", source, sha]);
   else {
