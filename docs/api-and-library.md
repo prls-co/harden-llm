@@ -1,6 +1,9 @@
 # API and Go library
 
 The authoritative HTTP contract is [`api/openapi.yaml`](../api/openapi.yaml).
+The compatibility goal is an OpenAI `/v1` superset with optional Harden
+controls. The routes and fields documented here define this release's
+implemented coverage.
 Harden LLM accepts standard OpenAI-style requests on these routes:
 
 | Route | Purpose |

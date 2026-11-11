@@ -26,7 +26,12 @@ decision.
 
 ## 2. Artifact and production identity
 
-Current production application identity is source
+The latest production identity is recorded in the
+[November 11 web-search parity receipt](evidence/harden-llm/web-search-parity/2026-11-11-production.json)
+and [release certification](../docs/release-certification.md#2026-11-11-web-search-parity-production-release).
+The identities below are retained historical checkpoints.
+
+The November 4 production application identity was source
 `f1ebdc41e4ea7c38b65f256b346b1f2cad3dbfb4`, exact release run `41857609943`
 attempt 1, recorded in the [November 4 CPA production receipt](evidence/harden-llm/cpa-admission/2026-11-04-production-cpa.json).
 Gateway and worker share the gateway image; frontend runtime changes require
