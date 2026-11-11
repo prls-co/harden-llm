@@ -1,6 +1,6 @@
 # Release Certification
 
-Latest production qualification: [Web-search parity, November 11](#2026-11-11-web-search-parity-production-release).
+Latest production qualification: [CPA default and current backend, November 11](#2026-11-11-cpa-gpt-6-luna-default).
 
 Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
 
@@ -3275,3 +3275,59 @@ Release certification caught an unavailable Alpine Git package, the freshly publ
 During consumer rollout, Query Analytics advanced after inventory. An initial promotion briefly replaced that newer weather backend; it was restored and its worker reverified. A later independent owner deployment is retained and its actual binary confirms both the compatible Harden client and patched Go compiler. Dirty owner source was preserved; the temporary backend replacement is not presented as a successful promotion. The receipt records this sequencing error separately from final adoption.
 
 No browser or real-provider inference ran during deployment. Browser layout, upstream offset units and streamed Chat annotation placement remain outside this qualification. The earlier approved probe and HTTP 429 follow-up retain their documented limits. Documentation-only closure does not rebuild or relabel these artifacts.
+
+
+## 2026-11-11 CPA gpt-6-luna default
+
+[PR #168](https://github.com/prls-co/harden-llm/pull/168) makes the existing
+`CPA gpt-6-luna` preset the initial selection for fresh reference workspaces.
+Hydration and the reusable picker use the same choice. Saved selections are
+restored; catalogs without the preset retain their first available profile.
+Ordinary OpenAI API requests still specify their own model. This
+default-selection change adds no preset, key, stored profile, data schema,
+provider behavior or backend implementation.
+
+The [deployment
+receipt](../plans/evidence/harden-llm/cpa-luna-default/2026-11-11-production.json)
+records exact component identities and checks. Web source
+`c6f7e6c90573b963b4378d4163c9122e611e4c93` passed the exact-source [release
+gate](https://github.com/prls-co/harden-llm/actions/runs/42966762300): all 30
+tasks passed, with clean teardown. The controlled red failed on the old default;
+all 15 focused unit/LiveView tests and all ten local fast tasks pass, with
+hosted fast/CodeQL green. WEB-TEST-124/TEST-452 and self-hosting documentation
+are updated.
+
+Production web image
+`sha256:870381f0d9463103f4eb5eb68f96c2d8f9f7af7b3cd9523c53f34af2e10562cd` is
+deployed. A concurrent owner deployed gateway/worker source
+`951df690540c39c68e7492883d763b6165d9dbdc` for PR #169 while the web release was
+being built. The freshness guard stopped before changing that deployment; its
+images and checkout were retained. Dev was aligned to that backend and retains
+web source `c6f7e6c`. All eight managed services match the protected controller,
+other inventoried containers and protected inputs are unchanged, and original
+data is preserved. The deployed release code independently confirms the initial
+CPA choice, saved-choice preservation and absent-preset behavior. Eleven
+HTTP/auth checks per environment include the configured CPA preset and pass
+without inference. Browser layout was not checked; no browser or paid-provider
+smoke ran.
+
+The concurrent backend was deployed before its full exact-source certification.
+The first full run failed because TEST-519 still expected non-streaming native
+CPA requests. A controlled T3 reproduction retained the native-contract HTTP 400
+and public-result failure. Test-only PR #170 now strictly requires native
+`stream: true`, removes the obsolete per-nonce exception map, and retains public
+JSON/SSE, capacity, exact dispatch, retry-identity and uncertainty assertions.
+The complete Temporal slice passes with clean teardown. The exact-main [run
+42970531634](https://github.com/prls-co/harden-llm/actions/runs/42970531634)
+passed all 30 tasks on test-only source
+`75e51ceae503b46d853bdac59fb4f9f9237baab6`. Runtime input equality with deployed
+backend `951df69` was independently checked. This certification completed after
+the concurrent backend deployment; it is not presented as a passing pre-build
+gate for that earlier rollout. No application rebuild or relabel followed the
+test-only correction.
+
+The reproduced header cutoff is fixed/deployed in #169. The original
+interrupted-stream incident in
+[#162](https://github.com/prls-co/harden-llm/issues/162) still has no proven
+failed network hop. This release/default closeout does not claim that
+investigation or all API-parity enhancements are complete.
