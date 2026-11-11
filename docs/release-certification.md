@@ -1,6 +1,6 @@
 # Release Certification
 
-Latest production qualification: [Responses client closeout, November 7](#2026-11-07-responses-client-production-closeout).
+Latest production qualification: [Web-search parity, November 11](#2026-11-11-web-search-parity-production-release).
 
 Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
 
@@ -3249,3 +3249,29 @@ coordinated upstream/image certification and its separate deployment gates.
 It was not merged or deployed by this closeout. No browser ran; layout is not
 checked. The documentation-only successor does not rebuild or relabel the
 verified application image.
+
+
+## 2026-11-11 Web-search parity production release
+
+[PR #161](https://github.com/prls-co/harden-llm/pull/161) preserves observed web-search calls, URL sources and citations in standard Responses and Chat Completions fields. Structured-output repair and cache replay retain provenance; annotations are omitted when their indexed text changed. The Go client and both OpenAPI copies ship the same contract. Optional `harden` controls remain additive. Current implemented coverage and the separate OpenAI offset/stream-placement evidence limits remain documented in [API and library](api-and-library.md#web-search); this release does not establish the full OpenAI API surface.
+
+The [production receipt](../plans/evidence/harden-llm/web-search-parity/2026-11-11-production.json) records exact identities, verification and retained failure evidence.
+
+| Boundary | Verified result |
+| --- | --- |
+| Application source | `72afda4977bedf585de7b5e89eeb3619bb92401e`, `main`; #161 plus release corrections #163–#166. |
+| Exact-source release | [Run 42960073190](https://github.com/prls-co/harden-llm/actions/runs/42960073190), attempt 1: all 30 browser-free tasks passed; cleanup errors/warnings empty. |
+| Gateway and worker | `sha256:1047dfe811e1290b925c356cc6d500054efa5e53a17645ae4caca6de94607425`, matching full-SHA source/revision/version and actual binary version; Go 1.26.11. |
+| Web | `sha256:ad5fff177e075b3d7da868eec11a0197ef49602083203e22ae141ae3b2549d83`, matching full-SHA source/revision/version. |
+| Publication | Immutable local full-SHA image tags; Go module `v0.0.0-20261111043358-72afda4977be` downloaded and checksum verified. |
+| Rollout | Worker/schema, existing generation-2 `v2_ready`, then gateway/web through the protected controller. All eight managed services are equivalent; HTTP services are healthy, all three applications have zero restarts, and required worker pollers are fresh. |
+| Production HTTP | Ten HTTP/auth checks plus the Portal login entry passed at `https://harden-llm.prls.co/`; no inference. |
+| Dev | `https://harden-llm-dev.prls.co/`, 10 HTTP checks passed. Gateway/web retain application source `045f6e39e62b0ae072947bef436a8ce2414525a8`; subsequent source changes are test-only and do not relabel those images. |
+| Consumer adoption | Actual Query Analytics and Clustering binaries/images include Harden `a91c35d`; both current worker pollers verified. Query Analytics' later owner deployment also uses Go 1.26.11. NER's future search adoption remains separate. |
+| Retention | All original HLLM, Query Analytics and Clustering rows are preserved. HLLM data is exactly unchanged through the application rollout, including two jobs, 1,000 items and 1,440 attempts. Protected input hashes and all eight shared/support owner identities/restart counts are unchanged. |
+
+Release certification caught an unavailable Alpine Git package, the freshly published `GO-2026-6859` advisory, a missed test-provider compiler pin and a shared-cooldown fixture ordering defect. The Go builder consistency regression is TEST-539. TEST-519 now queues the durable job behind a held ordinary request before releasing the simulated refusal; its existing cooldown, completion, identity and exact-call assertions remain. The controlled red, focused green and complete Temporal slice are retained with clean teardown. The failed release reports remain evidence; canceled tasks are not passes, and the original failure's exact host scheduling is not established. No assertion or timeout was relaxed.
+
+During consumer rollout, Query Analytics advanced after inventory. An initial promotion briefly replaced that newer weather backend; it was restored and its worker reverified. A later independent owner deployment is retained and its actual binary confirms both the compatible Harden client and patched Go compiler. Dirty owner source was preserved; the temporary backend replacement is not presented as a successful promotion. The receipt records this sequencing error separately from final adoption.
+
+No browser or real-provider inference ran during deployment. Browser layout, upstream offset units and streamed Chat annotation placement remain outside this qualification. The earlier approved probe and HTTP 429 follow-up retain their documented limits. Documentation-only closure does not rebuild or relabel these artifacts.

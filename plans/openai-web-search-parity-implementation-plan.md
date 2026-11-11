@@ -1027,3 +1027,28 @@ Complete the parent plan's normal gates before its PR; these corrections add
 no extra Docker, release-certification, browser or paid-provider gate. Record
 test commands/results and remaining release gates. Planning and local tests
 are not deployment evidence. This amendment authorizes no production promotion.
+
+## 15. Implementation and production closeout (2026-11-11 UTC)
+
+PR #161 merged the implementation. Release corrections #163–#166 fixed the
+Alpine Git pin, moved the compiler to Go 1.26.11 for `GO-2026-6859`, aligned
+the test-provider builder and ordered the shared-refusal fixture before its
+cooldown begins. TEST-534 through TEST-538 cover the feature; TEST-539 guards
+the compiler-image consistency, and TEST-519 retains its original admission,
+retry-identity and exact-call assertions.
+
+Application source `72afda4977bedf585de7b5e89eeb3619bb92401e` passed all
+30 tasks in the exact-source browser-free
+[release run](https://github.com/prls-co/harden-llm/actions/runs/42960073190).
+Gateway, worker and web are deployed to production. Dev is reconciled to that
+source with unchanged application images for the later test-only commits.
+The Go module is published; deployed reference clients were verified before
+gateway promotion. NER's future search adoption remains consumer-owned.
+
+The [production receipt](evidence/harden-llm/web-search-parity/2026-11-11-production.json)
+and [release record](../docs/release-certification.md#2026-11-11-web-search-parity-production-release)
+record image identities, the consumer rollout correction, HTTP and worker
+readiness, preserved data, protected configuration and retained failures.
+No browser or real-provider deployment smoke ran. The earlier inconclusive
+offset probe, HTTP 429 follow-up and separate issues #153–#158 retain their
+documented limits.
