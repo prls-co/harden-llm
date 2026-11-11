@@ -103,24 +103,9 @@ func admissionFailure() error {
 	return &hardenllm.ProviderError{Status: 503, Category: retry.CategoryOther, Code: "admission_unavailable", Err: errors.New("CPA admission could not be confirmed")}
 }
 
-func (a *CPAAdmission) failure(ctx context.Context, stage string, causes ...error) error {
+func (a *CPAAdmission) failure(ctx context.Context, stage string, cause error) error {
 	if a.Logger != nil {
-		class := "unavailable"
-		if len(causes) > 0 {
-			switch {
-			case errors.Is(causes[0], batch.ErrClaimOwned):
-				class = "claim_not_available"
-			case errors.Is(causes[0], batch.ErrClaimUnconfirmed):
-				class = "claim_unconfirmed"
-			case errors.Is(causes[0], batch.ErrGenerationFenced):
-				class = "generation_fenced"
-			case errors.Is(causes[0], context.DeadlineExceeded):
-				class = "deadline"
-			case errors.Is(causes[0], context.Canceled):
-				class = "canceled"
-			}
-		}
-		a.Logger.ErrorContext(ctx, "ordinary CPA admission not confirmed", "pool_id", a.PoolID, "metadata_stage", stage, "metadata_error_class", class, "native_entered", false)
+		a.Logger.ErrorContext(ctx, "ordinary CPA admission not confirmed", "pool_id", a.PoolID, "metadata_stage", stage, "metadata_error_class", batch.MetadataErrorClass(cause), "native_entered", false)
 	}
 	return admissionFailure()
 }
@@ -143,7 +128,7 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 	}
 	marker, readErr := a.Store.PoolGeneration(ctx, a.PoolID)
 	if readErr != nil || marker.Generation < 2 || marker.Mode != "active" {
-		return attempt, a.failure(ctx, "pool_generation")
+		return attempt, a.failure(ctx, "pool_generation", readErr)
 	}
 	w := batch.RequestWaiter{RequestID: uuid.NewString(), PoolID: a.PoolID, Generation: marker.Generation, Scope: scope, OwnerID: uuid.NewString(), ExecutionID: execution.id, Ordinal: int(execution.ordinal.Add(1)), Deadline: deadline.UTC().Truncate(time.Microsecond), BudgetMS: max(1, time.Until(deadline).Milliseconds())}
 	permit := ""
@@ -174,13 +159,13 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 		s.AdmissionWait("dispatch_pending", nil)
 	}
 	if _, queueErr := a.Store.EnqueueRequest(ctx, w); queueErr != nil {
-		return attempt, a.failure(ctx, "enqueue")
+		return attempt, a.failure(ctx, "enqueue", queueErr)
 	}
 	wake, stop := context.WithTimeout(ctx, 3*time.Second)
 	signalErr := a.Signals.Wake(wake, a.PoolID)
 	stop()
 	if signalErr != nil {
-		return attempt, a.failure(ctx, "wake")
+		return attempt, a.failure(ctx, "wake", signalErr)
 	}
 	waitStarted := time.Now()
 	unavailableReads := 0
@@ -194,7 +179,7 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 			// owner and waiter. Never enqueue again or retry a claim/dispatch.
 			unavailableReads++
 			if a.Logger != nil {
-				a.Logger.WarnContext(ctx, "ordinary CPA admission recovering waiter read", "pool_id", a.PoolID, "metadata_stage", "waiter_read", "recovery_read", unavailableReads, "native_entered", false)
+				a.Logger.WarnContext(ctx, "ordinary CPA admission recovering waiter read", "pool_id", a.PoolID, "metadata_stage", "waiter_read", "metadata_error_class", batch.MetadataErrorClass(e), "recovery_read", unavailableReads, "native_entered", false)
 			}
 			timer := time.NewTimer(100 * time.Millisecond)
 			select {
@@ -244,7 +229,7 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 		return batch.Attempt{}, a.failure(ctx, "claim", err)
 	}
 	if attempt.Kind != "ordinary" || attempt.RequestID != w.RequestID || attempt.PoolID != w.PoolID || attempt.Generation != w.Generation || attempt.Ref.Scope != scope || attempt.ClaimID != w.OwnerID || attempt.BudgetMS != w.BudgetMS || !attempt.Deadline.Equal(w.Deadline) {
-		return batch.Attempt{}, a.failure(ctx, "claim_identity")
+		return batch.Attempt{}, a.failure(ctx, "claim_identity", nil)
 	}
 	if ctx.Err() != nil {
 		return attempt, ctx.Err()
@@ -315,7 +300,34 @@ func (e admissionExecutor) Execute(ctx context.Context, p hardenllm.PreparedOper
 			e.admission.notify(cleanup, a.PermitID, settled.SettlementRevision)
 		}
 		if e.admission.Logger != nil {
-			e.admission.Logger.InfoContext(ctx, "ordinary CPA dispatch observed", "execution_id", execution.id, "request_id", a.RequestID, "permit_id", a.PermitID, "dispatch_ordinal", a.Ordinal, "kind", out.Kind, "admission", out.Admission, "native_entered", nativeEntered, "local_stopped", observation.LocalStopped, "settlement_confirmed", settleErr == nil, "queue_ms", out.QueueMS, "generation_ms", out.DurationMS, "started_at", out.StartedAt, "finished_at", out.FinishedAt, "retry_after_ms", out.RetryAfterMS, "headers_ms", out.HeadersMS, "first_output_ms", out.FirstOutputMS, "input_tokens", out.InputTokens, "output_tokens", out.OutputTokens, "reasoning_tokens", out.ReasoningTokens)
+			attrs := []any{
+				"execution_id", execution.id, "request_id", a.RequestID, "permit_id", a.PermitID, "dispatch_ordinal", a.Ordinal,
+				"kind", out.Kind, "admission", out.Admission, "native_entered", nativeEntered, "local_stopped", observation.LocalStopped, "settlement_confirmed", settleErr == nil,
+				"queue_ms", out.QueueMS, "generation_ms", out.DurationMS, "started_at", out.StartedAt, "finished_at", out.FinishedAt,
+				"generation_budget_ms", out.GenerationBudgetMS, "generation_deadline", out.GenerationDeadline,
+				"retry_after_ms", out.RetryAfterMS, "headers_ms", out.HeadersMS, "first_output_ms", out.FirstOutputMS,
+				"input_tokens", out.InputTokens, "output_tokens", out.OutputTokens, "reasoning_tokens", out.ReasoningTokens,
+				"received_bytes", result.Stream.ReceivedBytes, "event_count", result.Stream.EventCount, "output_bytes", result.Stream.OutputBytes,
+			}
+			if out.Error != nil {
+				attrs = append(attrs, "error_code", out.Error.Code, "http_status", out.Error.HTTPStatus)
+			}
+			if result.Stream.TransportErrorClass != "" {
+				attrs = append(attrs, "error_class", result.Stream.TransportErrorClass, "error_phase", result.Stream.TransportErrorPhase)
+			}
+			if out.ProviderRequestID != "" {
+				attrs = append(attrs, "stream_correlation_id", out.ProviderRequestID)
+			}
+			if result.Stream.LastEventAt != nil {
+				attrs = append(attrs, "last_event_at", result.Stream.LastEventAt)
+			}
+			if result.Stream.LastOutputAt != nil {
+				attrs = append(attrs, "last_output_at", result.Stream.LastOutputAt)
+			}
+			if result.Stream.TerminalState != "" {
+				attrs = append(attrs, "terminal_state", result.Stream.TerminalState)
+			}
+			e.admission.Logger.InfoContext(ctx, "ordinary CPA dispatch observed", attrs...)
 		}
 	}()
 	if ctx.Err() != nil {

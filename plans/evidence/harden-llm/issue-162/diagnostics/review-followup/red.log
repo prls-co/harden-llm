@@ -1,0 +1,10 @@
+--- FAIL: TestCPAAdmissionEarlyFailureLogsSafeClass (0.00s)
+    --- FAIL: TestCPAAdmissionEarlyFailureLogsSafeClass/wake (0.01s)
+        admission_diagnostics_test.go:190: safe cause lost at wake: want=deadline records=[map[level:ERROR metadata_error_class:unavailable metadata_stage:wake msg:ordinary CPA admission not confirmed native_entered:false pool_id:pool time:2026-11-11T13:11:05.229925287-08:00]]
+    --- FAIL: TestCPAAdmissionEarlyFailureLogsSafeClass/enqueue (0.01s)
+        admission_diagnostics_test.go:190: safe cause lost at enqueue: want=postgres_57P01 records=[map[level:ERROR metadata_error_class:unavailable metadata_stage:enqueue msg:ordinary CPA admission not confirmed native_entered:false pool_id:pool time:2026-11-11T13:11:05.229860002-08:00]]
+    --- FAIL: TestCPAAdmissionEarlyFailureLogsSafeClass/pool_generation (0.01s)
+        admission_diagnostics_test.go:190: safe cause lost at pool_generation: want=postgres_57P01 records=[map[level:ERROR metadata_error_class:unavailable metadata_stage:pool_generation msg:ordinary CPA admission not confirmed native_entered:false pool_id:pool time:2026-11-11T13:11:05.230305485-08:00]]
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.029s
+FAIL

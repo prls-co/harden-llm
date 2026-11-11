@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "issue": 162,
+  "pullRequest": 176,
+  "status": "review_fixed_locally_qualified_awaiting_hosted_checks",
+  "verifiedAt": "2026-11-11T21:23:36.536421+00:00",
+  "review": "https://github.com/prls-co/harden-llm/pull/176#issuecomment-6807012834",
+  "baseSource": "5087dbc843ed4bf735f01fed9762202133c3dbe9",
+  "correction": {
+    "stages": [
+      "pool_generation",
+      "enqueue",
+      "wake"
+    ],
+    "sharedClassifier": "batch.MetadataErrorClass",
+    "explicitCauseRequired": true,
+    "identityFailuresUseExplicitNil": true,
+    "newClassifierOrLoggingPath": false
+  },
+  "verificationInputsSHA256": {
+    "internal/providers/transport_diagnostics.go": "ddc159a25af8153e14ba08d9efab1763947999a24884631e2e8f99491bfc307b",
+    "internal/providers/transport_diagnostics_test.go": "0c954293f5eef0b9719cc4a4e47416a893de78641ab3123139ac849f5b89faaa",
+    "stateful/admission_diagnostics_integration_test.go": "27cbcdb6c3cd5ff52549f43a7e116b5b2958d068bac2d01fa7e801567664fc03",
+    "stateful/admission_diagnostics_test.go": "c6f83e17184ef9ca8e082a603bfec7cb4a20773626e48f9f15bb41ce0d081ddf",
+    "stateful/batch/ledger_error.go": "1c518f9f2c8e83e7acdac6b165d33f9ca578a17bee2f0f63ac82286217a75a1f",
+    "stateful/batch/ledger_error_integration_test.go": "8ee2ef4cd05603d1b4cb87a4cd7294dc8a1fc38337e37c4a2da8830342fef7e9",
+    "stateful/batch/ledger_error_test.go": "1e935c40ad47cd33ac9bf16bea11fea27f763b51739a692d0a7ebc6e8c3f6204",
+    "internal/providers/router.go": "ebf06083d792639b07b0c5868c25d4517c1c5f2835b6f67d67f9d7670884b656",
+    "internal/runtime/types.go": "97181fddb3e28f28eb4a3b8fc0eae94bcb6f7eed81bbdad41614c770702fcea8",
+    "stateful/batch/ledger_store.go": "eef0cd40b8ecac26f0c56395e7847d568385a92d6beae3cec90cbd2079faf45a",
+    "stateful/cpa_admission.go": "f1378867727d3e50bba407c2935882475401fd0f5ed1ca51cb2153f157403828",
+    "stateful/reference_uncertainty_test.go": "e22657b26c3bdad9e143aa4046306f90cd1ff8120f1dbb70639f446ea55c97b9",
+    "test/test-tiers.json": "a03f51ddd02cb96f870a1ee7741f1cdef29e0d83e825c287722bc32c731ccbff",
+    "stateful/cpa_admission_test.go": "fd78d4dca62cb4ce7672f00e5b2297dd8fc9958435837e66a9e1960bbdf1f8e4",
+    "plans/from_utility-llm/harden-llm-self-hosted-test-spec.md": "8b913466a1b653af413c8ec2e590a141eeed9a6f95386839c854be5a9e4f0367",
+    "plans/transport-admission-diagnostics-plan.md": "03cc40ff388080258ed46249d397fa7b146edb4d5789faf18a1eac19519e85b7",
+    "docs/rca/reference-provider-uncertainty-162.md": "fff128de300a6403466c0609ac1f44ba3cb54ba5c3ef0175f8bcae0dfeedfb1f"
+  },
+  "checks": {
+    "regressionRed": {
+      "log": "red.log",
+      "allThreeStagesFailBeforeFix": true
+    },
+    "focusedRace": {
+      "accepted": true,
+      "log": "focused-race.log",
+      "packages": [
+        "stateful",
+        "stateful/batch",
+        "internal/providers"
+      ]
+    },
+    "fast": {
+      "accepted": true,
+      "report": "fast.json",
+      "sha256": "7e353d63d7a273c58d9ace3013ef79492d9d2cf1e88a4fb9c42dfe9f071284e9",
+      "taskCount": 10,
+      "candidateSlots": 1,
+      "allTasksRetained": true,
+      "assertionsAndTimeoutsUnchanged": true,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "coverageVerifier": "passed",
+    "whitespace": "passed"
+  },
+  "parity": {
+    "publicAPIChanged": false,
+    "databaseSchemaChanged": false,
+    "promptsSchemasModelsReasoningChanged": false,
+    "providerRetryReplayOrDeadlinePolicyChanged": false,
+    "providerEntryOnEarlyFailure": false
+  },
+  "hostedScheduling": {
+    "retainedRun": 43097735515,
+    "runReport": "retained-hosted-failure.json",
+    "jobsReport": "retained-hosted-jobs.json",
+    "observed": "run failed before a runner was assigned; mode executed zero steps, downstream jobs skipped",
+    "theseAreNotPassingChecks": true
+  },
+  "authorizedCloseout": {
+    "mergeToMain": true,
+    "productionDeployment": true,
+    "requiredRelease": "specific successful exact-main browser-free release under ADR-HLLM-028",
+    "affectedServices": [
+      "harden-llm-batch-worker",
+      "harden-llm-gateway"
+    ],
+    "unchangedWebImage": "sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78"
+  },
+  "runtimeBaseline": {
+    "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+    "url": "https://harden-llm.prls.co/",
+    "gatewayWorkerImage": "sha256:32eee847dcbabae4da90b17c232e745f3d4621cf7ea1128211cd30cdef22409b",
+    "allEightControllerServicesEquivalent": true,
+    "mutationsPerformed": false
+  },
+  "limits": {
+    "mainPromotionPerformed": false,
+    "productionDeploymentPerformed": false,
+    "browserRun": false,
+    "browserLayoutChecked": false,
+    "providerInference": false,
+    "originalFailedNetworkHop": "unproven",
+    "releaseAndDeploymentRemainSeparateGates": true
+  }
+}

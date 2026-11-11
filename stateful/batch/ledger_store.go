@@ -174,6 +174,10 @@ func ledgerError(err error) error {
 	if err == nil {
 		return nil
 	}
+	var unavailable *unavailableError
+	if errors.As(err, &unavailable) {
+		return unavailable
+	}
 	for _, known := range []error{ErrLegacyExecutionUnresolved, ErrGenerationFenced, ErrClaimOwned, ErrClaimUnconfirmed, ErrSettlementConflict, ErrConflict, ErrNotFound} {
 		if errors.Is(err, known) {
 			return known
@@ -182,7 +186,10 @@ func ledgerError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
-	return ErrUnavailable
+	if err == ErrUnavailable {
+		return err
+	}
+	return &unavailableError{class: MetadataErrorClass(err)}
 }
 func poolRow(ctx context.Context, tx pgx.Tx, pool string, lock bool) (PoolGeneration, error) {
 	query := `SELECT pool_id,generation,mode,revision FROM batch_pool_generations WHERE pool_id=$1`

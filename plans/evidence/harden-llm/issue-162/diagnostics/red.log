@@ -1,0 +1,34 @@
+--- FAIL: TestCPAAdmissionWaiterReadLogsSafeClass (0.33s)
+    --- FAIL: TestCPAAdmissionWaiterReadLogsSafeClass/1 (0.13s)
+        admission_diagnostics_test.go:141: safe SQL cause lost at recovery/failure event map[level:WARN metadata_stage:waiter_read msg:ordinary CPA admission recovering waiter read native_entered:false pool_id:pool recovery_read:1 time:2026-11-11T12:18:57.250629459-08:00]
+    --- FAIL: TestCPAAdmissionWaiterReadLogsSafeClass/9 (0.21s)
+        admission_diagnostics_test.go:141: safe SQL cause lost at recovery/failure event map[level:WARN metadata_stage:waiter_read msg:ordinary CPA admission recovering waiter read native_entered:false pool_id:pool recovery_read:1 time:2026-11-11T12:18:57.361672586-08:00]
+--- FAIL: TestCPAAdmissionTransportDiagnostics (0.00s)
+    --- FAIL: TestCPAAdmissionTransportDiagnostics/completed (0.03s)
+        admission_diagnostics_test.go:96: event reset or lost the accepted deadline map[admission: dispatch_ordinal:1 execution_id:ec71f9a5-27e1-4561-b53e-ac416018f291 finished_at:2026-11-11T20:18:57.256298218Z first_output_ms:0 generation_ms:16 headers_ms:16 input_tokens:4 kind:completed level:INFO local_stopped:true msg:ordinary CPA dispatch observed native_entered:true output_tokens:3 permit_id:f5da1515-1b18-4682-b9d5-8f61486bbd0c queue_ms:0 reasoning_tokens:0 request_id:4540f002-dff9-4887-83d2-d947194a6ae0 retry_after_ms:0 settlement_confirmed:true started_at:2026-11-11T20:18:57.239920924Z time:2026-11-11T12:18:57.256323886-08:00]
+    --- FAIL: TestCPAAdmissionTransportDiagnostics/partial (0.03s)
+        admission_diagnostics_test.go:93: safe transport facts missing: want=unexpected_eof/response_stream record=map[admission: dispatch_ordinal:1 execution_id:93cb9184-4df3-4f37-80d4-e232b65956da finished_at:2026-11-11T20:18:57.256717431Z first_output_ms:0 generation_ms:17 headers_ms:17 input_tokens:<nil> kind:unconfirmed level:INFO local_stopped:true msg:ordinary CPA dispatch observed native_entered:true output_tokens:<nil> permit_id:6bb0dfe6-28bd-4a7c-97ff-5ca54bcc2b24 queue_ms:0 reasoning_tokens:<nil> request_id:6d83ff34-dcea-4860-a9a6-1cdf8e7164ab retry_after_ms:0 settlement_confirmed:true started_at:2026-11-11T20:18:57.239454265Z time:2026-11-11T12:18:57.256770297-08:00]
+    --- FAIL: TestCPAAdmissionTransportDiagnostics/canceled (0.03s)
+        admission_diagnostics_test.go:93: safe transport facts missing: want=canceled/response_stream record=map[admission: dispatch_ordinal:1 execution_id:f65bff8d-5acf-442f-9710-88474dca7e16 finished_at:2026-11-11T20:18:57.262625351Z first_output_ms:<nil> generation_ms:14 headers_ms:14 input_tokens:<nil> kind:unconfirmed level:INFO local_stopped:true msg:ordinary CPA dispatch observed native_entered:true output_tokens:<nil> permit_id:dceb9229-5f59-498c-9f82-122cd4ff6b18 queue_ms:0 reasoning_tokens:<nil> request_id:310ce4cd-90c8-4f6b-bf8b-cbe92f8267b5 retry_after_ms:0 settlement_confirmed:true started_at:2026-11-11T20:18:57.247699513Z time:2026-11-11T12:18:57.262675864-08:00]
+    --- FAIL: TestCPAAdmissionTransportDiagnostics/no_headers (0.13s)
+        admission_diagnostics_test.go:93: safe transport facts missing: want=timeout/response_headers record=map[admission: dispatch_ordinal:1 execution_id:875a9527-44a3-4905-b95d-eadee788e036 finished_at:2026-11-11T20:18:57.357190565Z first_output_ms:<nil> generation_ms:117 headers_ms:<nil> input_tokens:<nil> kind:unconfirmed level:INFO local_stopped:true msg:ordinary CPA dispatch observed native_entered:true output_tokens:<nil> permit_id:9ae601bf-d377-4afc-a145-471d8fc90e1d queue_ms:0 reasoning_tokens:<nil> request_id:64af26cc-7eaf-4882-83c0-d1d54ed4e38d retry_after_ms:0 settlement_confirmed:true started_at:2026-11-11T20:18:57.239765158Z time:2026-11-11T12:18:57.357227786-08:00]
+    --- FAIL: TestCPAAdmissionTransportDiagnostics/deadline (1.01s)
+        admission_diagnostics_test.go:93: safe transport facts missing: want=deadline/response_stream record=map[admission: dispatch_ordinal:1 execution_id:b1ef761d-6897-4143-b3e4-200fdcaa53b0 finished_at:2026-11-11T20:18:58.239605331Z first_output_ms:0 generation_ms:1000 headers_ms:17 input_tokens:<nil> kind:unconfirmed level:INFO local_stopped:true msg:ordinary CPA dispatch observed native_entered:true output_tokens:<nil> permit_id:0d8d2537-d2e1-4057-ba7c-0f26d86c1f2b queue_ms:0 reasoning_tokens:<nil> request_id:7916823b-3ba9-41b7-a13f-bfc5e76bccdf retry_after_ms:0 settlement_confirmed:true started_at:2026-11-11T20:18:57.23929518Z time:2026-11-11T12:18:58.239652194-08:00]
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	1.036s
+--- FAIL: TestLedgerErrorRetainsSafeClass (0.00s)
+    --- FAIL: TestLedgerErrorRetainsSafeClass/SQLSTATE (0.00s)
+        ledger_error_test.go:34: safe class lost: want=postgres_57P01 err=batch: durable job service unavailable
+    --- FAIL: TestLedgerErrorRetainsSafeClass/invalid_SQLSTATE (0.00s)
+        ledger_error_test.go:34: safe class lost: want=unavailable err=batch: durable job service unavailable
+    --- FAIL: TestLedgerErrorRetainsSafeClass/unknown (0.00s)
+        ledger_error_test.go:34: safe class lost: want=unavailable err=batch: durable job service unavailable
+    --- FAIL: TestLedgerErrorRetainsSafeClass/deadline (0.00s)
+        ledger_error_test.go:34: safe class lost: want=deadline err=batch: durable job service unavailable
+    --- FAIL: TestLedgerErrorRetainsSafeClass/query_cancellation (0.00s)
+        ledger_error_test.go:34: safe class lost: want=postgres_57014 err=batch: durable job service unavailable
+    --- FAIL: TestLedgerErrorRetainsSafeClass/cancellation (0.00s)
+        ledger_error_test.go:34: safe class lost: want=canceled err=batch: durable job service unavailable
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful/batch	0.018s
+FAIL

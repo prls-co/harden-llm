@@ -1,0 +1,8 @@
+--- FAIL: TestCPAAdmissionTransportDiagnostics (0.00s)
+    --- FAIL: TestCPAAdmissionTransportDiagnostics/no_headers (0.19s)
+        admission_diagnostics_test.go:103: safe transport facts missing: want=timeout/response_headers record=map[admission: dispatch_ordinal:1 error_class:deadline error_code:ETIMEDOUT error_phase:response_headers event_count:0 execution_id:f9895b83-5498-4796-bbb3-213419e704b6 finished_at:2026-11-11T20:20:48.747979132Z first_output_ms:<nil> generation_budget_ms:4984 generation_deadline:2026-11-11T20:20:53.608353Z generation_ms:124 headers_ms:<nil> http_status:0 input_tokens:<nil> kind:unconfirmed level:INFO local_stopped:true msg:ordinary CPA dispatch observed native_entered:true output_bytes:0 output_tokens:<nil> permit_id:136bd663-3d91-4e2d-877d-407f62b65982 queue_ms:0 reasoning_tokens:<nil> received_bytes:0 request_id:aaec6899-7f94-442a-8960-a85a88a23a6a retry_after_ms:0 settlement_confirmed:true started_at:2026-11-11T20:20:48.623785759Z terminal_state:missing time:2026-11-11T12:20:48.748431066-08:00]
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	1.716s
+ok  	github.com/prls-co/harden-llm/stateful/batch	1.155s
+ok  	github.com/prls-co/harden-llm/internal/providers	1.127s
+FAIL

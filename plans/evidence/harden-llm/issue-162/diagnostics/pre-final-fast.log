@@ -1,0 +1,2 @@
+node scripts/run-test-tier.mjs --task fast
+{"accepted":true,"selector":"fast","taskCount":10,"failure":null,"cleanupErrors":[],"cleanupWarnings":[],"output":"/home/kirill/p/harden-llm/tmp/test-feedback/runner-1794429084915-3514570-bf83c7832403df04.json"}

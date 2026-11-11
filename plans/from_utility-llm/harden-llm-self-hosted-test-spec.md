@@ -2620,7 +2620,7 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
 
 ### TEST-539: Go builders use one qualified toolchain
 
-- Coverage gate: `fast`; existing `go-static` task.
+- Coverage gate: `fast`; existing `go-unit` task (the `go-static` task also executes this package).
 - Tier: T0; `internal/testkit/go_builder_toolchain_test.go`, `TestGoBuilderToolchainsAgree`.
 - Command: `go test ./internal/testkit -run '^TestGoBuilderToolchainsAgree$' -count=1`.
 - Oracle: Gateway, explicit browser fixture, and Compose provider builders use the same immutable Go image. A module/toolchain update cannot leave a fixture on an older compiler.
@@ -2650,3 +2650,23 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
 - Location: `stateful/reference_uncertainty_integration_test.go`, `TestReferenceUncertaintyHistory`.
 - Command: `node scripts/run-test-tier.mjs --task go-integration` (owned service pool).
 - Oracle: TEST-540's actual TLS/router/runtime/admission partial stream produces exactly one PostgreSQL history record with `execution_unconfirmed`, unknown usage and no partial output. Scope isolation, detail reads, local execution statistics and one provider dispatch remain intact. The process-local admission fixture does not certify real Temporal/ledger races, which retain their existing tests.
+
+### TEST-542: Safe transport evidence on the existing dispatch event
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `internal/providers/transport_diagnostics_test.go` and `stateful/admission_diagnostics_test.go`.
+- Oracle: Reuse TEST-540's actual TLS/router/core/admission fixture for no-header timeout, partial-output disconnect, cancellation, logical deadline and successful completion. Extend exactly one existing dispatch record with finite safe cause/phase labels, accepted generation budget/deadline, bounded stream correlation and existing output/event/terminal facts. Preserve one dispatch, positive local stop, unknown usage, no partial cache write and no automatic replay.
+- Compatibility: A transport/header timeout wrapping `DeadlineExceeded` is distinct from the parent's expired generation deadline. Internal labels serialize to no new JSON properties; no-header failures keep the previous absent stream projection. Raw error text, provider output, addresses and credential material never enter the new labels. Success has no invented failure label.
+
+### TEST-543: Safe shared ledger error classification
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `stateful/batch/ledger_error_test.go` and `stateful/admission_diagnostics_test.go`.
+- Oracle: The shared mapper preserves a bounded validated PostgreSQL SQLSTATE or safe context class, the existing unavailable error text and `errors.Is(ErrUnavailable)`. It never unwraps the raw driver error. Repeated mapping retains safe facts; known sentinels and missing-row behavior remain unchanged. Recovery and terminal logs share the same safe class, with the same waiter identity, at most two recovery reads and no provider entry on persistent failure.
+- Review correction: `TestCPAAdmissionEarlyFailureLogsSafeClass` exercises pool-generation lookup, enqueue and wake failures through the existing composed service. Each stage retains its SQLSTATE/context class in exactly one existing admission-failure event, makes no provider call or ledger claim and leaves the caller deadline unchanged. The internal failure helper requires an explicit cause; identity-only failures pass `nil`.
+
+### TEST-544: Actual SQL failure and cache-hit diagnostic boundaries
+
+- Coverage gate: `integration`.
+- Tier: T3; `stateful/batch/ledger_error_integration_test.go` and `stateful/admission_diagnostics_integration_test.go`.
+- Oracle: A real pgx waiter read against an unavailable relation in its unique leased database retains only `postgres_42P01` and `ErrUnavailable`. A real PostgreSQL-backed cache hit after actual TLS/router/admission completion creates no additional dispatch event, provider attempt or native call and never replays provider latency as cache latency. Existing runner-owned service lifecycle and cleanup remain required.

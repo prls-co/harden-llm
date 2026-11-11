@@ -242,7 +242,13 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	}))
 	response, err := router.client.Do(request)
 	if err != nil {
-		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load()}, normalizeTransportError(ctx, requestContext, err)
+		phase := "request"
+		if dispatched.Load() {
+			phase = "response_headers"
+		}
+		var diagnostics runtime.StreamDiagnostics
+		captureTransportFailure(&diagnostics, ctx, err, phase)
+		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: diagnostics}, normalizeTransportError(ctx, requestContext, err)
 	}
 	defer response.Body.Close()
 	if match := cpaCorrelationSuffix.FindStringSubmatch(response.Header.Get("X-Cpa-Trace-Id")); match != nil {
@@ -269,6 +275,9 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	body, err = readBounded(response.Body, router.maxResponseBytes)
 	nonStreamingDiagnostics := runtime.StreamDiagnostics{ReceivedBytes: int64(len(body)), TerminalState: "not_streaming"}
 	if err != nil {
+		if !errors.Is(err, errResponseTooLarge) {
+			captureTransportFailure(&nonStreamingDiagnostics, ctx, err, "response_body")
+		}
 		bodyFailure := normalizeTransportError(ctx, requestContext, err)
 		if errors.Is(bodyFailure, context.Canceled) || errors.Is(bodyFailure, context.DeadlineExceeded) {
 			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, bodyFailure
@@ -625,6 +634,7 @@ func collectResponsesEventStreamReaderContextWithProgress(parent, local context.
 	for {
 		if contextErr := parent.Err(); contextErr != nil {
 			diagnostics.TerminalState = "missing"
+			captureTransportFailure(&diagnostics, parent, contextErr, "response_stream")
 			publish()
 			return observed, contextErr, diagnostics
 		}
@@ -672,10 +682,12 @@ func collectResponsesEventStreamReaderContextWithProgress(parent, local context.
 					}
 				}
 				diagnostics.TerminalState = "missing"
+				captureTransportFailure(&diagnostics, parent, readErr, "response_stream")
 				publish()
 				return observed, &retry.ProviderError{Err: errors.New("provider response stream ended before completion"), Code: "STREAM_TERMINAL_REQUIRED", Category: retry.CategoryNetwork}, diagnostics
 			}
 			diagnostics.TerminalState = "missing"
+			captureTransportFailure(&diagnostics, parent, readErr, "response_stream")
 			publish()
 			if parentErr := parent.Err(); parentErr != nil {
 				return observed, parentErr, diagnostics

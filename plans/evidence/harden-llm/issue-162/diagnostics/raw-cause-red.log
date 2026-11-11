@@ -1,0 +1,5 @@
+--- FAIL: TestTransportFailureLabelsDoNotRetainRawErrors (0.00s)
+    transport_diagnostics_test.go:60: logical stop erased the original socket failure {deadline response_stream  <nil> 0 0 0 0 <nil> <nil> <nil> <nil> }
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/providers	0.008s
+FAIL

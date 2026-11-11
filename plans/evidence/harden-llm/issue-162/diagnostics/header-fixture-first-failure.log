@@ -1,0 +1,8 @@
+ok  	github.com/prls-co/harden-llm/internal/providers	1.140s
+--- FAIL: TestCPAAdmissionTransportDiagnostics (0.01s)
+    --- FAIL: TestCPAAdmissionTransportDiagnostics/no_headers (0.23s)
+        admission_diagnostics_test.go:110: unobserved provider facts fabricated map[admission: dispatch_ordinal:1 error_class:timeout error_code:ETIMEDOUT error_phase:response_headers event_count:0 execution_id:e8adcdaf-474e-4ee3-aa01-494755b4871b finished_at:2026-11-11T20:30:36.457536858Z first_output_ms:<nil> generation_budget_ms:4977 generation_deadline:2026-11-11T20:30:41.307112Z generation_ms:126 headers_ms:126 http_status:0 input_tokens:<nil> kind:unconfirmed level:INFO local_stopped:true msg:ordinary CPA dispatch observed native_entered:true output_bytes:0 output_tokens:<nil> permit_id:e439026f-44bc-4678-800c-8874c5dd188c queue_ms:1 reasoning_tokens:<nil> received_bytes:0 request_id:05a6b4c4-e2f7-4517-aa71-76d2ace27115 retry_after_ms:0 settlement_confirmed:true started_at:2026-11-11T20:30:36.330625957Z time:2026-11-11T12:30:36.457708791-08:00]
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	1.746s
+ok  	github.com/prls-co/harden-llm/stateful/batch	1.135s
+FAIL
