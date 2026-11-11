@@ -1414,7 +1414,7 @@ defmodule HardenLlmWeb.WorkspaceLive do
            Client.get_state(api_context),
          {:ok, %{"profiles" => profiles}} <- Client.list_profiles(api_context),
          {:ok, initial} <-
-           initial_profile_state(api_context, profiles, List.first(profiles), state) do
+           initial_profile_state(api_context, profiles, state) do
       {:ok,
        %{
          state: Map.merge(initial, state),
@@ -1425,13 +1425,13 @@ defmodule HardenLlmWeb.WorkspaceLive do
     end
   end
 
-  defp initial_profile_state(_context, [], nil, state), do: {:ok, state}
+  defp initial_profile_state(_context, [], state), do: {:ok, state}
 
-  defp initial_profile_state(_context, _profiles, _selected, %{"profileEditor" => editor} = state)
+  defp initial_profile_state(_context, _profiles, %{"profileEditor" => editor} = state)
        when is_map(editor), do: {:ok, state}
 
-  defp initial_profile_state(context, _profiles, selected, state) do
-    id = state["selectedProfileId"] || selected["id"]
+  defp initial_profile_state(context, profiles, state) do
+    id = ProfileWidgetState.resolve_selected_profile_id(profiles, state["selectedProfileId"])
 
     with {:ok, draft} <- Client.get_profile(context, id),
          do: {:ok, state_from_profile_draft(draft, id)}

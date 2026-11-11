@@ -155,7 +155,8 @@ defmodule HardenLlmUI.ProfileWidgetState do
     else
       profile_ids = Enum.map(profiles, &get_in(&1, ["id"]))
 
-      Enum.find(profile_ids, &(is_binary(&1) and &1 != "")) || ""
+      Enum.find(profile_ids, &(&1 == "CPA gpt-6-luna")) ||
+        Enum.find(profile_ids, &(is_binary(&1) and &1 != "")) || ""
     end
   end
 

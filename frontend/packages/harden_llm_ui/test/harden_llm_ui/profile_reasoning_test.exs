@@ -12,6 +12,22 @@ defmodule HardenLlmUI.ProfileReasoningTest do
     ~w(rerun jsonRepair escalation)
   ]
 
+  # WEB-TEST-124: a new workspace prefers the shipped CPA Luna preset.
+  test "initial profile prefers CPA gpt-6-luna and preserves explicit selections" do
+    profiles = [%{"id" => "another-profile"}, %{"id" => "CPA gpt-6-luna"}]
+
+    assert ProfileWidgetState.resolve_selected_profile_id(profiles, nil) == "CPA gpt-6-luna"
+    assert ProfileWidgetState.resolve_selected_profile_id(profiles, " ") == "CPA gpt-6-luna"
+
+    assert ProfileWidgetState.resolve_selected_profile_id(profiles, "another-profile") ==
+             "another-profile"
+
+    assert ProfileWidgetState.resolve_selected_profile_id([%{"id" => "another-profile"}], nil) ==
+             "another-profile"
+
+    assert ProfileWidgetState.resolve_selected_profile_id([], nil) == ""
+  end
+
   # TEST-429 / WEB-TEST-119: portable row projections share the full widget owner.
   test "portable profile options preserve labels order searchable metadata and no private fields" do
     profiles = [
