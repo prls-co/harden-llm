@@ -1,0 +1,60 @@
+{
+  "status": "completed",
+  "output": [
+    {
+      "id": "ws_a1",
+      "type": "web_search_call",
+      "status": "completed",
+      "action": {
+        "type": "search",
+        "query": "q one",
+        "sources": [
+          {
+            "type": "url",
+            "url": "https://example.org/a"
+          },
+          {
+            "type": "url",
+            "url": "https://example.org/b"
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Searching..."
+        }
+      ]
+    },
+    {
+      "id": "ws_b2",
+      "type": "web_search_call",
+      "status": "completed",
+      "action": {
+        "type": "open_page",
+        "url": "https://example.org/b"
+      }
+    },
+    {
+      "type": "message",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"answer\":\"Alpha café\",\"n\":1}",
+          "annotations": [
+            {
+              "type": "url_citation",
+              "start_index": 11,
+              "end_index": 21,
+              "url": "https://example.org/a",
+              "title": "A"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

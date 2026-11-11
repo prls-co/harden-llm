@@ -39,16 +39,51 @@ type ResponseControls struct {
 	Diagnostics bool                      `json:"diagnostics,omitempty"`
 }
 type ResponsesInput struct {
-	Model     string             `json:"model"`
-	Input     []ResponseMessage  `json:"input"`
-	Text      ResponseText       `json:"text"`
-	Reasoning *ResponseReasoning `json:"reasoning,omitempty"`
-	Harden    ResponseControls   `json:"harden"`
+	Model      string             `json:"model"`
+	Input      []ResponseMessage  `json:"input"`
+	Text       ResponseText       `json:"text"`
+	Reasoning  *ResponseReasoning `json:"reasoning,omitempty"`
+	Harden     ResponseControls   `json:"harden"`
+	Tools      []json.RawMessage  `json:"tools,omitempty"`
+	ToolChoice json.RawMessage    `json:"tool_choice,omitempty"`
+	Include    []string           `json:"include,omitempty"`
 }
 type ResponsesOutput struct {
-	Model      string          `json:"model"`
-	OutputText string          `json:"output_text"`
-	Harden     json.RawMessage `json:"harden"`
+	Model      string               `json:"model"`
+	OutputText string               `json:"output_text"`
+	Harden     json.RawMessage      `json:"harden"`
+	Output     []ResponseOutputItem `json:"output"`
+}
+
+type ResponseOutputItem struct {
+	ID      string                  `json:"id"`
+	Type    string                  `json:"type"`
+	Status  string                  `json:"status"`
+	Action  *ResponseSearchAction   `json:"action,omitempty"`
+	Content []ResponseOutputContent `json:"content,omitempty"`
+}
+type ResponseSearchAction struct {
+	Type    string                 `json:"type"`
+	Query   string                 `json:"query,omitempty"`
+	URL     string                 `json:"url,omitempty"`
+	Pattern string                 `json:"pattern,omitempty"`
+	Sources []ResponseSearchSource `json:"sources,omitempty"`
+}
+type ResponseSearchSource struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
+}
+type ResponseOutputContent struct {
+	Type        string               `json:"type"`
+	Text        string               `json:"text"`
+	Annotations []ResponseAnnotation `json:"annotations"`
+}
+type ResponseAnnotation struct {
+	Type       string `json:"type"`
+	StartIndex int    `json:"start_index"`
+	EndIndex   int    `json:"end_index"`
+	URL        string `json:"url"`
+	Title      string `json:"title"`
 }
 
 // ResponsesFailure preserves the authoritative terminal error and optional
@@ -104,8 +139,13 @@ func (client *Client) Responses(ctx context.Context, input ResponsesInput) (Resp
 			return out, &ProtocolError{}
 		}
 	}
+	for _, item := range input.Include {
+		if !utf8.ValidString(item) {
+			return out, &ProtocolError{}
+		}
+	}
 	body, err := json.Marshal(input)
-	if err != nil || len(body) > maximumRequestBytes || api.Validate("ResponseRequest", body) != nil {
+	if err != nil || !utf8.Valid(body) || len(body) > maximumRequestBytes || api.Validate("ResponseRequest", body) != nil {
 		return out, &ProtocolError{}
 	}
 	normalizedSchema, err := schema.Normalize(input.Text.Format.Schema)

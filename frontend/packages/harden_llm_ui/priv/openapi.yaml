@@ -181,8 +181,8 @@ paths:
       description: >-
         Accepts string input or ordered text and function-call items. The API
         is stateless: `store` may be omitted or false, and server-side
-        conversation fields are rejected. `include` is unsupported because
-        upstream-only projections are not preserved in the normalized result.
+        conversation fields are rejected. `include` supports
+        `web_search_call.action.sources`.
         The encoded request body is limited to 256 KiB. Streaming emits the
         completed hardened result using typed Responses events; it does not
         expose provisional provider output.
@@ -1249,6 +1249,37 @@ components:
           enum: [native, jina]
         executed: {type: boolean}
         costStatus: {type: string, const: unavailable}
+        incomplete: {type: boolean}
+        citationTextSha256: {type: string}
+        calls:
+          type: array
+          maxItems: 32
+          items:
+            type: object
+            additionalProperties: false
+            required: [status]
+            properties:
+              id: {type: string}
+              status: {type: string}
+              action:
+                type: object
+                additionalProperties: false
+                required: [type]
+                properties:
+                  type: {type: string}
+                  query: {type: string}
+                  url: {type: string, format: uri}
+                  pattern: {type: string}
+              sources:
+                type: array
+                maxItems: 200
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [url, title]
+                  properties:
+                    url: {type: string, format: uri}
+                    title: {type: string}
         entryPointHtml: {type: string, maxLength: 32768, description: 'Provider search
             suggestions. Display only in a sandboxed iframe, never as trusted application
             HTML.'}
@@ -2079,6 +2110,24 @@ components:
             - type: string
               enum: [auto, none, required]
             - $ref: '#/components/schemas/ChatNamedToolChoice'
+        web_search_options:
+          type: object
+          additionalProperties: false
+          properties:
+            search_context_size: {type: string}
+            user_location:
+              type: object
+              additionalProperties: false
+              properties:
+                type: {type: string}
+                approximate:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    country: {type: string}
+                    region: {type: string}
+                    city: {type: string}
+                    timezone: {type: string}
         response_format:
           oneOf:
             - type: object
@@ -2128,7 +2177,7 @@ components:
         - type: object
           required: [role]
           properties:
-            role: {const: assistant}
+            role: {type: string, enum: [assistant]}
             content:
               oneOf:
                 - {type: string}
@@ -2142,7 +2191,7 @@ components:
         - type: object
           required: [role, tool_call_id, content]
           properties:
-            role: {const: tool}
+            role: {type: string, enum: [tool]}
             tool_call_id: {type: string, minLength: 1}
             content: {type: string}
             name: {type: string}
@@ -2239,13 +2288,21 @@ components:
               - type: object
                 required: [type]
                 properties:
-                  type: {const: web_search}
-                additionalProperties: false
+                  type: {type: string, enum: [web_search, web_search_2025_08_26, web_search_preview, web_search_preview_2025_03_11]}
+                additionalProperties: true
         tool_choice:
           oneOf:
             - type: string
               enum: [auto, none, required]
             - {$ref: '#/components/schemas/ResponseNamedToolChoice'}
+            - type: object
+              required: [type]
+              properties:
+                type: {type: string, enum: [web_search, web_search_2025_08_26, web_search_preview, web_search_preview_2025_03_11]}
+              additionalProperties: false
+        include:
+          type: array
+          items: {type: string, enum: [web_search_call.action.sources]}
         text:
           type: object
           required: [format]
@@ -2283,18 +2340,26 @@ components:
           required: [role, content]
           properties:
             type: {type: string, enum: [message]}
+            id: {type: string}
+            status: {type: string}
             role: {type: string, enum: [system, developer, user, assistant]}
-            content: {$ref: '#/components/schemas/TextContent'}
+            content: {$ref: '#/components/schemas/ResponseInputContent'}
           additionalProperties: false
         - type: object
           required: [type, call_id, name, arguments]
           properties:
             type: {const: function_call}
             id: {type: string}
+            status: {type: string}
             call_id: {type: string, minLength: 1}
             name: {type: string, minLength: 1}
             arguments: {type: string}
           additionalProperties: false
+        - type: object
+          required: [type]
+          properties:
+            type: {type: string, enum: [web_search_call]}
+          additionalProperties: true
         - type: object
           required: [type, call_id, output]
           properties:
@@ -2302,6 +2367,26 @@ components:
             call_id: {type: string, minLength: 1}
             output: {type: string}
           additionalProperties: false
+    ResponseInputContent:
+      oneOf:
+        - {type: string}
+        - type: array
+          minItems: 1
+          items:
+            oneOf:
+              - type: object
+                required: [type, text]
+                properties:
+                  type: {type: string, enum: [input_text]}
+                  text: {type: string}
+                additionalProperties: false
+              - type: object
+                required: [type, text]
+                properties:
+                  type: {type: string, enum: [output_text]}
+                  text: {type: string}
+                  annotations: {type: array, items: {type: object}}
+                additionalProperties: false
     ResponseFunctionTool:
       type: object
       required: [type, name, parameters]
@@ -2345,6 +2430,23 @@ components:
                   tool_calls:
                     type: array
                     items: {$ref: '#/components/schemas/ChatToolCall'}
+                  annotations:
+                    type: array
+                    items:
+                      type: object
+                      required: [type, url_citation]
+                      additionalProperties: false
+                      properties:
+                        type: {type: string, enum: [url_citation]}
+                        url_citation:
+                          type: object
+                          required: [start_index, end_index, url, title]
+                          additionalProperties: false
+                          properties:
+                            start_index: {type: integer, minimum: 0}
+                            end_index: {type: integer, minimum: 1}
+                            url: {type: string, format: uri}
+                            title: {type: string}
                 additionalProperties: false
               finish_reason: {type: string, enum: [stop, tool_calls]}
             additionalProperties: false
@@ -2397,7 +2499,18 @@ components:
                       properties:
                         type: {const: output_text}
                         text: {type: string}
-                        annotations: {type: array, items: {type: object}}
+                        annotations:
+                          type: array
+                          items:
+                            type: object
+                            required: [type, start_index, end_index, url, title]
+                            properties:
+                              type: {type: string, enum: [url_citation]}
+                              start_index: {type: integer, minimum: 0}
+                              end_index: {type: integer, minimum: 1}
+                              url: {type: string, format: uri}
+                              title: {type: string}
+                            additionalProperties: false
                       additionalProperties: false
                 additionalProperties: false
               - type: object
@@ -2409,6 +2522,31 @@ components:
                   call_id: {type: string}
                   name: {type: string}
                   arguments: {type: string}
+                additionalProperties: false
+              - type: object
+                required: [id, type, status]
+                properties:
+                  id: {type: string}
+                  type: {type: string, enum: [web_search_call]}
+                  status: {type: string}
+                  action:
+                    type: object
+                    required: [type]
+                    properties:
+                      type: {type: string}
+                      query: {type: string}
+                      url: {type: string, format: uri}
+                      pattern: {type: string}
+                      sources:
+                        type: array
+                        items:
+                          type: object
+                          required: [type, url]
+                          properties:
+                            type: {type: string, enum: [url]}
+                            url: {type: string, format: uri}
+                          additionalProperties: false
+                    additionalProperties: false
                 additionalProperties: false
         output_text: {type: string}
         parallel_tool_calls: {type: boolean}

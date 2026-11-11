@@ -39,6 +39,53 @@ background runs, stored responses, multiple choices, and unsupported media or
 tools are not accepted. Model IDs come directly from the upstream; Harden LLM
 does not provide profile aliases.
 
+## Web search
+
+Responses accepts the `web_search`, `web_search_preview`,
+`web_search_preview_2025_03_11`, and `web_search_2025_08_26` tool types.
+Request `include: ["web_search_call.action.sources"]` to receive URL sources
+associated with individual search calls. Other include values are rejected.
+OpenAI search tool options are forwarded to OpenAI; other upstreams accept only
+`type`, `search_context_size`, and `user_location` as ignored hints and reject
+other search options. Chat Completions accepts `web_search_options` with search
+context and approximate location hints. Combining search with function tools
+on `/v1` is not supported.
+
+`tool_choice: "none"` disables search. The default or `"auto"` lets native
+providers decide, while the Jina fallback runs a search. `"required"` forces
+native OpenAI search and runs the Jina fallback; Anthropic and Gemini may still
+decide whether to search. Go library callers that need search must set
+`ToolChoice{Mode: "required"}` along with `WebSearch: true`. Inspect returned
+calls to establish whether a search actually took place.
+
+Responses returns observed search calls in their original order, followed by
+the final answer. Chat returns URL citations on the message. Harden reports a
+call only when the producer reports it or Harden performed it; it does not
+assign unassociated sources to a call. Missing call IDs are generated. The
+reference result retains unassociated sources, and its `incomplete` field
+indicates dropped or unrepresentable search evidence. Image results, non-URL
+sources, and Anthropic and Gemini citation offsets are not exposed as `/v1`
+annotations. Citations are returned only when their indexed answer text is
+unchanged. Harden uses Unicode code-point offsets. A two-call OpenAI probe on
+2026-11-10 using `gpt-5` for Responses and `gpt-5-search-api` for Chat was
+inconclusive for both APIs: code points, UTF-16 units and UTF-8 bytes all met
+the probe's criterion. OpenAI's offset units therefore remain unverified.
+
+Streams are generated from the completed result. Chat emits annotations in the
+last content chunk. The probe observed a streamed Chat annotation in chunk 3
+(zero-indexed) but did not record its position relative to the final content
+chunk. An approved Chat-only follow-up on 2026-11-10 received HTTP 429 and
+produced no further placement evidence, so placement remains unverified against
+OpenAI. Search lifecycle events reflect the final status, not the timing of
+upstream work. A
+`Cache-Status: harden-llm; hit` header means the search evidence and answer
+were replayed from cache; generated output item IDs retain the producing call's
+identity. Each response retains its own response and execution IDs.
+
+The additional reference search fields require updating and deploying all
+consumers that decode reference runs with `httpclient` before deploying the
+updated gateway. The frontend and its schema deploy with the gateway.
+
 ## Optional hardening fields
 
 Ordinary OpenAI requests need no Harden-specific wrapper. Add `harden` only

@@ -63,6 +63,11 @@ type ToolChoice struct {
 	Name string `json:"name,omitempty"`
 }
 
+var WebSearchToolTypes = map[string]bool{
+	"web_search": true, "web_search_2025_08_26": true,
+	"web_search_preview": true, "web_search_preview_2025_03_11": true,
+}
+
 type AssistantToolCall struct {
 	ID       string       `json:"id"`
 	ItemID   string       `json:"item_id,omitempty"`
@@ -86,6 +91,7 @@ type Call struct {
 	ToolChoice      ToolChoice
 	ReasoningEffort string
 	WebSearch       bool
+	WebSearchTool   json.RawMessage
 	// SearchMemo is owned by one logical call and shared by retries and repairs.
 	SearchMemo         *sync.Map
 	ProviderOptions    map[string]any
@@ -281,6 +287,7 @@ type ResultSource struct {
 }
 
 type CallRecord struct {
+	ProjectionCallID     string
 	AssistantText        string
 	Search               *SearchResult
 	CallID               string

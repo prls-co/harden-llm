@@ -1,0 +1,39 @@
+{
+  "stop_reason": "end_turn",
+  "content": [
+    {
+      "type": "server_tool_use",
+      "id": "srvtoolu_1",
+      "name": "web_search",
+      "input": {
+        "query": "q one"
+      }
+    },
+    {
+      "type": "web_search_tool_result",
+      "tool_use_id": "srvtoolu_1",
+      "content": [
+        {
+          "url": "https://example.org/a",
+          "title": "A"
+        },
+        {
+          "url": "https://example.org/b",
+          "title": "B"
+        }
+      ]
+    },
+    {
+      "type": "server_tool_use",
+      "id": "srvtoolu_2",
+      "name": "web_search",
+      "input": {
+        "query": "q two"
+      }
+    },
+    {
+      "type": "text",
+      "text": "Answer"
+    }
+  ]
+}

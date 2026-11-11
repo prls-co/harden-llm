@@ -38,7 +38,7 @@ var cpaCorrelationSuffix = regexp.MustCompile(`(?i)-([a-f0-9]{8})$`)
 const (
 	defaultMaxResponseBytes   = 16 << 20
 	defaultAnthropicVersion   = "2023-06-01"
-	responseProjectionVersion = "v4"
+	responseProjectionVersion = "v5"
 )
 
 var (
@@ -122,6 +122,17 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 	if err := validateConnection(connection, call); err != nil {
 		return runtime.PreparedOperation{}, err
 	}
+	if searchRequested(call) && !(connection.APIInferenceType == "responses" && nativeWebSearchEnabled(connection, call)) && len(call.WebSearchTool) > 0 {
+		var tool map[string]json.RawMessage
+		if err := json.Unmarshal(call.WebSearchTool, &tool); err != nil {
+			return runtime.PreparedOperation{}, &retry.ValidationError{Field: "tools", Message: "invalid web search tool"}
+		}
+		for key := range tool {
+			if key != "type" && key != "search_context_size" && key != "user_location" {
+				return runtime.PreparedOperation{}, &retry.ValidationError{Field: "tools", Message: key + " requires an upstream with native OpenAI web search"}
+			}
+		}
+	}
 	provider, protocol, path, payload, semanticHeaders, err := buildPayload(connection, call)
 	if err != nil {
 		return runtime.PreparedOperation{}, err
@@ -161,7 +172,7 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 		callType: call.CallType, timeout: timeout, operation: operation,
 		webSearch: fallbackWebSearch(connection, call),
 	}
-	if call.WebSearch {
+	if searchRequested(call) {
 		request.searchMode = "jina"
 		if nativeWebSearchEnabled(connection, call) {
 			request.searchMode = "native"
@@ -248,7 +259,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 				return result, preferAccountingFailure(normalizeErr, streamErr)
 			}
 			if normalizeErr != nil {
-				clearProviderOutput(&result)
+				clearNormalizationOutput(&result, normalizeErr)
 				return result, normalizeErr
 			}
 			return result, nil
@@ -312,7 +323,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 				return result, preferAccountingFailure(normalizeErr, streamErr)
 			}
 			if normalizeErr != nil {
-				clearProviderOutput(&result)
+				clearNormalizationOutput(&result, normalizeErr)
 				return result, normalizeErr
 			}
 			return result, nil
@@ -330,7 +341,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		operation.StreamProgress(nonStreamingDiagnostics)
 	}
 	if err != nil {
-		clearProviderOutput(&result)
+		clearNormalizationOutput(&result, err)
 		return result, err
 	}
 	return result, nil
@@ -377,6 +388,16 @@ func preferAccountingFailure(accountingFailure, fallback error) error {
 
 func providerResponseReadFailure() error {
 	return &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
+}
+
+// A completed response can provide search evidence even when its JSON needs repair.
+func clearNormalizationOutput(result *runtime.ProviderResult, failure error) {
+	var providerError *retry.ProviderError
+	if errors.As(failure, &providerError) && providerError.Code == "STRUCTURED_PARSE" {
+		result.Output = nil
+		return
+	}
+	clearProviderOutput(result)
 }
 
 func clearProviderOutput(result *runtime.ProviderResult) {

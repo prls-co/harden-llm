@@ -41,6 +41,7 @@ func TestWebSearchRoutingAndCacheIdentity(t *testing.T) {
 	}
 	searchCall := runtime.Call{
 		ModelID: "gpt-5.6-luna", CallType: "text", Messages: providerMessages("", "latest weather in San Francisco"), WebSearch: true,
+		ToolChoice:      runtime.ToolChoice{Mode: "required"},
 		ProviderOptions: map[string]any{"max_tokens": float64(128)},
 	}
 	prepared, err := router.Prepare(context.Background(), connection, runtime.Credential{APIKey: "fixture-secret"}, searchCall)
@@ -55,6 +56,7 @@ func TestWebSearchRoutingAndCacheIdentity(t *testing.T) {
 
 	withoutSearch := searchCall
 	withoutSearch.WebSearch = false
+	withoutSearch.ToolChoice = runtime.ToolChoice{}
 	withoutSearchPrepared, err := router.Prepare(context.Background(), connection, runtime.Credential{APIKey: "fixture-secret"}, withoutSearch)
 	if err != nil {
 		t.Fatalf("Prepare without search: %v", err)

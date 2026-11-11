@@ -76,10 +76,41 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 		writeRequestError(writer, err, "tools")
 		return
 	}
+	if input.WebSearchOptions != nil && len(tools) > 0 {
+		writeRequestError(writer, errors.New("web search cannot be combined with function tools"), "web_search_options")
+		return
+	}
 	choice, err := decodeToolChoice(input.ToolChoice, false)
 	if err != nil {
 		writeRequestError(writer, err, "tool_choice")
 		return
+	}
+	var webSearchTool json.RawMessage
+	if search := input.WebSearchOptions; search != nil {
+		tool := map[string]any{"type": "web_search"}
+		if search.SearchContextSize != "" {
+			tool["search_context_size"] = search.SearchContextSize
+		}
+		if search.UserLocation != nil {
+			location := map[string]any{"type": search.UserLocation.Type}
+			if a := search.UserLocation.Approximate; a != nil {
+				if a.Country != "" {
+					location["country"] = a.Country
+				}
+				if a.Region != "" {
+					location["region"] = a.Region
+				}
+				if a.City != "" {
+					location["city"] = a.City
+				}
+				if a.Timezone != "" {
+					location["timezone"] = a.Timezone
+				}
+			}
+			tool["user_location"] = location
+		}
+		webSearchTool, _ = json.Marshal(tool)
+		choice = hardenllm.ToolChoice{Mode: "required"}
 	}
 	callType, schema, err := chatOutputContract(input.ResponseFormat)
 	if err != nil {
@@ -121,7 +152,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 	defer tracked.close()
 	result, callErr := api.execute(ctx, connection, cache, timeout, recovery, hardenllm.Request{
 		ModelID: input.Model, Messages: messages, CallType: callType, Schema: schema, Tools: tools,
-		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(input.ReasoningEffort),
+		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(input.ReasoningEffort), WebSearch: input.WebSearchOptions != nil, WebSearchTool: webSearchTool,
 		ProviderOptions: options,
 	})
 	tracked.observeResult(result)
@@ -140,6 +171,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 		writeRequestError(writer, err, "response")
 		return
 	}
+	writeCacheStatus(writer, result)
 	if input.Stream {
 		if err := validateResponseSize(response); err != nil {
 			if tracked != nil {
@@ -149,7 +181,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 			return
 		}
 		tracked.project(response)
-		api.streamChat(writer, request, input.Model, result, created, input.StreamOptions != nil && input.StreamOptions.IncludeUsage, diagnostics)
+		api.streamChat(writer, request, response)
 		return
 	}
 	tracked.project(response)
@@ -184,7 +216,7 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 	if input.ParallelToolCalls != nil {
 		parallelToolCalls = *input.ParallelToolCalls
 	}
-	response, err := responsesResponse(input.Model, result, created, diagnostics, parallelToolCalls)
+	response, err := responsesResponse(input.Model, result, created, diagnostics, parallelToolCalls, prepared.IncludeSearchSources)
 	if err != nil {
 		if tracked != nil {
 			tracked.session.Finish("failed", "response_projection_error", true)
@@ -192,6 +224,7 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 		writeRequestError(writer, err, "response")
 		return
 	}
+	writeCacheStatus(writer, result)
 	if input.Stream {
 		if err := validateResponseSize(response); err != nil {
 			if tracked != nil {
@@ -201,20 +234,27 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 			return
 		}
 		tracked.project(response)
-		api.streamResponses(writer, request, input.Model, result, created, diagnostics, parallelToolCalls)
+		api.streamResponses(writer, request, response)
 		return
 	}
 	tracked.project(response)
 	writeJSON(writer, http.StatusOK, response, maximumResponseBytes)
 }
 
+func writeCacheStatus(writer http.ResponseWriter, result hardenllm.Result) {
+	if result.Cache.Served {
+		writer.Header().Set("Cache-Status", "harden-llm; hit")
+	}
+}
+
 type preparedResponses struct {
-	Request     hardenllm.Request
-	Connection  string
-	Cache       hardenllm.CacheMode
-	Timeout     int64
-	Recovery    hardenllm.RecoveryPolicy
-	Diagnostics bool
+	Request              hardenllm.Request
+	Connection           string
+	Cache                hardenllm.CacheMode
+	Timeout              int64
+	Recovery             hardenllm.RecoveryPolicy
+	Diagnostics          bool
+	IncludeSearchSources bool
 }
 
 func prepareResponses(writer http.ResponseWriter, input responsesRequest) (preparedResponses, bool) {
@@ -222,10 +262,13 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", "Server-side response state is not supported by this stateless API.", "previous_response_id")
 		return preparedResponses{}, false
 	}
-	if len(input.Include) > 0 {
-		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", "The include field is not supported by this stateless hardening response contract.", "include")
-		return preparedResponses{}, false
+	for _, item := range input.Include {
+		if item != "web_search_call.action.sources" {
+			writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "Unsupported include value: "+item, "include")
+			return preparedResponses{}, false
+		}
 	}
+
 	if strings.TrimSpace(input.Model) == "" {
 		writeError(writer, http.StatusBadRequest, "invalid_request_error", "invalid_request", "model is required.", "model")
 		return preparedResponses{}, false
@@ -248,7 +291,8 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 		writeRequestError(writer, err, "input")
 		return preparedResponses{}, false
 	}
-	tools, webSearch, err := decodeTools(input.Tools, true)
+	tools, webSearchTool, err := decodeTools(input.Tools, true)
+	webSearch := len(webSearchTool) > 0
 	if err != nil {
 		writeRequestError(writer, err, "tools")
 		return preparedResponses{}, false
@@ -270,10 +314,6 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 	}
 	if webSearch && len(tools) > 0 {
 		writeRequestError(writer, errors.New("web search cannot be combined with function tools"), "tools")
-		return preparedResponses{}, false
-	}
-	if webSearch && len(input.ToolChoice) > 0 {
-		writeRequestError(writer, errors.New("web_search tool selection uses the configured native search behavior"), "tool_choice")
 		return preparedResponses{}, false
 	}
 	if callType == hardenllm.CallTypeStructured && len(tools) > 0 {
@@ -298,9 +338,9 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 	}
 	return preparedResponses{Request: hardenllm.Request{
 		ModelID: input.Model, Messages: messages, CallType: callType, Schema: schema, Tools: tools,
-		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(reasoningEffort), WebSearch: webSearch,
+		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(reasoningEffort), WebSearch: webSearch, WebSearchTool: webSearchTool,
 		ProviderOptions: options,
-	}, Connection: connection, Cache: cache, Timeout: timeout, Recovery: recovery, Diagnostics: diagnostics}, true
+	}, Connection: connection, Cache: cache, Timeout: timeout, Recovery: recovery, Diagnostics: diagnostics, IncludeSearchSources: len(input.Include) > 0}, true
 }
 
 func validatePositiveInt(writer http.ResponseWriter, field string, value *int) bool {

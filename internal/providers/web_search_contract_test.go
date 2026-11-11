@@ -35,7 +35,7 @@ func TestNativeSearchProtocols(t *testing.T) {
 	} {
 		t.Run(tc.provider, func(t *testing.T) {
 			p := runtime.Connection{Provider: tc.provider, APIInferenceType: tc.protocol, SupportsWebSearch: true}
-			c := runtime.Call{ModelID: "fixture", CallType: "text", Messages: providerMessages("", "search"), WebSearch: true}
+			c := runtime.Call{ModelID: "fixture", CallType: "text", Messages: providerMessages("", "search"), WebSearch: true, ToolChoice: runtime.ToolChoice{Mode: "required"}}
 			_, _, _, body, _, err := buildPayload(p, c)
 			if err != nil {
 				t.Fatal(err)
@@ -44,6 +44,7 @@ func TestNativeSearchProtocols(t *testing.T) {
 				t.Fatalf("native payload: %#v", body)
 			}
 			c.WebSearch = false
+			c.ToolChoice = runtime.ToolChoice{}
 			c.ProviderOptions = map[string]any{"tools": []any{tc.tool}, "tool_choice": tc.choice}
 			_, _, _, body, _, err = buildPayload(p, c)
 			if err != nil {
@@ -140,7 +141,7 @@ func TestJinaBoundsCancellationAndMissingKey(t *testing.T) {
 func TestNativeSearchPreservesUnrelatedTools(t *testing.T) {
 	t.Parallel()
 	fn := map[string]any{"type": "function", "name": "custom"}
-	_, _, _, body, _, err := buildPayload(runtime.Connection{Provider: "cpa", APIInferenceType: "responses", SupportsWebSearch: true}, runtime.Call{ModelID: "fixture", Messages: providerMessages("", "query"), WebSearch: true, CallType: "text", ProviderOptions: map[string]any{"tools": []any{fn, map[string]any{"type": "web_search_preview"}}, "tool_choice": "none"}})
+	_, _, _, body, _, err := buildPayload(runtime.Connection{Provider: "cpa", APIInferenceType: "responses", SupportsWebSearch: true}, runtime.Call{ModelID: "fixture", Messages: providerMessages("", "query"), WebSearch: true, ToolChoice: runtime.ToolChoice{Mode: "required"}, CallType: "text", ProviderOptions: map[string]any{"tools": []any{fn, map[string]any{"type": "web_search_preview"}}, "tool_choice": "none"}})
 	if err != nil || len(arrayValue(body["tools"])) != 2 || !reflect.DeepEqual(arrayValue(body["tools"])[0], fn) || objectValue(body["tool_choice"])["type"] != "web_search" {
 		t.Fatalf("specific native choice %#v %v", body, err)
 	}

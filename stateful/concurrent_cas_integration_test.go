@@ -119,6 +119,12 @@ func TestCredentialCASAfterConcurrentProbes(t *testing.T) {
 	pool, _ := referencePool(t, true)
 	ready := make(chan struct{}, 2)
 	release := make(chan struct{})
+	released := false
+	defer func() {
+		if !released {
+			close(release)
+		}
+	}()
 	one, input := serviceFixture(t, pool, func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.Header.Get("Authorization"), "race-candidate-") {
 			ready <- struct{}{}
@@ -163,6 +169,8 @@ func TestCredentialCASAfterConcurrentProbes(t *testing.T) {
 	for range 2 {
 		select {
 		case <-ready:
+		case result := <-done:
+			t.Fatalf("candidate finished before both probes were ready: %v", result.err)
 		case <-ctx.Done():
 			t.Fatal("concurrent candidates did not both complete revision read before probe")
 		}
@@ -171,6 +179,7 @@ func TestCredentialCASAfterConcurrentProbes(t *testing.T) {
 		t.Fatal("provider probes hold SQL connections")
 	}
 	close(release)
+	released = true
 	successes, conflicts := 0, 0
 	var winner reply
 	for range 2 {

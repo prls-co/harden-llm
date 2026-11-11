@@ -1,0 +1,34 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Answer"
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "groundingMetadata": {
+        "webSearchQueries": [
+          "q one",
+          "q two"
+        ],
+        "groundingChunks": [
+          {
+            "web": {
+              "uri": "https://example.org/a",
+              "title": "A"
+            }
+          },
+          {
+            "web": {
+              "uri": "https://example.org/b",
+              "title": "B"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

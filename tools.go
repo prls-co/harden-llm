@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 )
 
-func validateTools(tools []FunctionTool, choice ToolChoice) error {
+func validateTools(tools []FunctionTool, choice ToolChoice, webSearch bool) error {
 	if len(tools) > 128 {
 		return errors.New("hardenllm: at most 128 function tools are supported")
 	}
@@ -27,7 +27,7 @@ func validateTools(tools []FunctionTool, choice ToolChoice) error {
 	}
 	choice.Mode = strings.TrimSpace(choice.Mode)
 	choice.Name = strings.TrimSpace(choice.Name)
-	if len(tools) == 0 {
+	if len(tools) == 0 && !webSearch {
 		if choice.Mode == "" || choice.Mode == "auto" || choice.Mode == "none" {
 			if choice.Name != "" {
 				return errors.New("hardenllm: tool choice name requires function mode")

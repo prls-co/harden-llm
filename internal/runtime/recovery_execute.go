@@ -157,6 +157,7 @@ func executeRecoveryPlan(
 				}
 				record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
 				record.AssistantText = cached.ProviderResult.AssistantText
+				record.ProjectionCallID = cached.ProjectionCallID
 				record.Accounting.Result = cached.ProviderResult.Accounting
 				producer := cached.Producer
 				record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
@@ -319,7 +320,7 @@ func executeRecoveryPlan(
 					cacheContext, endCache = call.Observer.StartCache(ctx, "write")
 				}
 				cacheErr := cache.Set(cacheContext, work.generationHash, cacheVersion, CachedResult{
-					ProviderResult: cacheResult, Producer: producer,
+					ProjectionCallID: record.CallID, ProviderResult: cacheResult, Producer: producer,
 					GenerationTarget: work.generationTarget, CompletedBy: map[bool]string{true: "repair", false: "generation"}[work.call.Repair != nil],
 				})
 				if cacheErr != nil {
@@ -379,6 +380,7 @@ func executeRecoveryPlan(
 							}
 							record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
 							record.AssistantText = cached.ProviderResult.AssistantText
+							record.ProjectionCallID = cached.ProjectionCallID
 							record.Accounting.Result = cached.ProviderResult.Accounting
 							producer := cached.Producer
 							record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
@@ -461,6 +463,12 @@ func prepareNextPlannedWork(ctx context.Context, executor Executor, selectedConn
 		call.WebSearch = false
 		selectedConnection = current.generationBinding.Connection
 		credential = current.generationBinding.Credential
+	}
+	if baseCall.WebSearch {
+		call.WebSearchTool = nil
+		if len(call.Tools) == 0 && call.ToolChoice.Mode == "required" {
+			call.ToolChoice = ToolChoice{}
+		}
 	}
 	call.Repair = &RepairRequest{Attempt: attempt + 1, MaxAttempts: policy.MaxAttempts, Stage: next, Branch: current.branch, TargetSchema: append(json.RawMessage(nil), baseCall.Schema...), History: append([]RepairHistoryEntry(nil), history...)}
 	nextWork, err := preparePlannedWork(ctx, executor, selectedConnection, credential, call, current.branch, next, &target, call.Repair)

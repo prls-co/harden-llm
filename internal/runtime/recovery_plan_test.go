@@ -26,6 +26,8 @@ type planPrepared struct {
 	history        []RepairHistoryEntry
 	reasoning      string
 	webSearch      bool
+	webSearchTool  json.RawMessage
+	toolChoice     ToolChoice
 	providerOption map[string]any
 	messages       []Message
 }
@@ -39,7 +41,7 @@ func (executor *planExecutor) Prepare(_ context.Context, connection Connection, 
 	}
 	executor.prepared = append(executor.prepared, planPrepared{
 		connection: connection.ID, model: call.ModelID, stage: stage, history: history, reasoning: call.ReasoningEffort,
-		webSearch: call.WebSearch, providerOption: cloneMap(call.ProviderOptions),
+		webSearch: call.WebSearch, webSearchTool: append(json.RawMessage(nil), call.WebSearchTool...), toolChoice: call.ToolChoice, providerOption: cloneMap(call.ProviderOptions),
 		messages: append([]Message(nil), call.Messages...),
 	})
 	return PreparedOperation{Operation: cachekey.Operation{
@@ -71,6 +73,7 @@ func planConnection() Connection {
 	return Connection{ID: "primary", Provider: "fixture", APIInferenceType: "chat-completions", BaseURL: "https://fixture.example"}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-535
 func TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory(t *testing.T) {
 	executor := &planExecutor{sequence: map[string]any{
 		stageOriginalGenerate:       map[string]any{"ok": "bad"},
@@ -101,6 +104,8 @@ func TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory(t *testing.T) {
 		}
 		return nil
 	}, ReasoningEffort: "high", WebSearch: true, ProviderOptions: map[string]any{"callerOption": "original"}}
+	call.WebSearchTool = json.RawMessage(`{"type":"web_search","search_context_size":"low"}`)
+	call.ToolChoice = ToolChoice{Mode: "required"}
 	policy.JSONRepair.Initial.ProviderOptions = map[string]any{"callerOption": "repair-l"}
 	policy.JSONRepair.Escalation.ProviderOptions = map[string]any{"callerOption": "repair-h"}
 	policy.Rerun.Target.ProviderOptions = map[string]any{"callerOption": "rerun"}
@@ -132,6 +137,13 @@ func TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory(t *testing.T) {
 	wantSearch := []bool{true, false, false, true, false, false}
 	wantOptions := []string{"original", "repair-l", "repair-h", "rerun", "rerun-l", "rerun-h"}
 	for index, prepared := range executor.prepared {
+		if wantSearch[index] {
+			if !reflect.DeepEqual(prepared.webSearchTool, call.WebSearchTool) || prepared.toolChoice != call.ToolChoice {
+				t.Fatalf("generation search settings lost: %#v", prepared)
+			}
+		} else if len(prepared.webSearchTool) != 0 || prepared.toolChoice.Mode != "" {
+			t.Fatalf("repair retained search settings: %#v", prepared)
+		}
 		if prepared.connection != "primary" || prepared.model != wantModels[index] || prepared.reasoning != wantReasoning[index] || prepared.webSearch != wantSearch[index] || prepared.providerOption["callerOption"] != wantOptions[index] {
 			t.Fatalf("target settings at %d = %#v", index, prepared)
 		}
