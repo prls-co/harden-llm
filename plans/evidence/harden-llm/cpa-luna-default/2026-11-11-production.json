@@ -1,0 +1,475 @@
+{
+  "schemaVersion": 1,
+  "status": "deployed and qualified",
+  "verifiedAt": "2026-11-11T06:34:09.710307+00:00",
+  "default": {
+    "preset": "CPA gpt-6-luna",
+    "provider": "cpa",
+    "model": "gpt-6-luna",
+    "scope": "Fresh reference workspaces and shared picker; saved choices preserved; ordinary API models remain explicit",
+    "profileSaveOrDataMigration": false
+  },
+  "pullRequests": {
+    "default": 168,
+    "concurrentBackend": 169,
+    "testOnlyFixture": 170
+  },
+  "webRelease": {
+    "source": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+    "run": 42966762300,
+    "attempt": 1,
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/42966762300",
+    "job": 130345689855,
+    "conclusion": "success",
+    "taskCount": 30,
+    "reports": [
+      {
+        "selector": "go-integration",
+        "accepted": true,
+        "taskCount": 1,
+        "sha256": "acf8b0ed31261f0b3845422771a9350d780cba5b02c500c18442997eb2dfa3fe"
+      },
+      {
+        "selector": "release",
+        "accepted": true,
+        "taskCount": 30,
+        "sha256": "569ade9acc5892cfd49397d1d5631735911f4efb1cd177776484b590b4e4afee"
+      },
+      {
+        "selector": "go-integration-race",
+        "accepted": true,
+        "taskCount": 1,
+        "sha256": "4deabf39cfb926f943893a8faca704fd9f0c51727e435ba84f1ff972762b2456"
+      }
+    ]
+  },
+  "webImage": {
+    "source": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+    "image": "sha256:870381f0d9463103f4eb5eb68f96c2d8f9f7af7b3cd9523c53f34af2e10562cd",
+    "tag": "harden-llm-web:release-c6f7e6c90573b963b4378d4163c9122e611e4c93",
+    "platform": "linux/amd64",
+    "backendRuntimeUnchanged": true
+  },
+  "production": {
+    "url": "https://harden-llm.prls.co",
+    "runtime": {
+      "harden-llm-harden-llm-gateway-1": {
+        "id": "9b2256575953fa02f5e98837960947a34ed43c947244de49a7b257d29754336f",
+        "image": "sha256:9cfd69b49c9ee426d294ae5549492aaa26d5dc778be29e550929fd0c80bfaa37",
+        "source": "951df690540c39c68e7492883d763b6165d9dbdc",
+        "health": "healthy",
+        "restarts": 0
+      },
+      "harden-llm-harden-llm-batch-worker-1": {
+        "id": "58efea9d579a16b07bcae2d73764384a852d3eec4b09a1747803e855c55bedd1",
+        "image": "sha256:9cfd69b49c9ee426d294ae5549492aaa26d5dc778be29e550929fd0c80bfaa37",
+        "source": "951df690540c39c68e7492883d763b6165d9dbdc",
+        "health": null,
+        "restarts": 0
+      },
+      "harden-llm-harden-llm-web-1": {
+        "id": "4660f099f650021cf08303868daa9431872f0f904c3a94847f98e37f4c4bb3eb",
+        "image": "sha256:870381f0d9463103f4eb5eb68f96c2d8f9f7af7b3cd9523c53f34af2e10562cd",
+        "source": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+        "health": "healthy",
+        "restarts": 0
+      }
+    },
+    "controller": {
+      "web": {
+        "services": [
+          "harden-llm-web"
+        ],
+        "differences": [],
+        "candidate": {
+          "expectedRelease": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+          "desiredDifferences": [],
+          "runtimeDifferences": []
+        }
+      },
+      "backend": {
+        "services": [
+          "harden-llm-batch-worker",
+          "harden-llm-gateway"
+        ],
+        "differences": [],
+        "candidate": {
+          "expectedRelease": "951df690540c39c68e7492883d763b6165d9dbdc",
+          "desiredDifferences": [],
+          "runtimeDifferences": []
+        }
+      },
+      "support": {
+        "services": [
+          "grafana",
+          "loki",
+          "otel-collector",
+          "prometheus",
+          "tempo"
+        ],
+        "differences": [],
+        "candidate": null
+      }
+    },
+    "httpChecks": {
+      "environment": "production",
+      "url": "https://harden-llm.prls.co",
+      "checks": [
+        {
+          "method": "GET",
+          "path": "/healthz",
+          "auth": "absent",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/readyz",
+          "auth": "absent",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "auth": "absent",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "auth": "invalid",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/status",
+          "auth": "valid",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/profiles",
+          "auth": "valid",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/profiles/CPA%20gpt-6-luna",
+          "auth": "valid",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/v1/requests/73062348-2544-4de9-b756-7bb0eeb3dc47",
+          "auth": "valid",
+          "status": 404
+        },
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "auth": "valid",
+          "status": 400
+        },
+        {
+          "method": "POST",
+          "path": "/v1/chat/completions",
+          "auth": "valid",
+          "status": 400
+        },
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "auth": "valid",
+          "status": 413
+        }
+      ],
+      "profileCount": 40,
+      "providerInference": false,
+      "browser": false,
+      "defaultPresetVerified": {
+        "profileId": "CPA gpt-6-luna",
+        "provider": "cpa",
+        "model": "gpt-6-luna",
+        "credentialsConfigured": true
+      }
+    },
+    "deployedDefault": {
+      "environment": "production",
+      "container": "harden-llm-harden-llm-web-1",
+      "image": "sha256:870381f0d9463103f4eb5eb68f96c2d8f9f7af7b3cd9523c53f34af2e10562cd",
+      "source": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+      "deployedCode": {
+        "initial": "CPA gpt-6-luna",
+        "saved": "earlier-profile",
+        "absent": "earlier-profile"
+      },
+      "browser": false,
+      "providerInference": false
+    }
+  },
+  "dev": {
+    "branch": "dev",
+    "sha": "75e51ceae503b46d853bdac59fb4f9f9237baab6",
+    "enabled": true,
+    "url": "https://harden-llm-dev.prls.co",
+    "components": {
+      "gateway": {
+        "image": "harden-llm-preview-gateway:951df690540c39c68e7492883d763b6165d9dbdc",
+        "imageID": "sha256:9cce35111e25686432c8a86bcd4f1a93d664f95e5edbc9b897788ae9687932e6",
+        "release": "951df690540c39c68e7492883d763b6165d9dbdc"
+      },
+      "web": {
+        "image": "harden-llm-preview-web:c6f7e6c90573b963b4378d4163c9122e611e4c93",
+        "imageID": "sha256:72a60cf8de979c3d3bbe096c1ecfa72b5da6c85af4d62408b003853d4a8a3790",
+        "release": "c6f7e6c90573b963b4378d4163c9122e611e4c93"
+      }
+    },
+    "fastRun": 42970712707,
+    "previewRun": 42971030996,
+    "testOnlyReconciliationReusedImages": true,
+    "httpChecks": {
+      "environment": "dev-latest",
+      "url": "https://harden-llm-dev.prls.co",
+      "checks": [
+        {
+          "method": "GET",
+          "path": "/healthz",
+          "auth": "absent",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/readyz",
+          "auth": "absent",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "auth": "absent",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "auth": "invalid",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/status",
+          "auth": "valid",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/profiles",
+          "auth": "valid",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/profiles/CPA%20gpt-6-luna",
+          "auth": "valid",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/v1/requests/8d5cfca9-c6d2-4826-baea-8fcf04f855c0",
+          "auth": "valid",
+          "status": 404
+        },
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "auth": "valid",
+          "status": 400
+        },
+        {
+          "method": "POST",
+          "path": "/v1/chat/completions",
+          "auth": "valid",
+          "status": 400
+        },
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "auth": "valid",
+          "status": 413
+        }
+      ],
+      "profileCount": 40,
+      "providerInference": false,
+      "browser": false,
+      "defaultPresetVerified": {
+        "profileId": "CPA gpt-6-luna",
+        "provider": "cpa",
+        "model": "gpt-6-luna",
+        "credentialsConfigured": true
+      }
+    },
+    "deployedDefault": {
+      "environment": "dev",
+      "container": "hllm-preview-dev-web-1",
+      "image": "sha256:72a60cf8de979c3d3bbe096c1ecfa72b5da6c85af4d62408b003853d4a8a3790",
+      "source": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+      "deployedCode": {
+        "initial": "CPA gpt-6-luna",
+        "saved": "earlier-profile",
+        "absent": "earlier-profile"
+      },
+      "browser": false,
+      "providerInference": false
+    }
+  },
+  "sourceChecks": {
+    "featureHead": "8ed86f0cfeaa51f822f8355aefcfe3e3d386d771",
+    "controlledDefaultRed": {
+      "passed": 13,
+      "failed": 2
+    },
+    "focusedDefaultGreen": 15,
+    "localFast": {
+      "taskCount": 10,
+      "accepted": true,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "hostedDefaultFast": 42966104605,
+    "hostedDevFast": 42970712707,
+    "hostedFixtureFast": 42970170785,
+    "CPAmodelDiscovery": {
+      "upstream": "cpa",
+      "model": "gpt-6-luna",
+      "discoveryStatus": 200,
+      "listed": true,
+      "providerInference": false
+    }
+  },
+  "retainedDataAndOwners": {
+    "data": {
+      "profiles": {
+        "originalRows": 0,
+        "currentRows": 0,
+        "preserved": true
+      },
+      "credentials": {
+        "originalRows": 0,
+        "currentRows": 0,
+        "preserved": true
+      },
+      "drafts": {
+        "originalRows": 1,
+        "currentRows": 1,
+        "preserved": true
+      },
+      "history": {
+        "originalRows": 157,
+        "currentRows": 157,
+        "preserved": true
+      },
+      "batch_jobs": {
+        "originalRows": 2,
+        "currentRows": 2,
+        "preserved": true
+      },
+      "batch_items": {
+        "originalRows": 1000,
+        "currentRows": 1000,
+        "preserved": true
+      },
+      "batch_attempts": {
+        "originalRows": 1619,
+        "currentRows": 1619,
+        "preserved": true
+      }
+    },
+    "allOtherProductionContainersRetained": true,
+    "protectedInputsUnchanged": true,
+    "noSchemaCommand": true,
+    "backend": "951df690540c39c68e7492883d763b6165d9dbdc"
+  },
+  "concurrentBackend": {
+    "source": "951df690540c39c68e7492883d763b6165d9dbdc",
+    "image": "sha256:9cfd69b49c9ee426d294ae5549492aaa26d5dc778be29e550929fd0c80bfaa37",
+    "retained": true,
+    "freshnessGuardStoppedPriorToMutation": true,
+    "beforeDeploymentFullCertification": false,
+    "firstFullCertification": {
+      "source": "951df690540c39c68e7492883d763b6165d9dbdc",
+      "run": 42969274863,
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/42969274863",
+      "deploymentPrecededFullCertification": true,
+      "deploymentBy": "concurrent backend rollout; retained by this web-only task",
+      "conclusion": "failure",
+      "failure": "Temporal ordinary fixture still expected old non-streaming CPA transport"
+    },
+    "controlledReproduction": "Real Temporal fixture rejected native stream:true with HTTP 400, causing the public-result assertion to fail.",
+    "correction": "PR #170 strictly requires stream:true for native CPA calls and removes the obsolete exception map. Public JSON/SSE, capacity, exact calls, retry identity and uncertainty assertions remain.",
+    "focusedCorrectedPass": true,
+    "fullTemporalCorrectedPass": true,
+    "finalQualification": {
+      "qualificationSource": "75e51ceae503b46d853bdac59fb4f9f9237baab6",
+      "run": 42970531634,
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/42970531634",
+      "applicationSource": "951df690540c39c68e7492883d763b6165d9dbdc",
+      "applicationInputsUnchanged": true,
+      "testOnlyCorrectionPR": 170,
+      "conclusion": "success",
+      "attempt": 1,
+      "taskCount": 30,
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "reports": [
+        {
+          "selector": "release",
+          "accepted": true,
+          "taskCount": 30,
+          "sha256": "aff38c3d84021470ee9d8a65bbae3de8af29a440a405a88cfc55c7efde48e4f9"
+        },
+        {
+          "selector": "go-integration",
+          "accepted": true,
+          "taskCount": 1,
+          "sha256": "780ef79ff0703b07e9f44b7a130983fe58c1400f37fef6ed8066f541ad6c62ae"
+        },
+        {
+          "selector": "go-integration-race",
+          "accepted": true,
+          "taskCount": 1,
+          "sha256": "0bb0dfe166fa0eea114b14d6d85d12269f9600f8a8f921236954cb76a27e498c"
+        }
+      ],
+      "manifestSHA256": "9dca24aa80d8c028a5259f597c323cc59aac6acc5400c4a247f9356a5935dfa5"
+    },
+    "noApplicationRebuildOrRelabelForTestCorrection": true,
+    "qualificationCompletedAfterDeployment": true
+  },
+  "privateRollbackCheckpoint": "/var/tmp/hllm-cpa-luna-default-20261111/production.before.json",
+  "privateEvidence": "/var/tmp/hllm-cpa-luna-default-20261111",
+  "browser": false,
+  "browserLayoutChecked": false,
+  "paidProviderInferenceByThisTask": false,
+  "remaining": {
+    "issue": 162,
+    "state": "open",
+    "headerCutoff": "Fix merged/deployed in #169",
+    "interruptedStream": "Original failed network hop remains unproven; not resolved by default selection or the header correction",
+    "otherBacklogIssues": [
+      96,
+      149,
+      153,
+      154,
+      155,
+      156,
+      157,
+      158
+    ],
+    "checkedAt": "2026-11-11T06:34:09.710307+00:00",
+    "url": "https://github.com/prls-co/harden-llm/issues/162"
+  },
+  "accepted": true,
+  "buildCleanup": {
+    "cleanOwnedWebBuildSourceRemoved": true,
+    "runtimeImagesAndRollbackCheckpointRetained": true
+  }
+}
