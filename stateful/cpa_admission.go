@@ -183,18 +183,36 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 		return attempt, a.failure(ctx, "wake")
 	}
 	waitStarted := time.Now()
+	unavailableReads := 0
 	for {
 		if ctx.Err() != nil {
 			return attempt, ctx.Err()
 		}
 		current, e := a.Store.ReadRequest(ctx, scope, w.RequestID, w.OwnerID, true)
+		if errors.Is(e, batch.ErrUnavailable) && unavailableReads < 2 {
+			// A read/heartbeat acknowledgement can be recovered with the same
+			// owner and waiter. Never enqueue again or retry a claim/dispatch.
+			unavailableReads++
+			if a.Logger != nil {
+				a.Logger.WarnContext(ctx, "ordinary CPA admission recovering waiter read", "pool_id", a.PoolID, "metadata_stage", "waiter_read", "recovery_read", unavailableReads, "native_entered", false)
+			}
+			timer := time.NewTimer(100 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return attempt, ctx.Err()
+			case <-timer.C:
+				continue
+			}
+		}
 		if e != nil || current.ClosedAt != nil || !time.Now().Before(current.LiveUntil) {
 			stage := "waiter_read"
 			if e == nil {
 				stage = "waiter_expired_or_closed"
 			}
-			return attempt, a.failure(ctx, stage)
+			return attempt, a.failure(ctx, stage, e)
 		}
+		unavailableReads = 0
 		if s := trackingSession(ctx); s != nil {
 			reason := current.WaitingReason
 			if reason == "" {
