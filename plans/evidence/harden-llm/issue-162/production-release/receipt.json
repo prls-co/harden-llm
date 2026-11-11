@@ -1,0 +1,240 @@
+{
+  "schemaVersion": 1,
+  "issue": 162,
+  "pullRequest": 175,
+  "status": "production_deployed_and_qualified",
+  "verifiedAt": "2026-11-11T18:32:38.049450+00:00",
+  "branch": "main",
+  "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+  "url": "https://harden-llm.prls.co/",
+  "qualification": {
+    "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+    "branch": "main",
+    "run": 43074134139,
+    "attempt": 1,
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43074134139/attempts/1",
+    "job": 130709488185,
+    "conclusion": "success",
+    "reports": [
+      {
+        "file": "hosted-integration.json",
+        "selector": "go-integration",
+        "taskCount": 1,
+        "accepted": true,
+        "cleanupErrors": [],
+        "cleanupWarnings": [],
+        "sha256": "a04272f0a8520b55230ebdaa02815c4bd36a1296de45ef345f385599660b12a3"
+      },
+      {
+        "file": "hosted-integration-race.json",
+        "selector": "go-integration-race",
+        "taskCount": 1,
+        "accepted": true,
+        "cleanupErrors": [],
+        "cleanupWarnings": [],
+        "sha256": "6523c5045575b0119d173e1a616c7dd514a8942939314b945878848501deb8bb"
+      },
+      {
+        "file": "hosted-release.json",
+        "selector": "release",
+        "taskCount": 30,
+        "accepted": true,
+        "cleanupErrors": [],
+        "cleanupWarnings": [],
+        "sha256": "bf2d98fd37cdc45daeff40bef0eff9e02c30c2216ad4d39feaf2faa11824882f"
+      }
+    ],
+    "artifactId": 13881728154,
+    "artifactDigest": "sha256:fe0e82de65ce78b214cfb31f78d81167fc580e9c2b673dc8bac6245bdad04a54"
+  },
+  "mainFast": {
+    "run": 43074134072,
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43074134072",
+    "conclusion": "success",
+    "taskCount": 10
+  },
+  "codeQL": {
+    "run": 43074132173,
+    "conclusion": "success",
+    "languages": [
+      "Go",
+      "JavaScript/TypeScript",
+      "Python",
+      "Actions"
+    ]
+  },
+  "images": {
+    "gateway": {
+      "tag": "harden-llm-gateway:release-efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+      "id": "sha256:32eee847dcbabae4da90b17c232e745f3d4621cf7ea1128211cd30cdef22409b",
+      "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+      "platform": "linux/amd64",
+      "size": 12852606,
+      "labels": {
+        "org.opencontainers.image.revision": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+        "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+        "org.opencontainers.image.title": "harden-llm-gateway",
+        "org.opencontainers.image.version": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f"
+      }
+    },
+    "web": {
+      "tag": "harden-llm-web:release-efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+      "id": "sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78",
+      "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+      "platform": "linux/amd64",
+      "size": 20865110,
+      "labels": {
+        "org.opencontainers.image.revision": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+        "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+        "org.opencontainers.image.title": "harden-llm-web",
+        "org.opencontainers.image.version": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f"
+      }
+    },
+    "binaryVersion": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+    "versionContainerRemoved": true
+  },
+  "stagedDeployment": {
+    "workerApplyExitCode": 0,
+    "schemaBeforeWorkerStartExitCode": 0,
+    "workerBinaryVersion": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+    "upgradeReadback": {
+      "generation": 2,
+      "outstanding": 0,
+      "pool_id": "cpa-production",
+      "status": "v2_ready"
+    },
+    "workerPollersVerifiedBeforeGateway": true,
+    "gatewaySchemaAndApplicationApplyExitCode": 0,
+    "workerControllerEquivalent": true,
+    "applicationControllerEquivalent": true,
+    "allFiveOtherManagedServicesEquivalent": true,
+    "gatewayRunningBinaryVersion": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f"
+  },
+  "acceptance": {
+    "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+    "url": "https://harden-llm.prls.co/",
+    "test435Passed": true,
+    "phoenixInternalHealthHTTP": 200,
+    "portalLoginHTTP": 200,
+    "status": {
+      "history": {
+        "rows": 331,
+        "tableBytes": 2908160
+      },
+      "features": {
+        "storage": {
+          "mode": "enabled",
+          "status": "configured"
+        },
+        "historyStatus": {
+          "mode": "enabled",
+          "status": "configured"
+        },
+        "artifacts": {
+          "mode": "enabled",
+          "status": "configured"
+        },
+        "credentials": {
+          "mode": "enabled",
+          "status": "configured"
+        }
+      }
+    },
+    "pollers": {
+      "workflow": {
+        "ownedPollerCount": 1,
+        "newWorkerHostname": "65e2c70e577f",
+        "latestAccessAgeSeconds": 3.605,
+        "backlog": 0
+      },
+      "control": {
+        "ownedPollerCount": 1,
+        "newWorkerHostname": "65e2c70e577f",
+        "latestAccessAgeSeconds": 3.644,
+        "backlog": 0
+      },
+      "provider": {
+        "ownedPollerCount": 1,
+        "newWorkerHostname": "65e2c70e577f",
+        "latestAccessAgeSeconds": 3.709,
+        "backlog": 0
+      }
+    },
+    "runtime": {
+      "harden-llm-gateway": {
+        "id": "fd0bd62e5982e6e42fdb28e12eaeb0538d87b3a3782eb4afd162f0367bfc4d24",
+        "image": "sha256:32eee847dcbabae4da90b17c232e745f3d4621cf7ea1128211cd30cdef22409b",
+        "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+        "state": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      "harden-llm-web": {
+        "id": "3deb8cd10768ce514b4599dc6277c17783cfb89a43d8418fca613663084c5d08",
+        "image": "sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78",
+        "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+        "state": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      "harden-llm-batch-worker": {
+        "id": "65e2c70e577f349965664e3e2d60e52a01976c766580f96e965b2a144be9c674",
+        "image": "sha256:32eee847dcbabae4da90b17c232e745f3d4621cf7ea1128211cd30cdef22409b",
+        "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+        "state": "running",
+        "health": null,
+        "restarts": 0
+      }
+    },
+    "preservation": {
+      "protectedInputsUnchanged": true,
+      "unrelatedContainersCompared": 155,
+      "unrelatedContainerChanges": []
+    },
+    "browserLayoutChecked": false,
+    "newInference": false
+  },
+  "preservation": {
+    "historyBefore": {
+      "rows": 331,
+      "tableBytes": 2908160
+    },
+    "historyAfter": {
+      "rows": 331,
+      "tableBytes": 2908160
+    },
+    "protectedInputsUnchanged": true,
+    "connectionMetadataUnchanged": true,
+    "unrelatedContainersCompared": 155,
+    "unrelatedContainersChanged": [],
+    "schemaReset": false,
+    "dataMigration": false,
+    "priorImagesRetained": true,
+    "privateMode0600DescriptorCheckpointRetained": true,
+    "descriptorBeforeSHA256": "c9353ad0d991012d36005ae81aad88a21aebd8b3590da9869da34f1ae59513d1",
+    "descriptorAfterSHA256": "f1be6b7848a0602133aaded1300386da77b16d6a8a414326b6da5f96fb38e05d"
+  },
+  "parity": {
+    "promptsModelsReasoningUnchanged": true,
+    "newProviderRetryOrReplay": false,
+    "databaseSchemaUnchanged": true,
+    "executionStatusesUnchanged": true
+  },
+  "limits": {
+    "browserRun": false,
+    "browserLayoutChecked": false,
+    "paidProviderInference": false,
+    "originalNetworkHopCause": "unproven",
+    "consumerDeploymentPinsChanged": false,
+    "documentationCommitDoesNotRelabelImages": true
+  },
+  "retainedNonAcceptance": "retained-preflight-notes.json",
+  "sha256": {
+    "baseline-reference-http.log": "4d72deccbf52ea3403e7a607ee7896a1266d706e974494226c0ba18599cbdcdf",
+    "deployed-reference-http.log": "ccc2d7d7847a3bd68e2b6aea7d1c7f403b1c9b826b7b5cd2d9a2cf6bb89d981c",
+    "hosted-integration-race.json": "6523c5045575b0119d173e1a616c7dd514a8942939314b945878848501deb8bb",
+    "hosted-integration.json": "a04272f0a8520b55230ebdaa02815c4bd36a1296de45ef345f385599660b12a3",
+    "hosted-release.json": "bf2d98fd37cdc45daeff40bef0eff9e02c30c2216ad4d39feaf2faa11824882f",
+    "retained-preflight-notes.json": "d14c814581937797b599697e83c0dc32b17c465942cf2e006159bbdfff9acc15"
+  }
+}

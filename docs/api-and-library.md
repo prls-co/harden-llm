@@ -204,3 +204,19 @@ presets use explicitly configured deployment credentials. Editing alone saves
 only a draft. History summaries load first and full records load on expansion.
 See OpenAPI and [architecture](architecture.md) for the reference contracts and
 persistence failure outcomes.
+
+## Reference run outcomes
+
+Reference JSON errors and `run.failed` events use `ReferenceError.code` to
+distinguish provider uncertainty. `execution_unconfirmed` means the provider
+may have completed or billed the request. Never automatically repeat the
+inference POST. Local execution statuses such as `failed` and `timeout` do not
+establish the provider outcome; history recording has its own independent
+outcome.
+
+The Go HTTP client returns `UnknownOutcomeError` for this explicit uncertainty.
+The shared Phoenix client preserves it in the workspace and loaded history.
+A missing recording tail does not erase an already validated unconfirmed
+terminal. Malformed failure errors are rejected as protocol errors before
+callback delivery. See the [HTTP client contract](../httpclient/README.md)
+and the [provider uncertainty RCA](rca/reference-provider-uncertainty-162.md).

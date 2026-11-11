@@ -1,6 +1,6 @@
 # Release Certification
 
-Latest production qualification: [CPA default and current backend, November 11](#2026-11-11-cpa-gpt-6-luna-default).
+Latest production qualification: [Reference uncertainty, November 11](#2026-11-11-reference-uncertainty-production-release).
 
 Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
 
@@ -3331,3 +3331,40 @@ interrupted-stream incident in
 [#162](https://github.com/prls-co/harden-llm/issues/162) still has no proven
 failed network hop. This release/default closeout does not claim that
 investigation or all API-parity enhancements are complete.
+
+## 2026-11-11 Reference uncertainty production release
+
+[PR #175](https://github.com/prls-co/harden-llm/pull/175) merged into `dev` and
+was explicitly promoted to `main` by fast-forward. Source
+`efd0d85eb488b0dc8a78a97f6a7851218d9ed53f` is deployed at
+<https://harden-llm.prls.co/>. It preserves provider uncertainty through the
+runtime, reference JSON/SSE, typed clients, workspace and history. The Phoenix
+client validates failure errors before delivering them to callbacks. TEST-540,
+TEST-541 and WEB-TEST-131 retain success and known-failure controls alongside
+the no-replay and malformed-event regressions.
+
+The [production receipt](../plans/evidence/harden-llm/issue-162/production-release/receipt.json)
+retains complete hosted reports, hashes, component identities, controller and
+preservation checks. Earlier `596b955` qualification and images remain historical
+evidence; the newly built web image includes the subsequent review correction.
+
+| Boundary | Verified result |
+| --- | --- |
+| Exact-main release | [Run 43074134139, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/43074134139/attempts/1): all 30 browser-free tasks and both integration subreports passed; cleanup errors/warnings empty. |
+| Main checks | All ten fast tasks and Go, JavaScript/TypeScript, Python and Actions CodeQL analyses passed. |
+| Gateway / worker | `sha256:32eee847dcbabae4da90b17c232e745f3d4621cf7ea1128211cd30cdef22409b`; full-SHA source/revision/version labels and actual gateway/worker binary versions match the certified source. |
+| Web | `sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78`; source/revision/version labels match the certified source. |
+| Rollout | Schema-before-worker and schema-before-app apply succeeded through the protected controller; existing generation 2 reported `v2_ready`, zero outstanding ownership, and fresh workflow/control/provider pollers belonging to the new worker. All eight managed services are equivalent; HTTP services are healthy and all three applications have zero restarts. |
+| Acceptance | TEST-435 public health, Portal redirect, bearer/authentication, model discovery, scope-selector rejection and feature status passed. Phoenix localhost health and Portal login return HTTP 200. No inference was dispatched. |
+| Preservation | History remains 331 rows / 2,908,160 bytes. Protected environment sources and connection metadata are unchanged; all 155 compared unrelated containers retain their identities. Previous images and the private mode-0600 descriptor checkpoint remain available. |
+
+The first bridge-IP health probe used plain HTTP with a non-localhost host and
+returned 301 under Phoenix's HTTPS policy. The documented container
+localhost health probe returns 200 with `status: ok`; no application or assertion
+was changed. The canceled dev release dispatch and transport-specific edge
+probe are retained as non-acceptance evidence in the receipt.
+
+Prompts, models, reasoning, database schema, execution statuses and retry policy
+are unchanged. The failed network hop in the original #162 incident remains
+unproven. Browser layout and fresh paid-provider acceptance were not checked.
+Documentation-only closeout commits do not rebuild or relabel these images.

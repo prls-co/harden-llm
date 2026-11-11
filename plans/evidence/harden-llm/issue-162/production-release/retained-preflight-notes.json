@@ -1,0 +1,20 @@
+{
+  "canceledDevRelease": {
+    "run": 43074066827,
+    "conclusion": "cancelled",
+    "reason": "Switched to the required main-only release workflow before any production build or apply. Not acceptance evidence."
+  },
+  "transportProbe": {
+    "client": "Python urllib",
+    "status": 403,
+    "curlStatus": 200,
+    "goHTTPAcceptance": "passed"
+  },
+  "phoenixDirectBridgeProbe": {
+    "scheme": "http",
+    "target": "container bridge IP:4000/healthz",
+    "status": 301,
+    "reason": "Phoenix force_ssl redirects non-localhost HTTP. The documented Compose localhost probe returned HTTP 200 without application changes.",
+    "oracle": "healthy endpoint must return HTTP 200 with status ok"
+  }
+}

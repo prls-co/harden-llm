@@ -182,3 +182,27 @@ remain evidence for source `596b955`. They do not include this subsequent web
 client fix. Gateway and Go client inputs are unchanged; the web image must be
 rebuilt from the reviewed frontend revision before deployment. No image is
 relabelled and no production rollout is part of this review correction.
+
+## 7. Main promotion and production qualification
+
+After PR #175 merged into `dev`, explicit production authorization promoted
+`efd0d85eb488b0dc8a78a97f6a7851218d9ed53f` to `main`. Its exact-main
+[release run](https://github.com/prls-co/harden-llm/actions/runs/43074134139/attempts/1)
+passed all 30 browser-free tasks and both integration subreports with clean
+teardown before production images were built. Main fast and CodeQL checks pass.
+
+Fresh gateway/worker and web images from that source are deployed at
+<https://harden-llm.prls.co/>. Both images include the reviewed changes;
+the earlier web rebuild requirement is satisfied. The protected controller
+applied schema before the worker, confirmed existing generation-2 readiness,
+then applied schema before gateway/web. All eight managed services are
+equivalent, the applications have zero restarts, and new-worker pollers are
+present on all three queues.
+
+The [production receipt](../../plans/evidence/harden-llm/issue-162/production-release/receipt.json)
+records immutable images, complete reports and HTTP/authentication acceptance.
+History remains 331 rows / 2,908,160 bytes, protected inputs are unchanged, and
+155 unrelated container identities are preserved. There is no data reset,
+inference replay, provider smoke call or browser launch. Browser layout and the
+original failed network hop remain unverified; deployment does not turn the
+outcome-handling correction into a proven network-root-cause fix.

@@ -27,8 +27,8 @@ decision.
 ## 2. Artifact and production identity
 
 The latest production identity is recorded in the
-[November 11 web-search parity receipt](evidence/harden-llm/web-search-parity/2026-11-11-production.json)
-and [release certification](../docs/release-certification.md#2026-11-11-web-search-parity-production-release).
+[November 11 reference uncertainty receipt](evidence/harden-llm/issue-162/production-release/receipt.json)
+and [release certification](../docs/release-certification.md#2026-11-11-reference-uncertainty-production-release).
 The identities below are retained historical checkpoints.
 
 The November 4 production application identity was source

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "issue": 162,
-  "status": "qualified_baseline_with_frontend_review_followup",
+  "status": "production_qualified",
   "branch": "fix/reference-unconfirmed-outcome",
   "pullRequest": "https://github.com/prls-co/harden-llm/pull/175",
   "applicationSource": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0",
@@ -104,8 +104,8 @@
     "failureLimits": "The local runner-budget and Temporal count failures remain retained and are not claimed causally fixed by later passes."
   },
   "readinessBoundaries": {
-    "productionDeployed": false,
-    "mainPromoted": false,
+    "productionDeployed": true,
+    "mainPromoted": true,
     "productionDataChanged": false,
     "browserRun": false,
     "browserLayoutChecked": false,
@@ -121,12 +121,23 @@
     "realHistoryAndScope": "TEST-541",
     "broaderFunctionality": "All 30 browser-free release tasks passed without weakened assertions"
   },
-  "sourceScope": "applicationSource, hostedRelease, images and goModule describe the retained 596b955 baseline. The later frontend validation fix is qualified separately in frontendReviewFollowup.",
+  "sourceScope": "applicationSource, hostedRelease, images and goModule retain the 596b955 baseline. frontendReviewFollowup qualifies the subsequent client validation fix. productionRelease identifies the exact-main full release and deployed artifacts; readinessBoundaries now describe that production closeout.",
   "frontendReviewFollowup": {
     "source": "796b9f84ab692a9b182890ddb230a1cf864928f2",
     "receipt": "review-followup/receipt.json",
     "priorWebImageIncludesFix": false,
     "webRebuildRequiredBeforeDeployment": true,
     "backendInputsChanged": false
+  },
+  "productionRelease": {
+    "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+    "branch": "main",
+    "receipt": "production-release/receipt.json",
+    "url": "https://harden-llm.prls.co/",
+    "run": 43074134139,
+    "attempt": 1,
+    "fullReleaseTaskCount": 30,
+    "allTasksPassed": true,
+    "productionDeployed": true
   }
 }
