@@ -19,6 +19,15 @@ spans in the connected project. Neither observation supplies the missing cause.
 No specific proxy, provider, or timeout correction can be inferred from this
 evidence.
 
+A fresh authenticated read of the original production history and trace
+confirmed a 59,999ms effective timeout, 5,142ms elapsed, 42 events, 22,849
+received bytes, 93 output bytes and terminal state `missing`. The request has
+no explicit provider timeout override. The original observation still has
+`NETWORK_ERROR`, status zero and no provider request ID. The reading gateway
+remained at source `3e21d3a43d302ca43b6ec523d28f9de62b1c8827`, image
+`sha256:770e4eaba638367b295fa0149f4d3960619fcf838069cf8c512e9a9e7c2e332c`,
+with zero restarts; this is an evidence read, not a deployment or inference.
+
 Two later complete weather runs, raw artifact hashes and exports are recorded
 in [the consumer RCA](https://github.com/prls-co/query-analytics/blob/ad285eea97e886bed98f32ce7d1176eb03c0b2de/docs/evidence/weather-production-acceptance-20261111/RCA.md).
 Those retained passes are not a causal fix for the earlier network interruption
@@ -90,6 +99,17 @@ storage-budget cases (`TestProfileResources/replacement_transaction_failure_rest
 and `TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit`),
 with clean teardown. These failed results remain evidence; they are not passes
 or a proven application regression.
+
+The first full release run on `122a5fb` stopped at the existing 180-second
+runner-contract task budget; sibling SIGTERM/compile cancellations are not
+independent failures or passes. A complete release selection with the supported
+single-CPU-slot profile retained all 30 tasks and unchanged assertions/timeouts.
+It failed the real Temporal 1,000-item case at 999 successes and one failure,
+with 999 provider calls. That row's specific cause was lost during normal
+fixture cleanup. The test now reads its existing public results before the
+original fatal count assertion, preserving the actual failure cause on any
+reproduction. No count is relaxed, result fabricated, or inference replayed.
+Required canceled checks remain unqualified.
 
 Final commands, immutable source/image identities and remaining release gates
 belong in the accompanying evidence receipt. Browser execution and new paid
