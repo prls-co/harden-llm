@@ -1,0 +1,483 @@
+[
+  {
+    "report": "integration.json",
+    "accepted": false,
+    "firstFailure": {
+      "taskId": "go-integration",
+      "status": 1,
+      "failureSummary": "FAIL\tgithub.com/prls-co/harden-llm/stateful\t43.838s | ok  \tgithub.com/prls-co/harden-llm/stateful/batch\t42.954s | FAIL",
+      "failureDetail": "ok  \tgithub.com/prls-co/harden-llm\t0.144s\nok  \tgithub.com/prls-co/harden-llm/api\t0.244s\nok  \tgithub.com/prls-co/harden-llm/cmd/harden-llm-gateway\t0.073s\nok  \tgithub.com/prls-co/harden-llm/cmd/harden-llm-loadtest\t0.091s\n?   \tgithub.com/prls-co/harden-llm/cmd/loki-schema-guard\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/httpclient\t1.024s\nok  \tgithub.com/prls-co/harden-llm/internal/accounting\t0.009s\nok  \tgithub.com/prls-co/harden-llm/internal/cachekey\t0.008s\nok  \tgithub.com/prls-co/harden-llm/internal/capacity\t0.224s\nok  \tgithub.com/prls-co/harden-llm/internal/deploytest\t0.048s\nok  \tgithub.com/prls-co/harden-llm/internal/diagnostics\t1.696s\nok  \tgithub.com/prls-co/harden-llm/internal/eval\t0.300s\nok  \tgithub.com/prls-co/harden-llm/internal/gateway\t2.971s\n?   \tgithub.com/prls-co/harden-llm/internal/gateway/auth\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t9.678s\nok  \tgithub.com/prls-co/harden-llm/internal/integrationtest\t5.275s\nok  \tgithub.com/prls-co/harden-llm/internal/livecapacity\t14.538s\nok  \tgithub.com/prls-co/harden-llm/internal/lokischema\t0.027s\nok  \tgithub.com/prls-co/harden-llm/internal/observability\t0.026s\nok  \tgithub.com/prls-co/harden-llm/internal/pricing\t0.031s\nok  \tgithub.com/prls-co/harden-llm/internal/providers\t0.447s\nok  \tgithub.com/prls-co/harden-llm/internal/redaction\t0.004s\nok  \tgithub.com/prls-co/harden-llm/internal/retry\t0.007s\nok  \tgithub.com/prls-co/harden-llm/internal/runtime\t0.189s\nok  \tgithub.com/prls-co/harden-llm/internal/schema\t0.029s\nok  \tgithub.com/prls-co/harden-llm/internal/smoke\t0.009s\n?   \tgithub.com/prls-co/harden-llm/internal/smoke/fakeprovider\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/stats\t0.010s\n?   \tgithub.com/prls-co/harden-llm/internal/testfixture/native\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/testkit\t0.639s\nok  \tgithub.com/prls-co/harden-llm/internal/traces\t0.007s\n--- FAIL: TestProfileResources (34.71s)\n    --- FAIL: TestProfileResources/replacement_transaction_failure_restores_original_catalog (2.30s)\n        profile_resources_integration_test.go:267: storage_unavailable: Reference PostgreSQL operation failed; inspect correlated service diagnostics.\n--- FAIL: TestCacheDraftContract (41.93s)\n    --- FAIL: TestCacheDraftContract/corrupt_envelope_is_rejected_by_core_rather_than_a_cache_hit (2.26s)\n        cache_draft_integration_test.go:204: valid cache fixture was not persisted before corruption\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/stateful\t43.838s\nok  \tgithub.com/prls-co/harden-llm/stateful/batch\t42.954s\nFAIL"
+    },
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "tasks": [
+      {
+        "taskId": "go-integration",
+        "status": 1,
+        "signal": null,
+        "timedOut": false,
+        "failureSummary": "FAIL\tgithub.com/prls-co/harden-llm/stateful\t43.838s | ok  \tgithub.com/prls-co/harden-llm/stateful/batch\t42.954s | FAIL"
+      }
+    ]
+  },
+  {
+    "report": "release-single-cpu.json",
+    "accepted": false,
+    "firstFailure": {
+      "taskId": "go-temporal-integration",
+      "status": 1,
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t105.348s | FAIL",
+      "failureDetail": "/11 06:44:48 DEBUG ExecuteActivity Namespace harden-test-a27c78320c3b04db TaskQueue batch-59f646fe-e619-463c-938a-fb8929aa730c WorkerID 795960@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/79e1a243-896b-478e-b6b7-8e5dd6a02520 RunID 7a7ddd1a-203a-4851-8a46-3609c47f1735 Attempt 1 ActivityID 1825 ActivityType Record\n2026/11/11 06:44:48 DEBUG RequestCancelTimer Namespace harden-test-a27c78320c3b04db TaskQueue batch-59f646fe-e619-463c-938a-fb8929aa730c WorkerID 795960@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/79e1a243-896b-478e-b6b7-8e5dd6a02520 RunID 7a7ddd1a-203a-4851-8a46-3609c47f1735 Attempt 1 TimerID 1819\n2026/11/11 06:44:48 DEBUG NewTimer Namespace harden-test-a27c78320c3b04db TaskQueue batch-59f646fe-e619-463c-938a-fb8929aa730c WorkerID 795960@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/79e1a243-896b-478e-b6b7-8e5dd6a02520 RunID 7a7ddd1a-203a-4851-8a46-3609c47f1735 Attempt 1 TimerID 1832 Duration 5s\n2026/11/11 06:44:48 INFO  Stopped Worker Namespace harden-test-a27c78320c3b04db TaskQueue batch-59f646fe-e619-463c-938a-fb8929aa730c/provider WorkerID 795960@shaman@\n2026/11/11 06:44:48 INFO  Stopped Worker Namespace harden-test-a27c78320c3b04db TaskQueue batch-59f646fe-e619-463c-938a-fb8929aa730c WorkerID 795960@shaman@\n--- FAIL: TestTemporalBatchThousandSeparateRequests (105.31s)\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:992 Active:6 Waiting:0 Succeeded:2 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:947 Active:34 Waiting:0 Succeeded:19 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:931 Active:14 Waiting:0 Succeeded:55 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:889 Active:43 Waiting:0 Succeeded:68 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:879 Active:5 Waiting:0 Succeeded:116 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:820 Active:36 Waiting:0 Succeeded:144 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:754 Active:61 Waiting:0 Succeeded:185 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:725 Active:24 Waiting:0 Succeeded:251 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:684 Active:38 Waiting:0 Succeeded:278 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:666 Active:25 Waiting:0 Succeeded:309 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:599 Active:45 Waiting:0 Succeeded:356 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:527 Active:44 Waiting:0 Succeeded:429 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:448 Active:50 Waiting:0 Succeeded:502 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:389 Active:17 Waiting:0 Succeeded:594 Failed:0}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:296 Active:48 Waiting:0 Succeeded:655 Failed:1}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:281 Active:0 Waiting:0 Succeeded:718 Failed:1}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:196 Active:54 Waiting:0 Succeeded:749 Failed:1}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:103 Active:44 Waiting:0 Succeeded:852 Failed:1}\n    jobs_temporal_integration_test.go:305: batch still running: {Total:1000 Queued:31 Active:29 Waiting:0 Succeeded:939 Failed:1}\n    jobs_temporal_integration_test.go:307: not 1000 separate successful requests: {Total:1000 Queued:0 Active:0 Waiting:0 Succeeded:999 Failed:1} calls=999 peak=1\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t105.348s\nFAIL"
+    },
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "tasks": [
+      {
+        "taskId": "go-format",
+        "status": 0,
+        "signal": null,
+        "timedOut": false,
+        "failureSummary": null
+      },
+      {
+        "taskId": "go-lint",
+        "status": 0,
+        "signal": null,
+        "timedOut": false,
+        "failureSummary": null
+      },
+      {
+        "taskId": "go-build",
+        "status": 0,
+        "signal": null,
+        "timedOut": false,
+        "failureSummary": null
+      },
+      {
+        "taskId": "go-static",
+        "status": 0,
+        "signal": null,
+        "timedOut": false,
+        "failureSummary": null
+      },
+      {
+        "taskId": "runner-contracts",
+        "status": 1,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "duration_ms: 7468.968244 | type: 'test' | ..."
+      },
+      {
+        "taskId": "production-config-compose",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-unit",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-parity",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-integration",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-temporal-integration",
+        "status": 1,
+        "signal": null,
+        "timedOut": false,
+        "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t105.348s | FAIL"
+      },
+      {
+        "taskId": "go-integration-race",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-api",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-observability",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-compose",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-compose-contract",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-race",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "go-vulnerability",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-ui-package",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-format",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-compile",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-deterministic",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "client-core",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "run-progress-client",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-deps-audit",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-hex-audit",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-assets-deploy",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-pagination-asset-check",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-release",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "backend-verify-baseline",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      },
+      {
+        "taskId": "frontend-gateway-workflows",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false,
+        "failureSummary": "cancelled after first causal failure"
+      }
+    ]
+  },
+  {
+    "report": "temporal-diagnostic.json",
+    "accepted": false,
+    "firstFailure": {
+      "taskId": "go-temporal-integration",
+      "status": 1,
+      "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t92.837s | FAIL",
+      "failureDetail": "3327 Attempt 1 ActivityID 2041 ActivityType Record\n2026/11/11 06:49:19 DEBUG ExecuteActivity Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 ActivityID 2042 ActivityType Record\n2026/11/11 06:49:19 DEBUG RequestCancelTimer Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 TimerID 1999\n2026/11/11 06:49:19 DEBUG ExecuteActivity Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 ActivityID 2044 ActivityType Cooldown\n2026/11/11 06:49:20 DEBUG ExecuteActivity Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 ActivityID 2093 ActivityType Record\n2026/11/11 06:49:22 DEBUG NewTimer Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 TimerID 2163 Duration 5s\n2026/11/11 06:49:22 DEBUG RequestCancelTimer Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 TimerID 2163\n2026/11/11 06:49:22 DEBUG NewTimer Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 TimerID 2165 Duration 5s\n2026/11/11 06:49:22 DEBUG RequestCancelTimer Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 TimerID 2165\n2026/11/11 06:49:22 DEBUG NewTimer Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 TimerID 2167 Duration 5s\n2026/11/11 06:49:22 DEBUG RequestCancelTimer Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 TimerID 2167\n2026/11/11 06:49:22 DEBUG NewTimer Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@ WorkflowType HLLMCPADispatcherV1 WorkflowID hllm-cpa-pool-v1/674a526e-96eb-495b-b762-50258edb83b5 RunID f1185b6c-ec33-4883-a7fe-08b7427f3327 Attempt 1 TimerID 2174 Duration 5s\n2026/11/11 06:49:26 INFO  Stopped Worker Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce/provider WorkerID 847537@shaman@\n2026/11/11 06:49:26 INFO  Stopped Worker Namespace harden-test-f7b7007c910471c4 TaskQueue batch-222dbf4b-915e-42f5-9be1-7a73ac0cb5ce WorkerID 847537@shaman@\nFAIL\nFAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t92.837s\nFAIL"
+    },
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "tasks": [
+      {
+        "taskId": "go-temporal-integration",
+        "status": 1,
+        "signal": null,
+        "timedOut": false,
+        "failureSummary": "FAIL | FAIL\tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t92.837s | FAIL"
+      }
+    ]
+  },
+  {
+    "report": "temporal-captured.json",
+    "accepted": false,
+    "firstFailure": {
+      "taskId": "go-temporal-integration",
+      "status": 1,
+      "failureSummary": "FAILED: TestTemporalBatchThousandSeparateRequests | jobs_temporal_integration_test.go:309: unqualified or repeated result: {CustomID:nonce-0313 Response:[] Error:0x11bc4505110 Diagnostics:{Kind:failed Admission: GenerationBudgetMS:0 Generat",
+      "failureDetail": "Go exit: 1 failed tests: ['TestTemporalBatchThousandSeparateRequests']\nFAILED: TestTemporalBatchThousandSeparateRequests\n    jobs_temporal_integration_test.go:309: unqualified or repeated result: {CustomID:nonce-0313 Response:[] Error:0x11bc4505110 Diagnostics:{Kind:failed Admission: GenerationBudgetMS:0 GenerationDeadline:<nil> Error:0x11bc4505140 RetryAfterMS:0 ArtifactID: Attempt:0 QueueMS:0 RetryWaitMS:0 StartedAt:<nil> FinishedAt:<nil> DurationMS:0 HeadersMS:<nil> FirstOutputMS:<nil> InputTokens:<nil> OutputTokens:<nil> ReasoningTokens:<nil> CachedInputTokens:<nil> ProviderRequestID: CPAInternalAttempts:<nil>}}\nComplete owned diagnostic: /tmp/hllm-issue162/temporal-complete.jsonl"
+    },
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "tasks": [
+      {
+        "taskId": "go-temporal-integration",
+        "status": 1,
+        "signal": null,
+        "timedOut": false,
+        "failureSummary": "FAILED: TestTemporalBatchThousandSeparateRequests | jobs_temporal_integration_test.go:309: unqualified or repeated result: {CustomID:nonce-0313 Response:[] Error:0x11bc4505110 Diagnostics:{Kind:failed Admission: GenerationBudgetMS:0 Generat"
+      }
+    ]
+  },
+  {
+    "report": "runner-1794408001974-725406-93a4a26c394d923f.json",
+    "accepted": false,
+    "firstFailure": {
+      "taskId": "runner-contracts",
+      "status": 1,
+      "failureSummary": "duration_ms: 15418.503933 | type: 'test' | ...",
+      "failureDetail": " ...\n    1..14\nok 7 - resource-aware tier runner\n  ---\n  duration_ms: 19495.721036\n  type: 'suite'\n  ...\n# Subtest: writes a unique private run report by default with task and lifecycle timings\nok 8 - writes a unique private run report by default with task and lifecycle timings\n  ---\n  duration_ms: 1254.544084\n  type: 'test'\n  ...\n# Subtest: refuses an oversized diagnostic report without leaving a partial artifact\nok 9 - refuses an oversized diagnostic report without leaving a partial artifact\n  ---\n  duration_ms: 269.550134\n  type: 'test'\n  ...\n# Subtest: browser-free frontend tasks use process-owned HTTP ports\nok 10 - browser-free frontend tasks use process-owned HTTP ports\n  ---\n  duration_ms: 22.944839\n  type: 'test'\n  ...\n# Subtest: endurance resource measurements isolate process-wide counters\nok 11 - endurance resource measurements isolate process-wide counters\n  ---\n  duration_ms: 56.052326\n  type: 'test'\n  ...\n# Subtest: retry fixture retains every declared pair and required triple\nok 12 - retry fixture retains every declared pair and required triple\n  ---\n  duration_ms: 13.90797\n  type: 'test'\n  ...\n# Subtest: coverage uses feasible domain tuples and permanent regression IDs\nok 13 - coverage uses feasible domain tuples and permanent regression IDs\n  ---\n  duration_ms: 2.508364\n  type: 'test'\n  ...\n# Subtest: case closure rejects lost registration, gate and executable consumer\nok 14 - case closure rejects lost registration, gate and executable consumer\n  ---\n  duration_ms: 8.547767\n  type: 'test'\n  ...\n# Subtest: TEST-271 registers a private durable receipt before service creation\nok 15 - TEST-271 registers a private durable receipt before service creation\n  ---\n  duration_ms: 10040.924607\n  type: 'test'\n  ...\n# Subtest: TEST-271 refuses managed Docker work without a source revision\nok 16 - TEST-271 refuses managed Docker work without a source revision\n  ---\n  duration_ms: 124.186073\n  type: 'test'\n  ...\n# Subtest: TEST-271 receipt validation or atomic-write failure prevents Docker mutation\nok 17 - TEST-271 receipt validation or atomic-write failure prevents Docker mutation\n  ---\n  duration_ms: 7761.000482\n  type: 'test'\n  ...\n# Subtest: TEST-272 cleanup failures fail acceptance\nok 18 - TEST-272 cleanup failures fail acceptance\n  ---\n  duration_ms: 60540.01658\n  type: 'test'\n  ...\n# Subtest: TEST-272 waits for a Docker container removal already in progress\nok 19 - TEST-272 waits for a Docker container removal already in progress\n  ---\n  duration_ms: 25513.453376\n  type: 'test'\n  ...\n# Subtest: TEST-272 keeps cleanup pending when an in-progress Docker removal does not settle\nok 20 - TEST-272 keeps cleanup pending when an in-progress Docker removal does not settle\n  ---\n  duration_ms: 12016.774747\n  type: 'test'\n  ...\n# Subtest: TEST-272 cleanup reporting preserves the first task failure and Compose warning\nok 21 - TEST-272 cleanup reporting preserves the first task failure and Compose warning\n  ---\n  duration_ms: 7784.070484\n  type: 'test'\n  ...\n# Subtest: TEST-272 parent waits for the timed-out process group before cleanup\nok 22 - TEST-272 parent waits for the timed-out process group before cleanup\n  ---\n  duration_ms: 12742.111398\n  type: 'test'\n  ...\n# Subtest: TEST-272 preserves volumes and networks attached to foreign containers\nok 23 - TEST-272 preserves volumes and networks attached to foreign containers\n  ---\n  duration_ms: 12988.411362\n  type: 'test'\n  ...\n# Subtest: TEST-272 bounds hung inventory and retains a cleanup-pending receipt\nok 24 - TEST-272 bounds hung inventory and retains a cleanup-pending receipt\n  ---\n  duration_ms: 4920.579248\n  type: 'test'\n  ...\n# Subtest: TEST-272 parent reconciles Go fixture receipts in the same run ledger\nok 25 - TEST-272 parent reconciles Go fixture receipts in the same run ledger\n  ---\n  duration_ms: 6905.093686\n  type: 'test'\n  ...\n# Subtest: TEST-273 same-daemon runners serialize and leave exact crash receipts recoverable\nok 26 - TEST-273 same-daemon runners serialize and leave exact crash receipts recoverable\n  ---\n  duration_ms: 15418.503933\n  type: 'test'\n  ..."
+    },
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "tasks": [
+      {
+        "taskId": "go-format",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-lint",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-build",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-static",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "runner-contracts",
+        "status": 1,
+        "signal": "SIGTERM",
+        "timedOut": true
+      },
+      {
+        "taskId": "production-config-compose",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-unit",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-parity",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-integration",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "go-temporal-integration",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-integration-race",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "go-api",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-observability",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-compose",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "go-compose-contract",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "go-race",
+        "status": 1,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "go-vulnerability",
+        "status": 0,
+        "signal": null,
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-ui-package",
+        "status": 1,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-format",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-compile",
+        "status": 1,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-deterministic",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "client-core",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "run-progress-client",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-deps-audit",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-hex-audit",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-assets-deploy",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-pagination-asset-check",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-release",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "backend-verify-baseline",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      },
+      {
+        "taskId": "frontend-gateway-workflows",
+        "status": 125,
+        "signal": "SIGTERM",
+        "timedOut": false
+      }
+    ]
+  }
+]

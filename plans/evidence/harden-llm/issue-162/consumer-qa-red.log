@@ -1,0 +1,5 @@
+--- FAIL: TestIssue162ReportedProviderOutcome (0.07s)
+    issue162_owner_qualification_test.go:14: consumer did not preserve uncertainty: failure=query analytics: model operation did not complete error=query analytics: model operation did not complete posts=1
+FAIL
+FAIL	github.com/prls-co/query-analytics/internal/agent/capabilities	0.084s
+FAIL

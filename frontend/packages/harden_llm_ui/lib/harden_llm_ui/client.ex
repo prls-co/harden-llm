@@ -209,7 +209,7 @@ defmodule HardenLlmUI.Client do
       run_state["lastTraceId"] == event["traceId"] and
       ((type == "run.completed" and result["status"] == "succeeded" and is_nil(data["error"])) or
          (type == "run.failed" and result["status"] in ["failed", "timeout"] and
-            is_map(data["error"])))
+            is_map(data["error"]) and DiagnosticsWire.valid?("ReferenceError", data["error"])))
   end
 
   defp correlated_stream_data?(_event), do: true
@@ -239,6 +239,9 @@ defmodule HardenLlmUI.Client do
 
   defp finish_stream(response, state) do
     cond do
+      get_in(state.terminal || %{}, ["data", "error", "code"]) == "execution_unconfirmed" ->
+        failed_run(state.terminal)
+
       state.reason ->
         {:error, protocol_error()}
 
@@ -253,13 +256,7 @@ defmodule HardenLlmUI.Client do
         {:error, protocol_error()}
 
       state.terminal["type"] == "run.failed" ->
-        {:error,
-         %APIError{
-           category: :backend,
-           message: "The run failed.",
-           trace_id: state.terminal["traceId"],
-           ambiguous?: false
-         }}
+        failed_run(state.terminal)
 
       true ->
         data = state.terminal["data"]
@@ -270,6 +267,25 @@ defmodule HardenLlmUI.Client do
            "state" => data["state"]
          }}
     end
+  end
+
+  defp failed_run(terminal) do
+    problem = terminal["data"]["error"]
+    unconfirmed? = problem["code"] == "execution_unconfirmed"
+
+    {:error,
+     %APIError{
+       category: :backend,
+       code: String.slice(problem["code"], 0, 64),
+       message:
+         if(unconfirmed?,
+           do: "The run outcome is unknown. Do not automatically repeat this run.",
+           else: "The run failed."
+         ),
+       trace_id: terminal["traceId"],
+       diagnostic: problem["diagnostic"],
+       ambiguous?: unconfirmed?
+     }}
   end
 
   defp stream_content_type?(response),
@@ -418,7 +434,7 @@ defmodule HardenLlmUI.Client do
          current_revision: metadata["currentRevision"],
          field_errors:
            Map.new(metadata["fieldErrors"] || [], fn item -> {item["field"], item["message"]} end),
-         ambiguous?: status >= 500
+         ambiguous?: code == "execution_unconfirmed" or status >= 500
        }}
     else
       _ -> {:error, protocol_error()}
@@ -471,6 +487,9 @@ defmodule HardenLlmUI.Client do
     reference = if is_binary(run_id), do: " Run ID: #{run_id}.", else: ""
     "LLM profile settings are invalid (profile_invalid)." <> details <> reference
   end
+
+  defp reference_error_message(_status, "execution_unconfirmed", _metadata),
+    do: "The run outcome is unknown. Do not automatically repeat this run."
 
   defp reference_error_message(status, code, _metadata), do: safe_error_message(status, code)
 

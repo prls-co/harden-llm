@@ -341,8 +341,7 @@ func (e admissionExecutor) Execute(ctx context.Context, p hardenllm.PreparedOper
 	stopped = true
 	observation.Outcome, err = batch.ObserveProviderDispatch(result, err)
 	if err == nil && a.GenerationDeadline != nil && finished.After(*a.GenerationDeadline) {
-		observation.Outcome.Kind = "unconfirmed"
-		err = context.DeadlineExceeded
+		observation.Outcome, err = batch.ObserveProviderDispatch(result, context.DeadlineExceeded)
 	}
 	return result, err
 }

@@ -287,7 +287,7 @@ func Execute(
 			captureProviderParseFailure(&record, failure, &previousOutput)
 		}
 		if contextErr := executionContextError(ctx, config.Now()); contextErr != nil {
-			failure = contextErr
+			failure = executionContextFailure(failure, contextErr)
 		}
 		classification := retry.Classify(failure, config.Policy)
 		attemptRecord := AttemptRecord{
@@ -354,6 +354,20 @@ func Execute(
 			return record, err
 		}
 	}
+}
+
+// Preserve effect-owned uncertainty while the logical context still determines
+// cancellation/deadline classification. A local stop is not a remote outcome.
+func executionContextFailure(failure, contextErr error) error {
+	var uncertain interface{ InferenceUnconfirmed() bool }
+	var provider *retry.ProviderError
+	if (errors.As(failure, &uncertain) && uncertain.InferenceUnconfirmed()) || (errors.As(failure, &provider) && provider.Code == "execution_unconfirmed") {
+		if errors.Is(failure, contextErr) {
+			return failure
+		}
+		return errors.Join(contextErr, failure)
+	}
+	return contextErr
 }
 
 func executionContextError(ctx context.Context, now time.Time) error {

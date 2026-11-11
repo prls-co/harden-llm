@@ -1,0 +1,5 @@
+--- FAIL: TestExecutionLoopsPreserveProviderUncertainty (0.00s)
+    execution_uncertainty_test.go:55: core lost uncertainty or replayed the effect: structured=false context=context canceled calls=1 attempts=1 error=context canceled
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/runtime	0.003s
+FAIL

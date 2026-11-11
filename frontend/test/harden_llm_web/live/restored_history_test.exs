@@ -76,7 +76,7 @@ defmodule HardenLlmWeb.RestoredHistoryTest do
           Req.Test.json(request, f["statistics"])
 
         {"GET", "/api/v1/history/" <> _id} ->
-          Req.Test.json(request, f["record"])
+          Req.Test.json(request, Agent.get(store, &Map.get(&1, :record, f["record"])))
 
         {"DELETE", "/api/v1/history/" <> _id} ->
           if Agent.get(store, & &1.delete_failed) do
@@ -164,6 +164,36 @@ defmodule HardenLlmWeb.RestoredHistoryTest do
     view |> element("#workspace-history-pagination-page-2") |> render_click()
     render_settled(view, 1_000)
     assert_receive {:history_call, "GET", "/api/v1/history", %{"page" => "2"}}
+  end
+
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-540 / WEB-TEST-131.
+  test "saved history detail identifies an unknown provider outcome", %{
+    conn: conn,
+    f: f,
+    store: store
+  } do
+    record =
+      f["record"]
+      |> Map.put("status", "failed")
+      |> put_in(["summary", "status"], "failed")
+      |> put_in(["result", "status"], "failed")
+      |> put_in(["result", "output"], nil)
+      |> put_in(["result", "resultSource"], %{"kind" => "none"})
+      |> Map.put("error", %{
+        "code" => "execution_unconfirmed",
+        "message" => "Provider outcome unknown."
+      })
+
+    Agent.update(store, &Map.put(&1, :record, record))
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+    view |> element("#history-fold-toggle") |> render_click()
+    render_settled(view, 1_000)
+    id = f["record"]["runId"]
+    view |> element("#history-trace-#{id}-summary") |> render_click()
+    render_settled(view, 1_000)
+    assert has_element?(view, "#workspace-history-#{id}", "provider outcome is unknown")
+    refute_receive {:history_call, "POST", "/api/v1/run", _}, 50
   end
 
   test "trace resource buttons use run ID and show the canonical raw trace", %{conn: conn, f: f} do

@@ -336,7 +336,7 @@ func executeRecoveryPlan(
 		}
 		if executionErr := executionContextError(ctx, config.Now()); executionErr != nil {
 			record.StopReason = stopReasonFor(executionErr)
-			return record, executionErr
+			return record, executionContextFailure(failure, executionErr)
 		}
 		if semanticParse {
 			// A semantic transition is another provider operation and must never

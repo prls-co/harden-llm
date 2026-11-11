@@ -221,7 +221,15 @@ type RunFailure struct {
 
 func (*RunFailure) Error() string { return "harden inference failed with a definitive terminal result" }
 
-type UnknownOutcomeError struct{ Cause error }
+// UnknownOutcomeError also preserves a server-reported unconfirmed provider
+// outcome. Problem and Evidence are present only when received and validated;
+// they never imply that inference is safe to replay.
+type UnknownOutcomeError struct {
+	Cause      error
+	Problem    *RunError
+	Evidence   *RunEvidence
+	StatusCode int
+}
 
 func (*UnknownOutcomeError) Error() string {
 	return "harden inference outcome is unknown; do not replay inference"

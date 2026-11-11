@@ -287,7 +287,7 @@ func (f *temporalBatchFixture) assertResults(t *testing.T, id string, n int) {
 		}
 		json.Unmarshal([]byte(native.OutputText), &value)
 		if result.Error != nil || result.CustomID != value.Nonce || seen[value.Nonce] || result.Diagnostics.HeadersMS == nil || result.Diagnostics.OutputTokens == nil {
-			t.Fatalf("unqualified or repeated result: %+v", result)
+			t.Fatalf("unqualified or repeated result: %.4096s", scan.Bytes())
 		}
 		seen[value.Nonce] = true
 	}
@@ -304,6 +304,9 @@ func TestTemporalBatchThousandSeparateRequests(t *testing.T) {
 	job, raw := f.submit(t, 1000)
 	status := f.wait(t, job.JobID, func(v batch.Status) bool { return v.Counts.Done() })
 	if status.Counts.Succeeded != 1000 || f.calls.Load() != 1000 || f.peak.Load() > 128 {
+		// Read the owned public results before cleanup so a failed count retains
+		// its actual item/attempt cause. Keep every existing success/count oracle.
+		f.assertResults(t, job.JobID, 1000)
 		t.Fatalf("not 1000 separate successful requests: %+v calls=%d peak=%d", status.Counts, f.calls.Load(), f.peak.Load())
 	}
 	f.assertResults(t, job.JobID, 1000)

@@ -4,12 +4,31 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/stateful"
+	"github.com/prls-co/harden-llm/stateful/batch"
 	"log/slog"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-540.
+func TestReferenceUnconfirmedErrorProjection(t *testing.T) {
+	t.Parallel()
+	for _, cause := range []error{&hardenllm.ProviderError{Code: "NETWORK_ERROR", Category: "network"}, context.DeadlineExceeded, context.Canceled, &hardenllm.ProviderError{Code: "execution_unconfirmed", Category: "other"}} {
+		_, err := batch.ObserveProviderDispatch(hardenllm.ProviderResult{ProviderDispatched: true}, cause)
+		writer := httptest.NewRecorder()
+		api := &API{logger: slog.Default()}
+		api.referenceRunFailure(writer, httptest.NewRequest("POST", "/api/v1/run", nil), err, stateful.RunOutput{RecordedRunOutput: stateful.RecordedRunOutput{Status: "failed"}, History: stateful.RecordingOutcome{Status: "saved"}})
+		var envelope referenceErrorEnvelope
+		if json.Unmarshal(writer.Body.Bytes(), &envelope) != nil || envelope.Error.Code != "execution_unconfirmed" || envelope.Error.Diagnostic.InferenceOutcome != "unconfirmed" || envelope.Error.Diagnostic.PersistenceOutcome != "saved" || envelope.Error.Diagnostic.Cause != "unknown" || writer.Header().Get("x-should-retry") != "false" {
+			t.Fatalf("reference projection lost uncertainty: status=%d headers=%v body=%s", writer.Code, writer.Header(), writer.Body)
+		}
+	}
+}
 
 func TestReferenceRejectionCorrelation(t *testing.T) {
 	t.Parallel()

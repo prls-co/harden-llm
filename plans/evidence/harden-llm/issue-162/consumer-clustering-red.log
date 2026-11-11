@@ -1,0 +1,5 @@
+--- FAIL: TestIssue162ReportedProviderOutcome (0.09s)
+    issue162_owner_qualification_test.go:8: consumer did not preserve uncertainty: code=harden_operation_failed error=harden inference failed with a definitive terminal result posts=1
+FAIL
+FAIL	github.com/prls-co/clustering-go/internal/clustering	0.114s
+FAIL
