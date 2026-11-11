@@ -206,3 +206,41 @@ History remains 331 rows / 2,908,160 bytes, protected inputs are unchanged, and
 inference replay, provider smoke call or browser launch. Browser layout and the
 original failed network hop remain unverified; deployment does not turn the
 outcome-handling correction into a proven network-root-cause fix.
+
+## 8. Safe transport and admission diagnosis
+
+The [diagnostics plan](../../plans/transport-admission-diagnostics-plan.md)
+continues the remaining evidence gap without changing the execution policy.
+The concrete router captures finite error-class and phase labels before the
+existing transport normalizer discards its raw error. Internal, non-JSON fields
+on the existing provider-effect diagnostics carry those facts to the existing
+`ordinary CPA dispatch observed` record. They do not extend OpenAPI, cached
+results, stored history or artifact JSON. Public DTOs and observer interfaces
+retain their existing shapes.
+
+The event now includes the accepted generation budget/deadline, safe outcome
+code/HTTP status, bounded CPA stream correlation, event/output counts, last
+event/output timestamps and terminal state. The existing redacted structured
+logger supplies trace correlation and JSON/OTel delivery. Missing observations
+remain absent; a cache hit creates no provider dispatch event. The finite phases
+are `request`, `response_headers`, `response_body` and `response_stream`. They
+describe the local boundary where the failure was observed, not a proven failed
+network hop. A header timeout wrapping `DeadlineExceeded` does not establish
+expiry of the accepted generation deadline.
+
+One shared ledger error mapper retains validated PostgreSQL SQLSTATE or a safe
+context/connection class in an unavailable-error wrapper. Both recovery and
+terminal admission events use `MetadataErrorClass`; the old duplicate switch
+is removed. The wrapper preserves `errors.Is(err, batch.ErrUnavailable)` and
+the previous safe error text, while discarding the raw driver error and SQL
+details. Direct error equality or a concrete error-type assertion would differ;
+repository consumers use `errors.Is`. This is the Go compatibility consideration
+for external users of the ledger adapter.
+
+TEST-542/543 cover the actual TLS/router/core/admission chain and safe mapper;
+TEST-544 owns the actual PostgreSQL failure and cache boundaries. Their
+[evidence receipt](../../plans/evidence/harden-llm/issue-162/diagnostics/receipt.json)
+separates failed attempts, accepted checks, hosted status and deployment.
+No new dependency, observer method, configuration, database migration, retry,
+deadline increase or logging sink is introduced. Prompts, schemas, models and
+reasoning are unchanged. The original network cause remains unproven.

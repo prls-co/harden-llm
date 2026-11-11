@@ -26,6 +26,7 @@ func referenceUncertaintyService(t *testing.T, pool *pgxpool.Pool, mode string) 
 	t.Helper()
 	calls := &atomic.Int32{}
 	entered := make(chan struct{})
+	release := make(chan struct{})
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		var input struct {
@@ -36,6 +37,12 @@ func referenceUncertaintyService(t *testing.T, pool *pgxpool.Pool, mode string) 
 			w.WriteHeader(400)
 			return
 		}
+		if mode == "no_headers" {
+			<-r.Context().Done()
+			<-release
+			return
+		}
+		w.Header().Set("X-Cpa-Trace-Id", "synthetic-private-prefix-0123abcd")
 		if mode == "rejected" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(400)
@@ -48,8 +55,11 @@ func referenceUncertaintyService(t *testing.T, pool *pgxpool.Pool, mode string) 
 		w.(http.Flusher).Flush()
 		close(entered)
 		switch mode {
-		case "canceled":
+		case "canceled", "deadline":
 			<-r.Context().Done()
+			// Keep this fixture open until teardown so the client's own context
+			// is the observed stop, rather than racing a server-generated EOF.
+			<-release
 		case "partial":
 			connection, _, err := w.(http.Hijacker).Hijack()
 			if err != nil {
@@ -61,7 +71,7 @@ func referenceUncertaintyService(t *testing.T, pool *pgxpool.Pool, mode string) 
 			fmt.Fprint(w, "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"fixture\",\"status\":\"completed\",\"output_text\":\"OK\",\"usage\":{\"input_tokens\":4,\"output_tokens\":3,\"total_tokens\":7}}}\n\n")
 		}
 	}))
-	t.Cleanup(provider.Close)
+	t.Cleanup(func() { close(release); provider.Close() })
 	roots := x509.NewCertPool()
 	roots.AddCert(provider.Certificate())
 	catalog := fixtureCatalog(t)
@@ -74,12 +84,16 @@ func referenceUncertaintyService(t *testing.T, pool *pgxpool.Pool, mode string) 
 	preset.Definition, _ = json.Marshal(definition)
 	preset.Binding = ProfileCredentialBinding{Source: "deployment", DeploymentUpstreamID: "cpa"}
 	store := newAdmissionMemoryStore()
+	headerTimeout := time.Duration(0)
+	if mode == "no_headers" {
+		headerTimeout = 100 * time.Millisecond
+	}
 	service, err := NewService(Config{Pool: pool, History: HistoryConfig{Enabled: pool != nil},
 		Presets:   Catalog{"CPA Responses": preset},
 		Admission: &CPAAdmission{Store: store, Signals: admissionSignals{}, PoolID: "pool", Endpoint: definition.BaseURL},
 		Client: ClientOptions{
 			Connections: []hardenllm.Connection{{ID: "cpa", Provider: "cpa", Protocol: "responses", BaseURL: definition.BaseURL, APIKey: "synthetic-provider-key"}}, DefaultConnection: "cpa",
-			EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}},
+			EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}, ResponseHeaderTimeout: headerTimeout},
 		}})
 	if err != nil {
 		t.Fatal(err)

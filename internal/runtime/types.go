@@ -199,17 +199,21 @@ type ProviderResult struct {
 }
 
 type StreamDiagnostics struct {
-	CorrelationID    string     `json:"correlationId,omitempty"`
-	HeadersMs        *int64     `json:"headersMs,omitempty"`
-	ReceivedBytes    int64      `json:"receivedBytes,omitempty"`
-	EventCount       int64      `json:"eventCount,omitempty"`
-	OutputBytes      int64      `json:"outputBytes,omitempty"`
-	OutputCodePoints int64      `json:"outputCodePoints,omitempty"`
-	FirstEventMs     *int64     `json:"firstEventMs,omitempty"`
-	FirstOutputMs    *int64     `json:"firstOutputMs,omitempty"`
-	LastEventAt      *time.Time `json:"lastEventAt,omitempty"`
-	LastOutputAt     *time.Time `json:"lastOutputAt,omitempty"`
-	TerminalState    string     `json:"terminalState,omitempty"`
+	// Transport cause labels are effect-local logging facts. They do not change
+	// the strict public diagnostics schema or persisted/cache wire formats.
+	TransportErrorClass string     `json:"-"`
+	TransportErrorPhase string     `json:"-"`
+	CorrelationID       string     `json:"correlationId,omitempty"`
+	HeadersMs           *int64     `json:"headersMs,omitempty"`
+	ReceivedBytes       int64      `json:"receivedBytes,omitempty"`
+	EventCount          int64      `json:"eventCount,omitempty"`
+	OutputBytes         int64      `json:"outputBytes,omitempty"`
+	OutputCodePoints    int64      `json:"outputCodePoints,omitempty"`
+	FirstEventMs        *int64     `json:"firstEventMs,omitempty"`
+	FirstOutputMs       *int64     `json:"firstOutputMs,omitempty"`
+	LastEventAt         *time.Time `json:"lastEventAt,omitempty"`
+	LastOutputAt        *time.Time `json:"lastOutputAt,omitempty"`
+	TerminalState       string     `json:"terminalState,omitempty"`
 }
 
 type WaitDiagnostics struct {

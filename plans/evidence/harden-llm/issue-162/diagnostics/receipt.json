@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "issue": 162,
+  "status": "locally_qualified_review_candidate",
+  "verifiedAt": "2026-11-11T20:42:51.698020+00:00",
+  "branch": "fix/transport-admission-diagnostics",
+  "baseSource": "d91ff3755f6a93f0d7b39763c2c2d59d6f8f352e",
+  "verificationInputsSHA256": {
+    "internal/providers/transport_diagnostics.go": "ddc159a25af8153e14ba08d9efab1763947999a24884631e2e8f99491bfc307b",
+    "internal/providers/transport_diagnostics_test.go": "0c954293f5eef0b9719cc4a4e47416a893de78641ab3123139ac849f5b89faaa",
+    "stateful/admission_diagnostics_integration_test.go": "27cbcdb6c3cd5ff52549f43a7e116b5b2958d068bac2d01fa7e801567664fc03",
+    "stateful/admission_diagnostics_test.go": "aa44081a493771f2f7002e7465222b677ba3d8ab12babf32a7146285a0f1e11a",
+    "stateful/batch/ledger_error.go": "1c518f9f2c8e83e7acdac6b165d33f9ca578a17bee2f0f63ac82286217a75a1f",
+    "stateful/batch/ledger_error_integration_test.go": "8ee2ef4cd05603d1b4cb87a4cd7294dc8a1fc38337e37c4a2da8830342fef7e9",
+    "stateful/batch/ledger_error_test.go": "1e935c40ad47cd33ac9bf16bea11fea27f763b51739a692d0a7ebc6e8c3f6204",
+    "internal/providers/router.go": "ebf06083d792639b07b0c5868c25d4517c1c5f2835b6f67d67f9d7670884b656",
+    "internal/runtime/types.go": "97181fddb3e28f28eb4a3b8fc0eae94bcb6f7eed81bbdad41614c770702fcea8",
+    "stateful/batch/ledger_store.go": "eef0cd40b8ecac26f0c56395e7847d568385a92d6beae3cec90cbd2079faf45a",
+    "stateful/cpa_admission.go": "b2205b2ca959e41c9e3defeb60890899bd5f9a63543fdfd8d199de3221e45bea",
+    "stateful/reference_uncertainty_test.go": "e22657b26c3bdad9e143aa4046306f90cd1ff8120f1dbb70639f446ea55c97b9",
+    "test/test-tiers.json": "a03f51ddd02cb96f870a1ee7741f1cdef29e0d83e825c287722bc32c731ccbff"
+  },
+  "checks": {
+    "focusedRace": {
+      "accepted": true,
+      "log": "final-focused-race.log",
+      "packages": [
+        "internal/providers",
+        "stateful",
+        "stateful/batch"
+      ]
+    },
+    "fast": {
+      "report": "fast.json",
+      "sha256": "319eda4b7f634231084a177a253d60febe047047c75b2b7f868d9947767747a2",
+      "accepted": true,
+      "selector": "fast",
+      "taskCount": 10,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "integration": {
+      "report": "integration.json",
+      "sha256": "fd1ae9805c4a785768dc89d9f3ca505626ba74c9c928cd8f95eb26e69ab555fb",
+      "accepted": true,
+      "selector": "go-integration",
+      "taskCount": 1,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "coverageVerifier": "node scripts/verify-test-tiers.mjs passed",
+    "whitespace": "git diff HEAD --check passed"
+  },
+  "fastProfile": {
+    "command": "node scripts/run-test-tier.mjs --task fast --candidate-slots 1",
+    "candidateSlots": 1,
+    "allTenTasksRetained": true,
+    "assertionsAndTimeoutsUnchanged": true,
+    "makeTestFastDefaultRun": "retained runner-contracts timeout; canceled frontend task is not a pass"
+  },
+  "scratch": {
+    "goBuildDirectory": "/home/kirill/.cache/harden-llm-issue-162-gotmp",
+    "reason": "shared /tmp linker quota failure; scratch inside checkout raced the parity evidence scan"
+  },
+  "reuse": [
+    "existing provider router and transport normalizer",
+    "existing provider-effect StreamDiagnostics with non-JSON labels",
+    "existing ordinary CPA dispatch event",
+    "existing redacted JSON/OTel structured logger and trace correlation",
+    "one shared ledger mapper and MetadataErrorClass; duplicate admission switch removed",
+    "existing TLS/core/admission and PostgreSQL lease fixtures"
+  ],
+  "compatibility": {
+    "openapiChanged": false,
+    "publicResultAndAttemptDTOsChanged": false,
+    "observerInterfaceChanged": false,
+    "cacheHistoryArtifactWireFormatsChanged": false,
+    "newConfiguration": false,
+    "newDependency": false,
+    "databaseMigration": false,
+    "ledgerErrors": "same safe message and errors.Is(ErrUnavailable); direct equality or concrete-type assertions can differ",
+    "providerEffectDiagnostics": "two additive internal json:- fields; foreign code recreating the internal effect struct shape may need adjustment"
+  },
+  "parity": {
+    "promptsSchemasModelsReasoningChanged": false,
+    "retryClassificationChanged": false,
+    "providerReplayAdded": false,
+    "generationDeadlineOrTimeoutPolicyChanged": false,
+    "admissionReadRecoveryLimitsChanged": false,
+    "accountingChanged": false
+  },
+  "catalogCorrection": {
+    "testId": "TEST-539",
+    "baselineEvidence": "baseline-catalog-failure.log",
+    "change": "register the already executed default-tag consumer under go-unit; no command or assertion change"
+  },
+  "retainedNonAcceptance": [
+    {
+      "files": [
+        "red.log"
+      ],
+      "reason": "initial actual-boundary and ledger safe-class regressions fail on unchanged application code"
+    },
+    {
+      "files": [
+        "focused-race-first-failure.log"
+      ],
+      "reason": "first diagnostic implementation conflated the transport header timeout and confirmed logical deadline"
+    },
+    {
+      "files": [
+        "raw-cause-red.log"
+      ],
+      "reason": "late logical context stop erased an already observed socket reset"
+    },
+    {
+      "files": [
+        "raw-cause-fixture-first-failure.log",
+        "header-fixture-first-failure.log"
+      ],
+      "reason": "test handlers returning after cancellation raced the intended client stop with EOF or implicit response headers; handlers now wait for test-owned teardown"
+    },
+    {
+      "files": [
+        "fast-interrupted.log",
+        "fast-interrupted-report.json"
+      ],
+      "reason": "aggregate stopped after finding existing catalog registration/ownership gap; not acceptance"
+    },
+    {
+      "files": [
+        "fast-disk-quota.log",
+        "fast-disk-quota-report.json"
+      ],
+      "reason": "Go linker failed in shared /tmp; no pass claimed"
+    },
+    {
+      "files": [
+        "fast-scratch-path.log",
+        "fast-scratch-path-report.json"
+      ],
+      "reason": "scratch under checkout raced parity scanner; moved outside checkout"
+    },
+    {
+      "files": [
+        "fast-budget-failure.log",
+        "fast-budget-failure-report.json"
+      ],
+      "reason": "runner-contracts exceeded unchanged 180-second task budget while integration and other fast work overlapped; sibling SIGTERM is not independent failure/pass"
+    },
+    {
+      "files": [
+        "pre-final-fast.log",
+        "pre-final-fast-report.json"
+      ],
+      "reason": "earlier complete pass is not used to qualify subsequent raw-cause/fixture correction"
+    }
+  ],
+  "limits": {
+    "originalNetworkHopCause": "unproven",
+    "productionDeployed": false,
+    "browserRun": false,
+    "browserLayoutChecked": false,
+    "paidProviderInference": false,
+    "fullReleaseCertification": false,
+    "hostedChecks": "to be inspected after push; local reports do not establish hosted acceptance"
+  }
+}
