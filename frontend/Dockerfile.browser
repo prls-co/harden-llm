@@ -9,7 +9,7 @@ RUN apk add --no-cache \
       build-base=0.5-r3 \
       chromium=149.0.7827.53-r0 \
       chromium-chromedriver=149.0.7827.53-r0 \
-      git=2.52.0-r0 \
+      git=2.52.1-r0 \
       su-exec=0.3-r0
 
 RUN apk add --no-cache \
