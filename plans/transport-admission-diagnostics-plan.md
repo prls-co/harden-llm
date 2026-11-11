@@ -36,7 +36,9 @@ failure consume this same classification.
    real PostgreSQL waiter-read test for the actual driver/mapping boundary.
 5. Run focused race checks, `make test-fast`, the affected PostgreSQL check and
    `git diff HEAD --check`. Commit and push a reviewable feature branch/PR from
-   `dev`; production promotion is outside this routine change.
+   `dev`. The initial routine change did not include production promotion;
+   the subsequent explicit review-closeout request authorizes promotion to
+   `main`, the exact-main browser-free release gate and scoped deployment.
 
 ## 3. Compatibility and conventions
 
@@ -76,3 +78,29 @@ registration. Register its existing executable consumer under `go-unit`, which
 already runs that default-tag Go test. Keep its assertions and commands intact;
 no additional execution path or verifier exception is introduced. The baseline
 failure and interrupted early aggregate run remain retained separately.
+
+## 6. Review correction and authorized release closeout
+
+The [PR #176 review](https://github.com/prls-co/harden-llm/pull/176#issuecomment-6807012834)
+approved the implementation and identified missing cause forwarding at
+`pool_generation`, `enqueue` and `wake`. TEST-543 reproduces all three gaps
+before correction. Pass the existing errors through the same classifier and
+make the private failure helper's cause argument mandatory; use explicit `nil`
+for identity-only failures. This removes the optional-argument branch without
+introducing another classification path or changing execution behavior.
+
+After focused race and aggregate fast qualification, push the reviewed source,
+verify hosted checks, merge through `dev` to `main`, then certify a specific
+exact-main release run under ADR-HLLM-028. Build only the changed gateway image;
+the worker shares it and the web inputs are unchanged. Capture protected
+descriptor/runtime/data baselines, apply the worker before the gateway using
+the existing scoped controller, verify Temporal pollers and TEST-435 HTTP/auth
+acceptance, and record component identities and preservation evidence. Keep
+the unchanged web image and shared services. Browser and paid-provider work
+remain outside this closeout.
+
+The earlier hosted run failed before acquiring a runner and executed no steps;
+its skipped jobs are not accepted tests. Retain this scheduling failure and
+qualify the corrected source independently. No merge or deployment is implied
+while required hosted/release checks remain unqualified. Review evidence is
+under `plans/evidence/harden-llm/issue-162/diagnostics/review-followup/`.

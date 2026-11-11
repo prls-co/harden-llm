@@ -244,3 +244,19 @@ separates failed attempts, accepted checks, hosted status and deployment.
 No new dependency, observer method, configuration, database migration, retry,
 deadline increase or logging sink is introduced. Prompts, schemas, models and
 reasoning are unchanged. The original network cause remains unproven.
+
+### 8.1 Review correction: retain causes at every admission stage
+
+The [PR #176 review](https://github.com/prls-co/harden-llm/pull/176#issuecomment-6807012834)
+found that pool lookup, enqueue and wake failures omitted their available cause
+when calling the shared failure logger. They consequently logged `unavailable`
+even when the underlying safe class was known. All three now forward that
+cause. The private helper requires it explicitly, removing its optional-argument
+branch and making omissions a compile-time error; identity failures use `nil`.
+
+TEST-543 reproduces the three missing classes before correction, then proves
+safe SQLSTATE/context logging with no provider entry, no claim and unchanged
+caller deadlines. This is diagnostic-only: no public contract, schema, retry
+or timeout policy changes. The review/release closeout retains its own
+[receipt](../../plans/evidence/harden-llm/issue-162/diagnostics/review-followup/receipt.json)
+without replacing the initial qualification or borrowing its source identity.

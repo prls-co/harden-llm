@@ -79,27 +79,33 @@ func TestCPAAdmissionUnavailableCannotBypassIntoNative(t *testing.T) {
 type admissionMemoryStore struct {
 	onEnqueue func(context.Context)
 	batch.RequestQueueStore
-	mu             sync.Mutex
-	waiters        map[string]batch.RequestWaiter
-	attempts       map[string]batch.Attempt
-	queued         []batch.RequestWaiter
-	observations   []batch.AttemptObservation
-	neverGrant     bool
-	fail           string
-	onClaim        func()
-	claims         int
-	readFailures   int
-	reads          int
-	readFailureErr error
+	mu           sync.Mutex
+	waiters      map[string]batch.RequestWaiter
+	attempts     map[string]batch.Attempt
+	queued       []batch.RequestWaiter
+	observations []batch.AttemptObservation
+	neverGrant   bool
+	fail         string
+	onClaim      func()
+	claims       int
+	readFailures int
+	reads        int
+	failureErr   error
 }
 
 func newAdmissionMemoryStore() *admissionMemoryStore {
 	return &admissionMemoryStore{waiters: map[string]batch.RequestWaiter{}, attempts: map[string]batch.Attempt{}}
 }
 func (s *admissionMemoryStore) PoolGeneration(context.Context, string) (batch.PoolGeneration, error) {
+	if s.fail == "pool_generation" {
+		return batch.PoolGeneration{}, s.failureErr
+	}
 	return batch.PoolGeneration{PoolID: "pool", Generation: 2, Mode: "active"}, nil
 }
 func (s *admissionMemoryStore) EnqueueRequest(ctx context.Context, w batch.RequestWaiter) (batch.RequestWaiter, error) {
+	if s.fail == "enqueue" {
+		return batch.RequestWaiter{}, s.failureErr
+	}
 	if s.onEnqueue != nil {
 		s.onEnqueue(ctx)
 	}
@@ -121,8 +127,8 @@ func (s *admissionMemoryStore) ReadRequest(_ context.Context, scope, id, owner s
 	s.reads++
 	if s.readFailures > 0 {
 		s.readFailures--
-		if s.readFailureErr != nil {
-			return batch.RequestWaiter{}, s.readFailureErr
+		if s.failureErr != nil {
+			return batch.RequestWaiter{}, s.failureErr
 		}
 		return batch.RequestWaiter{}, batch.ErrUnavailable
 	}
@@ -139,7 +145,7 @@ func TestCPAAdmissionReadRecoveryPreservesCancellationAndOwnershipFailure(t *tes
 			store := newAdmissionMemoryStore()
 			store.readFailures = 99
 			if missing {
-				store.readFailureErr = batch.ErrNotFound
+				store.failureErr = batch.ErrNotFound
 			}
 			native := &admissionNative{}
 			client := admissionTestClient(t, store, native)

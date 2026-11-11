@@ -2663,6 +2663,7 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
 - Coverage gate: `fast`.
 - Tier: T0/T1; `stateful/batch/ledger_error_test.go` and `stateful/admission_diagnostics_test.go`.
 - Oracle: The shared mapper preserves a bounded validated PostgreSQL SQLSTATE or safe context class, the existing unavailable error text and `errors.Is(ErrUnavailable)`. It never unwraps the raw driver error. Repeated mapping retains safe facts; known sentinels and missing-row behavior remain unchanged. Recovery and terminal logs share the same safe class, with the same waiter identity, at most two recovery reads and no provider entry on persistent failure.
+- Review correction: `TestCPAAdmissionEarlyFailureLogsSafeClass` exercises pool-generation lookup, enqueue and wake failures through the existing composed service. Each stage retains its SQLSTATE/context class in exactly one existing admission-failure event, makes no provider call or ledger claim and leaves the caller deadline unchanged. The internal failure helper requires an explicit cause; identity-only failures pass `nil`.
 
 ### TEST-544: Actual SQL failure and cache-hit diagnostic boundaries
 

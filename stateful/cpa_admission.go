@@ -103,13 +103,9 @@ func admissionFailure() error {
 	return &hardenllm.ProviderError{Status: 503, Category: retry.CategoryOther, Code: "admission_unavailable", Err: errors.New("CPA admission could not be confirmed")}
 }
 
-func (a *CPAAdmission) failure(ctx context.Context, stage string, causes ...error) error {
+func (a *CPAAdmission) failure(ctx context.Context, stage string, cause error) error {
 	if a.Logger != nil {
-		class := "unavailable"
-		if len(causes) > 0 {
-			class = batch.MetadataErrorClass(causes[0])
-		}
-		a.Logger.ErrorContext(ctx, "ordinary CPA admission not confirmed", "pool_id", a.PoolID, "metadata_stage", stage, "metadata_error_class", class, "native_entered", false)
+		a.Logger.ErrorContext(ctx, "ordinary CPA admission not confirmed", "pool_id", a.PoolID, "metadata_stage", stage, "metadata_error_class", batch.MetadataErrorClass(cause), "native_entered", false)
 	}
 	return admissionFailure()
 }
@@ -132,7 +128,7 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 	}
 	marker, readErr := a.Store.PoolGeneration(ctx, a.PoolID)
 	if readErr != nil || marker.Generation < 2 || marker.Mode != "active" {
-		return attempt, a.failure(ctx, "pool_generation")
+		return attempt, a.failure(ctx, "pool_generation", readErr)
 	}
 	w := batch.RequestWaiter{RequestID: uuid.NewString(), PoolID: a.PoolID, Generation: marker.Generation, Scope: scope, OwnerID: uuid.NewString(), ExecutionID: execution.id, Ordinal: int(execution.ordinal.Add(1)), Deadline: deadline.UTC().Truncate(time.Microsecond), BudgetMS: max(1, time.Until(deadline).Milliseconds())}
 	permit := ""
@@ -163,13 +159,13 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 		s.AdmissionWait("dispatch_pending", nil)
 	}
 	if _, queueErr := a.Store.EnqueueRequest(ctx, w); queueErr != nil {
-		return attempt, a.failure(ctx, "enqueue")
+		return attempt, a.failure(ctx, "enqueue", queueErr)
 	}
 	wake, stop := context.WithTimeout(ctx, 3*time.Second)
 	signalErr := a.Signals.Wake(wake, a.PoolID)
 	stop()
 	if signalErr != nil {
-		return attempt, a.failure(ctx, "wake")
+		return attempt, a.failure(ctx, "wake", signalErr)
 	}
 	waitStarted := time.Now()
 	unavailableReads := 0
@@ -233,7 +229,7 @@ func (a *CPAAdmission) begin(ctx context.Context, scope string, execution *admis
 		return batch.Attempt{}, a.failure(ctx, "claim", err)
 	}
 	if attempt.Kind != "ordinary" || attempt.RequestID != w.RequestID || attempt.PoolID != w.PoolID || attempt.Generation != w.Generation || attempt.Ref.Scope != scope || attempt.ClaimID != w.OwnerID || attempt.BudgetMS != w.BudgetMS || !attempt.Deadline.Equal(w.Deadline) {
-		return batch.Attempt{}, a.failure(ctx, "claim_identity")
+		return batch.Attempt{}, a.failure(ctx, "claim_identity", nil)
 	}
 	if ctx.Err() != nil {
 		return attempt, ctx.Err()

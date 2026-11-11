@@ -129,7 +129,7 @@ func TestCPAAdmissionWaiterReadLogsSafeClass(t *testing.T) {
 		t.Run(strconv.Itoa(failures), func(t *testing.T) {
 			service, store, calls, _ := referenceUncertaintyService(t, nil, "completed")
 			store.readFailures = failures
-			store.readFailureErr = errors.Join(batch.ErrUnavailable, &pgconn.PgError{Code: "57P01", Message: "driver-secret-sentinel", Detail: "private prompt"})
+			store.failureErr = errors.Join(batch.ErrUnavailable, &pgconn.PgError{Code: "57P01", Message: "driver-secret-sentinel", Detail: "private prompt"})
 			var logs bytes.Buffer
 			service.config.Admission.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
 			input := uncertaintyRunInput()
@@ -153,6 +153,41 @@ func TestCPAAdmissionWaiterReadLogsSafeClass(t *testing.T) {
 			}
 			if seen != min(failures, 3) {
 				t.Fatal("existing read events missing", seen)
+			}
+		})
+	}
+}
+
+func TestCPAAdmissionEarlyFailureLogsSafeClass(t *testing.T) {
+	t.Parallel()
+	for _, stage := range []string{"pool_generation", "enqueue", "wake"} {
+		t.Run(stage, func(t *testing.T) {
+			t.Parallel()
+			service, store, calls, _ := referenceUncertaintyService(t, nil, "completed")
+			store.fail = stage
+			store.failureErr = errors.Join(batch.ErrUnavailable, &pgconn.PgError{Code: "57P01", Message: "driver-secret-sentinel", Detail: "private prompt"})
+			want := "postgres_57P01"
+			if stage == "wake" {
+				want = "deadline"
+				service.config.Admission.Signals = &admissionPoolSignals{next: admissionSignalStub{wake: func(context.Context, string) error {
+					return context.DeadlineExceeded
+				}}}
+			}
+			var logs bytes.Buffer
+			service.config.Admission.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			deadline, _ := ctx.Deadline()
+			out, _, err := service.Run(ctx, strings.Repeat("a", 64), uncertaintyRunInput())
+			if err == nil || out.ProviderInvoked || calls.Load() != 0 || store.claims != 0 || store.reads != 0 || len(store.observations) != 0 {
+				t.Fatal("pre-entry failure crossed the provider boundary", err)
+			}
+			if after, _ := ctx.Deadline(); after != deadline || ctx.Err() != nil {
+				t.Fatal("metadata failure changed or canceled the caller deadline")
+			}
+			records := diagnosticLogRecords(t, logs.Bytes())
+			if len(records) != 1 || records[0]["msg"] != "ordinary CPA admission not confirmed" || records[0]["metadata_stage"] != stage || records[0]["metadata_error_class"] != want || records[0]["native_entered"] != false {
+				t.Fatalf("safe cause lost at %s: want=%s records=%v", stage, want, records)
 			}
 		})
 	}
