@@ -252,7 +252,18 @@ defmodule HardenLlmWeb.WorkspaceLive do
         socket = apply_run_result(socket, event["data"]["result"])
 
         {:noreply,
-         if(type == "run.failed", do: assign(socket, :run_error, "The run failed."), else: socket)}
+         if(type == "run.failed",
+           do:
+             assign(
+               socket,
+               :run_error,
+               if(get_in(event, ["data", "error", "code"]) == "execution_unconfirmed",
+                 do: "The run outcome is unknown. Do not automatically repeat this run.",
+                 else: "The run failed."
+               )
+             ),
+           else: socket
+         )}
 
       "history.recorded" ->
         {:noreply, assign(socket, :recording_outcome, event["data"])}
@@ -584,6 +595,9 @@ defmodule HardenLlmWeb.WorkspaceLive do
       ) do
     message =
       cond do
+        error.code == "execution_unconfirmed" ->
+          "The run outcome is unknown. Refresh History before deciding whether to run again."
+
         is_map(socket.assigns.run_result) and is_nil(socket.assigns.recording_outcome) ->
           "The run finished, but history recording could not be confirmed. Refresh History before deciding whether to run again."
 

@@ -2625,3 +2625,27 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
 - Command: `go test ./internal/testkit -run '^TestGoBuilderToolchainsAgree$' -count=1`.
 - Oracle: Gateway, explicit browser fixture, and Compose provider builders use the same immutable Go image. A module/toolchain update cannot leave a fixture on an older compiler.
 - Evidence: Release `42955795111` failed before Compose startup because its provider image used Go 1.26.10 with a module requiring Go 1.26.11. This static regression retains that invariant without Docker, browsers, network, or credentials.
+
+## 36. Reference provider uncertainty (issue #162)
+
+### TEST-540: Preserve unconfirmed provider outcomes across reference boundaries
+
+- Coverage gate: `fast`. TEST-541 separately owns the PostgreSQL boundary.
+- Frontend cases: WEB-TEST-131.
+- T0: `internal/runtime/execution_uncertainty_test.go` drives both production runtime loops with the existing injected clock, expiring the accepted deadline only after effect entry, and separately cancels on entry. Logical cancellation/deadline identity and effect-owned uncertainty both survive one dispatch. Known failures retain existing logical-context precedence.
+- Late completion: `stateful/admission_late_uncertainty_test.go` requires an effect that reports nominal success only after the real accepted deadline to retain admission's unconfirmed marker, positive local stop and exactly one dispatch. Late output is not accepted.
+- T1: `stateful/reference_uncertainty_test.go` uses the actual TLS provider router, runtime, reference composition and ordinary CPA admission. A provider socket closes after partial SSE output; a separate provider remains open until cancellation triggered by its confirmed entry. Both make exactly one dispatch despite a three-attempt retry policy, record positive local stop, retain unknown usage and expose `execution_unconfirmed`. Partial text is neither returned nor cached. Confirmed rejection and completed usage/output remain distinct controls.
+- Reference projection: `internal/gateway/httpapi/reference_diagnostic_test.go` consumes the actual admission uncertainty marker and error writer. Network, deadline, cancellation and explicit unconfirmed errors preserve the safe code, diagnostic `inferenceOutcome: unconfirmed`, independent persistence status and `x-should-retry: false`.
+- Go client: `httpclient/run_uncertainty_test.go` requires JSON and terminal SSE uncertainty to return `UnknownOutcomeError`, never `RunFailure` or `RejectedError`. Validated problem, dispatch evidence and received HTTP status survive without leaking remote messages; saved history and missing recording tail remain independent. Every case sends one POST.
+- T3: `stateful/reference_uncertainty_integration_test.go` uses the same actual partial-stream fixture with an owned PostgreSQL lease. Exactly one complete history row retains the unconfirmed error and unknown accounting, foreign scope cannot read it, and existing local execution statistics still count the failed run. No migration or inference replay is involved.
+- Phoenix: `frontend/test/harden_llm_web/harden_api_stream_test.exs`, `frontend/test/harden_llm_web/live/restored_workflow_test.exs` and `frontend/test/harden_llm_web/live/restored_history_test.exs` verify typed ambiguity, visible unknown outcome, independent saved history and no repeated POST. A missing recording tail must not replace a received unknown provider outcome with a recording-only failure.
+- Focused commands: `go test -race ./stateful ./httpclient ./internal/gateway/httpapi ./internal/runtime -run 'TestReferenceProviderUncertainty|TestExecutionContextPreservesProviderUncertainty|TestRun.*ReportedProviderUncertainty|TestReferenceUnconfirmedErrorProjection' -count=1`; run `TestReferenceUncertaintyHistory` through the runner-owned `go-integration` task. Phoenix uses the pinned toolchain and the three named test files.
+- Contract: `RecordedRunOutput.status` describes local execution (`succeeded`, `failed`, `timeout`). The existing error code `execution_unconfirmed` preserves provider uncertainty in SSE, JSON and history without changing these statuses or the database schema. Clients must never infer a confirmed provider failure from `run.failed` alone. Recording uncertainty is a separate outcome.
+- Evidence limit: these tests reproduce transport interruption and its owner/client handling; they do not establish the failed network hop in the historical 5.1-second incident. The separate delayed-header regression under TEST-422/474 remains required; no deadlines, provider retries, prompts or schemas are relaxed.
+
+### TEST-541: Record reference uncertainty in real PostgreSQL history
+
+- Coverage gate: `go-integration`; tier T3.
+- Location: `stateful/reference_uncertainty_integration_test.go`, `TestReferenceUncertaintyHistory`.
+- Command: `node scripts/run-test-tier.mjs --task go-integration` (owned service pool).
+- Oracle: TEST-540's actual TLS/router/runtime/admission partial stream produces exactly one PostgreSQL history record with `execution_unconfirmed`, unknown usage and no partial output. Scope isolation, detail reads, local execution statistics and one provider dispatch remain intact. The process-local admission fixture does not certify real Temporal/ledger races, which retain their existing tests.

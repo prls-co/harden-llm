@@ -1719,6 +1719,9 @@ components:
         revision: {type: integer, minimum: 0}
         payload: {type: object}
     ReferenceError:
+      description: A failed local run does not establish a failed provider outcome.
+        Code execution_unconfirmed means provider completion or billing is unknown;
+        never replay inference automatically, even after local timeout or cancellation.
       type: object
       additionalProperties: false
       required: [code, message]

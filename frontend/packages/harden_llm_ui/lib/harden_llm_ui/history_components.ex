@@ -35,6 +35,12 @@ defmodule HardenLlmUI.HistoryComponents do
           {get_in(@states, [@item["runId"], :record_error])}
         </p>
         <.llm_trace {@trace_assigns} />
+        <p
+          :if={get_in(@states, [@item["runId"], :record, "error", "code"]) == "execution_unconfirmed"}
+          role="alert"
+        >
+          The provider outcome is unknown. Do not automatically repeat this run.
+        </p>
       </:stats>
       <:actions>
         <button

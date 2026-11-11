@@ -115,6 +115,41 @@ defmodule HardenLlmUI.ClientStreamTest do
              Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn _ -> :cont end)
   end
 
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-540 / WEB-TEST-131.
+  test "reported provider uncertainty survives a terminal failure without replay", %{
+    fixture: fixture
+  } do
+    parent = self()
+
+    events =
+      List.update_at(fixture["stream"], 2, fn event ->
+        event
+        |> Map.put("type", "run.failed")
+        |> put_in(["data", "result", "status"], "failed")
+        |> put_in(["data", "result", "output"], nil)
+        |> put_in(["data", "result", "resultSource"], %{"kind" => "none"})
+        |> put_in(["data", "error"], %{
+          "code" => "execution_unconfirmed",
+          "message" => "private remote message"
+        })
+      end)
+
+    for stream <- [events, Enum.take(events, 3)] do
+      Req.Test.stub(Client, fn request ->
+        send(parent, :uncertain_request)
+        response(request, stream)
+      end)
+
+      assert {:error, %APIError{code: "execution_unconfirmed", ambiguous?: true} = error} =
+               Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn _ -> :cont end)
+
+      assert error.message =~ "unknown"
+      refute error.message =~ "private remote"
+      assert_receive :uncertain_request
+      refute_receive :uncertain_request, 50
+    end
+  end
+
   defp response(request, events, newline \\ "\n") do
     body =
       Enum.map_join(events, fn event ->

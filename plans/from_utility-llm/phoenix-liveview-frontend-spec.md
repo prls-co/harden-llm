@@ -876,3 +876,13 @@ outcome; interruption after a received terminal retains known output and reports
 unconfirmed history. Exact history readback and dispatch counts prohibit replay.
 `gateway_workflows_test.exs` shares the existing serial real-gateway setup;
 the `frontend-gateway-workflows` release task owns the Go launcher.
+
+## 28. Reference provider uncertainty (issue #162)
+
+### WEB-TEST-131: Unconfirmed provider outcomes remain unknown
+
+- Owner: `HardenLlmUI.Client`, reference workspace and history components.
+- Backend contract: TEST-540 / TEST-541 in SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001.
+- Tests: `frontend/test/harden_llm_web/harden_api_stream_test.exs`, `frontend/test/harden_llm_web/live/restored_workflow_test.exs`, `frontend/test/harden_llm_web/live/restored_history_test.exs`.
+- Oracle: A validated `run.failed` terminal with `execution_unconfirmed` is an ambiguous provider outcome even when local execution stopped or history was saved. Preserve the safe code and correlation, show an unknown-outcome message, and send only one inference POST. Missing recording confirmation does not replace received provider uncertainty. Loaded history detail preserves the same distinction. Known terminal failures and completed output retain their existing behavior.
+- Verification: deterministic private Req ownership and LiveView events; no browser or provider credentials. Browser layout is not established.

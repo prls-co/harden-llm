@@ -63,6 +63,9 @@ func (client *Client) Run(ctx context.Context, input RunInput) (RunOutcome, erro
 		err := rejection(response)
 		var rejected *RejectedError
 		if errors.As(err, &rejected) {
+			if rejected.Problem.Code == "execution_unconfirmed" {
+				return outcome, &UnknownOutcomeError{Problem: &rejected.Problem, StatusCode: rejected.StatusCode}
+			}
 			return outcome, rejected
 		}
 		return outcome, &UnknownOutcomeError{Cause: err}

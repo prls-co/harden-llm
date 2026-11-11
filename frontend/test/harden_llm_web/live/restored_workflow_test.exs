@@ -141,6 +141,37 @@ defmodule HardenLlmWeb.RestoredWorkflowTest do
     refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
   end
 
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-540 / WEB-TEST-131.
+  test "reported provider uncertainty stays unknown even when its history is saved", %{
+    conn: conn,
+    fixture: fixture,
+    agent: agent
+  } do
+    events =
+      List.update_at(fixture["stream"], 2, fn event ->
+        event
+        |> Map.put("type", "run.failed")
+        |> put_in(["data", "result", "status"], "failed")
+        |> put_in(["data", "result", "output"], nil)
+        |> put_in(["data", "result", "resultSource"], %{"kind" => "none"})
+        |> put_in(["data", "error"], %{
+          "code" => "execution_unconfirmed",
+          "message" => "Provider outcome unknown."
+        })
+      end)
+
+    Agent.update(agent, &Map.put(&1, :run_events, events))
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+    view |> form("#run-form") |> render_submit()
+    render_settled(view, 1_000)
+    assert has_element?(view, "#run-error", "outcome is unknown")
+    refute has_element?(view, "#run-error", "The run failed.")
+    refute has_element?(view, "#run-error", "history recording could not be confirmed")
+    assert_receive {:reference_request, "POST", "/api/v1/run", _}, 1_000
+    refute_receive {:reference_request, "POST", "/api/v1/run", _}, 50
+  end
+
   test "selecting a template fills the complete restored form and baseline controls", %{
     conn: conn,
     fixture: fixture

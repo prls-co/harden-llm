@@ -79,7 +79,7 @@ func readRunStream(reader io.Reader, input RunInput) (RunOutcome, error) {
 	outcome := RunOutcome{}
 	var sequence uint64
 	var runID, callID, traceID string
-	var terminalFailure *RunFailure
+	var terminalFailure error
 	terminal := false
 	finish := func(cause error) (RunOutcome, error) {
 		if !terminal {
@@ -135,6 +135,7 @@ func readRunStream(reader io.Reader, input RunInput) (RunOutcome, error) {
 				return finish(&ProtocolError{})
 			}
 			outcome.Result.Raw = bytes.Clone(payload.Result)
+			var problem *RunError
 			if event.RunID != outcome.Result.RunID || event.CallID != outcome.Result.CallID || event.TraceID != outcome.Result.TraceID ||
 				outcome.State.LastRunID != outcome.Result.RunID || outcome.State.LastTraceID != outcome.Result.TraceID {
 				return finish(&ProtocolError{})
@@ -144,19 +145,22 @@ func readRunStream(reader io.Reader, input RunInput) (RunOutcome, error) {
 					return finish(&ProtocolError{})
 				}
 			} else {
-				var problem RunError
-				if outcome.Result.Status == "succeeded" || decodeWire("ReferenceError", payload.Error, &problem) != nil {
+				problem = &RunError{}
+				if outcome.Result.Status == "succeeded" || decodeWire("ReferenceError", payload.Error, problem) != nil {
 					return finish(&ProtocolError{})
 				}
-				terminalFailure = &RunFailure{Problem: problem}
 			}
 			evidence, err := projectEvidence(outcome.Result, input)
 			if err != nil {
 				return finish(err)
 			}
 			outcome.Evidence = evidence
-			if terminalFailure != nil {
-				terminalFailure.Evidence = evidence
+			if problem != nil {
+				if problem.Code == "execution_unconfirmed" {
+					terminalFailure = &UnknownOutcomeError{Problem: problem, Evidence: evidence}
+				} else {
+					terminalFailure = &RunFailure{Problem: *problem, Evidence: evidence}
+				}
 			}
 			outcome.Recording = RecordingOutcome{Mode: "enabled", Status: "unconfirmed", RunID: outcome.Result.RunID}
 			terminal = true

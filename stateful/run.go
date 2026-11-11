@@ -242,6 +242,13 @@ func ProjectRunError(err error) *RunError {
 	if err == nil {
 		return nil
 	}
+	// Local termination does not prove a provider outcome. Check the admission
+	// marker before unwrapping cancellation/deadline or generic provider errors.
+	var uncertain interface{ InferenceUnconfirmed() bool }
+	var provider *hardenllm.ProviderError
+	if (errors.As(err, &uncertain) && uncertain.InferenceUnconfirmed()) || (errors.As(err, &provider) && provider.Code == "execution_unconfirmed") {
+		return &RunError{Code: "execution_unconfirmed", Message: "The provider outcome is unknown; do not automatically repeat this run."}
+	}
 	var validation *ValidationError
 	if errors.As(err, &validation) {
 		return &RunError{Code: validation.Code, Message: "Reference settings are invalid; correct the indicated fields.", FieldErrors: validation.FieldErrors}
