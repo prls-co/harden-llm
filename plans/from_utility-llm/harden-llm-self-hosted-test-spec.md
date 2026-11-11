@@ -2598,3 +2598,11 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
 | TEST-536 | T1; gateway/client | `go test ./internal/gateway/httpapi ./httpclient -run 'TestResponsesSearchProjection' -count=1` | Responses search calls, sources, text-bound annotations and stream events agree, including repair and cache replay. |
 | TEST-537 | T1; gateway | `go test ./internal/gateway/httpapi -run 'TestChatWebSearch' -count=1` | Chat search request, annotations, streaming and invalid combinations preserve the supported contract. |
 | TEST-538 | T1; gateway | `go test ./internal/gateway/httpapi -run 'TestOpenAIWebSearchContract' -count=1` | The published schema validates actual Responses/Chat outputs and the pinned OpenAI SDK consumes standard search metadata. |
+
+### TEST-539: Go builders use one qualified toolchain
+
+- Coverage gate: `fast`; existing `go-static` task.
+- Tier: T0; `internal/testkit/go_builder_toolchain_test.go`, `TestGoBuilderToolchainsAgree`.
+- Command: `go test ./internal/testkit -run '^TestGoBuilderToolchainsAgree$' -count=1`.
+- Oracle: Gateway, explicit browser fixture, and Compose provider builders use the same immutable Go image. A module/toolchain update cannot leave a fixture on an older compiler.
+- Evidence: Release `42955795111` failed before Compose startup because its provider image used Go 1.26.10 with a module requiring Go 1.26.11. This static regression retains that invariant without Docker, browsers, network, or credentials.
