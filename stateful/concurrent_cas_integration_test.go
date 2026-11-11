@@ -169,6 +169,8 @@ func TestCredentialCASAfterConcurrentProbes(t *testing.T) {
 	for range 2 {
 		select {
 		case <-ready:
+		case result := <-done:
+			t.Fatalf("candidate finished before both probes were ready: %v", result.err)
 		case <-ctx.Done():
 			t.Fatal("concurrent candidates did not both complete revision read before probe")
 		}
