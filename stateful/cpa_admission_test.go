@@ -79,15 +79,18 @@ func TestCPAAdmissionUnavailableCannotBypassIntoNative(t *testing.T) {
 type admissionMemoryStore struct {
 	onEnqueue func(context.Context)
 	batch.RequestQueueStore
-	mu           sync.Mutex
-	waiters      map[string]batch.RequestWaiter
-	attempts     map[string]batch.Attempt
-	queued       []batch.RequestWaiter
-	observations []batch.AttemptObservation
-	neverGrant   bool
-	fail         string
-	onClaim      func()
-	claims       int
+	mu             sync.Mutex
+	waiters        map[string]batch.RequestWaiter
+	attempts       map[string]batch.Attempt
+	queued         []batch.RequestWaiter
+	observations   []batch.AttemptObservation
+	neverGrant     bool
+	fail           string
+	onClaim        func()
+	claims         int
+	readFailures   int
+	reads          int
+	readFailureErr error
 }
 
 func newAdmissionMemoryStore() *admissionMemoryStore {
@@ -115,11 +118,67 @@ func (s *admissionMemoryStore) EnqueueRequest(ctx context.Context, w batch.Reque
 func (s *admissionMemoryStore) ReadRequest(_ context.Context, scope, id, owner string, _ bool) (batch.RequestWaiter, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.reads++
+	if s.readFailures > 0 {
+		s.readFailures--
+		if s.readFailureErr != nil {
+			return batch.RequestWaiter{}, s.readFailureErr
+		}
+		return batch.RequestWaiter{}, batch.ErrUnavailable
+	}
 	w := s.waiters[id]
 	if w.Scope != scope || w.OwnerID != owner {
 		return batch.RequestWaiter{}, batch.ErrNotFound
 	}
 	return w, nil
+}
+
+func TestCPAAdmissionReadRecoveryPreservesCancellationAndOwnershipFailure(t *testing.T) {
+	for _, missing := range []bool{false, true} {
+		t.Run(fmt.Sprint(missing), func(t *testing.T) {
+			store := newAdmissionMemoryStore()
+			store.readFailures = 99
+			if missing {
+				store.readFailureErr = batch.ErrNotFound
+			}
+			native := &admissionNative{}
+			client := admissionTestClient(t, store, native)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+			defer cancel()
+			_, err := client.Call(ctx, admissionTestRequest())
+			if err == nil || native.calls.Load() != 0 || store.claims != 0 || store.reads > 1 || len(store.queued) > 1 {
+				t.Fatal("metadata recovery ignored cancellation/ownership failure or repeated admission", err)
+			}
+		})
+	}
+}
+
+// A temporary read failure must recover the same waiter, not admit another
+// dispatch. Persistent failure remains bounded and never enters the provider.
+func TestCPAAdmissionRecoversSameWaiterAfterUnavailableRead(t *testing.T) {
+	for _, failures := range []int{1, 2, 99} {
+		t.Run(fmt.Sprint(failures), func(t *testing.T) {
+			store := newAdmissionMemoryStore()
+			store.readFailures = failures
+			native := &admissionNative{}
+			client := admissionTestClient(t, store, native)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_, err := client.Call(ctx, admissionTestRequest())
+			store.mu.Lock()
+			defer store.mu.Unlock()
+			if len(store.queued) != 1 || store.reads != min(failures+1, 3) {
+				t.Fatal("metadata recovery changed admission identity or exceeded its read bound", len(store.queued), store.reads)
+			}
+			if failures < 3 {
+				if err != nil || native.calls.Load() != 1 || store.claims != 1 || len(store.observations) != 1 {
+					t.Fatal("temporary metadata error aborted or repeated inference", err, native.calls.Load(), store.claims)
+				}
+			} else if err == nil || native.calls.Load() != 0 || store.claims != 0 || store.waiters[store.queued[0].RequestID].ClosedAt == nil {
+				t.Fatal("persistent metadata error bypassed admission or retained a live waiter", err)
+			}
+		})
+	}
 }
 func (s *admissionMemoryStore) CancelRequest(_ context.Context, scope, id, owner string) error {
 	s.mu.Lock()
