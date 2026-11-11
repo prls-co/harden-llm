@@ -2456,6 +2456,7 @@ production rejection, cheap RED/GREEN and the retained async-acknowledgement mis
 - Location: `internal/gateway/httpapi/jobs_temporal_integration_test.go`.
 - Command: `node scripts/run-test-tier.mjs --task go-temporal-integration`.
 - Oracle: Real Temporal/PostgreSQL/Garage and native HTTP share one cap across a held durable call and two authenticated ordinary scopes. Waiting lookup respects key isolation and actual pool capacity. A queued timeout cannot later infer. Both ordinary OpenAI endpoints preserve completed JSON/SSE behavior. Warm cache bypasses permits; ordinary execution creates no batch manifest or reference history. Actual native request counts/overlap, immutable metadata settlement and the existing durable result boundary remain checked. This is a bounded compatibility case, not 1,000/10,000-call or live CPA throughput acceptance.
+- Refusal fixture: Hold the first native response until the durable job is visibly queued behind its permit, then release the simulated 429. Observe both ordinary and durable `provider_throttled` status before asserting the original exact attempt/execution identity and provider-call counts. Job submission must not consume the seven-second cooldown observation window.
 
 ### TEST-520: Mixed V2 load identity, shared admission and resource qualification
 

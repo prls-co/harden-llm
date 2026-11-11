@@ -123,12 +123,6 @@ func newTemporalBatchFixtureWithTemporal(t *testing.T, throttle bool, gate func(
 			}
 		}
 		call := f.calls.Add(1)
-		if throttle && call == 1 {
-			w.Header().Set("Retry-After", "7")
-			w.WriteHeader(429)
-			io.WriteString(w, `{"error":{"code":"rate_limit_exceeded"}}`)
-			return
-		}
 		var body map[string]any
 		if json.NewDecoder(r.Body).Decode(&body) != nil {
 			t.Error("bad provider JSON")
@@ -148,6 +142,12 @@ func newTemporalBatchFixtureWithTemporal(t *testing.T, throttle bool, gate func(
 		}
 		if gate != nil {
 			gate(r.Context(), nonce)
+		}
+		if throttle && call == 1 {
+			w.Header().Set("Retry-After", "7")
+			w.WriteHeader(429)
+			io.WriteString(w, `{"error":{"code":"rate_limit_exceeded"}}`)
+			return
 		}
 		native.WriteResponse(w, r, body, fmt.Sprintf(`{"nonce":%q}`, nonce))
 	}))
@@ -916,18 +916,48 @@ func TestTemporalBatchOrdinaryShareAdmissionAndKeepOpenAIWire(t *testing.T) {
 
 func TestTemporalBatchOrdinaryRefusalSharesCooldownAndRetryOwnership(t *testing.T) {
 	t.Parallel()
-	f := newTemporalBatchFixture(t, true)
+	refusalEntered, releaseRefusal := make(chan struct{}), make(chan struct{})
+	var refusalOnce, releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseRefusal) }) }
+	defer release()
+	f := newTemporalBatchFixtureWithGate(t, true, func(ctx context.Context, nonce string) {
+		if nonce != "nonce-8400" {
+			return
+		}
+		refusalOnce.Do(func() {
+			close(refusalEntered)
+			select {
+			case <-releaseRefusal:
+			case <-ctx.Done():
+			}
+		})
+	})
 	enableFixtureOrdinaryAdmission(t, f)
-	startFixtureV2Pool(t, f, 2)
+	// Queue the job before starting the refusal's seven-second cooldown.
+	startFixtureV2Pool(t, f, 1)
 	tracking := uuid.NewString()
 	ordinary := make(chan ordinaryHTTPResult, 1)
 	go func() {
 		ordinary <- ordinaryFixtureCall(f.ctx, f, "/v1/responses", "nonce-8400", tracking, "off", false, 0)
 	}()
+	select {
+	case <-refusalEntered:
+	case result := <-ordinary:
+		t.Fatal("ordinary request bypassed the refusal gate", result.status, result.err)
+	case <-f.ctx.Done():
+		t.Fatal(f.ctx.Err())
+	}
+	if f.calls.Load() != 1 {
+		t.Fatal("first refusal bypassed the provider gate", f.calls.Load())
+	}
+	job, _ := f.submit(t, 1)
+	f.wait(t, job.JobID, func(v batch.Status) bool {
+		return v.WaitingReason == "pool_capacity" && v.Counts.Queued == 1 && v.Counts.Active == 0
+	})
+	release()
 	waitOrdinaryTracking(t, f, tracking, func(v stateful.RequestStatus) bool {
 		return v.Status == "waiting" && v.Reason != nil && *v.Reason == "provider_throttled" && v.NextAttemptAt != nil
 	})
-	job, _ := f.submit(t, 1)
 	waiting := f.wait(t, job.JobID, func(v batch.Status) bool {
 		return v.WaitingReason == "provider_throttled" && v.Counts.Active == 0 && v.NextAttemptAt != nil
 	})
