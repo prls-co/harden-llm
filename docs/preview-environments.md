@@ -51,8 +51,10 @@ Each branch Compose project contains Phoenix, the stateless Go gateway,
 PostgreSQL, and bounded web logs. There is no branch Garage service. The
 gateway mounts the connection file read-only and owns the per-environment
 reference database through its stateful wrapper. Phoenix has no SQL access.
-The one-shot `gateway-schema` command runs before the gateway starts. Preview telemetry export is disabled. Automated health and
-configuration checks make no provider request.
+The one-shot `gateway-schema` command runs before the gateway starts. Preview
+telemetry export is disabled. Automated checks require healthy gateway endpoints
+and the unauthenticated root redirect to the configured Portal login with the
+preview URL as its return destination. They make no provider request.
 
 ## Host and cleanup boundaries
 

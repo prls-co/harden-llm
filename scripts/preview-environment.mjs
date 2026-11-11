@@ -132,19 +132,24 @@ async function ensureDNS(c, state) {
   return (await cf(c, `zones/${c.zoneID}/dns_records`, "POST", desired)).id;
 }
 
-export async function healthCheck(url, timeoutMs = 90_000) {
+export async function healthCheck(url, timeoutMs = 90_000, portalOrigin) {
+  const login = new URL("/login", portalOrigin);
+  login.searchParams.set("return_to", new URL("/", url).toString());
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const results = await Promise.all(["/healthz", "/readyz", "/login"].map(async route => {
+      const results = await Promise.all(["/healthz", "/readyz", "/"].map(async route => {
         const r = await fetch(url + route, { redirect: "manual", signal: AbortSignal.timeout(5_000) });
-        await r.body?.cancel(); return r.status;
+        const result = { status: r.status, location: r.headers.get("location") };
+        await r.body?.cancel(); return result;
       }));
-      if (results.every(s => s === 200)) return results;
+      if (results[0].status === 200 && results[1].status === 200 && results[2].status === 302 && results[2].location === login.toString()) {
+        return results.map(result => result.status);
+      }
     } catch { /* DNS and container readiness are asynchronous; bounded wait only. */ }
     await delay(1000);
   }
-  throw new Error("Preview HTTP health/login/readiness did not become ready within the deployment budget");
+  throw new Error("Preview HTTP health/readiness/Portal redirect did not become ready within the deployment budget");
 }
 
 export async function syncControl(c, repositoryRoot) {
@@ -243,7 +248,7 @@ export async function deployEnvironment(c, branch, sha, options = {}) {
     }
     const dnsID = await ensureDNS(c, state);
     // New Cloudflare hostnames can take several minutes to reach every edge.
-    await healthCheck(state.url, state.initialized ? 90_000 : 300_000);
+    await healthCheck(state.url, state.initialized ? 90_000 : 300_000, applicationValues.PRLS_PORTAL_URL);
     for (const service of ["gateway", "web"]) {
       const id = compose(c, state, ["ps", "-q", service]);
       const [info] = JSON.parse(command("docker", ["inspect", id]));

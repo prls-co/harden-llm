@@ -2,9 +2,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { branchIdentity, ciMode, changedServices, deploymentAllowed } from "../preview-policy.mjs";
 import { loadManifest, selectTasks, runSelection } from "../run-test-tier.mjs";
-import { previewSecrets, dotenv, routeFor, stateFor, destroyEnvironment, syncControl, writePrivateIfChanged, reusableImage, initialPreviewCloudflareToken } from "../preview-environment.mjs";
+import { previewSecrets, dotenv, routeFor, stateFor, destroyEnvironment, syncControl, writePrivateIfChanged, reusableImage, initialPreviewCloudflareToken, healthCheck } from "../preview-environment.mjs";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -151,6 +152,33 @@ test("preview control files and image reuse are idempotent", async () => {
     assert.equal(reusableImage("preview", "web", "a".repeat(40), inspect), null);
     assert.equal(reusableImage("missing", "gateway", "a".repeat(40), () => { throw new Error("not found"); }), null);
   } finally { await rm(root, { recursive: true }); }
+});
+
+test("preview health follows the configured Portal login redirect", async () => {
+  let origin;
+  let destination;
+  let portal = "https://portal.example.test";
+  const server = createServer((request, response) => {
+    if (["/healthz", "/readyz"].includes(request.url)) { response.writeHead(200).end(); return; }
+    if (request.url === "/") {
+      response.writeHead(302, { location: `${portal}/login?return_to=${encodeURIComponent(destination ?? `${origin}/`)}` }).end();
+      return;
+    }
+    response.writeHead(404).end();
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  origin = `http://127.0.0.1:${server.address().port}`;
+  try {
+    assert.deepEqual(await healthCheck(origin, 50, portal), [200, 200, 302]);
+    portal = "https://wrong.example.test";
+    await assert.rejects(healthCheck(origin, 50, "https://portal.example.test"), /did not become ready/);
+    portal = "https://portal.example.test";
+    destination = "https://wrong.example.test/";
+    await assert.rejects(healthCheck(origin, 50, portal), /did not become ready/);
+  } finally {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
 });
 
 test("preview gateway bounds Go memory and uses the shared identity contract", async () => {
