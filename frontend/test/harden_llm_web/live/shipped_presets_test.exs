@@ -73,7 +73,11 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
           Req.Test.json(request, %{
             "draftKey" => URI.decode_query(request.query_string)["draftKey"],
             "revision" => 0,
-            "payload" => %{}
+            "payload" =>
+              if(context[:selected_profile],
+                do: %{"selectedProfileId" => context[:selected_profile]},
+                else: %{}
+              )
           })
 
         {"POST", "/api/v1/state"} ->
@@ -103,6 +107,36 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
     end)
 
     {:ok, conn: authenticated_conn(conn)}
+  end
+
+  test "a fresh workspace loads and submits CPA gpt-6-luna by default", %{conn: conn} do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+
+    assert has_element?(view, "#run_selectedProfileId[value='CPA gpt-6-luna']")
+    view |> form("#run-form") |> render_submit()
+    render_settled(view, 1_000)
+
+    assert_receive {:preset_run, payload}, 1_000
+    assert payload["profileId"] == "CPA gpt-6-luna"
+    assert payload["modelId"] == "gpt-6-luna"
+
+    assert payload["providerOptions"] ==
+             @catalog["CPA gpt-6-luna"]["definition"]["defaultOptions"]
+  end
+
+  @tag selected_profile: "CPA GPT-5.6 Luna"
+  test "a saved profile selection is preserved instead of applying the new default", %{conn: conn} do
+    {:ok, view, _} = live(conn, "/")
+    render_settled(view, 1_000)
+
+    assert has_element?(view, "#run_selectedProfileId[value='CPA GPT-5.6 Luna']")
+    view |> form("#run-form") |> render_submit()
+    render_settled(view, 1_000)
+
+    assert_receive {:preset_run, payload}, 1_000
+    assert payload["profileId"] == "CPA GPT-5.6 Luna"
+    assert payload["modelId"] == "gpt-5.6-luna"
   end
 
   test "fresh load and every shipped preset allow text and structured Run through the rendered control",

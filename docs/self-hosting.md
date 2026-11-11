@@ -75,6 +75,11 @@ load when details are expanded; list pages contain summaries. Explicit Save
 creates a complete immutable profile snapshot; selecting or editing changes the
 draft. Git presets remain credential-free starting values.
 
+Fresh reference workspaces initially select the `CPA gpt-6-luna` preset when
+available. Saved workspace selections are restored; deployments without that
+preset use their first available profile. This UI default does not replace the
+explicit model supplied by an ordinary OpenAI API request.
+
 ## 4. Browser-free acceptance
 
 ```bash
