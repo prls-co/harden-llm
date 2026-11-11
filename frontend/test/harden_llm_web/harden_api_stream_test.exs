@@ -150,6 +150,58 @@ defmodule HardenLlmUI.ClientStreamTest do
     end
   end
 
+  # SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-540 / WEB-TEST-131.
+  for {name, problem} <- [
+        {"missing code", %{"message" => "fixture"}},
+        {"numeric code", %{"code" => 42, "message" => "fixture"}},
+        {"null code", %{"code" => nil, "message" => "fixture"}},
+        {"missing message", %{"code" => "inference_failed"}},
+        {"unconfirmed missing message", %{"code" => "execution_unconfirmed"}},
+        {"non-string message", %{"code" => "execution_unconfirmed", "message" => 42}},
+        {"invalid diagnostic",
+         %{"code" => "execution_unconfirmed", "message" => "fixture", "diagnostic" => %{}}},
+        {"unknown error field",
+         %{"code" => "execution_unconfirmed", "message" => "fixture", "debug" => "private"}}
+      ] do
+    test "malformed failure #{name} is rejected before delivery without replay", %{
+      fixture: fixture
+    } do
+      problem = unquote(Macro.escape(problem))
+      parent = self()
+
+      events =
+        List.update_at(fixture["stream"], 2, fn event ->
+          event
+          |> Map.put("type", "run.failed")
+          |> put_in(["data", "result", "status"], "failed")
+          |> put_in(["data", "result", "output"], nil)
+          |> put_in(["data", "result", "resultSource"], %{"kind" => "none"})
+          |> put_in(["data", "error"], problem)
+        end)
+
+      for recording? <- [true, false] do
+        stream = if recording?, do: events, else: Enum.take(events, 3)
+
+        Req.Test.stub(Client, fn request ->
+          send(parent, {:failure_request, recording?})
+          response(request, stream)
+        end)
+
+        assert {:error, %APIError{category: :protocol}} =
+                 Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn event ->
+                   if event["type"] == "run.failed",
+                     do: send(parent, {:invalid_terminal_delivered, recording?})
+
+                   :cont
+                 end)
+
+        assert_received {:failure_request, ^recording?}
+        refute_receive {:failure_request, ^recording?}, 50
+        refute_received {:invalid_terminal_delivered, ^recording?}
+      end
+    end
+  end
+
   defp response(request, events, newline \\ "\n") do
     body =
       Enum.map_join(events, fn event ->

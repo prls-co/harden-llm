@@ -209,7 +209,7 @@ defmodule HardenLlmUI.Client do
       run_state["lastTraceId"] == event["traceId"] and
       ((type == "run.completed" and result["status"] == "succeeded" and is_nil(data["error"])) or
          (type == "run.failed" and result["status"] in ["failed", "timeout"] and
-            is_map(data["error"])))
+            is_map(data["error"]) and DiagnosticsWire.valid?("ReferenceError", data["error"])))
   end
 
   defp correlated_stream_data?(_event), do: true

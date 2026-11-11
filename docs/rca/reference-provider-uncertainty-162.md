@@ -154,3 +154,31 @@ The candidate is ready for release review. Main/production promotion and
 consumer deployment remain separate actions requiring their owners' release
 steps. The original failed network hop is still unproven; browser layout and a
 fresh paid-provider weather campaign are not claimed.
+
+## 6. PR review: validate failure errors before delivery
+
+[The PR review](https://github.com/prls-co/harden-llm/pull/175#issuecomment-6802353551)
+identified a missing validation boundary in the Phoenix SSE client. The outer
+event schema leaves `data` unconstrained, and the client checked only whether
+the nested error was a map. Missing or numeric error codes could raise in
+`String.slice/3`; incomplete errors carrying `execution_unconfirmed` could be
+accepted as valid uncertainty.
+
+The client now validates each failure error against the existing canonical
+`ReferenceError` schema before notifying a receiver or storing a terminal.
+Malformed errors return the existing typed protocol error. No catch-all rescue,
+new error shape, dependency, provider retry or backend change is introduced.
+
+Eight new negative tests cover missing/numeric/null codes, missing/non-string
+messages, malformed diagnostics and unexpected fields. Each tests both present
+and absent recording tails, no invalid receiver delivery and exactly one POST.
+All eight fail before the correction. Existing valid failure, completion and
+unconfirmed outcomes remain positive controls. Focused client/workspace/history
+checks pass all 41 tests; the fast-gate and hosted results are recorded in the
+review follow-up receipt.
+
+The earlier 30-task release, published Go module and image identities above
+remain evidence for source `596b955`. They do not include this subsequent web
+client fix. Gateway and Go client inputs are unchanged; the web image must be
+rebuilt from the reviewed frontend revision before deployment. No image is
+relabelled and no production rollout is part of this review correction.
