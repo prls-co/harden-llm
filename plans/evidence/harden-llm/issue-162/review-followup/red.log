@@ -1,0 +1,259 @@
+Running ExUnit with seed: 269135, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+
+  1) test malformed failure numeric code is rejected before delivery without replay (HardenLlmUI.ClientStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:166
+     ** (FunctionClauseError) no function clause matching in String.slice/3
+
+     The following arguments were given to String.slice/3:
+
+         # 1
+         42
+
+         # 2
+         0
+
+         # 3
+         64
+
+     Attempted function clauses (showing 3 out of 3):
+
+         def slice(_, _, -0-)
+         def slice(string, start, length) when -is_binary(string)- and is_integer(start) and is_integer(length) and start >= 0 and length >= 0
+         def slice(string, start, length) when -is_binary(string)- and is_integer(start) and is_integer(length) and -start < 0- and length >= 0
+
+     code: for recording? <- [true, false] do
+     stacktrace:
+       (elixir 1.20.2) lib/string.ex:2415: String.slice/3
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:279: HardenLlmUI.Client.failed_run/1
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:102: HardenLlmUI.Client.run_stream/3
+       test/harden_llm_web/harden_api_stream_test.exs:189: anonymous fn/3 in HardenLlmUI.ClientStreamTest."test malformed failure numeric code is rejected before delivery without replay"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/harden_api_stream_test.exs:180: (test)
+
+.
+
+  2) test malformed failure non-string message is rejected before delivery without replay (HardenLlmUI.ClientStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:166
+     match (=) failed
+     code:  assert {:error, %APIError{category: :protocol}} =
+              Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn event ->
+                if event["type"] == "run.failed" do
+                  send(parent, {:invalid_terminal_delivered, recording?})
+                end
+
+                :cont
+              end)
+     left:  {:error, %HardenLlmUI.APIError{category: :protocol}}
+     right: {:error,
+             %HardenLlmUI.APIError{
+               category: :backend,
+               message: "The run outcome is unknown. Do not automatically repeat this run.",
+               status: nil,
+               code: "execution_unconfirmed",
+               trace_id: "00000000-0000-4000-8000-000000000001",
+               diagnostic: nil,
+               current_revision: nil,
+               field_errors: %{},
+               ambiguous?: true
+             }}
+     stacktrace:
+       test/harden_llm_web/harden_api_stream_test.exs:188: anonymous fn/3 in HardenLlmUI.ClientStreamTest."test malformed failure non-string message is rejected before delivery without replay"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/harden_api_stream_test.exs:180: (test)
+
+
+
+  3) test malformed failure unconfirmed missing message is rejected before delivery without replay (HardenLlmUI.ClientStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:166
+     match (=) failed
+     code:  assert {:error, %APIError{category: :protocol}} =
+              Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn event ->
+                if event["type"] == "run.failed" do
+                  send(parent, {:invalid_terminal_delivered, recording?})
+                end
+
+                :cont
+              end)
+     left:  {:error, %HardenLlmUI.APIError{category: :protocol}}
+     right: {:error,
+             %HardenLlmUI.APIError{
+               category: :backend,
+               message: "The run outcome is unknown. Do not automatically repeat this run.",
+               status: nil,
+               code: "execution_unconfirmed",
+               trace_id: "00000000-0000-4000-8000-000000000001",
+               diagnostic: nil,
+               current_revision: nil,
+               field_errors: %{},
+               ambiguous?: true
+             }}
+     stacktrace:
+       test/harden_llm_web/harden_api_stream_test.exs:188: anonymous fn/3 in HardenLlmUI.ClientStreamTest."test malformed failure unconfirmed missing message is rejected before delivery without replay"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/harden_api_stream_test.exs:180: (test)
+
+....
+
+  4) test malformed failure invalid diagnostic is rejected before delivery without replay (HardenLlmUI.ClientStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:166
+     match (=) failed
+     code:  assert {:error, %APIError{category: :protocol}} =
+              Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn event ->
+                if event["type"] == "run.failed" do
+                  send(parent, {:invalid_terminal_delivered, recording?})
+                end
+
+                :cont
+              end)
+     left:  {:error, %HardenLlmUI.APIError{category: :protocol}}
+     right: {:error,
+             %HardenLlmUI.APIError{
+               category: :backend,
+               message: "The run outcome is unknown. Do not automatically repeat this run.",
+               status: nil,
+               code: "execution_unconfirmed",
+               trace_id: "00000000-0000-4000-8000-000000000001",
+               diagnostic: %{},
+               current_revision: nil,
+               field_errors: %{},
+               ambiguous?: true
+             }}
+     stacktrace:
+       test/harden_llm_web/harden_api_stream_test.exs:188: anonymous fn/3 in HardenLlmUI.ClientStreamTest."test malformed failure invalid diagnostic is rejected before delivery without replay"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/harden_api_stream_test.exs:180: (test)
+
+
+
+  5) test malformed failure unknown error field is rejected before delivery without replay (HardenLlmUI.ClientStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:166
+     match (=) failed
+     code:  assert {:error, %APIError{category: :protocol}} =
+              Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn event ->
+                if event["type"] == "run.failed" do
+                  send(parent, {:invalid_terminal_delivered, recording?})
+                end
+
+                :cont
+              end)
+     left:  {:error, %HardenLlmUI.APIError{category: :protocol}}
+     right: {:error,
+             %HardenLlmUI.APIError{
+               category: :backend,
+               message: "The run outcome is unknown. Do not automatically repeat this run.",
+               status: nil,
+               code: "execution_unconfirmed",
+               trace_id: "00000000-0000-4000-8000-000000000001",
+               diagnostic: nil,
+               current_revision: nil,
+               field_errors: %{},
+               ambiguous?: true
+             }}
+     stacktrace:
+       test/harden_llm_web/harden_api_stream_test.exs:188: anonymous fn/3 in HardenLlmUI.ClientStreamTest."test malformed failure unknown error field is rejected before delivery without replay"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/harden_api_stream_test.exs:180: (test)
+
+
+
+  6) test malformed failure null code is rejected before delivery without replay (HardenLlmUI.ClientStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:166
+     ** (FunctionClauseError) no function clause matching in String.slice/3
+
+     The following arguments were given to String.slice/3:
+
+         # 1
+         nil
+
+         # 2
+         0
+
+         # 3
+         64
+
+     Attempted function clauses (showing 3 out of 3):
+
+         def slice(_, _, -0-)
+         def slice(string, start, length) when -is_binary(string)- and is_integer(start) and is_integer(length) and start >= 0 and length >= 0
+         def slice(string, start, length) when -is_binary(string)- and is_integer(start) and is_integer(length) and -start < 0- and length >= 0
+
+     code: for recording? <- [true, false] do
+     stacktrace:
+       (elixir 1.20.2) lib/string.ex:2415: String.slice/3
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:279: HardenLlmUI.Client.failed_run/1
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:102: HardenLlmUI.Client.run_stream/3
+       test/harden_llm_web/harden_api_stream_test.exs:189: anonymous fn/3 in HardenLlmUI.ClientStreamTest."test malformed failure null code is rejected before delivery without replay"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/harden_api_stream_test.exs:180: (test)
+
+
+
+  7) test malformed failure missing code is rejected before delivery without replay (HardenLlmUI.ClientStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:166
+     ** (FunctionClauseError) no function clause matching in String.slice/3
+
+     The following arguments were given to String.slice/3:
+
+         # 1
+         nil
+
+         # 2
+         0
+
+         # 3
+         64
+
+     Attempted function clauses (showing 3 out of 3):
+
+         def slice(_, _, -0-)
+         def slice(string, start, length) when -is_binary(string)- and is_integer(start) and is_integer(length) and start >= 0 and length >= 0
+         def slice(string, start, length) when -is_binary(string)- and is_integer(start) and is_integer(length) and -start < 0- and length >= 0
+
+     code: for recording? <- [true, false] do
+     stacktrace:
+       (elixir 1.20.2) lib/string.ex:2415: String.slice/3
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:279: HardenLlmUI.Client.failed_run/1
+       (harden_llm_ui 1.0.0) lib/harden_llm_ui/client.ex:102: HardenLlmUI.Client.run_stream/3
+       test/harden_llm_web/harden_api_stream_test.exs:189: anonymous fn/3 in HardenLlmUI.ClientStreamTest."test malformed failure missing code is rejected before delivery without replay"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/harden_api_stream_test.exs:180: (test)
+
+
+
+  8) test malformed failure missing message is rejected before delivery without replay (HardenLlmUI.ClientStreamTest)
+     test/harden_llm_web/harden_api_stream_test.exs:166
+     match (=) failed
+     code:  assert {:error, %APIError{category: :protocol}} =
+              Client.run_stream(HardenLlmWeb.APIContext.server(), %{}, fn event ->
+                if event["type"] == "run.failed" do
+                  send(parent, {:invalid_terminal_delivered, recording?})
+                end
+
+                :cont
+              end)
+     left:  {:error, %HardenLlmUI.APIError{category: :protocol}}
+     right: {:error,
+             %HardenLlmUI.APIError{
+               category: :backend,
+               message: "The run failed.",
+               status: nil,
+               code: "inference_failed",
+               trace_id: "00000000-0000-4000-8000-000000000001",
+               diagnostic: nil,
+               current_revision: nil,
+               field_errors: %{},
+               ambiguous?: false
+             }}
+     stacktrace:
+       test/harden_llm_web/harden_api_stream_test.exs:188: anonymous fn/3 in HardenLlmUI.ClientStreamTest."test malformed failure missing message is rejected before delivery without replay"/1
+       (elixir 1.20.2) lib/enum.ex:1725: Enum."-map/2-lists^map/1-1-"/2
+       test/harden_llm_web/harden_api_stream_test.exs:180: (test)
+
+
+Finished in 0.9 seconds (0.9s async, 0.00s sync)
+
+Result: 5/13 passed
+Failed: 8 tests

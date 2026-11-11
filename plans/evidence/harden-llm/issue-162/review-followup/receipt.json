@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "issue": 162,
+  "pullRequest": 175,
+  "reviewComment": "https://github.com/prls-co/harden-llm/pull/175#issuecomment-6802353551",
+  "source": "796b9f84ab692a9b182890ddb230a1cf864928f2",
+  "status": "fast_qualified_frontend_review_fix",
+  "change": "Validate run.failed data.error against canonical ReferenceError before receiver delivery or terminal retention.",
+  "coverage": {
+    "ids": [
+      "TEST-540",
+      "WEB-TEST-131"
+    ],
+    "malformedCases": [
+      "missing code",
+      "numeric code",
+      "null code",
+      "missing message",
+      "unconfirmed missing message",
+      "non-string message",
+      "invalid diagnostic",
+      "unknown error field"
+    ],
+    "recordingTailModes": [
+      "present",
+      "absent"
+    ],
+    "assertions": [
+      "typed protocol error",
+      "no invalid terminal delivered",
+      "exactly one POST"
+    ],
+    "positiveControls": [
+      "successful completion",
+      "known timeout failure",
+      "valid execution_unconfirmed with and without recording tail"
+    ]
+  },
+  "controlledRed": {
+    "file": "red.log",
+    "newCasesFailed": 8,
+    "totalTests": 13,
+    "passedTests": 5,
+    "preFixApplicationSource": "f3ee6a6a759725a01315cb473a01b2e1eb282767"
+  },
+  "focusedGreen": {
+    "file": "focused-green.log",
+    "passedTests": 41,
+    "command": "cd frontend && mix test test/harden_llm_web/harden_api_stream_test.exs test/harden_llm_web/live/restored_workflow_test.exs test/harden_llm_web/live/restored_history_test.exs"
+  },
+  "localFast": {
+    "file": "local-fast.json",
+    "command": "make test-fast",
+    "accepted": true,
+    "taskCount": 10,
+    "allTasksPassed": true,
+    "cleanupErrors": [],
+    "cleanupWarnings": []
+  },
+  "hostedFast": {
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43069236306",
+    "source": "796b9f84ab692a9b182890ddb230a1cf864928f2",
+    "conclusion": "success",
+    "attempt": 1,
+    "accepted": true,
+    "taskCount": 10,
+    "allTasksPassed": true,
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "file": "hosted-fast.json",
+    "artifactId": 13878145505,
+    "artifactDigest": "sha256:7286166e75eb05cf08198354a86ee8ed1b3fbaed7ec9055c04c43096dbdd2978"
+  },
+  "parity": {
+    "backendInputsChanged": false,
+    "llmPromptSchemaModelReasoningChanged": false,
+    "openAPIContractChanged": false,
+    "retryOrReplayAdded": false,
+    "newDependencyAdded": false
+  },
+  "artifactBoundary": {
+    "priorApplicationSource": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0",
+    "priorFullReleaseRetained": true,
+    "fullReleaseRerun": false,
+    "priorWebImageIncludesFix": false,
+    "webRebuildRequiredBeforeDeployment": true,
+    "goModuleAndGatewayInputsUnchanged": true,
+    "imagesRebuiltOrRelabelled": false
+  },
+  "readinessBoundaries": {
+    "browserRun": false,
+    "browserLayoutChecked": false,
+    "dockerRun": false,
+    "newPaidInference": false,
+    "deployed": false,
+    "mainPromoted": false
+  },
+  "sha256": {
+    "focused-green.log": "eee858314444f104e11f7b54442fa8d58752e9e00afef516f4ed4c42601780dc",
+    "hosted-fast.json": "4b9e085104f56c8cccada04f4196704073566f1ebdc4d0eb55c940e74b238234",
+    "local-fast.json": "b869a9cf1df258b9f374a45eeb893379d52f63bf0e094f60dc1cb0719621b5f3",
+    "red.log": "32795625b12f9c611b635f8b0bd206a6d1c6f9328514730ea58c472b67473d80"
+  }
+}

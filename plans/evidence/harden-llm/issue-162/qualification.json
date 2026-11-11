@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "issue": 162,
-  "status": "qualified_candidate",
+  "status": "qualified_baseline_with_frontend_review_followup",
   "branch": "fix/reference-unconfirmed-outcome",
   "pullRequest": "https://github.com/prls-co/harden-llm/pull/175",
   "applicationSource": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0",
@@ -120,5 +120,13 @@
     "referenceJSONSSEAndClients": "TEST-540 / WEB-TEST-131",
     "realHistoryAndScope": "TEST-541",
     "broaderFunctionality": "All 30 browser-free release tasks passed without weakened assertions"
+  },
+  "sourceScope": "applicationSource, hostedRelease, images and goModule describe the retained 596b955 baseline. The later frontend validation fix is qualified separately in frontendReviewFollowup.",
+  "frontendReviewFollowup": {
+    "source": "796b9f84ab692a9b182890ddb230a1cf864928f2",
+    "receipt": "review-followup/receipt.json",
+    "priorWebImageIncludesFix": false,
+    "webRebuildRequiredBeforeDeployment": true,
+    "backendInputsChanged": false
   }
 }

@@ -116,7 +116,7 @@ belong in the accompanying evidence receipt. Browser execution and new paid
 inference are outside this change's authorization. Main/production promotion
 requires an explicit request under the repository policy.
 
-## 5. Qualified candidate and handoff
+## 5. Qualified baseline and handoff
 
 Application source `596b9557bad7584f3b3883e5a90cf63cd6ed86a0` passed the
 exact-source [hosted browser-free release](https://github.com/prls-co/harden-llm/actions/runs/43042256291):
@@ -175,7 +175,7 @@ and absent recording tails, no invalid receiver delivery and exactly one POST.
 All eight fail before the correction. Existing valid failure, completion and
 unconfirmed outcomes remain positive controls. Focused client/workspace/history
 checks pass all 41 tests; the fast-gate and hosted results are recorded in the
-review follow-up receipt.
+[review follow-up receipt](../../plans/evidence/harden-llm/issue-162/review-followup/receipt.json).
 
 The earlier 30-task release, published Go module and image identities above
 remain evidence for source `596b955`. They do not include this subsequent web
