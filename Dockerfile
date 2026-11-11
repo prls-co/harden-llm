@@ -3,7 +3,7 @@ FROM --platform=$BUILDPLATFORM golang:1.26.10-alpine3.23@sha256:34414731924cf226
 
 ARG TARGETOS
 ARG TARGETARCH
-RUN apk add --no-cache git=2.52.0-r0
+RUN apk add --no-cache git=2.52.1-r0
 ENV GOPRIVATE=github.com/prls-co/prls-control-plane
 WORKDIR /src
 COPY go.mod go.sum ./

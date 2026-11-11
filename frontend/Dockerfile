@@ -5,7 +5,7 @@ FROM ${ELIXIR_IMAGE} AS build
 
 RUN apk add --no-cache \
       build-base=0.5-r3 \
-      git=2.52.0-r0
+      git=2.52.1-r0
 
 ENV MIX_ENV=prod
 WORKDIR /build
