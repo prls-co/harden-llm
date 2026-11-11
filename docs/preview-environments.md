@@ -11,6 +11,11 @@ Docs-only changes skip application builds. A gateway-only or web-only change
 rebuilds its affected service. Neither CI nor automatic deployment launches a
 browser or makes an LLM inference call.
 
+Build selection compares the target revision with each component's actual
+image source. It includes the gateway's `stateful`, `httpclient` and embedded
+OpenAPI inputs and the frontend's reusable packages. Reconciled branch state
+alone does not establish that an older component contains the latest code.
+
 Browser assertions remain opt-in through `make test-browser` and
 `make test-browser-compose`; `make test-release` is browser-free. A request to
 deploy does not authorize a browser run.

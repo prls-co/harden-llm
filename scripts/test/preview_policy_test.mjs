@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { branchIdentity, ciMode, changedServices, deploymentAllowed } from "../preview-policy.mjs";
+import { branchIdentity, ciMode, changedServices, changedComponentServices, deploymentAllowed } from "../preview-policy.mjs";
 import { loadManifest, selectTasks, runSelection } from "../run-test-tier.mjs";
 import { previewSecrets, dotenv, routeFor, stateFor, destroyEnvironment, syncControl, writePrivateIfChanged, reusableImage, initialPreviewCloudflareToken, healthCheck } from "../preview-environment.mjs";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
@@ -71,6 +71,24 @@ test("image rebuilds follow application inputs, not docs or test-only changes", 
   assert.deepEqual(changedServices(["internal/gateway/run.go", "go.mod"]), ["gateway"]);
   assert.deepEqual(changedServices(["frontend/mix.lock", "run.go"]), ["gateway", "web"]);
   assert.deepEqual(changedServices(["deploy/preview/compose.yml"]), []);
+});
+
+test("gateway and reusable UI inputs rebuild their owning images", () => {
+  for (const input of ["stateful/cpa_admission.go", "stateful/batch/service.go", "httpclient/responses.go", "api/contract.go", "api/openapi.yaml"]) {
+    assert.deepEqual(changedServices([input]), ["gateway"], input);
+  }
+  for (const input of ["frontend/packages/harden_llm_ui/lib/harden_llm_ui/profile_widget_state.ex", "frontend/packages/harden_llm_ui/priv/openapi.yaml", "frontend/packages/harden_llm_ui/mix.exs"]) {
+    assert.deepEqual(changedServices([input]), ["web"], input);
+  }
+  assert.deepEqual(changedServices(["stateful/cpa_admission_test.go", "httpclient/responses_test.go", "api/contract_test.go", "stateful/README.md", "frontend/packages/harden_llm_ui/test/profile_reasoning_test.exs"]), []);
+});
+
+test("rebuild comparisons use each running component source after a missed rebuild", () => {
+  const components = { gateway: { release: "old-gateway" }, web: { release: "old-web" } };
+  const diffs = { "old-gateway": ["stateful/cpa_admission.go", "docs/release.md"], "old-web": ["stateful/cpa_admission.go"] };
+  assert.deepEqual(changedComponentServices(components, release => diffs[release]), ["gateway"]);
+  assert.deepEqual(changedComponentServices(components, () => ["docs/release.md", "stateful/cpa_admission_test.go"]), []);
+  assert.deepEqual(changedComponentServices({}, () => assert.fail("missing images need no diff")), ["gateway", "web"]);
 });
 
 test("deployments require an enabled same-repository branch and a passing current revision", () => {
