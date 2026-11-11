@@ -48,20 +48,19 @@ import (
 )
 
 type temporalBatchFixture struct {
-	nativeStreamExpectations *sync.Map
-	clientOptions            stateful.ClientOptions
-	server                   *httptest.Server
-	key, scope               string
-	jobs                     *batch.Service
-	activities               *batch.Activities
-	temporal                 client.Client
-	queue                    string
-	worker                   worker.Worker
-	calls, active, peak      atomic.Int32
-	claimSignalCalls         atomic.Int64
-	settlementSignalCalls    atomic.Int64
-	ctx                      context.Context
-	processSettings          fixtureProcessWorkerSettings
+	clientOptions         stateful.ClientOptions
+	server                *httptest.Server
+	key, scope            string
+	jobs                  *batch.Service
+	activities            *batch.Activities
+	temporal              client.Client
+	queue                 string
+	worker                worker.Worker
+	calls, active, peak   atomic.Int32
+	claimSignalCalls      atomic.Int64
+	settlementSignalCalls atomic.Int64
+	ctx                   context.Context
+	processSettings       fixtureProcessWorkerSettings
 }
 
 // Count logical durable SignalWorkflow calls, not SDK transport retry attempts.
@@ -95,7 +94,7 @@ func newTemporalBatchFixtureWithTemporal(t *testing.T, throttle bool, gate func(
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	t.Cleanup(cancel)
-	f := &temporalBatchFixture{key: "batch-test-" + uuid.NewString(), queue: "batch-" + uuid.NewString(), ctx: ctx, nativeStreamExpectations: &sync.Map{}}
+	f := &temporalBatchFixture{key: "batch-test-" + uuid.NewString(), queue: "batch-" + uuid.NewString(), ctx: ctx}
 	sum := sha256.Sum256([]byte(f.key))
 	f.scope = hex.EncodeToString(sum[:])
 	_, dsn := integrationtest.PostgresLease(t)
@@ -131,11 +130,8 @@ func newTemporalBatchFixtureWithTemporal(t *testing.T, throttle bool, gate func(
 		}
 		raw, _ := json.Marshal(body)
 		nonce := noncePattern.FindString(string(raw))
-		streamOK := body["stream"] == true
-		if expected, ordinary := f.nativeStreamExpectations.Load(nonce); ordinary {
-			streamOK = body["stream"] == expected || (expected == false && body["stream"] == nil)
-		}
-		if r.URL.Path != "/v1/responses" || r.Header.Get("Authorization") != "Bearer synthetic-cpa-key" || !streamOK || body["model"] != "gpt-6-luna" || nonce == "" {
+		// CPA streams natively for both public JSON and final-only SSE calls.
+		if r.URL.Path != "/v1/responses" || r.Header.Get("Authorization") != "Bearer synthetic-cpa-key" || body["stream"] != true || body["model"] != "gpt-6-luna" || nonce == "" {
 			t.Error("native one-generation request contract failed")
 			w.WriteHeader(400)
 			return
@@ -723,9 +719,6 @@ func ordinaryFixtureCall(ctx context.Context, f *temporalBatchFixture, path, non
 	return ordinaryFixtureCallAs(ctx, f, f.key, path, nonce, tracking, cache, stream, timeout)
 }
 func ordinaryFixtureCallAs(ctx context.Context, f *temporalBatchFixture, key, path, nonce, tracking, cache string, stream bool, timeout int64) ordinaryHTTPResult {
-	// Ordinary frontend SSE projects the completed result; it does not opt the
-	// native provider into streaming. Jobs separately require native streaming.
-	f.nativeStreamExpectations.Store(nonce, false)
 	harden := map[string]any{"cache": cache}
 	if timeout > 0 {
 		harden["timeout_ms"] = timeout
@@ -1005,7 +998,7 @@ func newMixedFixtureReplica(t *testing.T, f *temporalBatchFixture) *temporalBatc
 	}
 	server := httptest.NewServer(api.Handler())
 	t.Cleanup(server.Close)
-	return &temporalBatchFixture{server: server, key: f.key, scope: f.scope, jobs: &jobs, ctx: f.ctx, nativeStreamExpectations: f.nativeStreamExpectations}
+	return &temporalBatchFixture{server: server, key: f.key, scope: f.scope, jobs: &jobs, ctx: f.ctx}
 }
 func mixedPoolRunID(f *temporalBatchFixture) (string, error) {
 	info, err := f.temporal.DescribeWorkflowExecution(f.ctx, "hllm-cpa-pool-v1/"+f.activities.PoolID, "")
