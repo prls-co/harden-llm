@@ -115,3 +115,42 @@ Final commands, immutable source/image identities and remaining release gates
 belong in the accompanying evidence receipt. Browser execution and new paid
 inference are outside this change's authorization. Main/production promotion
 requires an explicit request under the repository policy.
+
+## 5. Qualified candidate and handoff
+
+Application source `596b9557bad7584f3b3883e5a90cf63cd6ed86a0` passed the
+exact-source [hosted browser-free release](https://github.com/prls-co/harden-llm/actions/runs/43042256291):
+all 30 tasks passed, including real PostgreSQL, Temporal, integration race,
+Compose, the complete backend verifier and connected Go/Phoenix workflows.
+Cleanup errors and warnings are empty. The complete redacted report and
+[qualification receipt](../../plans/evidence/harden-llm/issue-162/qualification.json)
+retain these results separately from the failed local runs. A subsequent fully
+captured local Temporal selection also passed all cases; that finite pass does
+not explain or erase the earlier count failures.
+
+The published Go module is `v0.0.0-20261111144919-596b9557bad7`, with its actual
+download checksum in the receipt. Unchanged Query Analytics and Clustering
+consumer code fails the explicit-unconfirmed regression on its old `a91c35d`
+pin and passes with this module. Both affected consumer packages pass under
+race using isolated module files/test overlays over retained deployment-source
+snapshots. No consumer checkout, deployed pin, prompt, schema or model is
+modified by this qualification. Go reference consumers must adopt the new pin;
+Phoenix hosts using the shared Run client need the corresponding UI revision.
+
+Exact-source local images are prepared for review:
+
+| Component | Image identity |
+| --- | --- |
+| Gateway / worker | `sha256:0a09d1cba6313d03f381a652a7c61ded2ef515545e85d0802a6ad78b856d3f05` |
+| Web | `sha256:22bab01bdd231ec3495de5b682ba2513620df67413509c03b6fb8712f3683d70` |
+
+Both image version/revision labels match the qualified source. The actual
+gateway binary reports that full SHA in a network-disabled version check, and
+its owned check container was removed. Images are local handoff artifacts,
+not registry publication or deployment evidence. Later changes to this record
+and the failed-item diagnostic only do not rebuild or relabel those images.
+
+The candidate is ready for release review. Main/production promotion and
+consumer deployment remain separate actions requiring their owners' release
+steps. The original failed network hop is still unproven; browser layout and a
+fresh paid-provider weather campaign are not claimed.

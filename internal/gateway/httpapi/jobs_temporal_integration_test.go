@@ -287,7 +287,7 @@ func (f *temporalBatchFixture) assertResults(t *testing.T, id string, n int) {
 		}
 		json.Unmarshal([]byte(native.OutputText), &value)
 		if result.Error != nil || result.CustomID != value.Nonce || seen[value.Nonce] || result.Diagnostics.HeadersMS == nil || result.Diagnostics.OutputTokens == nil {
-			t.Fatalf("unqualified or repeated result: %+v", result)
+			t.Fatalf("unqualified or repeated result: %.4096s", scan.Bytes())
 		}
 		seen[value.Nonce] = true
 	}

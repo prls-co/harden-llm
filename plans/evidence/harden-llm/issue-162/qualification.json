@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "issue": 162,
+  "status": "qualified_candidate",
+  "branch": "fix/reference-unconfirmed-outcome",
+  "pullRequest": "https://github.com/prls-co/harden-llm/pull/175",
+  "applicationSource": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0",
+  "baseSource": "148758ef2b9ad12536a8f04574a94492188f3162",
+  "contract": {
+    "errorCode": "execution_unconfirmed",
+    "localExecutionStatusesUnchanged": true,
+    "databaseMigration": false,
+    "providerReplayAdded": false,
+    "promptSchemaModelReasoningParity": "unchanged",
+    "historyOutcomeIndependent": true
+  },
+  "hostedRelease": {
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43042256291",
+    "source": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0",
+    "attempt": 1,
+    "accepted": true,
+    "taskCount": 30,
+    "allTasksPassed": true,
+    "cleanupErrors": [],
+    "cleanupWarnings": [],
+    "report": "hosted-release-596b955.json",
+    "reportSHA256": "2031366461bbce534a85b9ad654d8366983f656bee68c90207f4f691d845dd71",
+    "artifactId": 13866588879,
+    "artifactDigest": "sha256:09ae347e0a13f3959a2a450cd44ad0d03dee884774427d46814a67cff7744c70"
+  },
+  "images": {
+    "gateway": {
+      "tag": "harden-llm-gateway:issue-162-596b9557bad7",
+      "id": "sha256:0a09d1cba6313d03f381a652a7c61ded2ef515545e85d0802a6ad78b856d3f05",
+      "version": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0",
+      "revision": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0"
+    },
+    "worker": {
+      "tag": "harden-llm-gateway:issue-162-596b9557bad7",
+      "id": "sha256:0a09d1cba6313d03f381a652a7c61ded2ef515545e85d0802a6ad78b856d3f05",
+      "version": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0",
+      "revision": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0"
+    },
+    "web": {
+      "tag": "harden-llm-web:issue-162-596b9557bad7",
+      "id": "sha256:22bab01bdd231ec3495de5b682ba2513620df67413509c03b6fb8712f3683d70",
+      "version": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0",
+      "revision": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0"
+    },
+    "publishedToRegistry": false,
+    "gatewayBinaryVersion": {
+      "exitCode": 0,
+      "version": "596b9557bad7584f3b3883e5a90cf63cd6ed86a0",
+      "ownedContainerRemoved": true
+    },
+    "buildSourceWorktreeClean": true
+  },
+  "goModule": {
+    "Path": "github.com/prls-co/harden-llm",
+    "Version": "v0.0.0-20261111144919-596b9557bad7",
+    "Sum": "h1:vMtCCidH8Fp1Fk8LKx5FNHIiTk3b3HT63PnFyAKs1Qs=",
+    "GoModSum": "h1:e6dWjPb8MvI8YbjtF/xzrA24pLaDNIoy2DUlRurNjkw="
+  },
+  "consumerQualification": {
+    "kind": "provider-free exact-published-module tests with isolated module files and test overlays; no consumer source or deployment changes",
+    "baselineHarden": "v0.0.0-20261111033220-a91c35d76393",
+    "candidateHarden": "v0.0.0-20261111144919-596b9557bad7",
+    "queryAnalytics": {
+      "source": "retained qa-bounded-image-source snapshot",
+      "baselineNewRegression": "failed: definitive model-operation failure after one POST",
+      "candidateAffectedPackageRace": "passed",
+      "log": "consumer-qa-race-green.log"
+    },
+    "clustering": {
+      "source": "retained clustering-qualified-source snapshot",
+      "baselineNewRegression": "failed: harden_operation_failed after one POST",
+      "candidateAffectedPackageRace": "passed",
+      "log": "consumer-clustering-race-green.log"
+    },
+    "requiredAdoption": "Reference Run consumers must upgrade the Go client to this module or a qualified descendant; shared Phoenix Run clients need the corresponding UI commit. These pins were not deployed."
+  },
+  "originalIncidentResearch": {
+    "runId": "c1803240-744c-4fc8-8621-072908a39fdc",
+    "freshAuthenticatedProductionRead": true,
+    "observedGatewaySource": "3e21d3a43d302ca43b6ec523d28f9de62b1c8827",
+    "observedGatewayImage": "sha256:770e4eaba638367b295fa0149f4d3960619fcf838069cf8c512e9a9e7c2e332c",
+    "restartCount": 0,
+    "effectiveTimeoutMs": 59999,
+    "elapsedMs": 5142,
+    "eventCount": 42,
+    "outputBytes": 93,
+    "networkHopCause": "unproven; underlying socket exception is not retained",
+    "privateHistorySHA256": "3dfa14dea760710cc987f8e702dfdb1823019f4f07dbacb426c78db38907bdc5",
+    "privateTraceSHA256": "87c0f0c9c85c584a111ee798fe387751fbee66fc27a0c0f9ebb0a43c1ec7322a",
+    "privateRawEvidenceCommitted": false
+  },
+  "localVerification": {
+    "focusedRace": "passed; focused-race-green.log",
+    "fast": "all ten tasks passed before final late-completion guard correction; final source certified by hosted release",
+    "temporalCapturedSelection": true,
+    "temporalCleanupErrors": [],
+    "temporalCleanupWarnings": [],
+    "retainedFailures": "retained-failed-checks.json",
+    "failureLimits": "The local runner-budget and Temporal count failures remain retained and are not claimed causally fixed by later passes."
+  },
+  "readinessBoundaries": {
+    "productionDeployed": false,
+    "mainPromoted": false,
+    "productionDataChanged": false,
+    "browserRun": false,
+    "browserLayoutChecked": false,
+    "newPaidInference": false,
+    "historicalWeatherAcceptance": "Two prior completed weather runs and exports are retained consumer evidence, not fresh acceptance of this candidate."
+  },
+  "requirements": {
+    "actualPartialStream": "TEST-540 real TLS router/core/admission with process-local metadata store",
+    "delayedHeaders": "Existing TEST-422/474 native CPA streaming regression retained",
+    "deadlineCancellationAndLateCompletion": "TEST-540 both runtime loops, context identity and real late-effect guard",
+    "oneDispatchPositiveStopUnknownUsage": "TEST-540; existing real-ledger/Temporal boundary cases in full hosted release",
+    "referenceJSONSSEAndClients": "TEST-540 / WEB-TEST-131",
+    "realHistoryAndScope": "TEST-541",
+    "broaderFunctionality": "All 30 browser-free release tasks passed without weakened assertions"
+  }
+}

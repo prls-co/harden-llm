@@ -1,0 +1,5 @@
+--- FAIL: TestCPAAdmissionLateCompletionPreservesUncertainty (1.00s)
+    admission_late_uncertainty_test.go:29: late success lost uncertainty or crossed the accepted deadline: calls=1 observations=1 error=context deadline exceeded
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	1.031s
+FAIL

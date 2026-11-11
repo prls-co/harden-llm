@@ -1,0 +1,27 @@
+--- FAIL: TestReferenceProviderUncertainty (0.00s)
+    --- FAIL: TestReferenceProviderUncertainty/partial (0.11s)
+        reference_uncertainty_test.go:117: unknown provider outcome became definitive: error=provider network request failed problem=&{Code:inference_failed Message:LLM execution failed; inspect the run's correlated diagnostics. FieldErrors:[] CurrentRevision:<nil> Diagnostic:<nil>} observation=unconfirmed status=failed
+    --- FAIL: TestReferenceProviderUncertainty/deadline (0.14s)
+        reference_uncertainty_test.go:117: unknown provider outcome became definitive: error=context deadline exceeded problem=&{Code:deadline_exceeded Message:The execution deadline expired. FieldErrors:[] CurrentRevision:<nil> Diagnostic:<nil>} observation=unconfirmed status=timeout
+FAIL
+FAIL	github.com/prls-co/harden-llm/stateful	0.358s
+--- FAIL: TestRunPreservesReportedProviderUncertainty (0.29s)
+    --- FAIL: TestRunPreservesReportedProviderUncertainty/true (0.27s)
+        run_uncertainty_test.go:36: reported unknown became definitive or lost evidence: status=failed evidence=&{OperationID:qa-fixture-op TraceID:00000000-0000-4000-8000-000000000001 Cache:{Mode:off Status:bypassed OperationHash: OriginalOperationHash: RerunOperationHash: Version: Served:false Written:false} ProviderInvoked:true ProviderAttemptCount:2} error=harden inference failed with a definitive terminal result calls=1
+    --- FAIL: TestRunPreservesReportedProviderUncertainty/false (0.02s)
+        run_uncertainty_test.go:36: reported unknown became definitive or lost evidence: status=failed evidence=&{OperationID:qa-fixture-op TraceID:00000000-0000-4000-8000-000000000001 Cache:{Mode:off Status:bypassed OperationHash: OriginalOperationHash: RerunOperationHash: Version: Served:false Written:false} ProviderInvoked:true ProviderAttemptCount:2} error=harden inference failed with a definitive terminal result calls=1
+--- FAIL: TestRunJSONPreservesReportedProviderUncertainty (0.30s)
+    --- FAIL: TestRunJSONPreservesReportedProviderUncertainty/408 (0.27s)
+        run_uncertainty_test.go:65: reported uncertainty became a known rejection: error=harden HTTP request was rejected calls=1
+    --- FAIL: TestRunJSONPreservesReportedProviderUncertainty/502 (0.02s)
+        run_uncertainty_test.go:65: reported uncertainty became a known rejection: error=harden HTTP request was rejected calls=1
+    --- FAIL: TestRunJSONPreservesReportedProviderUncertainty/504 (0.01s)
+        run_uncertainty_test.go:65: reported uncertainty became a known rejection: error=harden HTTP request was rejected calls=1
+FAIL
+FAIL	github.com/prls-co/harden-llm/httpclient	0.323s
+2026/11/11 06:17:09 INFO reference execution rejected code=inference_failed run_id="" trace_id="" provider_invoked=false
+--- FAIL: TestReferenceUnconfirmedErrorProjection (0.00s)
+    reference_diagnostic_test.go:28: reference projection lost uncertainty: status=502 headers=map[Content-Type:[application/json]] body={"error":{"code":"inference_failed","message":"LLM execution failed; inspect the run's correlated diagnostics.","diagnostic":{"code":"inference_failed","component":"reference","operation":"run","requestId":"","inferenceOutcome":"failed","persistenceOutcome":"saved","cause":"rejected","durationMs":0,"message":"LLM execution failed; inspect the run's correlated diagnostics.","action":"Correct the indicated configuration or inspect this run's trace; do not replay an ambiguous inference."}}}
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/gateway/httpapi	0.066s
+FAIL
