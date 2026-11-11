@@ -1,0 +1,17 @@
+{
+  "at": "2026-11-11T21:57:15.750372+00:00",
+  "beforeSHA256": "f1be6b7848a0602133aaded1300386da77b16d6a8a414326b6da5f96fb38e05d",
+  "afterSHA256": "7ae7436d9015d45b6396a40d0b04afa990e08a55442acdb0bfcdd0d259589ab4",
+  "changedFields": [
+    "/services/harden-llm-gateway/expectedImage",
+    "/services/harden-llm-gateway/identityEnvironment/HARDEN_LLM_RELEASE",
+    "/services/harden-llm-batch-worker/expectedImage",
+    "/services/harden-llm-batch-worker/identityEnvironment/HARDEN_LLM_RELEASE",
+    "/serviceEnvironmentOverrides/harden-llm-gateway/HARDEN_LLM_RELEASE",
+    "/serviceEnvironmentOverrides/harden-llm-batch-worker/HARDEN_LLM_RELEASE",
+    "/serviceImageOverrides/harden-llm-gateway",
+    "/serviceImageOverrides/harden-llm-batch-worker"
+  ],
+  "mode": "0600",
+  "checkpoint": "/home/kirill/.config/harden-llm/rollout-176-qyu9msp9/production.before.json"
+}

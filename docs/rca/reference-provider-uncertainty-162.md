@@ -260,3 +260,30 @@ caller deadlines. This is diagnostic-only: no public contract, schema, retry
 or timeout policy changes. The review/release closeout retains its own
 [receipt](../../plans/evidence/harden-llm/issue-162/diagnostics/review-followup/receipt.json)
 without replacing the initial qualification or borrowing its source identity.
+
+### 8.2 Diagnostics production closeout
+
+PR #176 is merged through `dev` into `main`; application source
+`0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372` is deployed at
+<https://harden-llm.prls.co/>. Its exact-main release run
+[43103474754, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/43103474754/attempts/1)
+passed all 30 browser-free tasks and both integration subreports before the
+production build. Main fast and CodeQL passed. The gateway and worker share
+image `sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a`;
+unchanged frontend/OpenAPI inputs retain the prior web image and source.
+
+The [production receipt](../../plans/evidence/harden-llm/issue-162/diagnostics/production-release/receipt.json)
+records schema-before-worker, fresh typed workflow/control/provider pollers,
+schema-before-gateway and all eight controller services equivalent. TEST-435
+HTTP/auth/status, Phoenix health and configured Portal HTML login passed with
+no inference. The ten setup/result tables, protected configuration and 156
+unrelated container identities remain unchanged. A separate whole-ledger
+comparison is retained as failed: traffic adds attempts and existing retention
+prunes expired ordinary metadata. Complete old-ledger preservation is not
+claimed; no retention policy or scientific assertion was relaxed.
+
+Safe diagnostic labels are now available for future failures through the
+existing logging path. This deployment adds no public field, schema, retry,
+deadline or provider behavior. Browser layout and fresh paid-provider behavior
+were not checked. The original network cause remains unproven, and #162 stays
+open. Later documentation commits do not relabel the deployed application.

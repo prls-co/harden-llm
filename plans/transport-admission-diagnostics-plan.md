@@ -104,3 +104,25 @@ its skipped jobs are not accepted tests. Retain this scheduling failure and
 qualify the corrected source independently. No merge or deployment is implied
 while required hosted/release checks remain unqualified. Review evidence is
 under `plans/evidence/harden-llm/issue-162/diagnostics/review-followup/`.
+
+## 7. Completed review, main promotion and deployment
+
+PR #176 merged after the corrected review source `8673ad4` passed actual hosted
+fast execution. Merge source `0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372`
+was fast-forwarded to `main`; its tree matches that reviewed source. Exact-main
+release run `43103474754`, attempt 1, accepted all 30 tasks and both integration
+subreports with clean teardown before building the gateway/worker image.
+Main fast and CodeQL passed separately.
+
+The [production receipt](evidence/harden-llm/issue-162/diagnostics/production-release/receipt.json)
+records the worker-before-gateway rollout, typed Temporal pollers, TEST-435
+HTTP/auth acceptance, image identities and unchanged web/shared owners. Ten
+setup/result tables and protected inputs retain exact hashes; all 156 unrelated
+containers are unchanged. A supplemental whole-ledger comparison is retained
+as failed because ordinary traffic and unchanged metadata expiry make that
+table mutable; complete old-ledger preservation is not claimed. No data reset,
+retention change, provider replay, browser or paid-provider check was performed.
+
+This completes the diagnostic implementation and authorized production rollout.
+It does not establish the original incident's failed network hop; #162 remains
+open. Documentation-only closure does not change the application image labels.

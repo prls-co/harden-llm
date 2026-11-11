@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 1,
+  "issue": 162,
+  "pullRequest": 176,
+  "status": "review_fixed_merged_main_deployed_browser_free_verified",
+  "verifiedAt": "2026-11-11T22:04:03.130066+00:00",
+  "url": "https://harden-llm.prls.co/",
+  "branch": "main",
+  "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "reviewSource": "8673ad4429a1ccc90cc03e8714f06fd5be3b361c",
+  "review": "https://github.com/prls-co/harden-llm/pull/176#issuecomment-6807012834",
+  "merge": {
+    "base": "dev",
+    "then": "fast-forward main",
+    "treeEqualsReviewedSource": true
+  },
+  "release": {
+    "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+    "runId": 43103474754,
+    "attempt": 1,
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43103474754",
+    "accepted": true,
+    "verifiedAt": "2026-11-11T21:56:21.055995+00:00",
+    "reports": [
+      {
+        "path": "hosted-reports/runner-1794433853930-74069-0e9a0ad47ab9ff5b.json",
+        "sha256": "9e24a6e26148f2152cab992f18fa1d5496fbbe6a1055c5bf6ca9b1844af431fe",
+        "selector": "go-integration",
+        "taskCount": 1,
+        "accepted": true
+      },
+      {
+        "path": "hosted-reports/runner-1794433971522-77660-c26e5182178873e7.json",
+        "sha256": "36bd39e34897a138f970c5df387bea800bc9e1406ff8250af2eea1bde32cc343",
+        "selector": "go-integration-race",
+        "taskCount": 1,
+        "accepted": true
+      },
+      {
+        "path": "hosted-reports/runner-1794434129725-3965-955e16de048f2715.json",
+        "sha256": "e22caf95c7b1d04d0e0b352cf9df7aa10e721dd9a6acd72947f199bab2424822",
+        "selector": "release",
+        "taskCount": 30,
+        "accepted": true
+      }
+    ],
+    "artifact": [
+      {
+        "id": 13894837091,
+        "name": "harden-llm-runner-reports-43103474754-1-release",
+        "digest": "sha256:bf00857b51af87f211fe0ef23433dcd3e0040f53beda4791767533d07061e5b8",
+        "size_in_bytes": 19524
+      }
+    ]
+  },
+  "exactSourceChecks": {
+    "mainFast": {
+      "runId": 43103447541,
+      "accepted": true,
+      "report": "../review-followup/main-fast.json"
+    },
+    "mainCodeQL": {
+      "runId": 43103446973,
+      "accepted": true,
+      "report": "../review-followup/main-codeql.json"
+    },
+    "reviewPRFast": {
+      "runId": 43102664277,
+      "source": "8673ad4429a1ccc90cc03e8714f06fd5be3b361c",
+      "accepted": true,
+      "report": "../review-followup/hosted-fast-pr.json"
+    },
+    "reviewPushFast": {
+      "runId": 43102654536,
+      "source": "8673ad4429a1ccc90cc03e8714f06fd5be3b361c",
+      "accepted": true,
+      "report": "../review-followup/hosted-fast-push.json"
+    }
+  },
+  "build": {
+    "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+    "tag": "harden-llm-gateway:release-0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+    "id": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+    "platform": "linux/amd64",
+    "labels": {
+      "org.opencontainers.image.revision": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+      "org.opencontainers.image.title": "harden-llm-gateway",
+      "org.opencontainers.image.version": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372"
+    },
+    "binaryVersion": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+    "versionProbeNetwork": "none",
+    "versionProbeContainerRemoved": true,
+    "buildExitCode": 0,
+    "releaseAcceptedBeforeBuild": true,
+    "cleanDetachedSource": true,
+    "localImmutableFullSHATag": true,
+    "buildWorktreeRemoved": true,
+    "privateBuildLogCommitted": false
+  },
+  "deployment": {
+    "controller": "scripts/production-config.mjs",
+    "descriptor": {
+      "at": "2026-11-11T21:57:15.750372+00:00",
+      "beforeSHA256": "f1be6b7848a0602133aaded1300386da77b16d6a8a414326b6da5f96fb38e05d",
+      "afterSHA256": "7ae7436d9015d45b6396a40d0b04afa990e08a55442acdb0bfcdd0d259589ab4",
+      "changedFields": [
+        "/services/harden-llm-gateway/expectedImage",
+        "/services/harden-llm-gateway/identityEnvironment/HARDEN_LLM_RELEASE",
+        "/services/harden-llm-batch-worker/expectedImage",
+        "/services/harden-llm-batch-worker/identityEnvironment/HARDEN_LLM_RELEASE",
+        "/serviceEnvironmentOverrides/harden-llm-gateway/HARDEN_LLM_RELEASE",
+        "/serviceEnvironmentOverrides/harden-llm-batch-worker/HARDEN_LLM_RELEASE",
+        "/serviceImageOverrides/harden-llm-gateway",
+        "/serviceImageOverrides/harden-llm-batch-worker"
+      ],
+      "mode": "0600",
+      "checkpoint": "/home/kirill/.config/harden-llm/rollout-176-qyu9msp9/production.before.json"
+    },
+    "order": [
+      "schema",
+      "harden-llm-batch-worker",
+      "typed workflow/control/provider pollers",
+      "schema",
+      "harden-llm-gateway"
+    ],
+    "allEightManagedServicesEquivalent": true,
+    "workerPollerEvidence": "worker-typed-pollers.json",
+    "workerHealthcheck": "disabled by existing worker contract; process, binary, image, pool and pollers verified",
+    "webRetainedBecauseFrontendAndOpenAPIUnchanged": true,
+    "productionCheckoutPreservedAt": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+    "components": {
+      "harden-llm-gateway": {
+        "name": "harden-llm-harden-llm-gateway-1",
+        "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+        "startedAt": "2026-11-11T21:59:11.968756641Z",
+        "restarts": 0,
+        "health": "healthy",
+        "project": "harden-llm",
+        "service": "harden-llm-gateway",
+        "containerId": "a93e21813e9457eb375f1f3341960188d6ed9b4b4a6f1852edad90eaf4ae87d4",
+        "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "imageReference": "harden-llm-gateway:release-0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "binaryVersion": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "releaseEnvironmentMatches": true,
+        "ociRevisionAndVersionMatch": true
+      },
+      "harden-llm-batch-worker": {
+        "name": "harden-llm-harden-llm-batch-worker-1",
+        "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+        "startedAt": "2026-11-11T21:58:11.79958773Z",
+        "restarts": 0,
+        "health": "",
+        "project": "harden-llm",
+        "service": "harden-llm-batch-worker",
+        "containerId": "48190e886a9a754658d3aa455ce92d4b9e115886806d9854340eeb4891137694",
+        "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "imageReference": "harden-llm-gateway:release-0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "binaryVersion": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "releaseEnvironmentMatches": true,
+        "ociRevisionAndVersionMatch": true
+      },
+      "harden-llm-web": {
+        "name": "harden-llm-harden-llm-web-1",
+        "image": "sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78",
+        "startedAt": "2026-11-11T18:30:35.405384528Z",
+        "restarts": 0,
+        "health": "healthy",
+        "project": "harden-llm",
+        "service": "harden-llm-web",
+        "containerId": "3deb8cd10768ce514b4599dc6277c17783cfb89a43d8418fca613663084c5d08",
+        "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+        "imageReference": "harden-llm-web:release-efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+        "binaryVersion": null,
+        "releaseEnvironmentMatches": true,
+        "ociRevisionAndVersionMatch": true
+      }
+    }
+  },
+  "acceptance": {
+    "TEST-435": {
+      "accepted": true,
+      "log": "deployed-http.log",
+      "models": 35,
+      "historyRows": 356,
+      "historyTableBytes": 3145728,
+      "readOnlyNoInference": true
+    },
+    "phoenixLocalhostHealth": {
+      "status": 200,
+      "bodyStatus": "ok"
+    },
+    "portalLogin": {
+      "url": "https://a.prls.co/login",
+      "accept": "text/html",
+      "client": "curl",
+      "status": 200
+    },
+    "databasePool": {
+      "pool_id": "cpa-production",
+      "generation": 2,
+      "mode": "active"
+    },
+    "unsettledAttempts": 0,
+    "scope": "HTTP health/auth/discovery/validation/status, actual binary identity and typed Temporal polling; no browser or fresh generation"
+  },
+  "preservation": {
+    "allTenSetupAndResultTableHashesExactlyUnchanged": true,
+    "tables": {
+      "credentials": {
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "profiles": {
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "hidden_presets": {
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "drafts": {
+        "rows": 1,
+        "sha256": "b4d787796fa8a44ec4214964f89ba34f3176812f76c04ca60bd83e43d79d2772"
+      },
+      "cache_entries": {
+        "rows": 278,
+        "sha256": "0dc32a7160fdc2cb8a4ed03a6fa90d1e67f121d401268ce9b0c88fa82ff83752"
+      },
+      "history": {
+        "rows": 356,
+        "sha256": "794cc8007c739bcb68f8978d479044b855a334cd3f268a2aaf66416079d7c7fc"
+      },
+      "batch_jobs": {
+        "rows": 2,
+        "sha256": "d124c424ef8dfe4f187d0558e9518ed96ece0d9a91eec8ef51e3110522efae42"
+      },
+      "batch_items": {
+        "rows": 1000,
+        "sha256": "cf49dea8d10eab1dc75f8c2c3acc75d7708c22a766443f40276cb328dea9b910"
+      },
+      "hllm_schema_version": {
+        "rows": 1,
+        "sha256": "e3acd018ee9bc860bcb7c7c76b9922e8955fe749ab80c9345aa11cf0d80da539"
+      },
+      "hllm_batch_schema_version": {
+        "rows": 1,
+        "sha256": "e3acd018ee9bc860bcb7c7c76b9922e8955fe749ab80c9345aa11cf0d80da539"
+      }
+    },
+    "protectedInputsUnchanged": true,
+    "protectedInputsSHA256": {
+      "/home/kirill/.config/prls-agent-platform/observability/live.env": "5826d070c085c8833a808bffa33273b31ae964feba41070179199b4eafef1731",
+      "/home/kirill/p/harden-llm-production/.env": "7b8e809d7e15fa5b84a245b8926e5354c35340b3e4ef15c324d6ec33bc99d390",
+      "/home/kirill/p/harden-llm/.env": "acc7c62165006c1b496f710014604859374c7104b46b1b39b354c0437846aaec",
+      "/home/kirill/p/harden-llm/config/upstreams.local.json": "77ba0e35287d7eac3084fdd3aabddeb1701ed61d4e8a4f1e61e75a126f584729"
+    },
+    "unrelatedContainersUnchanged": 156,
+    "unrelatedContainerOracle": "Exact ID, image, start time, restart count, health, Compose owner/service",
+    "oldGatewayWorkerImageRetained": "sha256:32eee847dcbabae4da90b17c232e745f3d4621cf7ea1128211cd30cdef22409b",
+    "privateCheckpoint": "/home/kirill/.config/harden-llm/rollout-176-qyu9msp9",
+    "checkpointDirectoryMode": "0700",
+    "descriptorCheckpointMode": "0600",
+    "baselineSnapshotSHA256": "12f8239e8a4e57b1e6207b24bd97f98bd432fff1c618891eb571d3b0dccd412f",
+    "afterSnapshotSHA256": "0355a01d8caef5a217c573de800e375776676b7777b043dbb1b9adc7737e17cc",
+    "duringCertificationTraffic": {
+      "initialAt": "2026-11-11T21:40:43.133102+00:00",
+      "initialHistoryRows": 335,
+      "initialCacheRows": 257,
+      "freshBaselineAt": "2026-11-11T21:57:03.667830+00:00",
+      "freshHistoryRows": 356,
+      "freshCacheRows": 278
+    },
+    "wholeOrdinaryLedgerEquality": "not established; separate strict immutable comparison retained as failed, not counted as acceptance"
+  },
+  "retainedNonAcceptance": [
+    {
+      "kind": "hosted runner allocation",
+      "runId": 43097735515,
+      "report": "../review-followup/retained-hosted-failure.json",
+      "jobsReport": "../review-followup/retained-hosted-jobs.json",
+      "result": "Failed before runner assignment; zero mode steps and downstream skipped. Corrected source was independently qualified; skipped work is not acceptance."
+    },
+    {
+      "kind": "whole-ledger comparison",
+      "report": "retained-whole-ledger-comparison.json",
+      "result": "Five baseline full-row digests absent; ten new digests and net five more settled rows at comparison. All ten setup/result tables remain byte-identical. Later live ledger count decreased again.",
+      "inference": "Existing unchanged PruneRequests removes only expired, pool-observed ordinary metadata with settled attempts and positive local stop; ordinary traffic also adds attempts. The missing five were not correlated individually before expiration, so full old-ledger preservation is not claimed.",
+      "source": "stateful/batch/request_queue.go:192-241",
+      "policyChanged": false
+    },
+    {
+      "kind": "initial pool preflight",
+      "result": "An operator assumed workflow retained permits must be empty. Four refs were correlated to settled/completed ledger rows with positive local stop; no outstanding SQL attempts. Existing v2 readiness requires matching active generation and not quiescing. No reset, upgrade or provider replay was performed; refs later retired normally.",
+      "baselineHTTPTestPassed": true
+    },
+    {
+      "kind": "typed poller proof",
+      "result": "Enhanced describe returned workflow-typed entries even in the control activity query. Final acceptance uses separate legacy per-type read APIs and fresh new-worker identities for every queue/type.",
+      "acceptedEvidence": "worker-typed-pollers.json"
+    },
+    {
+      "kind": "Portal probe",
+      "result": "Python urllib to configured Portal returned 403. A mistaken guessed portal.prls.co host returned 522 and is not the configured service. Canonical configured https://a.prls.co/login with curl and Accept:text/html returned 200.",
+      "acceptedEvidence": "runtime-acceptance.json"
+    },
+    {
+      "kind": "snapshot preflight",
+      "result": "Initial Docker template assumed Health existed on every unrelated container; the read-only query failed. Nil-safe inspection succeeded before rollout. No runtime mutation was involved."
+    }
+  ],
+  "parity": {
+    "httpOpenAPIClientDTOChanged": false,
+    "databaseSchemaChanged": false,
+    "promptsSchemasModelsReasoningChanged": false,
+    "retryReplayDeadlinePolicyChanged": false,
+    "newDependencyOrLoggingSink": false,
+    "sharedClassifierAndExistingLogEventsReused": true,
+    "externalGoConsideration": "Unavailable errors can be safe wrappers; errors.Is is preserved, direct equality/concrete-type checks differ."
+  },
+  "limits": {
+    "originalFailedNetworkHop": "unproven",
+    "issue162Closed": false,
+    "browserRun": false,
+    "browserLayoutChecked": false,
+    "providerInferenceRun": false,
+    "freshRealProviderAcceptance": false,
+    "artifactIntegritySweep": false,
+    "fullOrdinaryMetadataLedgerEquality": false
+  },
+  "documentationCloseout": "Later docs/evidence commits do not rebuild or relabel application images.",
+  "evidenceSHA256": {
+    "accepted-release.json": "b8702f5c3fbb0ac223c41f16b9c3eb457f66ffc91cb364ef10795283cfd1d99f",
+    "baseline-http.log": "ba9f26e54f832aaa8aab7d522fd936cba7cb312ee0e021ba82de53fc1d661d83",
+    "deployed-http.log": "305a1048c3db48e6a4e4c46bfb8c65c186d3963cdc4452dbc53c13e0cabd00c6",
+    "descriptor-change.json": "65524b7fef58a6bcfd8adfbb70dbb505500cd16601cdb5e4f7b46455a1a2906e",
+    "documentation-checks.json": "31a261493b240f7078122ad2f6f7c6ba45eded8f59e6d1ce1e76230dbc5ccf16",
+    "gateway-apply.log": "3cfad43ed3bc8023ece7b556e4b4282932b16665fe2d4b617df330c46ca0c5fa",
+    "gateway-candidate.log": "28df0a5dcea90d82c30be83280b3f004ae2bbe298a2d8d7d2e62c4e749fefa1e",
+    "gateway-final.log": "f841292dd6566af745dbd10bdc3536d7fc545f37694e518ff7ed48a11732d127",
+    "hosted-reports/runner-1794433853930-74069-0e9a0ad47ab9ff5b.json": "9e24a6e26148f2152cab992f18fa1d5496fbbe6a1055c5bf6ca9b1844af431fe",
+    "hosted-reports/runner-1794433971522-77660-c26e5182178873e7.json": "36bd39e34897a138f970c5df387bea800bc9e1406ff8250af2eea1bde32cc343",
+    "hosted-reports/runner-1794434129725-3965-955e16de048f2715.json": "e22caf95c7b1d04d0e0b352cf9df7aa10e721dd9a6acd72947f199bab2424822",
+    "image.json": "223bd53599938a1e3687691a730307c7ee7db9a52f46eacbe7e6d4887d3f7524",
+    "release-artifacts.json": "22fe4840b3bcb46d23aad84bb73627c8960cff31844c92412b31ba4b923f1006",
+    "release-jobs.json": "d443775627f682c6ca1d3c8c085d7b61d140e7fda4ca21a37378de311eb6350d",
+    "release-run.json": "ff4a813432bf0e00d62d0365d24e34bd093d24fdc39b4f4eec7bb78f2ec734df",
+    "retained-whole-ledger-comparison.json": "9a087654c7d2980b48d98cca3336f1c82e1334b2286ad5e6379e78bf056f476c",
+    "runtime-acceptance.json": "4975ecb20e38535527697be4bb50f002eeea807a2484049a555c22b4c0a479eb",
+    "support-final.log": "8b60cb90b05e180f4486750a186e126d732eee05b870d8435dbb2868423a18ff",
+    "web-final.log": "f841292dd6566af745dbd10bdc3536d7fc545f37694e518ff7ed48a11732d127",
+    "worker-apply.log": "3cfad43ed3bc8023ece7b556e4b4282932b16665fe2d4b617df330c46ca0c5fa",
+    "worker-candidate.log": "c4a23a6e422f518df5181fffc93643e1a5f8d5bfa196ff899c34999a67a357e9",
+    "worker-final.log": "f841292dd6566af745dbd10bdc3536d7fc545f37694e518ff7ed48a11732d127",
+    "worker-readiness.json": "eb946cbd0c64bdf4ae076ed3f925ff1fb694c1881a6c182329c1275acda183ce",
+    "worker-typed-pollers.json": "b63f45c8991febb4cd10515d9951f1866b637ab0f3ff51808f82b2629d21b13c"
+  }
+}

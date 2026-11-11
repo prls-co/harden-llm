@@ -1,0 +1,16 @@
+{
+  "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "tag": "harden-llm-gateway:release-0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "id": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+  "platform": "linux/amd64",
+  "labels": {
+    "org.opencontainers.image.revision": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+    "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+    "org.opencontainers.image.title": "harden-llm-gateway",
+    "org.opencontainers.image.version": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372"
+  },
+  "binaryVersion": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "versionProbeNetwork": "none",
+  "versionProbeContainerRemoved": true,
+  "buildExitCode": 0
+}

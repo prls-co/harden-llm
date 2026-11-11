@@ -1,6 +1,6 @@
 # Release Certification
 
-Latest production qualification: [Reference uncertainty, November 11](#2026-11-11-reference-uncertainty-production-release).
+Latest production qualification: [Transport and admission diagnostics, November 11](#2026-11-11-transport-and-admission-diagnostics).
 
 Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
 
@@ -3368,3 +3368,50 @@ Prompts, models, reasoning, database schema, execution statuses and retry policy
 are unchanged. The failed network hop in the original #162 incident remains
 unproven. Browser layout and fresh paid-provider acceptance were not checked.
 Documentation-only closeout commits do not rebuild or relabel these images.
+
+## 2026-11-11 Transport and admission diagnostics
+
+[PR #176](https://github.com/prls-co/harden-llm/pull/176) is merged through
+`dev` and promoted to `main`. The review correction forwards the existing cause
+at pool lookup, enqueue and wake failures. One mandatory helper argument and
+the shared `MetadataErrorClass` classifier cover every admission stage; no
+additional logging or error-classification path is introduced. TEST-543 failed
+at all three stages before correction, then passed with focused race checks
+and all ten local fast tasks. Hosted PR/push fast checks passed on reviewed
+source `8673ad4429a1ccc90cc03e8714f06fd5be3b361c`.
+
+The [production receipt](../plans/evidence/harden-llm/issue-162/diagnostics/production-release/receipt.json)
+records exact source, reports, component identities and preservation checks.
+
+| Boundary | Verified result |
+| --- | --- |
+| Application source | `0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372` on `main`; its tree equals the reviewed source. |
+| Exact-main release | [Run 43103474754, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/43103474754/attempts/1) passed before the production build: all 30 browser-free tasks and both integration subreports accepted, with no cleanup errors/warnings. Main fast and CodeQL also passed. |
+| Gateway / worker | Shared `linux/amd64` image `sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a`; OCI labels, isolated build probe and both running binary versions match the application source. |
+| Web | Retained source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f`, image `sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78`; frontend and OpenAPI inputs are unchanged. |
+| Rollout | Existing scoped controller applied schema before worker, verified fresh workflow/control/provider pollers, then applied schema before gateway. Generation 2 remains active; zero unsettled SQL attempts. All eight services are equivalent, HTTP services healthy, applications have zero restarts. |
+| Acceptance | TEST-435 health, bearer/authentication, Portal redirect, models, local validation, scope rejection and feature status passed at <https://harden-llm.prls.co/>. Phoenix localhost health and configured Portal HTML login return 200. No inference was dispatched. |
+| Preservation | Ten setup/result tables retain exact complete-row hashes: 356 history rows, 278 cache rows, one draft, two jobs and 1,000 items; profile/credential/hidden-preset tables remain empty. Protected inputs and all 156 unrelated container identities/start times/restart counts match. Previous images and the protected descriptor checkpoint remain available. |
+
+Production traffic advanced history/cache during certification; a fresh baseline
+was captured immediately before rollout. A supplemental immutable whole-ledger
+comparison found five missing baseline digests and ten new digests. It is
+retained as failed, separate from the passing setup/result-table checks. The
+unchanged ordinary metadata retention path prunes only expired, pool-observed,
+settled, positively stopped attempts; that explains why whole-ledger immutability
+is an unsuitable operational invariant. The five missing rows were not
+individually correlated before expiration, so complete old-ledger preservation
+is not claimed. No retention policy, assertion or timeout was changed.
+
+The receipt also retains the earlier runner-allocation failure and operator
+preflight/probe limitations. The final worker proof uses distinct typed Temporal
+poller reads. The configured Portal is `https://a.prls.co`; its HTML check uses
+`curl` and `Accept: text/html`.
+
+HTTP/OpenAPI, client DTOs, database schema, prompts, models, reasoning, retry and
+deadline policy are unchanged. External Go callers must use the existing
+`errors.Is(err, batch.ErrUnavailable)` convention because unavailable errors
+can carry safe wrappers; direct equality/concrete-type checks can differ.
+The original #162 network hop remains unproven and the issue stays open.
+No browser, layout check or fresh paid-provider acceptance ran. Subsequent
+documentation-only commits do not rebuild or relabel these application images.

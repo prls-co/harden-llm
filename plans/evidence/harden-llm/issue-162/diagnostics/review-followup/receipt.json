@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "issue": 162,
   "pullRequest": 176,
-  "status": "review_fixed_locally_qualified_awaiting_hosted_checks",
+  "status": "review_fixed_merged_main_deployed_browser_free_verified",
   "verifiedAt": "2026-11-11T21:23:36.536421+00:00",
   "review": "https://github.com/prls-co/harden-llm/pull/176#issuecomment-6807012834",
   "baseSource": "5087dbc843ed4bf735f01fed9762202133c3dbe9",
@@ -93,15 +93,24 @@
     "url": "https://harden-llm.prls.co/",
     "gatewayWorkerImage": "sha256:32eee847dcbabae4da90b17c232e745f3d4621cf7ea1128211cd30cdef22409b",
     "allEightControllerServicesEquivalent": true,
-    "mutationsPerformed": false
+    "mutationsPerformed": false,
+    "note": "Historical pre-rollout observation; no mutations had been performed at that observation."
   },
   "limits": {
-    "mainPromotionPerformed": false,
-    "productionDeploymentPerformed": false,
+    "mainPromotionPerformed": true,
+    "productionDeploymentPerformed": true,
     "browserRun": false,
     "browserLayoutChecked": false,
     "providerInference": false,
     "originalFailedNetworkHop": "unproven",
     "releaseAndDeploymentRemainSeparateGates": true
+  },
+  "qualificationSource": "8673ad4429a1ccc90cc03e8714f06fd5be3b361c",
+  "verificationInputsNote": "Hashes describe the frozen review qualification source, including its documentation. Later closeout documentation can differ.",
+  "closeout": {
+    "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+    "receipt": "../production-release/receipt.json",
+    "mainPromotionPerformed": true,
+    "productionDeploymentPerformed": true
   }
 }

@@ -1,0 +1,63 @@
+{
+  "baselineCutoff": "2026-11-11T21:58:01.994547+00:00",
+  "verifiedAt": "2026-11-11T21:59:43.623042+00:00",
+  "originalRowsPreserved": false,
+  "tables": {
+    "credentials": {
+      "baselineRows": 0,
+      "currentRows": 0,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "profiles": {
+      "baselineRows": 0,
+      "currentRows": 0,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "hidden_presets": {
+      "baselineRows": 0,
+      "currentRows": 0,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "drafts": {
+      "baselineRows": 1,
+      "currentRows": 1,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "cache_entries": {
+      "baselineRows": 278,
+      "currentRows": 278,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "history": {
+      "baselineRows": 356,
+      "currentRows": 356,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "batch_jobs": {
+      "baselineRows": 2,
+      "currentRows": 2,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "batch_items": {
+      "baselineRows": 1000,
+      "currentRows": 1000,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "hllm_schema_version": {
+      "baselineRows": 1,
+      "currentRows": 1,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "hllm_batch_schema_version": {
+      "baselineRows": 1,
+      "currentRows": 1,
+      "missingOrModifiedOriginalRows": 0
+    },
+    "batch_attempts": {
+      "baselineRows": 6808,
+      "currentRows": 6813,
+      "missingOrModifiedOriginalRows": 5
+    }
+  },
+  "oracle": "Every baseline complete-row SHA256 must remain, with multiplicity; new traffic rows are counted separately. Ledger baseline selects settled attempts only."
+}

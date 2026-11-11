@@ -1,0 +1,22 @@
+{
+  "verifiedAt": "2026-11-11T22:05:50.596137+00:00",
+  "kind": "docs/evidence-only closeout",
+  "applicationSourceUnchanged": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "checks": {
+    "node scripts/verify-parity-fixtures.mjs": {
+      "exit": 0,
+      "stdout": "verified 24 parity fixtures at 3f7da2476758823a206530abd5f0ddb18a3374ca; cache=1 combinatorial=1 evals=2 examples=4 llm-stats-totals=7 models=2 providers=2 retry=1 schema=2 telemetry=1 usage=1"
+    },
+    "node scripts/verify-test-tiers.mjs": {
+      "exit": 0,
+      "stdout": "{\"accepted\":true,\"manifest\":\"test/test-tiers.json\",\"fastTaskCount\":10}"
+    },
+    "git diff HEAD --check": {
+      "exit": 0,
+      "stdout": ""
+    },
+    "new diagnostics receipt links and release anchor": {
+      "accepted": true
+    }
+  }
+}

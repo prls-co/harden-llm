@@ -1,0 +1,345 @@
+{
+  "total_count": 6,
+  "jobs": [
+    {
+      "id": 130800658249,
+      "run_id": 43103474754,
+      "workflow_name": "Harden-LLM test hierarchy",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/prls-co/harden-llm/actions/runs/43103474754",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOTWkGK88AAAAedFOnSQ",
+      "head_sha": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "url": "https://api.github.com/repos/prls-co/harden-llm/actions/jobs/130800658249",
+      "html_url": "https://github.com/prls-co/harden-llm/actions/runs/43103474754/job/130800658249",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-11T21:29:24Z",
+      "started_at": "2026-11-11T21:29:26Z",
+      "completed_at": "2026-11-11T21:29:31Z",
+      "name": "mode",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-11T21:29:26Z",
+          "completed_at": "2026-11-11T21:29:27Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-11T21:29:27Z",
+          "completed_at": "2026-11-11T21:29:28Z"
+        },
+        {
+          "name": "Run node scripts/preview-policy.mjs ci",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-11T21:29:28Z",
+          "completed_at": "2026-11-11T21:29:29Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-11T21:29:29Z",
+          "completed_at": "2026-11-11T21:29:29Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-11T21:29:29Z",
+          "completed_at": "2026-11-11T21:29:29Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/prls-co/harden-llm/check-runs/130800658249",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000009826,
+      "runner_name": "GitHub Actions 1000009826",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 130800718303,
+      "run_id": 43103474754,
+      "workflow_name": "Harden-LLM test hierarchy",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/prls-co/harden-llm/actions/runs/43103474754",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOTWkGK88AAAAedFSR3w",
+      "head_sha": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "url": "https://api.github.com/repos/prls-co/harden-llm/actions/jobs/130800718303",
+      "html_url": "https://github.com/prls-co/harden-llm/actions/runs/43103474754/job/130800718303",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-11T21:29:31Z",
+      "started_at": "2026-11-11T21:29:33Z",
+      "completed_at": "2026-11-11T21:55:36Z",
+      "name": "browser-free release",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-11T21:29:34Z",
+          "completed_at": "2026-11-11T21:29:36Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-11T21:29:36Z",
+          "completed_at": "2026-11-11T21:29:38Z"
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-11T21:29:38Z",
+          "completed_at": "2026-11-11T21:29:48Z"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-11T21:29:48Z",
+          "completed_at": "2026-11-11T21:29:53Z"
+        },
+        {
+          "name": "Run erlef/setup-beam@v1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-11T21:29:53Z",
+          "completed_at": "2026-11-11T21:30:00Z"
+        },
+        {
+          "name": "Create short-lived private module token",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-11T21:30:00Z",
+          "completed_at": "2026-11-11T21:30:01Z"
+        },
+        {
+          "name": "Run go mod download",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-11T21:30:01Z",
+          "completed_at": "2026-11-11T21:30:01Z"
+        },
+        {
+          "name": "Run mix deps.get",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-11-11T21:30:01Z",
+          "completed_at": "2026-11-11T21:30:04Z"
+        },
+        {
+          "name": "Build production frontend image with the private dependency secret",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-11T21:30:04Z",
+          "completed_at": "2026-11-11T21:31:16Z"
+        },
+        {
+          "name": "Remove frontend validation image",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-11-11T21:31:16Z",
+          "completed_at": "2026-11-11T21:31:16Z"
+        },
+        {
+          "name": "Run make test-release",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-11T21:31:16Z",
+          "completed_at": "2026-11-11T21:55:31Z"
+        },
+        {
+          "name": "Upload redacted runner reports",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-11-11T21:55:31Z",
+          "completed_at": "2026-11-11T21:55:32Z"
+        },
+        {
+          "name": "Post Create short-lived private module token",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21,
+          "started_at": "2026-11-11T21:55:32Z",
+          "completed_at": "2026-11-11T21:55:33Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22,
+          "started_at": "2026-11-11T21:55:33Z",
+          "completed_at": "2026-11-11T21:55:33Z"
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23,
+          "started_at": "2026-11-11T21:55:33Z",
+          "completed_at": "2026-11-11T21:55:33Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 24,
+          "started_at": "2026-11-11T21:55:33Z",
+          "completed_at": "2026-11-11T21:55:33Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 25,
+          "started_at": "2026-11-11T21:55:33Z",
+          "completed_at": "2026-11-11T21:55:33Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/prls-co/harden-llm/check-runs/130800718303",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000009828,
+      "runner_name": "GitHub Actions 1000009828",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 130800720362,
+      "run_id": 43103474754,
+      "workflow_name": "Harden-LLM test hierarchy",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/prls-co/harden-llm/actions/runs/43103474754",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOTWkGK88AAAAedFSZ6g",
+      "head_sha": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "url": "https://api.github.com/repos/prls-co/harden-llm/actions/jobs/130800720362",
+      "html_url": "https://github.com/prls-co/harden-llm/actions/runs/43103474754/job/130800720362",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-11-11T21:29:31Z",
+      "started_at": "2026-11-11T21:29:31Z",
+      "completed_at": "2026-11-11T21:29:31Z",
+      "name": "explicit Docker lifecycle fault suite",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/prls-co/harden-llm/check-runs/130800720362",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    },
+    {
+      "id": 130800720533,
+      "run_id": 43103474754,
+      "workflow_name": "Harden-LLM test hierarchy",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/prls-co/harden-llm/actions/runs/43103474754",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOTWkGK88AAAAedFSalQ",
+      "head_sha": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "url": "https://api.github.com/repos/prls-co/harden-llm/actions/jobs/130800720533",
+      "html_url": "https://github.com/prls-co/harden-llm/actions/runs/43103474754/job/130800720533",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-11-11T21:29:31Z",
+      "started_at": "2026-11-11T21:29:31Z",
+      "completed_at": "2026-11-11T21:29:31Z",
+      "name": "pooled T3 integration",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/prls-co/harden-llm/check-runs/130800720533",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    },
+    {
+      "id": 130800720613,
+      "run_id": 43103474754,
+      "workflow_name": "Harden-LLM test hierarchy",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/prls-co/harden-llm/actions/runs/43103474754",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOTWkGK88AAAAedFSa5Q",
+      "head_sha": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "url": "https://api.github.com/repos/prls-co/harden-llm/actions/jobs/130800720613",
+      "html_url": "https://github.com/prls-co/harden-llm/actions/runs/43103474754/job/130800720613",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-11-11T21:29:31Z",
+      "started_at": "2026-11-11T21:29:31Z",
+      "completed_at": "2026-11-11T21:29:31Z",
+      "name": "explicitly requested browser checks",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/prls-co/harden-llm/check-runs/130800720613",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    },
+    {
+      "id": 130800721198,
+      "run_id": 43103474754,
+      "workflow_name": "Harden-LLM test hierarchy",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/prls-co/harden-llm/actions/runs/43103474754",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOTWkGK88AAAAedFSdLg",
+      "head_sha": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "url": "https://api.github.com/repos/prls-co/harden-llm/actions/jobs/130800721198",
+      "html_url": "https://github.com/prls-co/harden-llm/actions/runs/43103474754/job/130800721198",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-11-11T21:29:31Z",
+      "started_at": "2026-11-11T21:29:31Z",
+      "completed_at": "2026-11-11T21:29:31Z",
+      "name": "fast T0-T2",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/prls-co/harden-llm/check-runs/130800721198",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    }
+  ]
+}

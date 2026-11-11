@@ -1,0 +1,61 @@
+{
+  "verifiedAt": "2026-11-11T21:58:58.753784+00:00",
+  "hostname": "48190e886a9a",
+  "queryMode": "legacy separate per-type API; fresh identity required on every queue/type",
+  "queues": [
+    {
+      "queue": "harden-llm-batch-v1",
+      "type": "workflow",
+      "newWorkerPollers": [
+        {
+          "partition": 0,
+          "last_access_time": {
+            "seconds": 1794434292,
+            "nanos": 318397813
+          },
+          "identity": "7@48190e886a9a@",
+          "rate_per_second": 100000,
+          "worker_version_capabilities": {
+            "build_id": "691ea5b462341679fb219eb466b0ef3e"
+          }
+        }
+      ]
+    },
+    {
+      "queue": "harden-llm-batch-v1",
+      "type": "activity",
+      "newWorkerPollers": [
+        {
+          "partition": 0,
+          "last_access_time": {
+            "seconds": 1794434329,
+            "nanos": 304666214
+          },
+          "identity": "7@48190e886a9a@",
+          "rate_per_second": 100000,
+          "worker_version_capabilities": {
+            "build_id": "691ea5b462341679fb219eb466b0ef3e"
+          }
+        }
+      ]
+    },
+    {
+      "queue": "harden-llm-batch-v1/provider",
+      "type": "activity",
+      "newWorkerPollers": [
+        {
+          "partition": 0,
+          "last_access_time": {
+            "seconds": 1794434292,
+            "nanos": 286554453
+          },
+          "identity": "7@48190e886a9a@",
+          "rate_per_second": 100000,
+          "worker_version_capabilities": {
+            "build_id": "691ea5b462341679fb219eb466b0ef3e"
+          }
+        }
+      ]
+    }
+  ]
+}

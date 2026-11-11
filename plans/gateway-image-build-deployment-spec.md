@@ -27,8 +27,11 @@ decision.
 ## 2. Artifact and production identity
 
 The latest production identity is recorded in the
-[November 11 reference uncertainty receipt](evidence/harden-llm/issue-162/production-release/receipt.json)
-and [release certification](../docs/release-certification.md#2026-11-11-reference-uncertainty-production-release).
+[November 11 transport/admission diagnostics receipt](evidence/harden-llm/issue-162/diagnostics/production-release/receipt.json)
+and [release certification](../docs/release-certification.md#2026-11-11-transport-and-admission-diagnostics).
+Gateway and worker use certified source
+`0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372`; unchanged web inputs retain
+source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f` and its image.
 The identities below are retained historical checkpoints.
 
 The November 4 production application identity was source

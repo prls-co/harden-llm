@@ -1,0 +1,39 @@
+{
+  "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "runId": 43103474754,
+  "attempt": 1,
+  "url": "https://github.com/prls-co/harden-llm/actions/runs/43103474754",
+  "accepted": true,
+  "verifiedAt": "2026-11-11T21:56:21.055995+00:00",
+  "reports": [
+    {
+      "path": "hosted-reports/runner-1794433853930-74069-0e9a0ad47ab9ff5b.json",
+      "sha256": "9e24a6e26148f2152cab992f18fa1d5496fbbe6a1055c5bf6ca9b1844af431fe",
+      "selector": "go-integration",
+      "taskCount": 1,
+      "accepted": true
+    },
+    {
+      "path": "hosted-reports/runner-1794433971522-77660-c26e5182178873e7.json",
+      "sha256": "36bd39e34897a138f970c5df387bea800bc9e1406ff8250af2eea1bde32cc343",
+      "selector": "go-integration-race",
+      "taskCount": 1,
+      "accepted": true
+    },
+    {
+      "path": "hosted-reports/runner-1794434129725-3965-955e16de048f2715.json",
+      "sha256": "e22caf95c7b1d04d0e0b352cf9df7aa10e721dd9a6acd72947f199bab2424822",
+      "selector": "release",
+      "taskCount": 30,
+      "accepted": true
+    }
+  ],
+  "artifact": [
+    {
+      "id": 13894837091,
+      "name": "harden-llm-runner-reports-43103474754-1-release",
+      "digest": "sha256:bf00857b51af87f211fe0ef23433dcd3e0040f53beda4791767533d07061e5b8",
+      "size_in_bytes": 19524
+    }
+  ]
+}

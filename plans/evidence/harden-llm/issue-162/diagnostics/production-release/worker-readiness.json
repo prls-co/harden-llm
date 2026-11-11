@@ -1,0 +1,57 @@
+{
+  "verifiedAt": "2026-11-11T21:58:31.625952+00:00",
+  "containerId": "48190e886a9a754658d3aa455ce92d4b9e115886806d9854340eeb4891137694",
+  "hostname": "48190e886a9a",
+  "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+  "startedAt": "2026-11-11T21:58:11.79958773Z",
+  "restarts": 0,
+  "binaryVersion": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "queues": [
+    {
+      "queue": "harden-llm-batch-v1",
+      "type": "workflow",
+      "newWorkerPollers": [
+        {
+          "buildId": "UNVERSIONED",
+          "taskQueueType": "workflow",
+          "identity": "7@48190e886a9a@",
+          "lastAccessTime": "2026-11-11T21:58:12.318397813Z",
+          "ratePerSecond": 100000
+        }
+      ]
+    },
+    {
+      "queue": "harden-llm-batch-v1",
+      "type": "activity",
+      "newWorkerPollers": [
+        {
+          "buildId": "UNVERSIONED",
+          "taskQueueType": "workflow",
+          "identity": "7@48190e886a9a@",
+          "lastAccessTime": "2026-11-11T21:58:12.318397813Z",
+          "ratePerSecond": 100000
+        }
+      ]
+    },
+    {
+      "queue": "harden-llm-batch-v1/provider",
+      "type": "activity",
+      "newWorkerPollers": [
+        {
+          "buildId": "UNVERSIONED",
+          "taskQueueType": "activity",
+          "identity": "7@48190e886a9a@",
+          "lastAccessTime": "2026-11-11T21:58:12.286554453Z",
+          "ratePerSecond": 100000
+        }
+      ]
+    }
+  ],
+  "pool": {
+    "PoolID": "cpa-production",
+    "Generation": 2,
+    "Quiescing": false
+  },
+  "retainedPermitReferences": 0,
+  "startIntents": 0
+}
