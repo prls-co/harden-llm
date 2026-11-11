@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "status": "main and dev reconciled; production application inputs equivalent; dev gateway rebuilt",
+  "verifiedAt": "2026-11-11T12:40:04.082281+00:00",
+  "releaseTarget": "ebaa639d84427b359dcb038297635317313fc722",
+  "pullRequests": {
+    "previewCorrection": 173
+  },
+  "sourceQualification": {
+    "browserFreeRelease": {
+      "conclusion": "success",
+      "headSha": "dcb1c04b801b191c93100e0c1dd87fa880d77d15",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43018526114",
+      "job": 130515651123
+    },
+    "fastChecks": [
+      {
+        "run": 43019335533,
+        "conclusion": "success",
+        "headSha": "4a07c83a45add90df8e93fb8a3ac709e9d5f98d1",
+        "status": "completed",
+        "url": "https://github.com/prls-co/harden-llm/actions/runs/43019335533"
+      },
+      {
+        "run": 43019345320,
+        "conclusion": "success",
+        "headSha": "4a07c83a45add90df8e93fb8a3ac709e9d5f98d1",
+        "status": "completed",
+        "url": "https://github.com/prls-co/harden-llm/actions/runs/43019345320"
+      },
+      {
+        "run": 43019893096,
+        "conclusion": "success",
+        "headSha": "ebaa639d84427b359dcb038297635317313fc722",
+        "status": "completed",
+        "url": "https://github.com/prls-co/harden-llm/actions/runs/43019893096"
+      },
+      {
+        "run": 43019898999,
+        "conclusion": "success",
+        "headSha": "ebaa639d84427b359dcb038297635317313fc722",
+        "status": "completed",
+        "url": "https://github.com/prls-co/harden-llm/actions/runs/43019898999"
+      }
+    ],
+    "reports": [
+      {
+        "file": "runner-1794400477326-72614-1c928b4b1c5e127e.json",
+        "sha256": "f93a7f10fb10706af1acad292af62f6e9e31a25b8c4bf3098e64fe822c555fcd",
+        "selector": "go-integration",
+        "accepted": true,
+        "taskCount": 1
+      },
+      {
+        "file": "runner-1794400591963-76151-5b042dc6042ad4ec.json",
+        "sha256": "8747c946c0286a91b5c7071d574e41946d4a6e469ea6c5eabdf0ab49f4ad8993",
+        "selector": "go-integration-race",
+        "accepted": true,
+        "taskCount": 1
+      },
+      {
+        "file": "runner-1794400749301-4047-86c1522b45f7bc1a.json",
+        "sha256": "ca32ec27fe916c4e2f9bc83c4021634deea3b6173d3efdcc25f6daabe4a4d1f3",
+        "selector": "release",
+        "accepted": true,
+        "taskCount": 30
+      }
+    ]
+  },
+  "runtime": [
+    {
+      "container": "harden-llm-harden-llm-gateway-1",
+      "image": "sha256:770e4eaba638367b295fa0149f4d3960619fcf838069cf8c512e9a9e7c2e332c",
+      "source": "3e21d3a43d302ca43b6ec523d28f9de62b1c8827",
+      "health": "healthy",
+      "running": true,
+      "restarts": 0
+    },
+    {
+      "container": "harden-llm-harden-llm-batch-worker-1",
+      "image": "sha256:770e4eaba638367b295fa0149f4d3960619fcf838069cf8c512e9a9e7c2e332c",
+      "source": "3e21d3a43d302ca43b6ec523d28f9de62b1c8827",
+      "health": null,
+      "running": true,
+      "restarts": 0
+    },
+    {
+      "container": "harden-llm-harden-llm-web-1",
+      "image": "sha256:870381f0d9463103f4eb5eb68f96c2d8f9f7af7b3cd9523c53f34af2e10562cd",
+      "source": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+      "health": "healthy",
+      "running": true,
+      "restarts": 0
+    },
+    {
+      "container": "hllm-preview-dev-gateway-1",
+      "image": "sha256:b4bba74c48ee2e0f257661844dcc14bb47b333d38c229f18ddeba1e3528c4c24",
+      "source": "ebaa639d84427b359dcb038297635317313fc722",
+      "health": "healthy",
+      "running": true,
+      "restarts": 0
+    },
+    {
+      "container": "hllm-preview-dev-web-1",
+      "image": "sha256:72a60cf8de979c3d3bbe096c1ecfa72b5da6c85af4d62408b003853d4a8a3790",
+      "source": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+      "health": "healthy",
+      "running": true,
+      "restarts": 0
+    }
+  ],
+  "productionController": {
+    "equivalent": true,
+    "managedServices": 8,
+    "gatewaySource": "3e21d3a43d302ca43b6ec523d28f9de62b1c8827",
+    "webSource": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+    "applicationInputsEquivalentToReleaseTarget": true,
+    "applicationRebuildRequired": false
+  },
+  "dev": {
+    "url": "https://harden-llm-dev.prls.co",
+    "gatewayRebuiltAt": "ebaa639d84427b359dcb038297635317313fc722",
+    "gatewayRebuildWorkflow": 43020292362,
+    "webUnchanged": true
+  },
+  "production": {
+    "url": "https://harden-llm.prls.co"
+  },
+  "httpAcceptance": {
+    "production": {
+      "passed": 11,
+      "profileCount": 40,
+      "providerInference": false
+    },
+    "dev": {
+      "passed": 11,
+      "profileCount": 40,
+      "providerInference": false
+    }
+  },
+  "deployedDefault": {
+    "production": {
+      "environment": "production",
+      "container": "harden-llm-harden-llm-web-1",
+      "image": "sha256:870381f0d9463103f4eb5eb68f96c2d8f9f7af7b3cd9523c53f34af2e10562cd",
+      "source": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+      "deployedCode": {
+        "initial": "CPA gpt-6-luna",
+        "saved": "earlier-profile",
+        "absent": "earlier-profile"
+      },
+      "browser": false,
+      "providerInference": false
+    },
+    "dev": {
+      "environment": "dev",
+      "container": "hllm-preview-dev-web-1",
+      "image": "sha256:72a60cf8de979c3d3bbe096c1ecfa72b5da6c85af4d62408b003853d4a8a3790",
+      "source": "c6f7e6c90573b963b4378d4163c9122e611e4c93",
+      "deployedCode": {
+        "initial": "CPA gpt-6-luna",
+        "saved": "earlier-profile",
+        "absent": "earlier-profile"
+      },
+      "browser": false,
+      "providerInference": false
+    }
+  },
+  "batchWorker": {
+    "currentWorkerPollingRequiredQueues": 3,
+    "providerInference": false
+  },
+  "localChecks": {
+    "previewPolicy": {
+      "passed": 19
+    },
+    "canonicalScriptSelection": {
+      "passed": 68
+    },
+    "adHocScriptGlob": {
+      "passed": 137,
+      "failed": 1,
+      "reason": "Included the managed Docker lifecycle entrypoint without runner context; its guard refused execution before mutation. The canonical selection passed; full release supplies the lifecycle context."
+    }
+  },
+  "clientAudit": "2026-11-11-main-client-closeout.md",
+  "providerInference": false,
+  "browser": false,
+  "limits": [
+    "App/Firebase and Agent Runtime deployed model configuration was not verified; source findings are labeled separately.",
+    "The original interrupted-stream RCA in issue 162 remains separate from this release."
+  ]
+}

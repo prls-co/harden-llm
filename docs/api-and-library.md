@@ -89,6 +89,11 @@ The additional reference search fields require updating and deploying all
 consumers that decode reference runs with `httpclient` before deploying the
 updated gateway. The frontend and its schema deploy with the gateway.
 
+The [2026-11-11 client audit](../plans/evidence/harden-llm/web-search-parity/2026-11-11-main-client-closeout.md)
+records deployed reference-client upgrades and separate downstream model-default
+follow-ups. Each ordinary API caller still supplies its model; the reference
+workspace default does not rewrite consumer configuration.
+
 ## Optional hardening fields
 
 Ordinary OpenAI requests need no Harden-specific wrapper. Add `harden` only

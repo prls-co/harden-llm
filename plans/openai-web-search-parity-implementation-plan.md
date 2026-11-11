@@ -1045,6 +1045,10 @@ source with unchanged application images for the later test-only commits.
 The Go module is published; deployed reference clients were verified before
 gateway promotion. NER's future search adoption remains consumer-owned.
 
+The [main/dev reconciliation and client audit](evidence/harden-llm/web-search-parity/2026-11-11-main-client-closeout.md)
+records the subsequent preview build-selection correction, current component
+qualification and independent downstream model-default follow-ups.
+
 The [production receipt](evidence/harden-llm/web-search-parity/2026-11-11-production.json)
 and [release record](../docs/release-certification.md#2026-11-11-web-search-parity-production-release)
 record image identities, the consumer rollout correction, HTTP and worker
