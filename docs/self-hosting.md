@@ -80,6 +80,10 @@ available. Saved workspace selections are restored; deployments without that
 preset use their first available profile. This UI default does not replace the
 explicit model supplied by an ordinary OpenAI API request.
 
+See the [main/dev reconciliation and client audit](../plans/evidence/harden-llm/web-search-parity/2026-11-11-main-client-closeout.md)
+for the deployed component sources, verification and downstream default-policy
+follow-ups.
+
 ## 4. Browser-free acceptance
 
 ```bash
