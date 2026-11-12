@@ -98,3 +98,41 @@ host. Authenticated `/api/v1/status` reports storage/history/artifact availabili
 independently. Release evidence records the exact source SHA, images, schema exit
 and HTTP/auth results. Browser layout and paid-provider inference require their
 separate explicit opt-ins.
+
+## 5. Explicit browser and paid-provider acceptance
+
+Run these checks only when the user explicitly authorizes the browser and any
+provider spend. `make test-browser` is the existing local reference canary;
+its process-owned backend reuses the canonical reference wire fixture and has
+no paid-provider path. Run only one coordinated browser workflow per host.
+The managed runner lease in `scripts/test-resource-lifecycle.mjs` can also
+serialize an operator-owned production browser with local managed tests.
+
+For deployed acceptance:
+
+1. Read the current release receipt and verify actual component images and
+   binary identities through the scoped production controller. A later
+   test/docs commit does not relabel an unchanged application image.
+2. Use a fresh test-owned browser with the existing dedicated Portal
+   verification login. Consume protected values in memory through the existing
+   environment resolver; never export cookies, copy a person's session, or
+   publish credentials, screenshots or live response bodies.
+3. Verify Portal return, LiveSocket, backend readiness and representative native
+   desktop/mobile layout. Capture the verification workspace's draft payload
+   before editing it. Check native control changes without submitting a Run.
+4. For authorized inference, choose the existing CPA `gpt-6-luna` preset, search
+   off, cache off, one attempt, and a small explicit output-token cap. Use a
+   unique synthetic marker. Ordinary JSON/SSE acceptance uses `/v1/responses`;
+   browser acceptance uses the reference Run through the normal UI. Check
+   terminal output, exact attempts, usage and positive local stop; correlate
+   existing stream IDs/counters with the dispatch event and authoritative permit.
+   Configured profile rates produce a cost equivalent, not an invoice.
+5. Inspect and delete only the marker-owned history record. Sign out, verify
+   revocation of the session created by this check, restore the captured draft
+   payload using its current revision, verify readback, and close the owned
+   browser and runner lease even on failure. Preserve concurrent edits instead
+   of overwriting them. Unknown inference outcomes permit metadata readback,
+   never an automatic Run replay.
+6. Record actual sources, component identities, gate results, spend bounds,
+   cleanup and observed console/resource failures. Cross-owner diagnostics
+   remain explicit; do not broaden CSP or change an assertion to conceal them.

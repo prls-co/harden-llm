@@ -48,10 +48,17 @@ mix test
 ```
 
 Browser tests are opt-in and run only when specifically requested.
+Repository-root `make test-browser` runs one serialized native reference
+workflow using the canonical wire fixture. Cheap async tests cover the same
+fixture's private process ownership and real-client SSE decoding. The canary
+retains Portal login, combobox Enter without submission, one Run, preserved
+output during history failure, and logout.
 `make test-release` is browser-free; its composed HTTP check uses isolated real
 storage and local provider/identity fixtures. Actual browser layout requires a
 separate authorized check. See the
 [testing guidelines](../docs/liveview-go-testing-guidelines.md).
+Explicit deployed browser/provider acceptance follows
+[self-hosting acceptance](../docs/self-hosting.md#5-explicit-browser-and-paid-provider-acceptance).
 
 ## Deployment and reuse
 

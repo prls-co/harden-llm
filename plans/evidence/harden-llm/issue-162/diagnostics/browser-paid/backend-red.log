@@ -1,0 +1,52 @@
+Running ExUnit with seed: 359672, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+
+
+  1) test independent browser fixtures do not share draft state (HardenLlmWeb.BrowserBackendTest)
+     test/harden_llm_web/browser_backend_test.exs:46
+     ** (MatchError) no match of right hand side value:
+
+         {:error, {:already_started, #PID<0.935.0>}}
+
+     code: {:ok, other} = BrowserBackend.start()
+     stacktrace:
+       test/harden_llm_web/browser_backend_test.exs:47: (test)
+
+
+
+  2) test the canary uses reference profiles, drafts and one streamed Run (HardenLlmWeb.BrowserBackendTest)
+     test/harden_llm_web/browser_backend_test.exs:14
+     Assertion with == failed
+     code:  assert profiles.status == 200
+     left:  404
+     right: 200
+     stacktrace:
+       test/harden_llm_web/browser_backend_test.exs:16: (test)
+
+    warning: HardenLlmWeb.BrowserBackend.responses/1 is undefined or private. Did you mean:
+
+        * responses/0
+
+    │
+ 39 │     assert BrowserBackend.responses(owner) == [body]
+    │                           ~
+    │
+    └─ test/harden_llm_web/browser_backend_test.exs:39:27: HardenLlmWeb.BrowserBackendTest."test the canary uses reference profiles, drafts and one streamed Run"/1
+
+    warning: HardenLlmWeb.BrowserBackend.calls/1 is undefined or private. Did you mean:
+
+        * calls/0
+
+    │
+ 40 │     assert Enum.count(BrowserBackend.calls(owner), &(&1 == {"POST", "/api/v1/run"})) == 1
+    │                                      ~
+    │
+    └─ test/harden_llm_web/browser_backend_test.exs:40:38: HardenLlmWeb.BrowserBackendTest."test the canary uses reference profiles, drafts and one streamed Run"/1
+    └─ test/harden_llm_web/browser_backend_test.exs:41:37: HardenLlmWeb.BrowserBackendTest."test the canary uses reference profiles, drafts and one streamed Run"/1
+
+
+Finished in 0.1 seconds (0.1s async, 0.00s sync)
+
+Result: 0/2 passed
+Failed: 2 tests
