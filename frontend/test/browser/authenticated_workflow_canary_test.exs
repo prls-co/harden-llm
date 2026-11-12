@@ -27,8 +27,13 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
       |> assert_has(Query.css("#backend-status", text: "Backend ready"))
       |> assert_has(Query.css("#run_selectedProfileId[value='CPA Responses']"))
       |> assert_has(Query.css("#run_modelId[value='gpt-5.6-luna']", visible: :any))
-      |> click(Query.css("#history-fold-toggle"))
-      |> assert_has(Query.css("#workspace-history-error", text: "History unavailable"))
+      |> click(Query.css("#input-advanced-toggle:not([disabled])"))
+      |> click(Query.css("#check-schema:not([disabled])"))
+      |> assert_has(Query.css("#run-submit:not([disabled])"))
+      |> click(Query.css("#history-fold-toggle:not([disabled])"))
+      |> assert_has(
+        Query.css("#workspace-history-error", text: "The proxy could not complete the request.")
+      )
       |> fill_in(Query.css("#run_userPrompt"), with: "one reliable call")
       |> click(Query.css("#run_selectedProfileId"))
       |> send_keys([:enter])
@@ -37,10 +42,13 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
 
     session =
       session
-      |> click(Query.css("#run-submit"))
+      |> fill_in(Query.css("#run_userPrompt"), with: "one reliable call")
+      |> click(Query.css("#run-submit:not([disabled])"))
       |> assert_has(Query.css("#run-output", text: "ok"))
       |> assert_has(Query.css("#recording-status[data-status='not_saved']", text: "preserved"))
-      |> assert_has(Query.css("#workspace-history-error", text: "History unavailable"))
+      |> assert_has(
+        Query.css("#workspace-history-error", text: "The proxy could not complete the request.")
+      )
       |> assert_has(Query.css("#logout-button"))
 
     calls = BrowserBackend.calls(backend)
@@ -51,7 +59,8 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
     assert [request] = BrowserBackend.responses(backend)
     assert request["profileId"] == "CPA Responses"
     assert request["userPrompt"] == "one reliable call"
-    assert request["callType"] == "text"
+    assert request["callType"] == "structured"
+    assert request["schema"]["properties"] == %{"ok" => %{"type" => "boolean"}}
     assert request["modelId"] == "gpt-5.6-luna"
     refute Map.has_key?(request, "apiKeyHash")
 
