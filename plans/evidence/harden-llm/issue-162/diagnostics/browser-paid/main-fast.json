@@ -1,0 +1,39 @@
+{
+  "source": "a6a887d7f77f9c2f7a2256d9fc624768a0c1e4d4",
+  "runId": 43129746919,
+  "url": "https://github.com/prls-co/harden-llm/actions/runs/43129746919",
+  "conclusion": "success",
+  "status": "completed",
+  "jobs": [
+    {
+      "name": "mode",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "fast T0-T2",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "pooled T3 integration",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "explicitly requested browser checks",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "explicit Docker lifecycle fault suite",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "browser-free release",
+      "status": "completed",
+      "conclusion": "skipped"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+[
+  {
+    "kind": "push",
+    "runId": 43126638648,
+    "source": "d720e57c212a857abf49b46b9813d74967c61894",
+    "accepted": true,
+    "taskCount": 10,
+    "report": "hosted-fast-push.json",
+    "sha256": "c1faf58795090ed2049f57054b25a15fe41083bab01c5d5b74949ba81ba61e92",
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43126638648",
+    "actualFastStepSucceeded": true
+  },
+  {
+    "kind": "pr",
+    "runId": 43126647911,
+    "source": "d720e57c212a857abf49b46b9813d74967c61894",
+    "accepted": true,
+    "taskCount": 10,
+    "report": "hosted-fast-pr.json",
+    "sha256": "24d44c94c6d1c03549891993a424659296d55d389dbdd281f428f31bb347066f",
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43126647911",
+    "actualFastStepSucceeded": true
+  }
+]

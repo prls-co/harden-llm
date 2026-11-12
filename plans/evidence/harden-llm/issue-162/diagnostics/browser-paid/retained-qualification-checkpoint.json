@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "status": "corrected_fixture_awaiting_browser_gate_and_final_production_workflow",
+  "baseSource": "62d3b7530b311eb6f35fda9903a57e9a208b8ba3",
+  "gatewaySource": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "webSource": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+  "url": "https://harden-llm.prls.co/",
+  "budgetUSD": 1,
+  "paidCasesCompleted": 2,
+  "configuredRateEquivalentUSD": 5.4999999999999995e-05,
+  "providerInvoiceCost": "not measured; profile-rate equivalents retained separately",
+  "applicationFilesChanged": false,
+  "correction": "Existing browser canary uses the accepted reference API and canonical fixture; process-owned state replaces its global Agent. Preserve native keyboard/no-implicit-submit, exactly one Run, streamed output, unavailable history, failed recording and logout.",
+  "cheapRegressionRed": "backend-red.log",
+  "browserRegressionRed": "browser-before.json",
+  "retainedLimitations": [
+    "Initial Python urllib metadata GET received 403; Node fetch through the normal authorized API returned 200. No provider call was retried.",
+    "Direct equality of public engine and admission execution UUIDs is invalid. Paid calls are correlated by native stream ID plus counters to dispatch events and authoritative permit readback.",
+    "Initial production read-only browser pass reached Portal, backend and LiveSocket and fit desktop/mobile viewports; blocked analytics/CSP console diagnostics remain unaccepted and are retained privately. No paid UI Run has occurred yet."
+  ],
+  "sourceInputsSHA256": {
+    "frontend/test/support/browser_backend.ex": "2c20de5486cd1ca16536df87bfa864e90f606c0ea10cda1a7aa61a239dc36399",
+    "frontend/test/support/browser_feature_case.ex": "4caf144621705fe608b42c0873aae36da45c773ae7314096717eb746761345af",
+    "frontend/test/browser/authenticated_workflow_canary_test.exs": "18b0c26ecd304d99bd809f03da3c913653169daa4eedec3d45238304ab8d9068",
+    "frontend/test/harden_llm_web/browser_backend_test.exs": "89e66891043e4f785942369653b7e84f44f85a273bf377951dce5888e8dc2d09",
+    "internal/testkit/test_feedback_traceability_test.go": "8e8fedcacdcccf613f6cd22ef75cf76f5808397264f7564a8ff68dd8e799fd38",
+    "frontend/test/harden_llm_web/live/shared_workspace_test.exs": "00fd8aeb734d175a5d394da6b1b2f138de8981a5fd32c757491705275c58a82b"
+  },
+  "privateCheckpoint": "/home/kirill/.config/harden-llm/acceptance-176-j5ho8yu2",
+  "browserAndLiveAuthorization": "Explicit user request; USD 1 or much less.",
+  "focusedFrontend": {
+    "accepted": true,
+    "tests": 23,
+    "log": "frontend-focused.log",
+    "coverage": "Actual client stream decoding, owned fixture isolation, shared workspace, Portal and browser policy"
+  },
+  "retainedHostedFailure": {
+    "source": "61d0c6d579ffa0639c11a35cdbf2b8b7834f9c41",
+    "pushRun": 43125564683,
+    "prRun": 43125640260,
+    "cause": "Go traceability guard still required retired proxy paths in the ordinary reference canary. Other task terminations/skips are cascade, not acceptance. Both reports have clean teardown.",
+    "correction": "Require reference profiles/Run, backend-ready and no implicit submission; actively reject retired proxy routes. No guard is removed."
+  },
+  "encodedProfileRegression": {
+    "browserRed": "browser-encoded-profile-red.json",
+    "cheapRed": "profile-encoding-red.log",
+    "correction": "Decode the actual URI-encoded profile segment before looking it up in the canonical fixture.",
+    "green": "frontend-focused-corrected.log",
+    "focusedTests": 23
+  },
+  "publicOracleCorrection": {
+    "cheapRed": "history-message-red.log",
+    "green": "frontend-focused-public-contract.log",
+    "contract": "The existing client exposes its safe public error, not the raw fixture message; the canonical preset starts with structured output.",
+    "correction": "Keep an exact visible safe-error assertion and add cheap raw-message non-disclosure coverage. Use the canonical structured schema, explicitly validate it through native controls, and wait for the enabled Run button. Exact one-Run and output/recording assertions remain.",
+    "canceledRun": "browser-stale-history-canceled.json",
+    "canceledRunAccepted": false,
+    "canceledBeforeBrowserPhase": true,
+    "noTimeoutOrAssertionRelaxation": true
+  }
+}

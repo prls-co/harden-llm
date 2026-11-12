@@ -1,0 +1,109 @@
+{
+  "gatewaySource": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "webSource": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+  "url": "https://harden-llm.prls.co",
+  "providerCalls": 1,
+  "events": [
+    "fresh Portal login, production return, LiveSocket connected, backend ready",
+    {
+      "layout": {
+        "width": 1440,
+        "documentWidth": 1440,
+        "connected": true,
+        "runDisabled": false
+      }
+    },
+    "one native Run rendered output and recorded one provider attempt",
+    "native viewport 390x844 has no page overflow",
+    {
+      "layout": {
+        "width": 390,
+        "documentWidth": 390,
+        "connected": true,
+        "runDisabled": false
+      }
+    }
+  ],
+  "authenticated": true,
+  "draftSnapshotCaptured": true,
+  "runId": "d3d471d1-6f0d-47c8-8b43-2efc67fbdad9",
+  "recordedResult": {
+    "runId": "d3d471d1-6f0d-47c8-8b43-2efc67fbdad9",
+    "attemptCount": 1,
+    "accounting": {
+      "result": {
+        "usage": {
+          "inputTokens": 80,
+          "cacheReadTokens": 0,
+          "cacheCreationTokens": 0,
+          "outputTokens": 48,
+          "reasoningTokens": 0,
+          "promptTokens": 80,
+          "completionTokens": 48,
+          "totalTokens": 128,
+          "status": "complete"
+        },
+        "cost": {
+          "knownSubtotalUsd": 3.2e-05,
+          "status": "exact",
+          "source": "profile",
+          "knownObservations": 1,
+          "unknownObservations": 0
+        }
+      },
+      "provider": {
+        "usage": {
+          "inputTokens": 80,
+          "cacheReadTokens": 0,
+          "cacheCreationTokens": 0,
+          "outputTokens": 48,
+          "reasoningTokens": 0,
+          "promptTokens": 80,
+          "completionTokens": 48,
+          "totalTokens": 128,
+          "status": "complete"
+        },
+        "cost": {
+          "knownSubtotalUsd": 3.2e-05,
+          "status": "exact",
+          "source": "profile",
+          "knownObservations": 1,
+          "unknownObservations": 0
+        }
+      }
+    }
+  },
+  "ownedHistoryDeleted": true,
+  "logout": true,
+  "ownedSessionRevoked": true,
+  "draftPayloadRestored": true,
+  "browserClosed": true,
+  "sharedRunnerLockReleased": true,
+  "functionalAccepted": true,
+  "console": {
+    "pageErrors": 0,
+    "hllmConsoleErrors": 0,
+    "portalConsoleErrors": 6,
+    "portalCause": "Portal connect-src self blocks Google Analytics/ads collection; blocked requests remain explicit and the Portal is not claimed console-error-free. No CSP exception was added."
+  },
+  "failedResources": [],
+  "nativeControlsExercised": [
+    "profile configuration",
+    "Options JSON output cap",
+    "Retries maxAttempts",
+    "reasoning",
+    "Details",
+    "Request",
+    "Response",
+    "History",
+    "exact owned-row delete",
+    "logout"
+  ],
+  "scopeLimits": [
+    "Representative desktop/mobile viewports, not all layouts.",
+    "No clipboard, reconnection fault, broad provider matrix or Compose browser suite was run.",
+    "Original #162 interrupted network hop remains unproven."
+  ],
+  "privateBrowserStatePublished": false,
+  "scriptSHA256": "33e3f01ac5950e92961fc527e5a4c8836631c84b76afd1cb608c4814bc381df6"
+}

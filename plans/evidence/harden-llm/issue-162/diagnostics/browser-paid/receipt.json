@@ -1,23 +1,223 @@
 {
   "schemaVersion": 1,
-  "status": "corrected_fixture_awaiting_browser_gate_and_final_production_workflow",
-  "baseSource": "62d3b7530b311eb6f35fda9903a57e9a208b8ba3",
-  "gatewaySource": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
-  "webSource": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+  "pullRequest": 177,
+  "relatedIssue": 162,
+  "status": "browser_and_bounded_production_provider_accepted_merged_main",
+  "verifiedAt": "2026-11-12T00:47:52.185599+00:00",
   "url": "https://harden-llm.prls.co/",
-  "budgetUSD": 1,
-  "paidCasesCompleted": 2,
-  "configuredRateEquivalentUSD": 5.4999999999999995e-05,
-  "providerInvoiceCost": "not measured; profile-rate equivalents retained separately",
-  "applicationFilesChanged": false,
-  "correction": "Existing browser canary uses the accepted reference API and canonical fixture; process-owned state replaces its global Agent. Preserve native keyboard/no-implicit-submit, exactly one Run, streamed output, unavailable history, failed recording and logout.",
-  "cheapRegressionRed": "backend-red.log",
-  "browserRegressionRed": "browser-before.json",
-  "retainedLimitations": [
-    "Initial Python urllib metadata GET received 403; Node fetch through the normal authorized API returned 200. No provider call was retried.",
-    "Direct equality of public engine and admission execution UUIDs is invalid. Paid calls are correlated by native stream ID plus counters to dispatch events and authoritative permit readback.",
-    "Initial production read-only browser pass reached Portal, backend and LiveSocket and fit desktop/mobile viewports; blocked analytics/CSP console diagnostics remain unaccepted and are retained privately. No paid UI Run has occurred yet."
-  ],
+  "testSource": "7fe1f48cd99bfc49a3c6d5dac1a87d27158d3c69",
+  "mainMergeSource": "a6a887d7f77f9c2f7a2256d9fc624768a0c1e4d4",
+  "mergeTreeEqualsQualifiedTestSource": true,
+  "production": {
+    "gatewayWorkerSource": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+    "webSource": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+    "components": {
+      "harden-llm-gateway": {
+        "name": "harden-llm-harden-llm-gateway-1",
+        "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+        "startedAt": "2026-11-11T21:59:11.968756641Z",
+        "restarts": 0,
+        "health": "healthy",
+        "project": "harden-llm",
+        "service": "harden-llm-gateway",
+        "containerId": "a93e21813e9457eb375f1f3341960188d6ed9b4b4a6f1852edad90eaf4ae87d4",
+        "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "imageReference": "harden-llm-gateway:release-0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "binaryVersion": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "releaseEnvironmentMatches": true,
+        "ociRevisionAndVersionMatch": true,
+        "verifiedAt": "2026-11-12T00:49:04.134930+00:00"
+      },
+      "harden-llm-batch-worker": {
+        "name": "harden-llm-harden-llm-batch-worker-1",
+        "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+        "startedAt": "2026-11-11T21:58:11.79958773Z",
+        "restarts": 0,
+        "health": "",
+        "project": "harden-llm",
+        "service": "harden-llm-batch-worker",
+        "containerId": "48190e886a9a754658d3aa455ce92d4b9e115886806d9854340eeb4891137694",
+        "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "imageReference": "harden-llm-gateway:release-0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "binaryVersion": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+        "releaseEnvironmentMatches": true,
+        "ociRevisionAndVersionMatch": true,
+        "verifiedAt": "2026-11-12T00:49:04.253415+00:00"
+      },
+      "harden-llm-web": {
+        "name": "harden-llm-harden-llm-web-1",
+        "image": "sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78",
+        "startedAt": "2026-11-11T18:30:35.405384528Z",
+        "restarts": 0,
+        "health": "healthy",
+        "project": "harden-llm",
+        "service": "harden-llm-web",
+        "containerId": "3deb8cd10768ce514b4599dc6277c17783cfb89a43d8418fca613663084c5d08",
+        "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+        "imageReference": "harden-llm-web:release-efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+        "binaryVersion": null,
+        "releaseEnvironmentMatches": true,
+        "ociRevisionAndVersionMatch": true,
+        "verifiedAt": "2026-11-12T00:49:04.299331+00:00"
+      }
+    },
+    "allEightControllerServicesEquivalent": true,
+    "controllerReports": [
+      "gateway-final.log",
+      "worker-final.log",
+      "web-final.log",
+      "support-final.log"
+    ],
+    "applicationRebuildRequired": false,
+    "newApplicationImageBuilt": false,
+    "imageRelabeled": false,
+    "runtimeInputParity": "runtime-input-parity.json",
+    "baselineApplicationCertification": "../production-release/receipt.json",
+    "qualificationNote": "The existing production images contain all current runtime inputs. This follow-up changes tests/docs only and qualifies those deployed images through browser and paid effects."
+  },
+  "checks": {
+    "localBrowser": {
+      "accepted": true,
+      "source": "7fe1f48cd99bfc49a3c6d5dac1a87d27158d3c69",
+      "taskCount": 4,
+      "nativeCanariesPassed": 1,
+      "report": "browser-final.json",
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "candidateSlots": 1,
+      "taskSelectionAssertionsAndTimeoutsPreserved": true
+    },
+    "hostedFast": [
+      {
+        "kind": "push",
+        "runId": 43128232487,
+        "source": "7fe1f48cd99bfc49a3c6d5dac1a87d27158d3c69",
+        "accepted": true,
+        "taskCount": 10,
+        "actualFastStepSucceeded": true,
+        "report": "hosted-fast-7fe1f48-push.json",
+        "sha256": "838e98c6d3a2f4350337d31a60b933469b6bb9314da0ee187323d1c26ee422c8",
+        "url": "https://github.com/prls-co/harden-llm/actions/runs/43128232487"
+      },
+      {
+        "kind": "pr",
+        "runId": 43128239425,
+        "source": "7fe1f48cd99bfc49a3c6d5dac1a87d27158d3c69",
+        "accepted": true,
+        "taskCount": 10,
+        "actualFastStepSucceeded": true,
+        "report": "hosted-fast-7fe1f48-pr.json",
+        "sha256": "13d42ea63502904f909f732403a81f50767c5677a35f15928e7b1ff8dd1ee2b0",
+        "url": "https://github.com/prls-co/harden-llm/actions/runs/43128239425"
+      }
+    ],
+    "focusedFrontend": {
+      "accepted": true,
+      "source": "7fe1f48cd99bfc49a3c6d5dac1a87d27158d3c69",
+      "tests": 23,
+      "log": "frontend-focused-7fe1f48.log"
+    },
+    "traceability": {
+      "accepted": true,
+      "source": "7fe1f48cd99bfc49a3c6d5dac1a87d27158d3c69",
+      "log": "traceability-7fe1f48.log"
+    },
+    "deployedReadOnlyHTTP": {
+      "accepted": true,
+      "test": "TEST-435",
+      "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "log": "deployed-http-final.log",
+      "models": 35,
+      "historyRows": 356,
+      "historyTableBytes": 3153920
+    },
+    "productionBrowser": {
+      "accepted": true,
+      "report": "production-browser.json",
+      "nativeRun": true,
+      "nativeDetailsRequestResponseAndHistoryControlsExercised": true,
+      "desktopWidth": 1440,
+      "mobileWidth": 390,
+      "noPageOverflow": true,
+      "liveSocketConnected": true,
+      "ownedHistoryDeleted": true,
+      "originalDraftPayloadRestored": true,
+      "createdSessionRevocationVerified": true,
+      "contextAndBrowserClosed": true,
+      "sharedRunnerLeaseReleased": true
+    },
+    "mainFast": {
+      "accepted": true,
+      "source": "a6a887d7f77f9c2f7a2256d9fc624768a0c1e4d4",
+      "runId": 43129746919,
+      "metadata": "main-fast.json",
+      "report": "main-fast-report.json",
+      "tasks": 10,
+      "cleanupErrors": [],
+      "cleanupWarnings": []
+    },
+    "mainCodeQL": {
+      "accepted": true,
+      "source": "a6a887d7f77f9c2f7a2256d9fc624768a0c1e4d4",
+      "runId": 43129746153,
+      "metadata": "main-codeql.json",
+      "analyses": 4
+    }
+  },
+  "budget": {
+    "authorizedUSD": 1,
+    "actualProviderDispatches": 3,
+    "configuredProfileEquivalentUSD": 8.7e-05,
+    "equivalentBelowUSD": 0.001,
+    "invoiceCostMeasured": false,
+    "maxOutputTokensPerRequest": 512,
+    "maxAttemptsPerRequest": 1,
+    "cache": "off",
+    "search": false,
+    "provider": "cpa",
+    "model": "gpt-6-luna",
+    "usage": {
+      "inputTokens": 205,
+      "outputTokens": 133,
+      "reasoningTokens": 0,
+      "totalTokens": 338
+    },
+    "noAmbiguousInferenceReplayed": true,
+    "evidence": [
+      "paid-responses.json",
+      "paid-dispatch-logs.json",
+      "paid-ledger.json",
+      "browser-paid-native.json"
+    ],
+    "qualification": "Strict structured JSON and native SSE through /v1/responses, plus one native reference browser Run. Every wire result correlates via existing stream ID/counters to one completed, settled, positively stopped permit."
+  },
+  "preservation": {
+    "report": "data-preservation.json",
+    "accepted": true,
+    "allOriginalRowsInComparedScientificAndSetupTablesRetained": true,
+    "baselineHistoryRows": 356,
+    "currentHistoryRowsAfterOwnedDelete": 356,
+    "cacheRows": 278,
+    "jobs": 2,
+    "items": 1000,
+    "durableJobAttempts": 1000,
+    "otherDraftPayloadsRetained": true,
+    "ownedDraftPayloadRestoredByAPIReadback": true,
+    "draftRevisionsAndExpiryMayAdvance": true,
+    "allOrdinaryMetadataRowsImmutable": false,
+    "ordinaryMetadataNote": "Existing expiry is unchanged. This run proves exact acceptance permits; it does not replace the prior retained whole-ledger comparison or claim global ordinary-ledger immutability."
+  },
+  "correction": {
+    "canonicalReferenceFixtureReused": true,
+    "globalAgentRemoved": true,
+    "processOwnerExplicit": true,
+    "encodedProfileSegmentDecoded": true,
+    "actualClientDecoderCoveredAtCheapTier": true,
+    "publicSafeHistoryMessageAndRawMessageNondisclosureCovered": true,
+    "canonicalStructuredInputsPreservedAndNativelyValidated": true,
+    "traceabilityGuardRequiresReferenceAndRejectsRetiredProxy": true,
+    "newApplicationDependency": false
+  },
   "sourceInputsSHA256": {
     "frontend/test/support/browser_backend.ex": "2c20de5486cd1ca16536df87bfa864e90f606c0ea10cda1a7aa61a239dc36399",
     "frontend/test/support/browser_feature_case.ex": "4caf144621705fe608b42c0873aae36da45c773ae7314096717eb746761345af",
@@ -26,36 +226,92 @@
     "internal/testkit/test_feedback_traceability_test.go": "8e8fedcacdcccf613f6cd22ef75cf76f5808397264f7564a8ff68dd8e799fd38",
     "frontend/test/harden_llm_web/live/shared_workspace_test.exs": "00fd8aeb734d175a5d394da6b1b2f138de8981a5fd32c757491705275c58a82b"
   },
+  "retainedNonAcceptance": {
+    "initialProxyCanary": "browser-before.json",
+    "encodedProfileCanary": "browser-encoded-profile-red.json",
+    "cheapOwnerAndRoutingRed": "backend-red.log",
+    "cheapEncodedSegmentRed": "profile-encoding-red.log",
+    "cheapHistoryPublicMessageRed": "history-message-red.log",
+    "oldTraceabilityRed": "traceability-red.log",
+    "failedHostedSource": "61d0c6d579ffa0639c11a35cdbf2b8b7834f9c41",
+    "failedHostedReports": [
+      "hosted-failed-push/runner-1794442408540-2773-f1c7a18498eb3cc6.json",
+      "hosted-failed-pr/harden-llm-runner-reports-43125640260-1-fast/runner-1794442448601-2747-4af04bb15ccafc69.json"
+    ],
+    "hostedCause": "Stale proxy path assertions in Go traceability guard; sibling SIGTERM/skips are cascade, never accepted.",
+    "stoppedBeforeKnownStaleBrowserOracle": "browser-stale-history-canceled.json",
+    "everyAcceptedRunRepeatsCompleteSelectedTasks": true,
+    "operatorPreflights": [
+      "Initial Python urllib metadata request got 403; normal authorized Node fetch succeeded. No paid call was replayed.",
+      "An initial ledger lookup incorrectly equated public and admission execution UUIDs. Exact stream IDs/counters then correlated all three authoritative permits successfully.",
+      "A read-only snapshot helper reused a phase variable and wrote the wrong preflight filename; retained privately. Final independent read-only snapshots compare other draft rows and scientific data, with the owned draft independently captured/restored via API."
+    ]
+  },
+  "limits": {
+    "original162FailedNetworkHop": "unproven; issue stays open",
+    "portalConsole": {
+      "pageErrors": 0,
+      "hllmConsoleErrors": 0,
+      "portalConsoleErrors": 6,
+      "portalCause": "Portal connect-src self blocks Google Analytics/ads collection; blocked requests remain explicit and the Portal is not claimed console-error-free. No CSP exception was added."
+    },
+    "hllmPageErrors": 0,
+    "hllmConsoleErrors": 0,
+    "failedBrowserResources": [],
+    "allProviderMatrixQualified": false,
+    "composeBrowserSuiteRun": false,
+    "allViewportOrClipboardReconnectBoundariesQualified": false,
+    "providerFailureFaultInjectionRun": false,
+    "privateSessionsScreenshotsResponsesAndDraftsPublished": false
+  },
   "privateCheckpoint": "/home/kirill/.config/harden-llm/acceptance-176-j5ho8yu2",
-  "browserAndLiveAuthorization": "Explicit user request; USD 1 or much less.",
-  "focusedFrontend": {
-    "accepted": true,
-    "tests": 23,
-    "log": "frontend-focused.log",
-    "coverage": "Actual client stream decoding, owned fixture isolation, shared workspace, Portal and browser policy"
+  "privateCheckpointDirectoryMode": "0700",
+  "operatorScriptSHA256": "33e3f01ac5950e92961fc527e5a4c8836631c84b76afd1cb608c4814bc381df6",
+  "documentationCloseout": "Final docs/evidence commits do not rebuild or relabel production images.",
+  "evidenceSHA256": {
+    "accepted-hosted-fast-7fe1f48.json": "c373f433f617fea86e94c08b9a744e6c4302688033f1c43acf118c0654d1148e",
+    "accepted-hosted-fast.json": "0c0bd3c10a0751872fe858fd9b980997de76220baf86ae2b849e1846eea34478",
+    "backend-red.log": "0b1737834f5bbf3f329f26221c9ac715106f51626c9a0aa88e6cc7d41a564f3d",
+    "browser-before.json": "cb7d1bd46dc58cf2bb377540d9d4164d71b3c2c3283c1a27169f5b4d8f721f03",
+    "browser-encoded-profile-red.json": "449205959f120cd4fdc88b33ed507ecfacd3a8ecde424bea822fe9e3e9e41ef1",
+    "browser-final.json": "21f76a9eedfa081588803feddf898c6ad2787ce29bc5d7850f426e71e50a8307",
+    "browser-paid-native.json": "346f4eac02226ac45007428520f63c613f77cd387fa6ccd73ef9ff2e3dfef0c0",
+    "browser-stale-history-canceled.json": "a8c6d3590778a1f250867326402b108fbed7c97ccacfd50136d0307d129d0d81",
+    "data-preservation.json": "a6cb4d32e5de0e795df04f806035d372912ad889f76f769189fc56a26874d129",
+    "deployed-http-final.log": "a87df1aeb9edb497d67f0334f959cceeacf01e69f0f3ea01eadcdec1f5d676b1",
+    "documentation-checks.json": "216e5afe35c4048aff51703763c0a6ca7aafab74ad26c634a57023705ee688eb",
+    "frontend-focused-7fe1f48.log": "009ad011397966194b718e728913a70ab39b61fdb6897ce3f523a4bf36e615a8",
+    "frontend-focused-corrected.log": "198f21c4c579d90b91101317c9e320c65d88e85f4fe5538e5423a2cf9f041ca7",
+    "frontend-focused-public-contract.log": "e61eb97171b35b7f82d38dc70ef80dfbc97597988677f2c10400139734e2fa04",
+    "frontend-focused.log": "8f917984298eb3b65209d539df92d2aee33e57fd1818e9b25a87b90783d8d136",
+    "gateway-final.log": "f841292dd6566af745dbd10bdc3536d7fc545f37694e518ff7ed48a11732d127",
+    "history-message-red.log": "f13141a767588c9d51db98abe7f0f1acb9855ade453589606f96fd709c7500c1",
+    "hosted-failed-pr/harden-llm-runner-reports-43125640260-1-fast/runner-1794442448601-2747-4af04bb15ccafc69.json": "c8ea3a7e9734982475dab9045841edbd88fef001c489b61d05c1e92adc9b7119",
+    "hosted-failed-push/runner-1794442408540-2773-f1c7a18498eb3cc6.json": "c1fbcc64964b6ca03265d2cbc92ebd4e3727114a01726cc2430a8df72b4938c8",
+    "hosted-fast-7fe1f48-pr.json": "13d42ea63502904f909f732403a81f50767c5677a35f15928e7b1ff8dd1ee2b0",
+    "hosted-fast-7fe1f48-push.json": "838e98c6d3a2f4350337d31a60b933469b6bb9314da0ee187323d1c26ee422c8",
+    "hosted-fast-pr.json": "24d44c94c6d1c03549891993a424659296d55d389dbdd281f428f31bb347066f",
+    "hosted-fast-push.json": "c1faf58795090ed2049f57054b25a15fe41083bab01c5d5b74949ba81ba61e92",
+    "main-codeql.json": "f5ef10b543b76c100083080200a4a4f0a58aeefc145744e01ae496bc676d8376",
+    "main-fast-report.json": "2061bcbf1a2b197660b2aacdcf870654d83697c3cf8c65aaaac1651075e49a53",
+    "main-fast.json": "cc2b84c1ba37cef5ecdda78dc6d8ddb2c933cf85f286d124b8651c4a5b16b5fe",
+    "paid-dispatch-logs.json": "f7e9f49e50193989bcdfc7281a33ab3fd402ec6fcffda0701997f7bf286db853",
+    "paid-ledger.json": "a19ffaf2acb0a2954050263a1b80117d219d436a4bdd565c1095503b707e2fd2",
+    "paid-responses.json": "69d59bc16d5685a271a376bd2ab6226c4ca445a3cff37fb0c2dc07cf966daef9",
+    "production-browser.json": "e6e9c01e6b6b12289dcfe67ae7192abcfdf549042cc007bd24e1251ca3af1478",
+    "profile-encoding-red.log": "f91b71172b34ec6ba47e9100d2a46517b19494c7e46cb9359a8163304bc65944",
+    "retained-qualification-checkpoint.json": "d749560109186f33ce33b6950a1d9a4a7dee3f795083522e611085d8c6d63f6b",
+    "runtime-input-parity.json": "4dd3f3c54d723dda2912176876db8d1ce5325112c0d9428a988c625d4a11dc21",
+    "support-final.log": "8b60cb90b05e180f4486750a186e126d732eee05b870d8435dbb2868423a18ff",
+    "traceability-7fe1f48.log": "5dc6be0a0adead083d46d03e5a4dbee6710b5bc762d41c009b2db43496e70445",
+    "traceability-green.log": "6cd8ba068ee8e8d1d47e386d9edcd3930bedb211599ae6e6f2d022d1c76c0e86",
+    "traceability-red.log": "60c6c7bf252058beede25d3fbba09979362e95758e138c9cf7faf9710db3a5f0",
+    "web-final.log": "f841292dd6566af745dbd10bdc3536d7fc545f37694e518ff7ed48a11732d127",
+    "worker-final.log": "f841292dd6566af745dbd10bdc3536d7fc545f37694e518ff7ed48a11732d127"
   },
-  "retainedHostedFailure": {
-    "source": "61d0c6d579ffa0639c11a35cdbf2b8b7834f9c41",
-    "pushRun": 43125564683,
-    "prRun": 43125640260,
-    "cause": "Go traceability guard still required retired proxy paths in the ordinary reference canary. Other task terminations/skips are cascade, not acceptance. Both reports have clean teardown.",
-    "correction": "Require reference profiles/Run, backend-ready and no implicit submission; actively reject retired proxy routes. No guard is removed."
-  },
-  "encodedProfileRegression": {
-    "browserRed": "browser-encoded-profile-red.json",
-    "cheapRed": "profile-encoding-red.log",
-    "correction": "Decode the actual URI-encoded profile segment before looking it up in the canonical fixture.",
-    "green": "frontend-focused-corrected.log",
-    "focusedTests": 23
-  },
-  "publicOracleCorrection": {
-    "cheapRed": "history-message-red.log",
-    "green": "frontend-focused-public-contract.log",
-    "contract": "The existing client exposes its safe public error, not the raw fixture message; the canonical preset starts with structured output.",
-    "correction": "Keep an exact visible safe-error assertion and add cheap raw-message non-disclosure coverage. Use the canonical structured schema, explicitly validate it through native controls, and wait for the enabled Run button. Exact one-Run and output/recording assertions remain.",
-    "canceledRun": "browser-stale-history-canceled.json",
-    "canceledRunAccepted": false,
-    "canceledBeforeBrowserPhase": true,
-    "noTimeoutOrAssertionRelaxation": true
+  "earlierAcceptedCheckpoint": {
+    "source": "d720e57c212a857abf49b46b9813d74967c61894",
+    "metadata": "accepted-hosted-fast.json",
+    "scope": "Earlier fast-only pass, before the native/public-message corrections; retained at its own source and not used as final browser qualification."
   }
 }

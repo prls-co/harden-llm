@@ -287,3 +287,33 @@ existing logging path. This deployment adds no public field, schema, retry,
 deadline or provider behavior. Browser layout and fresh paid-provider behavior
 were not checked. The original network cause remains unproven, and #162 stays
 open. Later documentation commits do not relabel the deployed application.
+
+### 8.3 Explicit browser and bounded paid-provider acceptance
+
+[PR #177](https://github.com/prls-co/harden-llm/pull/177) corrects the existing
+browser canary/fixture and traceability guard to use the accepted reference
+boundary. It reuses the canonical fixture with private process ownership,
+decodes actual profile URI segments, and keeps the public safe-error and
+structured-schema oracles. Cheap failures precede the corrections. Final test
+source `7fe1f48` passed all four local browser tasks, both hosted ten-task fast
+checks, 23 focused frontend cases and the Go traceability guard; teardown is clean.
+
+The [acceptance receipt](../../plans/evidence/harden-llm/issue-162/diagnostics/browser-paid/receipt.json)
+records three completed production CPA calls under the authorized USD 1 budget:
+strict JSON, public SSE and a native browser Run. Each has one provider attempt,
+cache/search off and a 512-token output cap. Existing native stream IDs/counters
+correlate all three to completed, settled permits with positive local stop.
+The combined configured-rate equivalent is USD 0.000087; this is not an invoice.
+
+Production Portal admission, LiveSocket, native controls, output and representative
+desktop/mobile overflow checks passed. The exact owned history row is removed,
+its draft payload restored and the created session verified revoked; browser
+and lease are closed. HLLM page/console/resource failures are zero. Portal's
+blocked analytics/CSP messages remain explicit and no CSP allowance was added.
+Scientific/setup data and durable job-attempt prefixes are preserved.
+
+The existing policy selects no runtime rebuild: gateway/worker remain at `0f9a02c`
+and unchanged web at `efd0d85`, with actual identities verified. No provider
+failure fault injection, all-provider matrix or Compose browser suite ran. These
+new successful calls do not establish the original interruption's failed hop;
+#162 remains open. Tests/docs-only closure does not relabel application images.

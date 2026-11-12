@@ -1,0 +1,63 @@
+{
+  "beforeAt": "2026-11-12T00:18:49.513158+00:00",
+  "verifiedAt": "2026-11-12T00:24:22.104658+00:00",
+  "accepted": true,
+  "tables": {
+    "credentials": {
+      "beforeRows": 0,
+      "afterRows": 0,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "profiles": {
+      "beforeRows": 0,
+      "afterRows": 0,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "hidden_presets": {
+      "beforeRows": 0,
+      "afterRows": 0,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "cache_entries": {
+      "beforeRows": 278,
+      "afterRows": 278,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "history": {
+      "beforeRows": 356,
+      "afterRows": 356,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "batch_jobs": {
+      "beforeRows": 2,
+      "afterRows": 2,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "batch_items": {
+      "beforeRows": 1000,
+      "afterRows": 1000,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "hllm_schema_version": {
+      "beforeRows": 1,
+      "afterRows": 1,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "hllm_batch_schema_version": {
+      "beforeRows": 1,
+      "afterRows": 1,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "drafts": {
+      "beforeRows": 1,
+      "afterRows": 1,
+      "missingOrModifiedBaselineRows": 0
+    },
+    "batch_attempts": {
+      "beforeRows": 1000,
+      "afterRows": 1000,
+      "missingOrModifiedBaselineRows": 0
+    }
+  },
+  "oracle": "All original complete rows remain with multiplicity; new traffic rows allowed. Other draft payload/key/scope are compared. The browser independently captures/restores its own original draft through the API; its revision/expiry legitimately advance. Ledger comparison covers durable job attempts; expiring ordinary metadata is qualified by exact acceptance permits separately."
+}

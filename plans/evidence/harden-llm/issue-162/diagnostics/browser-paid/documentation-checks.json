@@ -1,0 +1,12 @@
+{
+  "verifiedAt": "2026-11-12T00:53:09.945103+00:00",
+  "sourceBeforeDocsCloseout": "a6a887d7f77f9c2f7a2256d9fc624768a0c1e4d4",
+  "checks": {
+    "parityFixtures": "24 passed",
+    "tierCoverage": "accepted; ten fast tasks",
+    "whitespace": "passed",
+    "newLocalLinks": "passed",
+    "sourceAndEvidenceHashes": "passed"
+  },
+  "runtimeImageInputsUnchanged": true
+}

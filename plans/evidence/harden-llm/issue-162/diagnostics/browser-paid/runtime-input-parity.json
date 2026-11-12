@@ -1,0 +1,14 @@
+{
+  "source": "7fe1f48cd99bfc49a3c6d5dac1a87d27158d3c69",
+  "components": {
+    "gateway": {
+      "release": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372"
+    },
+    "web": {
+      "release": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f"
+    }
+  },
+  "affectedRuntimeServices": [],
+  "applicationRebuildRequired": false,
+  "policy": "scripts/preview-policy.mjs changedComponentServices; accepted existing component release inputs compared independently."
+}

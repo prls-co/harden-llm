@@ -32,6 +32,9 @@ and [release certification](../docs/release-certification.md#2026-11-11-transpor
 Gateway and worker use certified source
 `0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372`; unchanged web inputs retain
 source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f` and its image.
+The subsequent [explicit browser/paid acceptance](evidence/harden-llm/issue-162/diagnostics/browser-paid/receipt.json)
+qualified those same deployed components. Its canary corrections are tests/docs
+only; the existing component-input policy selects no application image build.
 The identities below are retained historical checkpoints.
 
 The November 4 production application identity was source

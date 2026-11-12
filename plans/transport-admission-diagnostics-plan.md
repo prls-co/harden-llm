@@ -151,3 +151,29 @@ verify session revocation. Coordinate this workflow with the existing managed
 runner lease; never overlap the local canary and production browser. Retain
 the earlier browser failure and any cross-owner console diagnostics separately.
 Test-only changes do not rebuild or relabel the certified production images.
+
+## 9. Browser and paid-provider completion
+
+[PR #177](https://github.com/prls-co/harden-llm/pull/177) is merged through `dev`
+and promoted to `main`. Test source `7fe1f48` and merge `a6a887d` have the same
+tree. All four local browser tasks and both hosted ten-task fast checks pass,
+with clean teardown. The final cheap regressions pass 23 frontend cases and
+the Go traceability guard. Retained red cases cover the retired proxy selector,
+encoded profile segment, global fixture owner, public-error expectation and
+stale guard. A stopped partial run is retained and never counted as accepted.
+
+Three production CPA calls passed with single attempts, cache/search off and
+512-token output caps, for a combined configured-rate equivalent of USD
+0.000087 under the USD 1 budget. The native browser Run rendered output,
+recorded one attempt, and correlated through existing diagnostics to its exact
+completed/stopped permit. Its history row is deleted, original draft payload
+restored, created session revoked and owned browser/lease closed. Other draft
+payloads, result/setup rows and all 1,000 durable job attempts are preserved.
+
+The [receipt](evidence/harden-llm/issue-162/diagnostics/browser-paid/receipt.json)
+records sources, images, reports, costs and limits. Portal analytics/CSP messages
+remain separate from zero HLLM browser failures. This is tests/docs-only work;
+the existing policy selects zero runtime builds and all eight deployed services
+remain equivalent. No application image is relabeled, no ambiguous inference is
+replayed, and no all-provider/Compose-browser qualification is inferred. The
+original #162 network cause remains unproven.

@@ -1,0 +1,112 @@
+{
+  "runId": "d3d471d1-6f0d-47c8-8b43-2efc67fbdad9",
+  "accepted": true,
+  "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "profile": "CPA gpt-6-luna",
+  "providerDispatches": 1,
+  "cacheMode": "off",
+  "maxAttempts": 1,
+  "maxOutputTokens": 512,
+  "reasoningEffort": "lowest",
+  "accounting": {
+    "result": {
+      "usage": {
+        "inputTokens": 80,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0,
+        "outputTokens": 48,
+        "reasoningTokens": 0,
+        "promptTokens": 80,
+        "completionTokens": 48,
+        "totalTokens": 128,
+        "status": "complete"
+      },
+      "cost": {
+        "knownSubtotalUsd": 3.2e-05,
+        "status": "exact",
+        "source": "profile",
+        "knownObservations": 1,
+        "unknownObservations": 0
+      }
+    },
+    "provider": {
+      "usage": {
+        "inputTokens": 80,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0,
+        "outputTokens": 48,
+        "reasoningTokens": 0,
+        "promptTokens": 80,
+        "completionTokens": 48,
+        "totalTokens": 128,
+        "status": "complete"
+      },
+      "cost": {
+        "knownSubtotalUsd": 3.2e-05,
+        "status": "exact",
+        "source": "profile",
+        "knownObservations": 1,
+        "unknownObservations": 0
+      }
+    }
+  },
+  "stream": {
+    "correlationId": "05b8b81d",
+    "headersMs": 1151,
+    "receivedBytes": 18528,
+    "eventCount": 48,
+    "outputBytes": 77,
+    "outputCodePoints": 77,
+    "firstEventMs": 0,
+    "firstOutputMs": 343,
+    "lastEventAt": "2026-11-12T00:21:57.391187642Z",
+    "lastOutputAt": "2026-11-12T00:21:57.348026028Z",
+    "terminalState": "completed"
+  },
+  "dispatch": {
+    "time": "2026-11-12T00:21:57.420164754Z",
+    "level": "INFO",
+    "msg": "ordinary CPA dispatch observed",
+    "execution_id": "80053d8a-0e12-49f5-9db4-df0f540d0840",
+    "request_id": "235fe246-be4b-44e6-972c-444f26264e8a",
+    "permit_id": "69edc607-2e45-5b8f-8cbe-8292ccdc96bf",
+    "dispatch_ordinal": 1,
+    "kind": "completed",
+    "admission": "",
+    "native_entered": true,
+    "local_stopped": true,
+    "settlement_confirmed": true,
+    "queue_ms": 261,
+    "generation_ms": 2149,
+    "started_at": "2026-11-12 00:21:55.242489572 +0000 UTC",
+    "finished_at": "2026-11-12 00:21:57.391531959 +0000 UTC",
+    "generation_budget_ms": 59996,
+    "generation_deadline": "2026-11-12 00:22:54.97863 +0000 UTC",
+    "retry_after_ms": 0,
+    "headers_ms": 1151,
+    "first_output_ms": 343,
+    "input_tokens": 80,
+    "output_tokens": 48,
+    "reasoning_tokens": 0,
+    "received_bytes": 18528,
+    "event_count": 48,
+    "output_bytes": 77,
+    "stream_correlation_id": "05b8b81d",
+    "last_event_at": "2026-11-12 00:21:57.391187642 +0000 UTC",
+    "last_output_at": "2026-11-12 00:21:57.348026028 +0000 UTC",
+    "terminal_state": "completed",
+    "trace_id": "c26179abb8ae340b8d8a3762ee80adce",
+    "span_id": "3b0d0ba9194fd89f"
+  },
+  "ownedHistoryDeleted": true,
+  "draftPayloadRestored": true,
+  "costBasis": "Profile-rate equivalent, not an invoice",
+  "ledger": {
+    "permitId": "69edc607-2e45-5b8f-8cbe-8292ccdc96bf",
+    "state": "settled",
+    "localStopped": true,
+    "settlementRevision": 1,
+    "outcome": "completed",
+    "observationStopped": "true"
+  }
+}

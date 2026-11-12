@@ -1,6 +1,6 @@
 # Release Certification
 
-Latest production qualification: [Transport and admission diagnostics, November 11](#2026-11-11-transport-and-admission-diagnostics).
+Latest production qualification: [Browser and paid-provider acceptance for diagnostics, November 11](#2026-11-11-browser-and-paid-provider-acceptance-for-diagnostics).
 
 Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
 
@@ -3415,3 +3415,44 @@ can carry safe wrappers; direct equality/concrete-type checks can differ.
 The original #162 network hop remains unproven and the issue stays open.
 No browser, layout check or fresh paid-provider acceptance ran. Subsequent
 documentation-only commits do not rebuild or relabel these application images.
+
+## 2026-11-11 Browser and paid-provider acceptance for diagnostics
+
+The user explicitly authorized browser and paid-provider checks with a USD 1
+budget after the browser-free diagnostics deployment. [PR #177](https://github.com/prls-co/harden-llm/pull/177)
+repairs the existing test canary's retired proxy assumptions, uses the canonical
+reference fixture, and replaces its global Agent with an explicit process owner.
+Cheap regressions cover URI-encoded profile lookup, actual-client SSE decoding,
+isolated drafts and the exact public history error. The canary natively validates
+the fixture's structured schema, checks Enter without implicit submission,
+performs exactly one Run, preserves its output through failed history recording,
+and logs out. No application code, public contract, assertion strength or
+timeout policy changed.
+
+The [acceptance receipt](../plans/evidence/harden-llm/issue-162/diagnostics/browser-paid/receipt.json)
+retains failed/canceled attempts, final reports, actual component identities,
+permit correlations, spend bounds and cleanup. Qualified test source is
+`7fe1f48cd99bfc49a3c6d5dac1a87d27158d3c69`; merge
+`a6a887d7f77f9c2f7a2256d9fc624768a0c1e4d4` has the same tree and is on `main`.
+
+| Boundary | Verified result |
+| --- | --- |
+| Local browser | All four canonical browser-selection tasks accepted, including one native canary; no cleanup errors or warnings. Failed proxy/encoded-profile attempts and the stopped stale-message run remain non-acceptance evidence. |
+| Deterministic checks | Both exact-source hosted fast runs passed all ten tasks with clean teardown; 23 focused frontend cases and the Go traceability guard passed. The guard now requires reference profiles/Run and rejects retired proxy routes. |
+| Paid production | Three CPA `gpt-6-luna` calls: strict structured JSON, public Responses SSE and one native reference browser Run. Cache/search off, lowest reasoning, one attempt, and 512 output tokens maximum per call. Every result correlates to exactly one completed, settled, positively stopped permit. |
+| Spend | 205 input and 133 output tokens, zero reasoning tokens. Combined configured-profile rate equivalent is USD 0.000087, below USD 0.001 and the USD 1 budget; invoice cost was not measured. No ambiguous inference was replayed. |
+| Production browser | Fresh dedicated Portal login, return to HLLM, LiveSocket and rendered output passed; native configuration/details/request/response/history controls were exercised. Representative desktop/mobile widths of 1440/390 pixels have no page overflow. HLLM page/console/resource failures are zero. |
+| Cleanup and data | The exact nonce-owned history row was deleted and read back as absent. Original draft payload restored, created session revocation verified, browser/context and shared runner lease closed. Original compared result/setup rows and other draft payloads remain, including 356 history rows, 278 cache rows, two jobs, 1,000 items and 1,000 durable job-attempt rows. Owned draft revision/expiry can advance. |
+| Runtime | All eight controller services are equivalent. Gateway/worker retain source `0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372`, image `sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a`. Web retains source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f`, image `sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78`. Actual IDs/start times are unchanged, restarts zero, both running Go versions match, and TEST-435 HTTP/auth/status passes. |
+
+The existing component-input policy selects no runtime service to rebuild for
+this tests/docs-only follow-up. The earlier 30-task application release remains
+anchored to its own source; these commits do not rebuild or relabel those images.
+
+Portal separately logs blocked Google Analytics/ads requests under its
+`connect-src 'self'` policy. These messages remain recorded; no CSP exception
+was added, and Portal is not claimed console-error-free. No broad provider
+matrix, Compose browser suite, clipboard or reconnection fault campaign was
+selected. Successful bounded calls do not prove the original #162 network hop,
+and the issue remains open. Expiring ordinary metadata is qualified by exact
+acceptance permits, not a claim of immutable global ledger contents.
