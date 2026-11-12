@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "issue": 157,
+  "branch": "main",
+  "source": "15ec1d9f2ea235acf5fdd686e7c9a8da162a98fe",
+  "verifiedAt": "2026-11-12T14:15:59.734Z",
+  "url": "https://harden-llm.prls.co/",
+  "runtimeChange": false,
+  "builds": [],
+  "componentImages": {
+    "harden-llm-gateway": {
+      "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+      "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372"
+    },
+    "harden-llm-batch-worker": {
+      "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+      "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372"
+    },
+    "harden-llm-web": {
+      "image": "sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78",
+      "source": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f"
+    }
+  },
+  "applications": [
+    {
+      "service": "harden-llm-batch-worker",
+      "expectedRelease": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "applied": false,
+      "differences": [],
+      "runtimeVerified": true
+    },
+    {
+      "service": "harden-llm-gateway",
+      "expectedRelease": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+      "applied": false,
+      "differences": [],
+      "runtimeVerified": true
+    },
+    {
+      "service": "harden-llm-web",
+      "expectedRelease": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+      "applied": false,
+      "differences": [],
+      "runtimeVerified": true
+    }
+  ],
+  "otherManagedServices": {
+    "services": [
+      "otel-collector",
+      "loki",
+      "prometheus",
+      "tempo",
+      "grafana"
+    ],
+    "equivalent": true
+  },
+  "httpAcceptance": {
+    "test": "TEST-435 TestDeployedReferenceHTTP",
+    "exitCode": 0,
+    "output": "=== RUN   TestDeployedReferenceHTTP\n    deployed_reference_test.go:135: TEST-435: origin=https://harden-llm.prls.co expected_release=0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372 models=35 history.rows=356 history.tableBytes=3153920; HTTP only, no inference or stored-record reads\n--- PASS: TestDeployedReferenceHTTP (0.69s)\nPASS\nok  \tgithub.com/prls-co/harden-llm/internal/smoke\t0.695s",
+    "inference": false
+  },
+  "webLocalhostHealth": {
+    "exitCode": 0
+  },
+  "binaryVersions": {
+    "harden-llm-gateway": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+    "harden-llm-batch-worker": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372"
+  },
+  "preservation": {
+    "protectedConfigurationUnchanged": true,
+    "containerIdentitiesAndStartTimesUnchanged": true,
+    "before": [
+      {
+        "service": "harden-llm-gateway",
+        "container": "harden-llm-harden-llm-gateway-1",
+        "id": "a93e21813e9457eb375f1f3341960188d6ed9b4b4a6f1852edad90eaf4ae87d4",
+        "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+        "status": "running",
+        "health": "healthy",
+        "startedAt": "2026-11-11T21:59:11.968756641Z",
+        "restarts": 0
+      },
+      {
+        "service": "harden-llm-batch-worker",
+        "container": "harden-llm-harden-llm-batch-worker-1",
+        "id": "48190e886a9a754658d3aa455ce92d4b9e115886806d9854340eeb4891137694",
+        "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+        "status": "running",
+        "health": null,
+        "startedAt": "2026-11-11T21:58:11.79958773Z",
+        "restarts": 0
+      },
+      {
+        "service": "harden-llm-web",
+        "container": "harden-llm-harden-llm-web-1",
+        "id": "3deb8cd10768ce514b4599dc6277c17783cfb89a43d8418fca613663084c5d08",
+        "image": "sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78",
+        "status": "running",
+        "health": "healthy",
+        "startedAt": "2026-11-11T18:30:35.405384528Z",
+        "restarts": 0
+      }
+    ],
+    "after": [
+      {
+        "service": "harden-llm-gateway",
+        "container": "harden-llm-harden-llm-gateway-1",
+        "id": "a93e21813e9457eb375f1f3341960188d6ed9b4b4a6f1852edad90eaf4ae87d4",
+        "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+        "status": "running",
+        "health": "healthy",
+        "startedAt": "2026-11-11T21:59:11.968756641Z",
+        "restarts": 0
+      },
+      {
+        "service": "harden-llm-batch-worker",
+        "container": "harden-llm-harden-llm-batch-worker-1",
+        "id": "48190e886a9a754658d3aa455ce92d4b9e115886806d9854340eeb4891137694",
+        "image": "sha256:975b00d85cae6d674ba16d08ae40d8d86ba828b31d2878ee6f36afd7cbc7655a",
+        "status": "running",
+        "health": null,
+        "startedAt": "2026-11-11T21:58:11.79958773Z",
+        "restarts": 0
+      },
+      {
+        "service": "harden-llm-web",
+        "container": "harden-llm-harden-llm-web-1",
+        "id": "3deb8cd10768ce514b4599dc6277c17783cfb89a43d8418fca613663084c5d08",
+        "image": "sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78",
+        "status": "running",
+        "health": "healthy",
+        "startedAt": "2026-11-11T18:30:35.405384528Z",
+        "restarts": 0
+      }
+    ]
+  },
+  "browserTested": false,
+  "liveProviderInference": false,
+  "localChecks": {
+    "rootAndCacheKey": {
+      "command": "go test . ./internal/cachekey -count=1",
+      "status": "passed"
+    },
+    "cacheSearchProjection": {
+      "command": "go test . ./internal/providers ./internal/gateway/httpapi -run '^(TestCacheReplay|TestSearchCachePersistenceProjection|TestWebSearchCacheHitSkipsJinaFallback|TestResponsesSearchProjection|TestChatWebSearchFallback)$' -count=1",
+      "status": "passed"
+    },
+    "whitespace": "passed",
+    "markdownLocalLinks": "passed"
+  },
+  "hostedChecks": {
+    "mainFast": {
+      "run": 43234892525,
+      "job": 131239624406,
+      "sha": "15ec1d9f2ea235acf5fdd686e7c9a8da162a98fe",
+      "conclusion": "success",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43234892525"
+    },
+    "codeQL": {
+      "run": 43234893394,
+      "sha": "15ec1d9f2ea235acf5fdd686e7c9a8da162a98fe",
+      "conclusion": "success",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43234893394"
+    },
+    "devFast": {
+      "run": 43234893362,
+      "job": 131239607759,
+      "sha": "15ec1d9f2ea235acf5fdd686e7c9a8da162a98fe",
+      "conclusion": "success",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43234893362"
+    }
+  }
+}

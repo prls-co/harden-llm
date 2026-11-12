@@ -3456,3 +3456,25 @@ matrix, Compose browser suite, clipboard or reconnection fault campaign was
 selected. Successful bounded calls do not prove the original #162 network hop,
 and the issue remains open. Expiring ordinary metadata is qualified by exact
 acceptance permits, not a claim of immutable global ledger contents.
+
+## 2026-11-12 Manual search-cache decision (#157)
+
+Issue [#157](https://github.com/prls-co/harden-llm/issues/157) is closed as not
+planned: existing manual `cache`, `refresh`, and `off` controls are sufficient.
+Source `15ec1d9f2ea235acf5fdd686e7c9a8da162a98fe` records the decision and
+extends TEST-011 to verify native/Jina refresh replaces answer and evidence,
+while an uncached call leaves that entry intact. The API guide, ADR-HLLM-019,
+test catalog and search-parity plan are aligned; no runtime code changed.
+
+Local root/cache-key tests and focused provider/public-projection tests pass.
+Exact-source [main fast CI](https://github.com/prls-co/harden-llm/actions/runs/43234892525),
+[dev fast CI](https://github.com/prls-co/harden-llm/actions/runs/43234893362)
+and [CodeQL](https://github.com/prls-co/harden-llm/actions/runs/43234893394) pass.
+The [production receipt](../plans/evidence/harden-llm/issue-157/production-closeout.json)
+records all eight managed services as equivalent, successful scoped no-change apply,
+TEST-435 HTTP/auth/status acceptance and Phoenix localhost health. Application
+inputs are unchanged, so apply requires no rebuild, schema command or container
+recreation. Gateway/worker retain source `0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372`;
+web retains source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f`. Image identities,
+container IDs/start times and protected configuration remain unchanged.
+Browser layout was not checked and no provider inference was dispatched.
