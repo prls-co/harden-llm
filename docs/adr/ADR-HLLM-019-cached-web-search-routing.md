@@ -95,6 +95,8 @@ both reads and writes. `TestWebSearchCacheHitSkipsJinaFallback` verifies that a
 hit invokes neither search nor the model.
 `TestSearchCachePersistenceProjection` now requires native/Jina evidence and
 inline citations to survive the real serialization path without another call.
+It also verifies that manual refresh replaces both answer and evidence, and
+that an uncached call leaves the refreshed entry available for later replay.
 
 The Phoenix diagnostics decoder must also accept the optional `search` object
 on run, History and trace responses. A successful native-search run was stored

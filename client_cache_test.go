@@ -63,6 +63,39 @@ func TestSearchCachePersistenceProjection(t *testing.T) {
 					t.Fatal("serialized cache projection has no search")
 				}
 			}
+
+			executor.result.Output = "Refreshed search answer"
+			executor.result.AssistantText = "Refreshed search answer"
+			executor.result.Search = &SearchResult{Mode: mode, Executed: true, CostStatus: "unavailable", Sources: []SearchSource{{URL: "https://example.test/refreshed", Title: "Refreshed source"}}}
+			request.CacheMode = CacheModeRefresh
+			refreshed, err := client.Call(context.Background(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if refreshed.Output != executor.result.Output || !reflect.DeepEqual(refreshed.Search, executor.result.Search) || refreshed.Cache.Served || !refreshed.Cache.Written || executor.executed != 2 || cache.gets != 2 || cache.sets != 2 {
+				t.Fatalf("manual refresh did not replace the cached search answer: result=%#v calls/gets/sets=%d/%d/%d", refreshed, executor.executed, cache.gets, cache.sets)
+			}
+
+			executor.result.Output = "Uncached search answer"
+			executor.result.AssistantText = "Uncached search answer"
+			executor.result.Search = &SearchResult{Mode: mode, Executed: true, CostStatus: "unavailable", Sources: []SearchSource{{URL: "https://example.test/uncached", Title: "Uncached source"}}}
+			request.CacheMode = CacheModeOff
+			uncached, err := client.Call(context.Background(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if uncached.Output != executor.result.Output || !reflect.DeepEqual(uncached.Search, executor.result.Search) || uncached.Cache.Served || uncached.Cache.Written || executor.executed != 3 || cache.gets != 2 || cache.sets != 2 {
+				t.Fatalf("cache off did not bypass search-answer reads and writes: result=%#v calls/gets/sets=%d/%d/%d", uncached, executor.executed, cache.gets, cache.sets)
+			}
+
+			request.CacheMode = CacheModeCache
+			replayed, err = client.Call(context.Background(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if replayed.Output != refreshed.Output || !reflect.DeepEqual(replayed.Search, refreshed.Search) || !replayed.Cache.Served || executor.executed != 3 || cache.gets != 3 || cache.sets != 2 {
+				t.Fatalf("cache off changed the manually refreshed answer: result=%#v calls/gets/sets=%d/%d/%d", replayed, executor.executed, cache.gets, cache.sets)
+			}
 		})
 	}
 }

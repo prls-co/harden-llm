@@ -270,13 +270,15 @@ runtime contract or the meaning of `make verify`.
 ### TEST-011: cache identity, modes, and replay parity
 
 - Target: `internal/cachekey/cache_test.go`, `client_cache_test.go`
-- Command: `go test . ./internal/cachekey/... -run 'TestCacheIdentity|TestCacheReplay' -count=1`
+- Command: `go test . ./internal/cachekey/... -run 'TestCacheIdentity|TestCacheReplay|TestSearchCachePersistenceProjection' -count=1`
 - Setup: source cache-hash fixtures and fake provider/cache store.
 - Assertions:
   - Semantic request fields alter the hash.
   - telemetry, retries, deadline, cancellation, and UI context do not alter the hash.
   - `off`, `cache`, and `refresh` modes are exact.
   - A cache hit skips provider invocation and replays normalized usage/cost/cache facts.
+  - Native/Jina search evidence survives replay; manual refresh replaces the answer
+    and evidence, and `off` leaves that refreshed entry intact for later reuse.
 - Pass criteria: every Go hash equals its source fixture and replay behavior passes.
 - Expected runtime: 10 seconds.
 
