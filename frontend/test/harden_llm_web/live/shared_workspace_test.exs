@@ -71,6 +71,14 @@ defmodule HardenLlmWeb.SharedWorkspaceTest do
     view |> element("#history-fold-toggle") |> render_click()
     render_async(view, 1_000)
     assert has_element?(view, "#workspace-history-error")
+
+    assert has_element?(
+             view,
+             "#workspace-history-error",
+             "The proxy could not complete the request."
+           )
+
+    refute has_element?(view, "#workspace-history-error", "History unavailable.")
     assert has_element?(view, "#workspace-llm-widget")
     refute has_element?(view, "#company-select")
 
@@ -83,7 +91,11 @@ defmodule HardenLlmWeb.SharedWorkspaceTest do
     assert has_element?(view, "#recording-status[data-status='not_saved']")
 
     assert_receive {:run_request,
-                    %{"profileId" => "CPA Responses", "userPrompt" => "one reliable call"}}
+                    %{
+                      "profileId" => "CPA Responses",
+                      "userPrompt" => "one reliable call",
+                      "callType" => "structured"
+                    }}
 
     refute_receive {:run_request, _}, 50
   end

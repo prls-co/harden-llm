@@ -7,18 +7,27 @@ defmodule HardenLlmWeb.BrowserBackend do
 
   def init(options), do: options
 
-  def start, do: Agent.start(fn -> %{calls: [], responses: []} end, name: __MODULE__)
+  def start do
+    workspace =
+      __DIR__
+      |> Path.join("../../../test/fixtures/reference/workspace.json")
+      |> File.read!()
+      |> Jason.decode!()
 
-  def stop do
-    if pid = Process.whereis(__MODULE__), do: Agent.stop(pid)
+    Agent.start(fn -> %{calls: [], responses: [], drafts: %{}, workspace: workspace} end)
+  end
+
+  def stop(owner) do
+    if Process.alive?(owner), do: Agent.stop(owner)
     :ok
   end
 
-  def calls, do: Agent.get(__MODULE__, &Enum.reverse(&1.calls))
-  def responses, do: Agent.get(__MODULE__, &Enum.reverse(&1.responses))
+  def calls(owner), do: Agent.get(owner, &Enum.reverse(&1.calls))
+  def responses(owner), do: Agent.get(owner, &Enum.reverse(&1.responses))
 
-  def call(conn, _options) do
-    record(conn)
+  def call(conn, options) do
+    owner = Keyword.fetch!(options, :owner)
+    record(conn, owner)
 
     case {conn.method, conn.path_info} do
       {"GET", ["internal", "v1", "access-context"]} ->
@@ -30,11 +39,45 @@ defmodule HardenLlmWeb.BrowserBackend do
       {"POST", ["api", "auth", "sign-out"]} ->
         sign_out(conn)
 
-      {"GET", ["v1", "models"]} ->
-        authenticated(conn, fn conn -> json(conn, 200, APIFixtures.models()) end)
+      {"GET", ["api", "v1", "profiles"]} ->
+        reference(conn, owner, "profiles")
 
-      {"POST", ["v1", "responses"]} ->
-        response(conn)
+      {"GET", ["api", "v1", "profiles", id]} ->
+        authenticated(conn, fn conn ->
+          json(conn, 200, Agent.get(owner, &Map.fetch!(&1.workspace["details"], URI.decode(id))))
+        end)
+
+      {"GET", ["api", "v1", "status"]} ->
+        reference(conn, owner, "status")
+
+      {"GET", ["api", "v1", "state"]} ->
+        authenticated(conn, fn conn ->
+          conn = fetch_query_params(conn)
+          key = conn.query_params["draftKey"]
+          state = Agent.get(owner, &Map.get(&1.drafts, key, %{"revision" => 0, "payload" => %{}}))
+          json(conn, 200, Map.put(state, "draftKey", key))
+        end)
+
+      {"POST", ["api", "v1", "state"]} ->
+        authenticated(conn, fn conn ->
+          {:ok, body, conn} = read_json(conn)
+
+          saved =
+            Map.take(body, ~w(draftKey payload)) |> Map.put("revision", body["revision"] + 1)
+
+          Agent.update(owner, &put_in(&1, [:drafts, body["draftKey"]], saved))
+          json(conn, 200, saved)
+        end)
+
+      {"GET", ["api", "v1", "history"]} ->
+        authenticated(conn, fn conn ->
+          json(conn, 503, %{
+            "error" => %{"code" => "history_unavailable", "message" => "History unavailable."}
+          })
+        end)
+
+      {"POST", ["api", "v1", "run"]} ->
+        response(conn, owner)
 
       _ ->
         json(conn, 404, %{"error" => %{"message" => "fixture route not found"}})
@@ -86,11 +129,27 @@ defmodule HardenLlmWeb.BrowserBackend do
     end
   end
 
-  defp response(conn) do
+  defp reference(conn, owner, key) do
+    authenticated(conn, fn conn -> json(conn, 200, Agent.get(owner, & &1.workspace[key])) end)
+  end
+
+  defp response(conn, owner) do
     with :ok <- authorize_api(conn),
          {:ok, body, conn} <- read_json(conn) do
-      Agent.update(__MODULE__, &%{&1 | responses: [body | &1.responses]})
-      json(conn, 200, APIFixtures.response("deterministic browser response"))
+      Agent.update(owner, &%{&1 | responses: [body | &1.responses]})
+
+      events =
+        Agent.get(owner, & &1.workspace["stream"])
+        |> List.update_at(3, &put_in(&1, ["data", "status"], "not_saved"))
+
+      body =
+        Enum.map_join(events, fn event ->
+          "event: " <> event["type"] <> "\ndata: " <> Jason.encode!(event) <> "\n\n"
+        end)
+
+      conn
+      |> put_resp_content_type("text/event-stream")
+      |> send_resp(200, body)
     else
       {:error, conn} -> unauthorized(conn)
     end
@@ -130,8 +189,8 @@ defmodule HardenLlmWeb.BrowserBackend do
     end
   end
 
-  defp record(conn) do
-    Agent.update(__MODULE__, &%{&1 | calls: [{conn.method, conn.request_path} | &1.calls]})
+  defp record(conn, owner) do
+    Agent.update(owner, &%{&1 | calls: [{conn.method, conn.request_path} | &1.calls]})
   end
 
   defp unauthorized(conn),

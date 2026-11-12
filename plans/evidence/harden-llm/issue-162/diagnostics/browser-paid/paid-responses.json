@@ -1,0 +1,142 @@
+{
+  "source": "0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372",
+  "budgetUSD": 1,
+  "pricing": {
+    "input_cost_per_token": 1e-7,
+    "output_cost_per_token": 5e-7,
+    "cache_read_input_token_cost": 1e-8,
+    "cache_creation_input_token_cost": 1.25e-7
+  },
+  "nonce": "6bbb1f82-c082-4dda-b1d3-d8e66ed2374b",
+  "results": [
+    {
+      "stream": {
+        "correlationId": "8dd3ed90",
+        "headersMs": 922,
+        "receivedBytes": 18518,
+        "eventCount": 49,
+        "outputBytes": 78,
+        "outputCodePoints": 78,
+        "firstEventMs": 0,
+        "firstOutputMs": 296,
+        "lastEventAt": "2026-11-11T23:51:20.707392191Z",
+        "lastOutputAt": "2026-11-11T23:51:20.608800287Z",
+        "terminalState": "completed"
+      },
+      "accepted": true,
+      "httpStatus": 200,
+      "wallTimeMs": 2430,
+      "executionId": "cf4e13b4-1b11-4364-8b28-fc7f1a60872f",
+      "usage": {
+        "input_tokens": 83,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 49,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 132
+      },
+      "configuredRateEquivalentUSD": 0.0000328,
+      "outputSHA256": "3b99dd3ea34f12879fdcd817608857774b4ce15dfbd7f9c45c51bf81f87a3a78",
+      "eventTypes": [],
+      "maxOutputTokens": 512,
+      "maxAttempts": 1,
+      "cache": "off",
+      "webSearch": false,
+      "provider": "cpa",
+      "model": "gpt-6-luna",
+      "traceId": "624aef67-7444-40e5-9e7f-208f0829f85e",
+      "diagnostics": {
+        "stage": "original.generate",
+        "branch": "original",
+        "stopReason": "succeeded",
+        "attemptsUsed": 1,
+        "attemptsRemaining": 0,
+        "elapsedMs": 2365,
+        "totalActualWaitMs": 0,
+        "receivedBytes": 18518,
+        "eventCount": 49,
+        "outputBytes": 78,
+        "outputCodePoints": 78,
+        "effectiveTimeoutMs": 59998,
+        "deadlineAt": "2026-11-11T23:52:18.372143606Z"
+      },
+      "attemptCount": 1,
+      "admissionExecutionId": "602773e8-312c-43db-8f24-c70b8bc9b143",
+      "permitId": "dacf2c5d-7ce8-5893-afba-a8d761004999",
+      "otelTraceId": "3d0c10fba4c4db87c2b22de204657a61"
+    },
+    {
+      "stream": {
+        "correlationId": "78301493",
+        "headersMs": 615,
+        "receivedBytes": 15530,
+        "eventCount": 41,
+        "outputBytes": 54,
+        "outputCodePoints": 54,
+        "firstEventMs": 0,
+        "firstOutputMs": 287,
+        "lastEventAt": "2026-11-11T23:51:22.613644541Z",
+        "lastOutputAt": "2026-11-11T23:51:22.527355737Z",
+        "terminalState": "completed"
+      },
+      "accepted": true,
+      "httpStatus": 200,
+      "wallTimeMs": 1923,
+      "executionId": "21d7c91c-fbd5-40c0-91c8-64e6704c6a5b",
+      "usage": {
+        "input_tokens": 42,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 36,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 78
+      },
+      "configuredRateEquivalentUSD": 0.0000222,
+      "outputSHA256": "b9f6ad88cb7a8f886be17f296065ce0257d0a75366de80bcbd8b49fb20a51d15",
+      "eventTypes": [
+        "response.created",
+        "response.in_progress",
+        "response.output_item.added",
+        "response.content_part.added",
+        "response.output_text.delta",
+        "response.output_text.done",
+        "response.content_part.done",
+        "response.output_item.done",
+        "response.completed"
+      ],
+      "maxOutputTokens": 512,
+      "maxAttempts": 1,
+      "cache": "off",
+      "webSearch": false,
+      "provider": "cpa",
+      "model": "gpt-6-luna",
+      "traceId": "46597e88-0910-444f-b014-bb1cfbc26ca7",
+      "diagnostics": {
+        "stage": "original.generate",
+        "branch": "original",
+        "stopReason": "succeeded",
+        "attemptsUsed": 1,
+        "attemptsRemaining": 0,
+        "elapsedMs": 1859,
+        "totalActualWaitMs": 0,
+        "receivedBytes": 15530,
+        "eventCount": 41,
+        "outputBytes": 54,
+        "outputCodePoints": 54,
+        "effectiveTimeoutMs": 59999,
+        "deadlineAt": "2026-11-11T23:52:20.796825839Z"
+      },
+      "attemptCount": 1,
+      "admissionExecutionId": "653226e5-20e3-4b19-839a-bf54d1f0dfe3",
+      "permitId": "a9afd3b5-8920-53a7-b841-afdb22b03216",
+      "otelTraceId": "ea326a3ca36af8d3f08e3beb82506a07"
+    }
+  ],
+  "costBasis": "Configured-profile equivalent; not an invoice. Each case dispatched once; no automatic retries."
+}

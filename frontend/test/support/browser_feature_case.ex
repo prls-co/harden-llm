@@ -11,8 +11,8 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-047
 
   def setup_browser(_context) do
-    BrowserBackend.stop()
-    {:ok, _pid} = BrowserBackend.start()
+    {:ok, backend} = BrowserBackend.start()
+    ExUnit.Callbacks.on_exit(fn -> BrowserBackend.stop(backend) end)
 
     previous_req_options = Application.fetch_env!(:harden_llm, :harden_api_req_options)
     previous_prls_client_options = Application.get_env(:prls_web, :client_options)
@@ -24,11 +24,11 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
       login_return_origins: [product_origin, "http://localhost:4004"]
     })
 
-    Application.put_env(:harden_llm, :harden_api_req_options, plug: BrowserBackend)
-    Application.put_env(:prls_web, :client_options, request_options: [plug: BrowserBackend])
+    options = [plug: {BrowserBackend, owner: backend}]
+    Application.put_env(:harden_llm, :harden_api_req_options, options)
+    Application.put_env(:prls_web, :client_options, request_options: options)
 
     ExUnit.Callbacks.on_exit(fn ->
-      BrowserBackend.stop()
       Application.put_env(:harden_llm, :harden_api_req_options, previous_req_options)
 
       if previous_prls_client_options do
@@ -38,7 +38,7 @@ defmodule HardenLlmWeb.BrowserFeatureCase do
       end
     end)
 
-    :ok
+    {:ok, backend: backend}
   end
 
   def start_portal(settings, ip \\ {127, 0, 0, 1}) do

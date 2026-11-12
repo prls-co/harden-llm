@@ -132,9 +132,14 @@ func TestTestFeedbackTraceability(t *testing.T) {
 	}
 
 	canary := string(readFile(t, filepath.Join(root, "frontend", "test", "browser", "authenticated_workflow_canary_test.exs")))
-	for _, fragment := range []string{"@moduletag :browser", "WEB-TEST-047", "/v1/models", "/v1/responses", "logout"} {
+	for _, fragment := range []string{"@moduletag :browser", "WEB-TEST-047", "/api/v1/profiles", "/api/v1/run", "#backend-status", "BrowserBackend.responses(backend) == []", "logout"} {
 		if !strings.Contains(canary, fragment) {
 			t.Errorf("authenticated browser canary is missing %q", fragment)
+		}
+	}
+	for _, retired := range []string{"/v1/models", "/v1/responses", "#proxy-status"} {
+		if strings.Contains(canary, retired) {
+			t.Errorf("authenticated browser canary uses retired proxy boundary %q", retired)
 		}
 	}
 	composeCanary := string(readFile(t, filepath.Join(root, "frontend", "test", "browser", "compose_smoke_test.exs")))

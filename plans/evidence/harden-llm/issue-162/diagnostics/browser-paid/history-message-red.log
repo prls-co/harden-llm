@@ -1,0 +1,34 @@
+Running ExUnit with seed: 737984, max_cases: 24
+Excluding tags: [:asset, :browser, :compose, :database]
+
+..
+
+  1) test history failure keeps the workspace and one inference result usable (HardenLlmWeb.SharedWorkspaceTest)
+     test/harden_llm_web/live/shared_workspace_test.exs:68
+     Expected truthy, got false
+     code: assert has_element?(view, "#workspace-history-error", "History unavailable")
+     arguments:
+
+         # 1
+         #Phoenix.LiveViewTest.View<
+           id: "phx-GOck1DMrqaUHvgJI",
+           module: HardenLlmWeb.WorkspaceLive,
+           pid: #PID<0.961.0>,
+           endpoint: HardenLlmWeb.Endpoint,
+           ...
+         >
+
+         # 2
+         "#workspace-history-error"
+
+         # 3
+         "History unavailable"
+
+     stacktrace:
+       test/harden_llm_web/live/shared_workspace_test.exs:74: (test)
+
+
+Finished in 0.5 seconds (0.5s async, 0.00s sync)
+
+Result: 2/3 passed
+Failed: 1 test

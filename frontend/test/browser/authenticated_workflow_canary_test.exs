@@ -13,37 +13,56 @@ defmodule HardenLlmWeb.AuthenticatedWorkflowCanaryTest do
 
   setup {HardenLlmWeb.BrowserFeatureCase, :setup_browser}
 
-  feature "an enabled login sends a standard Responses request through the proxy", %{
-    session: session
-  } do
+  feature "an enabled login preserves one streamed reference result when history is unavailable",
+          %{
+            session: session,
+            backend: backend
+          } do
     session =
       session
       |> resize_window(1_440, 900)
       |> visit("/")
       |> sign_in_shared_login("browser@example.test", "browser-password-123")
       |> assert_has(Query.css("#workspace-page"))
-      |> assert_has(Query.css("#proxy-status", text: "Proxy reachable"))
-      |> assert_has(Query.css("#run_model"))
-      |> assert_has(Query.css("#available-models option[value='model-test']", visible: :any))
-      |> fill_in(Query.css("#run_model"), with: "model-test")
-      |> fill_in(Query.css("#run_userPrompt"), with: "return a deterministic response")
-      |> click(Query.css("#run-submit"))
-      |> assert_has(Query.css("#current-result", text: "deterministic browser response"))
-      |> assert_has(Query.css("#recording-error", text: "result is shown"))
-      |> assert_has(Query.css("#history-error", text: "Shared history is unavailable"))
+      |> assert_has(Query.css("#backend-status", text: "Backend ready"))
+      |> assert_has(Query.css("#run_selectedProfileId[value='CPA Responses']"))
+      |> assert_has(Query.css("#run_modelId[value='gpt-5.6-luna']", visible: :any))
+      |> click(Query.css("#input-advanced-toggle:not([disabled])"))
+      |> click(Query.css("#check-schema:not([disabled])"))
+      |> assert_has(Query.css("#run-submit:not([disabled])"))
+      |> click(Query.css("#history-fold-toggle:not([disabled])"))
+      |> assert_has(
+        Query.css("#workspace-history-error", text: "The proxy could not complete the request.")
+      )
+      |> fill_in(Query.css("#run_userPrompt"), with: "one reliable call")
+      |> click(Query.css("#run_selectedProfileId"))
+      |> send_keys([:enter])
+
+    assert BrowserBackend.responses(backend) == []
+
+    session =
+      session
+      |> fill_in(Query.css("#run_userPrompt"), with: "one reliable call")
+      |> click(Query.css("#run-submit:not([disabled])"))
+      |> assert_has(Query.css("#run-output", text: "ok"))
+      |> assert_has(Query.css("#recording-status[data-status='not_saved']", text: "preserved"))
+      |> assert_has(
+        Query.css("#workspace-history-error", text: "The proxy could not complete the request.")
+      )
       |> assert_has(Query.css("#logout-button"))
 
-    calls = BrowserBackend.calls()
-    assert {"GET", "/v1/models"} in calls
-    assert Enum.count(calls, &(&1 == {"POST", "/v1/responses"})) == 1
-    refute Enum.any?(calls, fn {_method, path} -> String.starts_with?(path, "/api/v1/") end)
+    calls = BrowserBackend.calls(backend)
+    assert {"GET", "/api/v1/profiles"} in calls
+    assert Enum.count(calls, &(&1 == {"POST", "/api/v1/run"})) == 1
+    refute Enum.any?(calls, fn {_method, path} -> String.starts_with?(path, "/v1/") end)
 
-    assert [request] = BrowserBackend.responses()
-    assert request["model"] == "model-test"
-    assert request["input"] == "return a deterministic response"
-    assert request["store"] == false
-    assert request["harden"] == %{"cache" => "off", "diagnostics" => true}
-    refute Map.has_key?(request, "profileId")
+    assert [request] = BrowserBackend.responses(backend)
+    assert request["profileId"] == "CPA Responses"
+    assert request["userPrompt"] == "one reliable call"
+    assert request["callType"] == "structured"
+    assert request["schema"]["properties"] == %{"ok" => %{"type" => "boolean"}}
+    assert request["modelId"] == "gpt-5.6-luna"
+    refute Map.has_key?(request, "apiKeyHash")
 
     session |> click(Query.css("#logout-button")) |> assert_shared_login_page()
   end

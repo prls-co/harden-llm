@@ -126,3 +126,28 @@ retention change, provider replay, browser or paid-provider check was performed.
 This completes the diagnostic implementation and authorized production rollout.
 It does not establish the original incident's failed network hop; #162 remains
 open. Documentation-only closure does not change the application image labels.
+
+## 8. Explicit browser and paid-provider follow-up
+
+The subsequent user request authorizes browser and paid-provider acceptance
+with a total budget of USD 1. Use tiny single-attempt CPA `gpt-6-luna` requests,
+search off and an explicit output-token cap. Keep configured-rate equivalents
+separate from invoices, preserve unknown outcomes without replay, and retain
+every attempted check.
+
+The initial four-task browser gate reproduced a stale test boundary: its
+canary/fixture still used the retired proxy UI. Update that same canary to the
+accepted reference API and reuse `test/fixtures/reference/workspace.json`.
+Keep login, native interaction, exact one-Run count, result preservation during
+history failure, and logout. Replace the fixture's global Agent with an
+explicit process owner; add cheap async isolation and actual-client stream
+decoding coverage before implementation. No application or browser framework
+dependency is added.
+
+Production acceptance uses a fresh browser and the dedicated Portal verification
+login. Capture its draft before editing, enforce one bounded Run, verify the
+record and delete only its nonce-owned history, restore the draft, log out and
+verify session revocation. Coordinate this workflow with the existing managed
+runner lease; never overlap the local canary and production browser. Retain
+the earlier browser failure and any cross-owner console diagnostics separately.
+Test-only changes do not rebuild or relabel the certified production images.
