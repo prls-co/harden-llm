@@ -85,6 +85,11 @@ upstream work. A
 were replayed from cache; generated output item IDs retain the producing call's
 identity. Each response retains its own response and execution IDs.
 
+Search answers use the same manual cache controls as other answers. Callers
+accept saved answers when using `cache` and select `refresh` or `off` when they
+want new execution. There is no separate search freshness check or cache-age
+setting. The existing generic cache expiration still applies.
+
 The additional reference search fields require updating and deploying all
 consumers that decode reference runs with `httpclient` before deploying the
 updated gateway. The frontend and its schema deploy with the gateway.
@@ -132,6 +137,14 @@ when the caller needs one of these controls:
 ```
 
 `harden.cache` accepts `off`, `cache`, or `refresh`; the default is `off`.
+
+- `cache` reads a saved answer and writes successful misses.
+- `refresh` bypasses reads and replaces the saved answer after successful execution.
+- `off` bypasses both cache reads and writes; it leaves existing entries intact.
+
+The reference UI toggles between `cache` and `refresh`; the API also supports
+`off`.
+
 `harden.timeout_ms` can lower the deployment's synchronous limit. Recovery
 policies are explicit and bounded. When `diagnostics` is enabled, the response
 includes bounded hardening metadata. Provider-specific fields not included in

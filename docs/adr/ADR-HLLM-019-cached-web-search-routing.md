@@ -47,6 +47,12 @@ non-native routes require `JINA_API_KEY` only on a cache miss. Cached search
 answers can become stale until refresh, which is intentional for development
 cost control.
 
+Decision confirmed 2026-11-12 in [issue #157](https://github.com/prls-co/harden-llm/issues/157):
+manual cache controls are sufficient for search answers. Keep the existing
+generic expiration and `cache`, `refresh`, and `off` semantics. Callers accept
+cached answers or explicitly request new execution. No search-specific TTL,
+maximum-age check, or additional freshness metadata is required.
+
 The gateway has one additional fixed-host outbound dependency and must keep
 its key in the protected environment. Search results are treated as
 untrusted prompt material, bounded before injection, and excluded from logs,
@@ -84,6 +90,9 @@ certification remain separate opt-in gates.
 The cache tests cover both the runtime lookup boundary and the public
 `CacheRecord` JSON projection. A deployed regression showed that testing only
 an in-memory runtime cache misses dropped fields in `client_cache.go`.
+`TestCacheReplay` verifies cache reuse, refresh bypass/write, and off bypassing
+both reads and writes. `TestWebSearchCacheHitSkipsJinaFallback` verifies that a
+hit invokes neither search nor the model.
 `TestSearchCachePersistenceProjection` now requires native/Jina evidence and
 inline citations to survive the real serialization path without another call.
 

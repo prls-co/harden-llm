@@ -913,13 +913,16 @@ Acceptance against issue #137 section 4:
 | (6) Chat Completions citations | `TEST-537` |
 | (7) OpenAI SDK consumption | `TEST-538` |
 
-## 12. Out of scope (open one follow-up issue each)
+## 12. Out of scope and follow-ups
 
 1. Anthropic and Gemini citation offsets.
 2. Function tools combined with `web_search` on `/v1`.
 3. `web_search_call.results`, image results and non-URL sources.
 4. Forcing `required` on Anthropic.
-5. A freshness limit for cached search answers.
+5. A freshness limit for cached search answers: evaluated in
+   [#157](https://github.com/prls-co/harden-llm/issues/157); not planned.
+   [ADR-HLLM-019](../docs/adr/ADR-HLLM-019-cached-web-search-routing.md)
+   confirms the existing manual cache/refresh/off policy on 2026-11-12.
 6. The `reasoning.encrypted_content` include value.
 
 ## 13. Review resolutions (version 3)
