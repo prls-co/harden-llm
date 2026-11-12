@@ -1,0 +1,6 @@
+--- FAIL: TestTestFeedbackTraceability (0.02s)
+    test_feedback_traceability_test.go:137: authenticated browser canary is missing "/v1/models"
+    test_feedback_traceability_test.go:137: authenticated browser canary is missing "/v1/responses"
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/testkit	0.026s
+FAIL

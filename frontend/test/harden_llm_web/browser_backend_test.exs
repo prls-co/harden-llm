@@ -35,6 +35,9 @@ defmodule HardenLlmWeb.BrowserBackendTest do
         request_options: [plug: {BrowserBackend, owner: owner}]
       )
 
+    assert {:ok, profile} = Client.get_profile(context, "CPA Responses")
+    assert profile["sourceProfileId"] == "CPA Responses"
+
     assert {:ok, %{"result" => result, "state" => state}} =
              Client.run_stream(context, body, fn _event -> :cont end)
 

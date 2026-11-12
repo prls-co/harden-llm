@@ -44,7 +44,7 @@ defmodule HardenLlmWeb.BrowserBackend do
 
       {"GET", ["api", "v1", "profiles", id]} ->
         authenticated(conn, fn conn ->
-          json(conn, 200, Agent.get(owner, &Map.fetch!(&1.workspace["details"], id)))
+          json(conn, 200, Agent.get(owner, &Map.fetch!(&1.workspace["details"], URI.decode(id))))
         end)
 
       {"GET", ["api", "v1", "status"]} ->

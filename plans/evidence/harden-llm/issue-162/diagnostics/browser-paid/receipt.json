@@ -19,10 +19,11 @@
     "Initial production read-only browser pass reached Portal, backend and LiveSocket and fit desktop/mobile viewports; blocked analytics/CSP console diagnostics remain unaccepted and are retained privately. No paid UI Run has occurred yet."
   ],
   "sourceInputsSHA256": {
-    "frontend/test/support/browser_backend.ex": "1824877512f01eff69f45f924b2e8152e76caadbac93e5a86d4aa471cd0eb65e",
+    "frontend/test/support/browser_backend.ex": "2c20de5486cd1ca16536df87bfa864e90f606c0ea10cda1a7aa61a239dc36399",
     "frontend/test/support/browser_feature_case.ex": "4caf144621705fe608b42c0873aae36da45c773ae7314096717eb746761345af",
     "frontend/test/browser/authenticated_workflow_canary_test.exs": "e34982e44cf45a2a6c7685c3f4da01b47636b386b36bc73a469cc38f8a277e4b",
-    "frontend/test/harden_llm_web/browser_backend_test.exs": "2232ea898500105bedba0c84d82ea61b20888b3f9f3c0ead40f065f5866c6617"
+    "frontend/test/harden_llm_web/browser_backend_test.exs": "89e66891043e4f785942369653b7e84f44f85a273bf377951dce5888e8dc2d09",
+    "internal/testkit/test_feedback_traceability_test.go": "8e8fedcacdcccf613f6cd22ef75cf76f5808397264f7564a8ff68dd8e799fd38"
   },
   "privateCheckpoint": "/home/kirill/.config/harden-llm/acceptance-176-j5ho8yu2",
   "browserAndLiveAuthorization": "Explicit user request; USD 1 or much less.",
@@ -31,5 +32,19 @@
     "tests": 23,
     "log": "frontend-focused.log",
     "coverage": "Actual client stream decoding, owned fixture isolation, shared workspace, Portal and browser policy"
+  },
+  "retainedHostedFailure": {
+    "source": "61d0c6d579ffa0639c11a35cdbf2b8b7834f9c41",
+    "pushRun": 43125564683,
+    "prRun": 43125640260,
+    "cause": "Go traceability guard still required retired proxy paths in the ordinary reference canary. Other task terminations/skips are cascade, not acceptance. Both reports have clean teardown.",
+    "correction": "Require reference profiles/Run, backend-ready and no implicit submission; actively reject retired proxy routes. No guard is removed."
+  },
+  "encodedProfileRegression": {
+    "browserRed": "browser-encoded-profile-red.json",
+    "cheapRed": "profile-encoding-red.log",
+    "correction": "Decode the actual URI-encoded profile segment before looking it up in the canonical fixture.",
+    "green": "frontend-focused-corrected.log",
+    "focusedTests": 23
   }
 }
