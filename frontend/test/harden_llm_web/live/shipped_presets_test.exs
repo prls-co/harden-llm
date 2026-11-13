@@ -216,6 +216,7 @@ defmodule HardenLlmWeb.ShippedPresetsTest do
     render_settled(view, 1_000)
     assert has_element?(view, "#run-submit[disabled]")
     view |> element("#model-config-toggle") |> render_click()
+    render_settled(view, 1_000)
     assert has_element?(view, "#profile-credential-toggle:not([disabled])")
     refute_receive {:preset_run, _}, 50
   end
