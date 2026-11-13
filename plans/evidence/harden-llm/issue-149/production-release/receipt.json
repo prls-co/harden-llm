@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 1,
+  "issue": 149,
+  "pullRequests": [
+    178,
+    179
+  ],
+  "status": "production_deployed_and_qualified",
+  "verifiedAt": "2026-11-13T04:05:08.708278+00:00",
+  "branch": "main",
+  "source": "240037abb731773edf2a63dd78d5e6a8f755600d",
+  "url": "https://harden-llm.prls.co/",
+  "change": "Remove the redundant pending-event size guard; the cumulative SSE byte guard still runs before buffering.",
+  "retainedPolicy": {
+    "requestBytes": 262144,
+    "providerResponseBytes": 16777216,
+    "requestInspectionsRetained": true,
+    "largerTokenAdmissionQualified": false,
+    "unicodeFieldChanges": false,
+    "newTokenizerOrLimitController": false
+  },
+  "release": {
+    "source": "240037abb731773edf2a63dd78d5e6a8f755600d",
+    "runId": 43359480336,
+    "attempt": 1,
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43359480336/attempts/1",
+    "job": 131669370436,
+    "conclusion": "success",
+    "artifact": {
+      "id": 14008427891,
+      "name": "harden-llm-runner-reports-43359480336-1-release",
+      "digest": "sha256:4b4a32f2bbc6498e595379befb25a5a3bf87b7a17c2b8a020b74ef9464d29a9b",
+      "size": 19433
+    },
+    "accepted": true,
+    "reports": [
+      {
+        "file": "hosted-integration-race.json",
+        "selector": "go-integration-race",
+        "taskCount": 1,
+        "accepted": true,
+        "sha256": "ff783a75351e84e796f9d32f6e7cf273daa6e42cd48bbdb4b39edc05b9c9eb53"
+      },
+      {
+        "file": "hosted-integration.json",
+        "selector": "go-integration",
+        "taskCount": 1,
+        "accepted": true,
+        "sha256": "872aa828038c2494a3cee645806cb34c38b40329e05e0f83d086c4b81a3a0b2b"
+      },
+      {
+        "file": "hosted-release.json",
+        "selector": "release",
+        "taskCount": 30,
+        "accepted": true,
+        "sha256": "cd843c9da13f6451eb7e3835c60ff1ed34b1e3f8734f25c7a5bec4511186ade6"
+      }
+    ]
+  },
+  "localFast": {
+    "accepted": true,
+    "taskCount": 10,
+    "selector": "fast",
+    "candidateSlots": 1,
+    "report": "local-fast.json",
+    "cleanupErrors": [],
+    "cleanupWarnings": []
+  },
+  "checks": {
+    "runtimePRFast": 43359075613,
+    "runtimePRCodeQL": 43359072464,
+    "applicationMainFast": 43359453759,
+    "applicationMainCodeQL": 43359453946,
+    "testFollowupPushFast": 43360319059,
+    "testFollowupPRFast": 43360892724,
+    "testFollowupPRCodeQL": 43360889200,
+    "testFollowupMainFast": 43361264545,
+    "testFollowupMainCodeQL": 43361264148,
+    "allCompletedSuccessfully": true
+  },
+  "testFollowup": {
+    "commit": "903291e5475425e364a6af41d36b3654bbccbe86",
+    "merge": "317e496e07e74c6dbecb7283edbd12eb730bff2a",
+    "change": "Await fold draft persistence through existing render_settled helper before checking the unchanged enabled-button assertion.",
+    "applicationImageInputsChanged": false
+  },
+  "image": {
+    "source": "240037abb731773edf2a63dd78d5e6a8f755600d",
+    "tag": "harden-llm-gateway:release-240037abb731773edf2a63dd78d5e6a8f755600d",
+    "id": "sha256:93422758aae47c468948a82bfaa542856c137c7ff9635dd1054773713b6e2fbc",
+    "platform": "linux/amd64",
+    "size": 12855716,
+    "labels": {
+      "org.opencontainers.image.revision": "240037abb731773edf2a63dd78d5e6a8f755600d",
+      "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+      "org.opencontainers.image.title": "harden-llm-gateway",
+      "org.opencontainers.image.version": "240037abb731773edf2a63dd78d5e6a8f755600d"
+    },
+    "binaryVersion": "240037abb731773edf2a63dd78d5e6a8f755600d",
+    "canonicalBuildScriptVerifiedVersion": true,
+    "releaseRun": 43359480336
+  },
+  "runtime": {
+    "gateway": {
+      "id": "49a14f965b3c917e38da93761fb5ad041d5025fd558cde706c4448ef3667c320",
+      "image": "sha256:93422758aae47c468948a82bfaa542856c137c7ff9635dd1054773713b6e2fbc",
+      "revision": "240037abb731773edf2a63dd78d5e6a8f755600d",
+      "state": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/kirill/p/harden-llm/config/upstreams.local.json",
+          "Destination": "/etc/harden-llm/upstreams.json"
+        }
+      ]
+    },
+    "worker": {
+      "id": "cc8a19b56046824e8a52b1c3228c2159d99cd26e1f37b2501c08c3e86448c452",
+      "image": "sha256:93422758aae47c468948a82bfaa542856c137c7ff9635dd1054773713b6e2fbc",
+      "revision": "240037abb731773edf2a63dd78d5e6a8f755600d",
+      "state": "running",
+      "health": null,
+      "restarts": 0,
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/kirill/p/harden-llm/config/upstreams.local.json",
+          "Destination": "/etc/harden-llm/upstreams.json"
+        }
+      ]
+    },
+    "web": {
+      "id": "3deb8cd10768ce514b4599dc6277c17783cfb89a43d8418fca613663084c5d08",
+      "image": "sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78",
+      "revision": "efd0d85eb488b0dc8a78a97f6a7851218d9ed53f",
+      "state": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "harden-llm_harden-llm-web-logs",
+          "Source": "/var/lib/docker/volumes/harden-llm_harden-llm-web-logs/_data",
+          "Destination": "/var/log/harden-llm-web"
+        }
+      ]
+    }
+  },
+  "deployment": {
+    "workerBeforeGateway": true,
+    "controller": {
+      "gateway": {
+        "equivalent": true,
+        "services": [
+          "harden-llm-gateway"
+        ],
+        "runtimeVerified": true
+      },
+      "worker": {
+        "equivalent": true,
+        "services": [
+          "harden-llm-batch-worker"
+        ],
+        "runtimeVerified": true
+      },
+      "web": {
+        "equivalent": true,
+        "services": [
+          "harden-llm-web"
+        ],
+        "runtimeVerified": true
+      },
+      "support": {
+        "equivalent": true,
+        "services": [
+          "otel-collector",
+          "loki",
+          "prometheus",
+          "tempo",
+          "grafana"
+        ],
+        "runtimeVerified": true
+      }
+    },
+    "workerReadiness": {
+      "pollers": {
+        "workflow": {
+          "newWorkerHostname": "cc8a19b56046",
+          "ownedPollerCount": 1,
+          "taskQueueType": "workflow",
+          "latestAccessAgeSeconds": 3.472259998321533,
+          "polledAfterContainerStart": true,
+          "readEqualsAck": true
+        },
+        "control": {
+          "newWorkerHostname": "cc8a19b56046",
+          "ownedPollerCount": 1,
+          "taskQueueType": "activity",
+          "latestAccessAgeSeconds": 2.1813101768493652,
+          "polledAfterContainerStart": true,
+          "readEqualsAck": true
+        },
+        "provider": {
+          "newWorkerHostname": "cc8a19b56046",
+          "ownedPollerCount": 1,
+          "taskQueueType": "activity",
+          "latestAccessAgeSeconds": 3.68873929977417,
+          "polledAfterContainerStart": true,
+          "readEqualsAck": true
+        }
+      },
+      "upgrade": {
+        "generation": 2,
+        "outstanding": 0,
+        "pool_id": "cpa-production",
+        "status": "v2_ready"
+      },
+      "observation": "Enhanced queue describe sometimes returned workflow metadata for an activity selection. Explicit typed legacy describe confirmed all three new-worker pollers before gateway promotion."
+    },
+    "runningVersions": {
+      "gateway": "240037abb731773edf2a63dd78d5e6a8f755600d",
+      "batch-worker": "240037abb731773edf2a63dd78d5e6a8f755600d"
+    },
+    "descriptor": {
+      "beforeSHA256": "7ae7436d9015d45b6396a40d0b04afa990e08a55442acdb0bfcdd0d259589ab4",
+      "afterSHA256": "f2a8dbc2431b5bd5531c28b04876c4ce21ffeb826e32a51377a7e77e8adef78f",
+      "changedFields": [
+        "serviceEnvironmentOverrides.harden-llm-batch-worker.HARDEN_LLM_RELEASE",
+        "serviceEnvironmentOverrides.harden-llm-gateway.HARDEN_LLM_RELEASE",
+        "serviceImageOverrides.harden-llm-batch-worker",
+        "serviceImageOverrides.harden-llm-gateway",
+        "services.harden-llm-batch-worker.expectedImage",
+        "services.harden-llm-batch-worker.identityEnvironment.HARDEN_LLM_RELEASE",
+        "services.harden-llm-gateway.expectedImage",
+        "services.harden-llm-gateway.identityEnvironment.HARDEN_LLM_RELEASE"
+      ],
+      "checkpoint": "/home/kirill/.config/harden-llm/issue-149-18ib7awx"
+    },
+    "onlyEightImageAndReleaseFieldsChanged": true,
+    "priorImagesRetained": true
+  },
+  "acceptance": {
+    "test435Passed": true,
+    "baselineHTTP": "baseline-http.log",
+    "deployedHTTP": "deployed-http.log",
+    "newProviderInference": false,
+    "browserLayoutChecked": false,
+    "storedRecordReads": false
+  },
+  "preservation": {
+    "protectedInputsUnchanged": true,
+    "webAndSharedStorageContainersUnchanged": true,
+    "all22OtherReplacementsPredateHllmDescriptorUpdate": true,
+    "noMissingOrAddedContainers": true,
+    "databaseCounts": {
+      "stableTableCounts": {
+        "credentials": 0,
+        "profiles": 0,
+        "hidden_presets": 0,
+        "drafts": 2,
+        "batch_jobs": 2,
+        "batch_items": 1000
+      },
+      "acceptedBatchItemsPreserved": 1000,
+      "historyTimeline": {
+        "historyTotal": 406,
+        "finishedBeforeInitialSnapshot": 374,
+        "finishedBetweenSnapshotAndHllmUpdate": 32,
+        "finishedSinceHllmUpdate": 0
+      },
+      "cacheEntriesBefore": 33,
+      "cacheEntriesAfter": 29,
+      "observation": "Initial snapshot preceded other live traffic and deployments. All 32 additional history rows finished before the HLLM descriptor update; no stored records were read. Cache count is volatile and is not asserted equal. No reset or cleanup of product data was performed."
+    },
+    "databaseSchemaChanged": false,
+    "dataResetOrMigration": false
+  },
+  "parity": {
+    "publicContractsUnchanged": true,
+    "promptsModelsReasoningAndSchemasUnchanged": true,
+    "cacheIdentityAndAccountingUnchanged": true,
+    "newProviderRetryOrReplay": false
+  },
+  "retainedNonAcceptance": "retained-nonacceptance.json",
+  "documentationCommitsDoNotRelabelImages": true,
+  "sha256": {
+    "baseline-http.log": "0fcaccac04972e1f42ebd0c02ad465da8dba995580f9c442ffa571e9363c96d0",
+    "deployed-http.log": "8cbe68886670b8c0d314d657f4416d6b58e5893ec04603d97f66fed482de7cf4",
+    "focused-after-race.log": "e1d47eea5b4628552cb68f11aad3b54f9d8f5f066444a06c5570422a5f7dc918",
+    "focused-before.log": "fa39d8d70d1c4246d1784399983c99ee724146af05ac730d142a4421d1d8434f",
+    "hosted-integration-race.json": "ff783a75351e84e796f9d32f6e7cf273daa6e42cd48bbdb4b39edc05b9c9eb53",
+    "hosted-integration.json": "872aa828038c2494a3cee645806cb34c38b40329e05e0f83d086c4b81a3a0b2b",
+    "hosted-release.json": "cd843c9da13f6451eb7e3835c60ff1ed34b1e3f8734f25c7a5bec4511186ade6",
+    "local-fast.json": "3dc7e92404dd71db09416d8dc117272c89deefe39090ca33269fb3e5d1bb00bc",
+    "retained-nonacceptance.json": "a9a68e22039a85cdf8ecf2cf95c6e0266add92f9ecde5ba44e3ceb2996982391"
+  }
+}

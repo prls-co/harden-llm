@@ -1,0 +1,35 @@
+{
+  "failedFastRuns": [
+    {
+      "observation": "Initial four-slot fast run: runner-contracts exceeded its unchanged 180-second timeout under host contention; no assertion failure was reported.",
+      "selector": "fast",
+      "taskId": "runner-contracts",
+      "accepted": false,
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "privateReport": "/home/kirill/.config/harden-llm/issue-149-18ib7awx/fast-failed-report.json",
+      "sha256": "70d66cf47f3332fa8dc8dcbccd5c93193e338df1031df90992ef2220d7a5ffb5"
+    },
+    {
+      "observation": "One-slot run: shipped-preset assertion ran during asynchronous draft persistence. PR #179 adds the existing process-owned wait; assertion and deadline remain unchanged.",
+      "selector": "fast",
+      "taskId": "frontend-deterministic",
+      "accepted": false,
+      "cleanupErrors": [],
+      "cleanupWarnings": [],
+      "privateReport": "/home/kirill/.config/harden-llm/issue-149-18ib7awx/fast-serial-report.json",
+      "sha256": "b9077694fc87fdb00cae73ebac9dcb82cc64f375ee2002bd0702ec3164844bca"
+    }
+  ],
+  "workerReadback": "Enhanced queue describe sometimes returned workflow metadata for an activity selection. Explicit typed legacy describe confirmed all three new-worker pollers before gateway promotion.",
+  "longBaselineComparison": {
+    "initialExactRowCountComparison": false,
+    "reason": "Normal live activity preceded the HLLM rollout; counts are not an immutable-row integrity oracle. Aggregate timestamp queries reconcile all 32 added history rows before the descriptor update; cache count is volatile. Stable table counts and all 1000 completed batch items match.",
+    "initialHistoryRows": 374,
+    "finalHistoryRows": 406,
+    "initialCacheEntries": 33,
+    "finalCacheEntries": 29,
+    "otherContainerReplacements": 22,
+    "allOtherReplacementsPredateHllmDescriptorUpdate": true
+  }
+}

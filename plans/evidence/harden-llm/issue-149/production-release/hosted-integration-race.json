@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "selector": "go-integration-race",
+  "seed": 104729,
+  "manifestSHA256": "a03f51ddd02cb96f870a1ee7741f1cdef29e0d83e825c287722bc32c731ccbff",
+  "accepted": true,
+  "runDirectory": "/home/runner/work/harden-llm/harden-llm/tmp/test-feedback/run-1794541741625-74854-dn42kp",
+  "results": [
+    {
+      "taskId": "go-integration-race",
+      "tier": "T3",
+      "resourceClass": "release",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-p=2",
+        "./...",
+        "-tags=integration",
+        "-count=1"
+      ],
+      "status": 0,
+      "seed": 104729,
+      "cold": false,
+      "signal": null,
+      "timedOut": false,
+      "wallTimeMs": 99223,
+      "peakRssMiB": 1044.10546875,
+      "cpuMs": 149600,
+      "stdoutBytes": 2021,
+      "stderrBytes": 0,
+      "truncatedOutputBytes": 0,
+      "stdoutPreview": "ok  \tgithub.com/prls-co/harden-llm\t1.115s\nok  \tgithub.com/prls-co/harden-llm/api\t1.252s\nok  \tgithub.com/prls-co/harden-llm/cmd/harden-llm-gateway\t1.081s\nok  \tgithub.com/prls-co/harden-llm/cmd/harden-llm-loadtest\t1.061s\n?   \tgithub.com/prls-co/harden-llm/cmd/loki-schema-guard\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/httpclient\t2.533s\nok  \tgithub.com/prls-co/harden-llm/internal/accounting\t1.016s\nok  \tgithub.com/prls-co/harden-llm/internal/cachekey\t1.039s\nok  \tgithub.com/prls-co/harden-llm/internal/capacity\t1.481s\nok  \tgithub.com/prls-co/harden-llm/internal/deploytest\t1.083s\nok  \tgithub.com/prls-co/harden-llm/internal/diagnostics\t5.061s\nok  \tgithub.com/prls-co/harden-llm/internal/eval\t1.112s\nok  \tgithub.com/prls-co/harden-llm/internal/gateway\t3.783s\n?   \tgithub.com/prls-co/harden-llm/internal/gateway/auth\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/gateway/httpapi\t24.816s\nok  \tgithub.com/prls-co/harden-llm/internal/integrationtest\t2.424s\nok  \tgithub.com/prls-co/harden-llm/internal/livecapacity\t60.109s\nok  \tgithub.com/prls-co/harden-llm/internal/lokischema\t1.018s\nok  \tgithub.com/prls-co/harden-llm/internal/observability\t1.021s\nok  \tgithub.com/prls-co/harden-llm/internal/pricing\t1.013s\nok  \tgithub.com/prls-co/harden-llm/internal/providers\t1.500s\nok  \tgithub.com/prls-co/harden-llm/internal/redaction\t1.013s\nok  \tgithub.com/prls-co/harden-llm/internal/retry\t1.024s\nok  \tgithub.com/prls-co/harden-llm/internal/runtime\t1.503s\nok  \tgithub.com/prls-co/harden-llm/internal/schema\t1.031s\nok  \tgithub.com/prls-co/harden-llm/internal/smoke\t1.012s\n?   \tgithub.com/prls-co/harden-llm/internal/smoke/fakeprovider\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/stats\t1.015s\n?   \tgithub.com/prls-co/harden-llm/internal/testfixture/native\t[no test files]\nok  \tgithub.com/prls-co/harden-llm/internal/testkit\t2.803s\nok  \tgithub.com/prls-co/harden-llm/internal/traces\t1.029s\nok  \tgithub.com/prls-co/harden-llm/stateful\t22.033s\nok  \tgithub.com/prls-co/harden-llm/stateful/batch\t13.680s\n",
+      "stderrPreview": "",
+      "failureSummary": null,
+      "failureDetail": null,
+      "cleanupError": null,
+      "cleanupWarnings": [],
+      "servicePoolStarted": true,
+      "servicePoolProject": "harden-llm-test-d5b5dc83f8fd",
+      "startedAtMs": 94,
+      "endedAtMs": 99317
+    }
+  ],
+  "firstFailure": null,
+  "preflightFailure": null,
+  "lifecycleTimings": {
+    "dockerIdentityMs": 62,
+    "daemonLockWaitMs": 1,
+    "staleReceiptRecoveryMs": null
+  },
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "generatedAt": "2026-11-13T03:50:40.952Z",
+  "reportPath": "/home/runner/work/harden-llm/harden-llm/tmp/test-feedback/runner-1794541840952-74854-bdd667229f04008c.json"
+}

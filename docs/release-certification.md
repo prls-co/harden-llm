@@ -3478,3 +3478,30 @@ recreation. Gateway/worker retain source `0f9a02c6e73695ff4e67ee5f7ddc538ecc5d93
 web retains source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f`. Image identities,
 container IDs/start times and protected configuration remain unchanged.
 Browser layout was not checked and no provider inference was dispatched.
+
+
+## 2026-11-13 Size-limit review and SSE cleanup
+
+Issue #149 concludes with the existing 256 KiB encoded request policy and
+bounded response readers retained. PR #178 removes five unreachable lines from
+the provider SSE reader: its cumulative 16 MiB check already bounds every
+pending event before buffering. Request inspections remain unchanged. The
+approximately 64K-token target is not qualified or introduced by this release.
+
+- Application source: `240037abb731773edf2a63dd78d5e6a8f755600d`, merged `main`.
+- Exact-source [release run 43359480336, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/43359480336/attempts/1): all 30 browser-free tasks and both integration subreports pass; cleanup errors and warnings are empty. Main fast checks and all four CodeQL analyses also pass.
+- Gateway and worker: `harden-llm-gateway:release-240037abb731773edf2a63dd78d5e6a8f755600d`, image `sha256:93422758aae47c468948a82bfaa542856c137c7ff9635dd1054773713b6e2fbc`; isolated and running binary versions match the source.
+- Unchanged web: source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f`, image `sha256:303747b977a1bb160404ff9daa00870403cf776dff025a15e0a839f773a02d78`; its existing container is retained.
+- Production: `https://harden-llm.prls.co/`. Scoped controller application promoted the worker before the gateway. Typed Temporal queue reads confirm the new worker's workflow, control and provider pollers; generation 2 is ready with zero outstanding work. All managed service checks are equivalent. TEST-435 health/readiness, Portal entry, authentication, model discovery and reference feature-status acceptance pass without inference or stored-record reads.
+- TEST-248 covers completion at the byte budget, one byte over, a single oversized event, cumulative small events and the existing endless-stream case. Focused tests pass before and after the cleanup, including race checks.
+- The complete ten-task local fast selection passes with the existing one-slot override. Earlier host-contention timeout and LiveView assertion failure remain recorded. PR #179 adds one existing `render_settled` wait after opening a fold, preserving the enabled-button assertion and deadline; it changes no runtime inputs.
+
+The [receipt and retained reports](../plans/evidence/harden-llm/issue-149/production-release/receipt.json)
+record exact identities, controller checks, protected-input hashes, worker
+readiness and earlier non-acceptance. The long baseline includes 22 other
+container replacements and 32 new history rows, all predating this HLLM
+rollout; no whole-host freeze or cache-row equality is claimed. Protected
+configuration, the web/shared-storage containers, stable table counts and all
+1,000 completed batch items are preserved. No schema change, data reset,
+browser launch or paid inference was performed; browser layout is not checked.
+Later test/documentation commits do not relabel these application images.

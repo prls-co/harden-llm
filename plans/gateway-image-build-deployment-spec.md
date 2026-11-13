@@ -27,11 +27,18 @@ decision.
 ## 2. Artifact and production identity
 
 The latest production identity is recorded in the
-[November 11 transport/admission diagnostics receipt](evidence/harden-llm/issue-162/diagnostics/production-release/receipt.json)
-and [release certification](../docs/release-certification.md#2026-11-11-transport-and-admission-diagnostics).
+[issue #149 SSE cleanup receipt](evidence/harden-llm/issue-149/production-release/receipt.json)
+and [release certification](../docs/release-certification.md#2026-11-13-size-limit-review-and-sse-cleanup).
 Gateway and worker use certified source
-`0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372`; unchanged web inputs retain
+`240037abb731773edf2a63dd78d5e6a8f755600d`; unchanged web inputs retain
 source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f` and its image.
+The cumulative provider-stream byte limit and request inspections remain intact;
+only the redundant equal-sized event check was removed. PR #179's subsequent
+one-line test wait changes no application image inputs.
+
+The previous gateway/worker source
+`0f9a02c6e73695ff4e67ee5f7ddc538ecc5d9372` remains recorded in the
+[November 11 transport/admission diagnostics receipt](evidence/harden-llm/issue-162/diagnostics/production-release/receipt.json).
 The subsequent [explicit browser/paid acceptance](evidence/harden-llm/issue-162/diagnostics/browser-paid/receipt.json)
 qualified those same deployed components. Its canary corrections are tests/docs
 only; the existing component-input policy selects no application image build.
