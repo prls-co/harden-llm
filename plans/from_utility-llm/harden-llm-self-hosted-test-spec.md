@@ -1265,6 +1265,14 @@ two-application release evidence gaps recorded in
 `PLAN-HLLM-RECOVERY-CLOSEOUT-001`. They extend existing lanes and do not add a
 runner, provider, database, browser, or timeout budget.
 
+### TEST-248: Provider SSE cumulative byte budget
+
+- Type: T1; `SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001`.
+- Location: `internal/providers/normalization_test.go`.
+- Command: `go test ./internal/providers -run '^TestProviderResponsesStream(ByteBudget|BoundsNeverEndingDeltas)$' -count=1`.
+- Fixtures/data: deterministic SSE bytes through the production reader; no network, provider credentials, or services.
+- Pass criteria: completion exactly at the byte budget succeeds; completion one byte over, one oversized event, many individually small events exceeding the cumulative budget, and an unterminated endless event fail with `RESPONSE_TOO_LARGE`, missing terminal state, and no completed result. Long lines cross the reader's buffer boundary. The cumulative check runs before pending-event accumulation and makes a second equal-sized event check redundant.
+
 ### TEST-260: Candidate identity is independent of descriptor consistency
 
 - Type / verifies: unit; REQ-331, REQ-339, REQ-340.

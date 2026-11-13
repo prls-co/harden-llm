@@ -155,6 +155,17 @@ emits only the completed hardened result after validation and recovery. It does
 not forward provisional provider tokens. Clients requiring first-token
 streaming should not treat this final-only stream as equivalent.
 
+Ordinary HTTP request bodies remain limited to 256 KiB of encoded JSON; this
+does not guarantee a particular token count. Provider response reads remain
+limited to 16 MiB. For upstream SSE (Server-Sent Events), that budget counts
+all received bytes, including event framing and heartbeats. It also bounds
+each pending event before accumulation, so no second equal-sized event limit
+is needed. Gateway response envelopes and client readers retain their separate
+byte bounds. Model token limits do not replace these local read limits.
+The [issue #149 review](https://github.com/prls-co/harden-llm/issues/149)
+retains request inspections and the existing limits; larger-token admission
+requires a separately measured workload and coordinated contract change.
+
 ## Go library
 
 For built-in provider transports and telemetry composition, use the public

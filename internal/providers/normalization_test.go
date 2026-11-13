@@ -474,6 +474,37 @@ func TestProviderResponsesStreamIgnoresHeartbeatForEventDiagnostics(t *testing.T
 }
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-248
+func TestProviderResponsesStreamByteBudget(t *testing.T) {
+	t.Parallel()
+	const maximum = int64(64 << 10)
+	completed := `data: {"type":"response.completed","response":{"status":"completed","output_text":"done"}}` + "\n\n"
+	delta := `data: {"type":"response.output_text.delta","delta":"` + strings.Repeat("x", 20<<10) + `"}` + "\n\n"
+	for _, test := range []struct {
+		name, body string
+		tooLarge   bool
+	}{
+		{"completion exactly at budget", ": " + strings.Repeat("x", int(maximum)-len(completed)-4) + "\n\n" + completed, false},
+		{"completion one byte over budget", ": " + strings.Repeat("x", int(maximum)-len(completed)-3) + "\n\n" + completed, true},
+		{"single oversized event", `data: {"type":"response.completed","response":{"status":"completed","output_text":"` + strings.Repeat("x", int(maximum)) + `"}}` + "\n\n", true},
+		{"small events exceed cumulative budget", strings.Repeat(delta, 4) + completed, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, err, diagnostics := collectResponsesEventStreamReader(strings.NewReader(test.body), maximum)
+			if test.tooLarge {
+				var providerErr *retry.ProviderError
+				if !errors.As(err, &providerErr) || providerErr.Code != "RESPONSE_TOO_LARGE" || providerErr.Category != retry.CategoryOther || result != nil || diagnostics.ReceivedBytes != maximum || diagnostics.TerminalState != "missing" {
+					t.Fatalf("oversized stream result=%#v diagnostics=%#v error=%v", result, diagnostics, err)
+				}
+				return
+			}
+			if err != nil || result["output_text"] != "done" || diagnostics.ReceivedBytes != maximum || diagnostics.EventCount != 1 || diagnostics.TerminalState != "completed" {
+				t.Fatalf("within-budget completion result=%#v diagnostics=%#v error=%v", result, diagnostics, err)
+			}
+		})
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-248
 func TestProviderResponsesStreamBoundsNeverEndingDeltas(t *testing.T) {
 	t.Parallel()
 	const maximum = int64(64 << 10)

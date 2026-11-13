@@ -650,11 +650,6 @@ func collectResponsesEventStreamReaderContextWithProgress(parent, local context.
 			return observed, &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}, diagnostics
 		}
 		block = append(block, []byte(line)...)
-		if len(block) > int(maximum) {
-			diagnostics.TerminalState = "missing"
-			publish()
-			return observed, &retry.ProviderError{Err: errors.New("provider response event exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}, diagnostics
-		}
 		trimmed := strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(string(line), "\n"), "\r"))
 		if trimmed == "" {
 			stop, processErr := process(block)
