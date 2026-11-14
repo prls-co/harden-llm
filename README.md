@@ -17,6 +17,11 @@ The checked-in connection example is [`config/upstreams.example.json`](config/up
 See [the API contract](api/openapi.yaml), [architecture](docs/architecture.md),
 [request status lookup](docs/request-status.md), and [self-hosting guide](docs/self-hosting.md).
 
+Search evidence includes supported URL sources and text-bound citations. When
+optional evidence cannot be represented, `search.incomplete` and finite
+`search.warnings` reasons retain the valid answer; consumers decide whether that
+evidence is sufficient. See [the citation contract](docs/adr/ADR-HLLM-036-search-citation-evidence.md).
+
 ## Repository map
 
 - Root Go package: stateless hardening client with one execution engine.

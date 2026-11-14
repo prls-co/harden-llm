@@ -70,6 +70,7 @@ defmodule HardenLlmUI.ResponseComponents do
           <div :if={@search} id={"#{@id}-search-details"} class="llm-result-search-details">
             <aside aria-label="Web search evidence" class="llm-result-sources">
               <span title="Model token accounting excludes search fees">Search fees unavailable</span>
+              <span :if={@search["incomplete"]}>Some search evidence is unavailable.</span>
               <span>🌐 {@search["mode"]}: {if @search["executed"],
                 do: "searched",
                 else: "no search reported"}</span>

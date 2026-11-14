@@ -1,70 +1,25 @@
 package providers
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"reflect"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
 var searchURLPattern = regexp.MustCompile(`https?://[^\s<>"\x60]+`)
 
-func normalizeSearch(prepared preparedRequest, response map[string]any) *runtime.SearchResult {
+func normalizeSearch(prepared preparedRequest, response map[string]any, assistantText string) *runtime.SearchResult {
 	if prepared.searchMode == "" {
 		return nil
 	}
-	result := &runtime.SearchResult{Mode: prepared.searchMode, Sources: []runtime.SearchSource{}, CostStatus: "unavailable"}
-	seen := map[string]bool{}
-	add := func(raw, title string) bool {
-		if seen[raw] {
-			return true
-		}
-		if !runtime.ValidSearchURL(raw) || len(result.Sources) >= runtime.MaxSearchSources {
-			result.Incomplete = true
-			return false
-		}
-		seen[raw] = true
-		if title == "" {
-			title = raw
-		}
-		result.Sources = append(result.Sources, runtime.SearchSource{URL: raw, Title: title})
-		return true
+	e := &searchEvidence{
+		result: &runtime.SearchResult{Mode: prepared.searchMode, Sources: []runtime.SearchSource{}, CostStatus: "unavailable"},
+		seen:   map[string]bool{}, text: assistantText,
 	}
-	refs := 0
-	addCall := func(call runtime.SearchCall, sources []runtime.SearchSource) {
-		if len(result.Calls) >= runtime.MaxSearchCalls || !runtime.ValidSearchCall(call) {
-			result.Incomplete = true
-			// Source evidence remains useful even when its call cannot be
-			// represented; do not invent an association for it.
-			for _, source := range sources {
-				add(source.URL, source.Title)
-			}
-			return
-		}
-		local := map[string]bool{}
-		for _, source := range sources {
-			if local[source.URL] {
-				continue
-			}
-			local[source.URL] = true
-			if !add(source.URL, source.Title) {
-				continue
-			}
-			if refs >= runtime.MaxSearchSourceRefs {
-				result.Incomplete = true
-				continue
-			}
-			if source.Title == "" {
-				source.Title = source.URL
-			}
-			call.Sources = append(call.Sources, source)
-			refs++
-		}
-		result.Calls = append(result.Calls, call)
-	}
+	result := e.result
 	if prepared.webSearch != nil {
 		prepared.webSearch.state.mu.Lock()
 		context := prepared.webSearch.state.result
@@ -75,7 +30,7 @@ func normalizeSearch(prepared preparedRequest, response map[string]any) *runtime
 			sources = append(sources, runtime.SearchSource{URL: strings.TrimRight(raw, ").,;]")})
 		}
 		if result.Executed {
-			addCall(runtime.SearchCall{Status: "completed", Action: &runtime.SearchAction{Type: "search", Query: prepared.webSearch.query}}, sources)
+			e.addCall(runtime.SearchCall{Status: "completed", Action: &runtime.SearchAction{Type: "search", Query: prepared.webSearch.query}}, sources)
 		}
 	}
 	final := finalResponseOutput(response)
@@ -84,8 +39,8 @@ func normalizeSearch(prepared preparedRequest, response map[string]any) *runtime
 		finalItem = final[0]
 	}
 	citationTextSeen := false
-	for _, item := range arrayValue(response["output"]) {
-		item := objectValue(item)
+	for _, raw := range arrayValue(response["output"]) {
+		item := objectValue(raw)
 		if item["type"] == "web_search_call" {
 			result.Executed = result.Executed || item["status"] == "completed"
 			a := objectValue(item["action"])
@@ -94,40 +49,50 @@ func normalizeSearch(prepared preparedRequest, response map[string]any) *runtime
 				call.Action = &runtime.SearchAction{Type: stringValue(a["type"]), Query: stringValue(a["query"]), URL: stringValue(a["url"]), Pattern: stringValue(a["pattern"])}
 			}
 			var sources []runtime.SearchSource
-			for _, source := range arrayValue(a["sources"]) {
+			for _, source := range e.array(a["sources"]) {
 				s := objectValue(source)
 				if s["type"] != "url" {
-					result.Incomplete = true
+					e.warn("unsupported_source_type")
 					if url := stringValue(s["url"]); url != "" {
-						add(url, stringValue(s["title"]))
+						e.addSource(url, stringValue(s["title"]))
 					}
 					continue
 				}
 				sources = append(sources, runtime.SearchSource{URL: stringValue(s["url"]), Title: stringValue(s["title"])})
 			}
-			addCall(call, sources)
+			e.addCall(call, sources)
 		}
 		if item["type"] == "search_results" {
 			result.Executed = true
-			for _, source := range arrayValue(item["results"]) {
+			for _, source := range e.array(item["results"]) {
 				s := objectValue(source)
-				add(stringValue(s["url"]), stringValue(s["title"]))
+				e.addSource(stringValue(s["url"]), stringValue(s["title"]))
 			}
 		}
 		for _, content := range arrayValue(item["content"]) {
 			part := objectValue(content)
 			firstText := !citationTextSeen && reflect.DeepEqual(item, finalItem) && strings.TrimSpace(stringValue(part["text"])) != ""
-			for _, annotation := range arrayValue(objectValue(content)["annotations"]) {
+			for _, annotation := range e.array(part["annotations"]) {
 				a := objectValue(annotation)
-				if a["type"] == "url_citation" {
-					add(stringValue(a["url"]), stringValue(a["title"]))
-					start, end := int(integerValue(a["start_index"])), int(integerValue(a["end_index"]))
-					if firstText && seen[stringValue(a["url"])] && start >= 0 && end > start && end <= len([]rune(stringValue(part["text"]))) {
-						result.Citations = append(result.Citations, runtime.SearchCitation{URL: stringValue(a["url"]), Title: stringValue(a["title"]), StartIndex: start, EndIndex: end})
-						digest := sha256.Sum256([]byte(stringValue(part["text"])))
-						result.CitationTextSHA256 = hex.EncodeToString(digest[:])
-					}
+				if a["type"] != "url_citation" {
+					e.warn("unsupported_citation_type")
+					continue
 				}
+				url, title := stringValue(a["url"]), stringValue(a["title"])
+				if !e.addSource(url, title) {
+					continue
+				}
+				if !firstText || stringValue(part["text"]) != assistantText {
+					e.warn("citation_text_unavailable")
+					continue
+				}
+				start, startOK := searchIndex(a["start_index"], false)
+				end, endOK := searchIndex(a["end_index"], false)
+				if !startOK || !endOK {
+					e.warn("invalid_citation")
+					continue
+				}
+				e.addCitation(url, title, start, end)
 			}
 			citationTextSeen = citationTextSeen || firstText
 		}
@@ -139,49 +104,62 @@ func normalizeSearch(prepared preparedRequest, response map[string]any) *runtime
 			toolResults[stringValue(item["tool_use_id"])] = item
 		}
 	}
-	for _, item := range arrayValue(response["content"]) {
-		item := objectValue(item)
+	for _, raw := range arrayValue(response["content"]) {
+		item := objectValue(raw)
 		if item["type"] == "server_tool_use" && item["name"] == "web_search" {
 			id := stringValue(item["id"])
-			if resultBlock, ok := toolResults[id]; ok && id != "" {
+			if block, ok := toolResults[id]; ok && id != "" {
 				var sources []runtime.SearchSource
-				for _, raw := range arrayValue(resultBlock["content"]) {
+				for _, raw := range e.array(block["content"]) {
 					value := objectValue(raw)
 					sources = append(sources, runtime.SearchSource{URL: stringValue(value["url"]), Title: stringValue(value["title"])})
 				}
-				addCall(runtime.SearchCall{ID: id, Status: "completed", Action: &runtime.SearchAction{Type: "search", Query: stringValue(objectValue(item["input"])["query"])}}, sources)
+				e.addCall(runtime.SearchCall{ID: id, Status: "completed", Action: &runtime.SearchAction{Type: "search", Query: stringValue(objectValue(item["input"])["query"])}}, sources)
 			} else {
-				result.Incomplete = true
+				e.warn("invalid_call")
 			}
 		}
 		if item["type"] == "web_search_tool_result" {
 			result.Executed = true
 		}
-		for _, citation := range arrayValue(item["citations"]) {
-			c := objectValue(citation)
-			if c["type"] == "web_search_result_location" {
-				add(stringValue(c["url"]), stringValue(c["title"]))
+	}
+	if prepared.protocol == "anthropic.messages" {
+		e.anthropicCitations(arrayValue(response["content"]))
+	}
+	for i, raw := range arrayValue(response["candidates"]) {
+		candidate := objectValue(raw)
+		grounding, groundingOK := candidate["groundingMetadata"].(map[string]any)
+		if candidate["groundingMetadata"] != nil && !groundingOK {
+			e.warn("malformed_metadata")
+		}
+		entry := stringValue(objectValue(grounding["searchEntryPoint"])["renderedContent"])
+		result.EntryPointHTML = boundedWebSearchText(entry, 32768)
+		if utf8.RuneCountInString(entry) > 32768 {
+			e.warn("entry_point_truncated")
+		}
+		queries := e.array(grounding["webSearchQueries"])
+		result.Executed = result.Executed || len(queries) > 0
+		for _, q := range queries {
+			e.addCall(runtime.SearchCall{Status: "completed", Action: &runtime.SearchAction{Type: "search", Query: stringValue(q)}}, nil)
+		}
+		for _, chunk := range e.array(grounding["groundingChunks"]) {
+			web, webOK := objectValue(chunk)["web"].(map[string]any)
+			if !webOK {
+				e.warn("unsupported_source_type")
+				continue
 			}
+			e.addSource(stringValue(web["uri"]), stringValue(web["title"]))
+		}
+		if prepared.protocol == "google.gemini.generateContent" {
+			e.geminiCitations(candidate, i == 0)
 		}
 	}
-	for _, candidate := range arrayValue(response["candidates"]) {
-		grounding := objectValue(objectValue(candidate)["groundingMetadata"])
-		result.EntryPointHTML = boundedWebSearchText(stringValue(objectValue(grounding["searchEntryPoint"])["renderedContent"]), 32768)
-		result.Executed = result.Executed || len(arrayValue(grounding["webSearchQueries"])) > 0
-		for _, q := range arrayValue(grounding["webSearchQueries"]) {
-			addCall(runtime.SearchCall{Status: "completed", Action: &runtime.SearchAction{Type: "search", Query: stringValue(q)}}, nil)
-		}
-		for _, chunk := range arrayValue(grounding["groundingChunks"]) {
-			web := objectValue(objectValue(chunk)["web"])
-			add(stringValue(web["uri"]), stringValue(web["title"]))
-		}
-	}
-	for _, source := range arrayValue(response["search_results"]) {
+	for _, source := range e.array(response["search_results"]) {
 		s := objectValue(source)
-		add(stringValue(s["url"]), stringValue(s["title"]))
+		e.addSource(stringValue(s["url"]), stringValue(s["title"]))
 	}
-	for _, source := range arrayValue(response["citations"]) {
-		add(stringValue(source), "")
+	for _, source := range e.array(response["citations"]) {
+		e.addSource(stringValue(source), "")
 	}
 	return result
 }

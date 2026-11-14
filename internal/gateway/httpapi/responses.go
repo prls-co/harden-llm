@@ -261,12 +261,20 @@ func responsesUsage(value hardenllm.Usage) map[string]any {
 }
 
 func hardenExtension(result hardenllm.Result) map[string]any {
-	return map[string]any{
+	extension := map[string]any{
 		"execution_id": result.CallID, "trace_id": result.TraceID,
 		"selected_target": result.SelectedTarget, "generation_target": result.GenerationTarget,
 		"result_source": result.ResultSource, "accounting": result.Accounting,
 		"attempts": result.Attempts, "cache": result.Cache, "diagnostics": result.Diagnostics,
 	}
+	if result.Search != nil {
+		search := map[string]any{"incomplete": result.Search.Incomplete}
+		if len(result.Search.Warnings) > 0 {
+			search["warnings"] = result.Search.Warnings
+		}
+		extension["search"] = search
+	}
+	return extension
 }
 
 func validateHardenSize(value any) error {

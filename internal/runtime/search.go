@@ -18,8 +18,11 @@ type SearchResult struct {
 	Calls              []SearchCall     `json:"calls,omitempty"`
 	CitationTextSHA256 string           `json:"citationTextSha256,omitempty"`
 	Incomplete         bool             `json:"incomplete,omitempty"`
-	EntryPointHTML     string           `json:"entryPointHtml,omitempty"`
-	CostStatus         string           `json:"costStatus"`
+	// Warnings are unique, finite omission reasons. Nonempty warnings imply
+	// Incomplete; they never contain provider-controlled text.
+	Warnings       []string `json:"warnings,omitempty"`
+	EntryPointHTML string   `json:"entryPointHtml,omitempty"`
+	CostStatus     string   `json:"costStatus"`
 }
 
 const (
@@ -27,6 +30,7 @@ const (
 	MaxSearchCalls      = 32
 	MaxSearchSourceRefs = 200
 	MaxSearchTextBytes  = 4096
+	MaxSearchCitations  = MaxSearchSourceRefs
 )
 
 type SearchCall struct {
@@ -58,10 +62,12 @@ func ValidSearchCall(call SearchCall) bool {
 }
 
 type SearchCitation struct {
-	URL        string `json:"url"`
-	Title      string `json:"title"`
-	StartIndex int    `json:"startIndex"`
-	EndIndex   int    `json:"endIndex"`
+	URL   string `json:"url"`
+	Title string `json:"title"`
+	// Indices are Unicode code points into the exact text named by
+	// SearchResult.CitationTextSHA256, with an exclusive EndIndex.
+	StartIndex int `json:"startIndex"`
+	EndIndex   int `json:"endIndex"`
 }
 
 type SearchSource struct {
@@ -90,6 +96,16 @@ func ValidateSearchResult(result *SearchResult) error {
 	}
 	if result.CostStatus != "unavailable" {
 		return errors.New("runtime: search cost status is invalid")
+	}
+	seenWarnings := make(map[string]bool, len(result.Warnings))
+	for _, code := range result.Warnings {
+		if !validSearchWarning(code) || seenWarnings[code] || !result.Incomplete {
+			return errors.New("runtime: search warning is invalid")
+		}
+		seenWarnings[code] = true
+	}
+	if len(result.Citations) > MaxSearchCitations {
+		return errors.New("runtime: too many search citations")
 	}
 	if result.Sources == nil || len(result.Sources) > MaxSearchSources {
 		return errors.New("runtime: search source list is invalid")
@@ -128,4 +144,16 @@ func ValidateSearchResult(result *SearchResult) error {
 		return fmt.Errorf("runtime: search entry point exceeds %d code points", maxSearchEntryPointCodePoints)
 	}
 	return nil
+}
+
+func validSearchWarning(code string) bool {
+	switch code {
+	case "invalid_source", "source_limit", "invalid_call", "call_limit",
+		"source_reference_limit", "unsupported_source_type", "invalid_citation",
+		"unsupported_citation_type", "citation_text_unavailable", "citation_limit",
+		"malformed_metadata", "entry_point_truncated":
+		return true
+	default:
+		return false
+	}
 }

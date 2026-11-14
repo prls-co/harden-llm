@@ -735,6 +735,7 @@ func TestSearchProvenanceCacheProjection(t *testing.T) {
 	adapter := &cacheAdapter{store: store}
 	search := &SearchResult{Mode: "native", Executed: true, CostStatus: "unavailable", Sources: []SearchSource{{URL: "https://example.test/a", Title: "A"}}, Calls: []SearchCall{{ID: "ws_1", Status: "completed", Action: &SearchAction{Type: "search", Query: "q"}, Sources: []SearchSource{{URL: "https://example.test/a", Title: "A"}}}}, CitationTextSHA256: "2b82c37965faf7db40dae134cc94675e0f6dac048a0173a1861b6ed1b8db7d5b", Citations: []coreruntime.SearchCitation{{URL: "https://example.test/a", Title: "A", StartIndex: 0, EndIndex: 1}}, Incomplete: true}
 	want := coreruntime.CachedResult{ProjectionCallID: "producer", ProviderResult: coreruntime.ProviderResult{Search: search, Output: map[string]any{"answer": "ok"}, AssistantText: `{"answer":"ok"}`}}
+	search.Warnings = []string{"invalid_citation"}
 	if err := adapter.Set(context.Background(), "hash", "v", want); err != nil {
 		t.Fatal(err)
 	}
