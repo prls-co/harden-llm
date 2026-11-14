@@ -19,11 +19,24 @@ import (
 )
 
 // TestSearchCPALive qualifies the public CPA route through the actual composed
-// library. It performs exactly one search, never prints output/credentials and
+// library. It performs one model request, never prints output/credentials and
 // never retries an unconfirmed request. Native Anthropic/Gemini qualification
 // remains separate from this OpenAI/Codex route.
 func TestSearchCPALive(t *testing.T) {
-	if os.Getenv("HLLM_CPA_SEARCH_CONFIRMED") != "yes" {
+	qualifyCPASearch(t, cpaSearchProbe{"openai", "responses", "gpt-5.6-luna", "HLLM_CPA_SEARCH_CONFIRMED", "HLLM_CPA_SEARCH_RECEIPT"})
+}
+
+func TestSearchClaudeCPALive(t *testing.T) {
+	qualifyCPASearch(t, cpaSearchProbe{"anthropic", "anthropic-messages", "claude-sonnet-5", "HLLM_CLAUDE_SEARCH_CONFIRMED", "HLLM_CLAUDE_SEARCH_RECEIPT"})
+}
+
+type cpaSearchProbe struct {
+	provider, protocol, model, confirmation, receipt string
+}
+
+func qualifyCPASearch(t *testing.T, probe cpaSearchProbe) {
+	t.Helper()
+	if os.Getenv(probe.confirmation) != "yes" {
 		t.Skip("explicit one-call CPA qualification required")
 	}
 	key := os.Getenv("CPA_API_KEY")
@@ -31,7 +44,7 @@ func TestSearchCPALive(t *testing.T) {
 		t.Fatal("CPA_API_KEY is required")
 	}
 	client, err := stateful.NewClient(stateful.ClientOptions{
-		Connections:       []hardenllm.Connection{{ID: "cpa", Provider: "openai", Protocol: "responses", BaseURL: "https://cpa.prls.co/v1", APIKey: key, SupportsWebSearch: true}},
+		Connections:       []hardenllm.Connection{{ID: "cpa", Provider: probe.provider, Protocol: probe.protocol, BaseURL: "https://cpa.prls.co/v1", APIKey: key, SupportsWebSearch: true}},
 		DefaultConnection: "cpa",
 	})
 	if err != nil {
@@ -39,16 +52,23 @@ func TestSearchCPALive(t *testing.T) {
 	}
 	policy := hardenllm.DefaultRecoveryPolicy()
 	policy.MaxAttempts = 1
-	policy.RetryOn = nil
+	policy.RetryOn = []hardenllm.RecoveryCategory{}
 	policy.JSONRepair = nil
 	policy.Rerun = nil
+	if err := policy.Validate(); err != nil {
+		t.Fatal("one-attempt qualification policy is invalid; no call made")
+	}
+	effort := hardenllm.ReasoningEffortLowest
+	if probe.provider == "anthropic" {
+		effort = ""
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	started := time.Now()
 	result, err := client.Call(ctx, hardenllm.Request{
-		ModelID: "gpt-5.6-luna", CallType: hardenllm.CallTypeText,
+		ModelID: probe.model, CallType: hardenllm.CallTypeText,
 		Messages:  []hardenllm.Message{{Role: "user", Content: json.RawMessage(`"Search the web for the official Go programming language documentation. Briefly describe it and cite the source."`)}},
-		WebSearch: true, ToolChoice: hardenllm.ToolChoice{Mode: "required"}, ReasoningEffort: hardenllm.ReasoningEffortLowest,
+		WebSearch: true, ToolChoice: hardenllm.ToolChoice{Mode: "required"}, ReasoningEffort: effort,
 		CacheMode: hardenllm.CacheModeOff, RecoveryPolicy: policy,
 	})
 	if err != nil {
@@ -69,14 +89,14 @@ func TestSearchCPALive(t *testing.T) {
 	}
 	report := map[string]any{
 		"test": "TEST-547", "status": "pass", "observedAt": time.Now().UTC().Format(time.RFC3339),
-		"route": "https://cpa.prls.co/v1", "model": "gpt-5.6-luna", "reasoningEffort": "low",
+		"route": "https://cpa.prls.co/v1", "provider": probe.provider, "protocol": probe.protocol, "model": probe.model, "reasoningEffort": string(effort),
 		"attempts": len(result.Attempts), "cacheServed": result.Cache.Served, "durationMs": time.Since(started).Milliseconds(),
 		"sources": len(result.Search.Sources), "citations": len(result.Search.Citations), "calls": len(result.Search.Calls),
 		"incomplete": result.Search.Incomplete, "warnings": result.Search.Warnings, "citationHashVerified": true,
 	}
 	encoded, _ := json.Marshal(report)
 	t.Log(string(encoded))
-	if path := os.Getenv("HLLM_CPA_SEARCH_RECEIPT"); path != "" {
+	if path := os.Getenv(probe.receipt); path != "" {
 		if err := os.WriteFile(path, append(encoded, '\n'), 0o600); err != nil {
 			t.Fatal("could not retain metadata-only qualification receipt")
 		}
