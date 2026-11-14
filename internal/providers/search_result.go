@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/prls-co/harden-llm/internal/runtime"
 )
@@ -132,10 +131,12 @@ func normalizeSearch(prepared preparedRequest, response map[string]any, assistan
 		if candidate["groundingMetadata"] != nil && !groundingOK {
 			e.warn("malformed_metadata")
 		}
-		entry := stringValue(objectValue(grounding["searchEntryPoint"])["renderedContent"])
-		result.EntryPointHTML = boundedWebSearchText(entry, 32768)
-		if utf8.RuneCountInString(entry) > 32768 {
-			e.warn("entry_point_truncated")
+		if i == 0 {
+			entry := stringValue(objectValue(grounding["searchEntryPoint"])["renderedContent"])
+			result.EntryPointHTML = boundedWebSearchText(entry, 32768)
+			if result.EntryPointHTML != entry {
+				e.warn("entry_point_truncated")
+			}
 		}
 		queries := e.array(grounding["webSearchQueries"])
 		result.Executed = result.Executed || len(queries) > 0

@@ -2686,6 +2686,7 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
 - Coverage gate: `fast`.
 - Tier: T0/T1; `internal/providers/search_citations_test.go`.
 - Oracle: Anthropic supporting text blocks map to their exact concatenated answer ranges without searching source quotes. Gemini byte ranges map to Unicode code points only for the selected candidate/emitted part, valid integer/UTF-8 boundaries, matching supplied text and known sources. Repeated text, unknown types, malformed optional shapes, negative/fractional offsets and bounds preserve the answer and known sources, omit unverified annotations, deduplicate and report finite warning codes. Valid citations retain their exact-text hash; at most 200 are admitted.
+- Review regression: Gemini search-suggestion HTML belongs to the selected candidate. Later candidates cannot erase or replace it or generate an entry-point truncation warning. Actual clipping of the selected entry preserves the existing 32768-byte UTF-8-safe bound and reports truncation, including multibyte text below 32768 code points.
 
 ### TEST-546: Partial search evidence across canonical boundaries
 

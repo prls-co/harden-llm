@@ -188,3 +188,51 @@ func TestSearchCitationGeminiDoesNotBindOtherCandidate(t *testing.T) {
 		t.Fatal("another candidate's metadata was attached to the selected answer")
 	}
 }
+
+func TestSearchCitationGeminiSelectedEntryPoint(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, selected, other, want string
+		singleCandidate, truncated  bool
+	}{
+		{name: "later candidate omits entry", selected: "<p>selected</p>", want: "<p>selected</p>"},
+		{name: "later candidate replaces entry", selected: "<p>selected</p>", other: "<p>other</p>", want: "<p>selected</p>"},
+		{name: "later candidate must not trigger truncation", selected: "<p>selected</p>", other: strings.Repeat("x", 32769), want: "<p>selected</p>"},
+		{name: "selected has no entry", other: "<p>other</p>"},
+		{name: "selected entry retains its byte bound", selected: strings.Repeat("é", 32769), want: strings.Repeat("é", 16384), singleCandidate: true, truncated: true},
+		{name: "selected Unicode entry reports byte truncation", selected: strings.Repeat("🌐", 8193), want: strings.Repeat("🌐", 8192), singleCandidate: true, truncated: true},
+		{name: "selected entry retains UTF-8 boundaries", selected: strings.Repeat("é", 16383) + "🌐", want: strings.Repeat("é", 16383), singleCandidate: true, truncated: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			candidate := func(text, entry string) map[string]any {
+				grounding := map[string]any{}
+				if entry != "" {
+					grounding["searchEntryPoint"] = map[string]any{"renderedContent": entry}
+				}
+				return map[string]any{
+					"finishReason":      "STOP",
+					"content":           map[string]any{"parts": []any{map[string]any{"text": text}}},
+					"groundingMetadata": grounding,
+				}
+			}
+			candidates := []any{candidate("Selected answer", tc.selected)}
+			if !tc.singleCandidate {
+				candidates = append(candidates, candidate("Other answer", tc.other))
+			}
+			result := normalizeCitationFixture(t, "google.gemini.generateContent", map[string]any{"candidates": candidates})
+			if result.Output != "Selected answer" {
+				t.Fatal("answer selection changed")
+			}
+			if result.Search.EntryPointHTML != tc.want {
+				t.Errorf("entry point does not belong to selected candidate: got %d bytes, want %d", len(result.Search.EntryPointHTML), len(tc.want))
+			}
+			var warnings []string
+			if tc.truncated {
+				warnings = []string{"entry_point_truncated"}
+			}
+			if result.Search.Incomplete != tc.truncated || !reflect.DeepEqual(citationWarnings(t, result.Search), warnings) {
+				t.Errorf("entry-point completeness/warnings = %v/%v, want %v/%v", result.Search.Incomplete, citationWarnings(t, result.Search), tc.truncated, warnings)
+			}
+		})
+	}
+}
