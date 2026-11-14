@@ -1,0 +1,55 @@
+{
+  "issue": 153,
+  "deferredIssues": [
+    155
+  ],
+  "status": "implemented and qualified on feature branch; production not promoted",
+  "branch": "feat/issue-153-citation-metadata",
+  "reviewBase": "dev",
+  "implementationCommit": "60c32546297e16a403a83853a7a9f00985bc4996",
+  "liveProbeSource": "866933bcb5a9783671533c7d3c2ad2908b7b1b5b",
+  "liveAfterSourceDelta": "only warning-count early rejection and qualification documentation; live responses contained no warnings",
+  "canonicalSchemaSha256": "34469becadc9f3ffbebd5250ebc2787e2c605d3506efba71398408b63b327857",
+  "bundledSchemaMatches": true,
+  "cpa": {
+    "image": "ghcr.io/prls-co/cli-proxy-api-patched@sha256:dfbda6b94b96218c90e69a959eb7d023fcd397f19c811024539cfc79daa72fc5",
+    "version": "v8.0.69-prls.2",
+    "imageSource": "a83a0af9cf3f4c8cccddb053f4bbe15ac2f471ee",
+    "endpoint": "https://cpa.prls.co/v1"
+  },
+  "checks": {
+    "nativeProviderRegressions": "pass; Anthropic blocks, Gemini UTF-8 byte indices, repeated text, malformed/unknown metadata, source/range validation, bounds and selected candidate/part",
+    "referenceAndCache": "pass; finite unique warnings, legacy records valid, schema compatibility and cache projection",
+    "gateway": "pass; actual local TLS provider through core and gateway, Responses and SSE, valid citations and omission status; one dispatch per request",
+    "ui": "pass; readable partial-evidence notice retains output/source links; all 8 component tests",
+    "fast": "pass; full browser-free gate, ten tasks",
+    "lunaThroughCPA": "pass; one uncached attempt, 19 sources, 2 citations, exact-text hash/ranges valid",
+    "claudeThroughCPA": "pass; one uncached native Messages attempt, 9 sources, 4 citations, exact-text hash/ranges valid",
+    "nativeGeminiLive": "not run; deterministic/official-contract qualification only",
+    "browser": "not run",
+    "productionDeployment": "not performed"
+  },
+  "retainedFailures": [
+    {
+      "stage": "pre-implementation tests",
+      "observation": "native mappings absent; negative OpenAI offsets coerced to zero; omitted metadata lacked reason codes",
+      "resolution": "mapping and safe admission regressions pass"
+    },
+    {
+      "stage": "first fast gate",
+      "observation": "UI bundled OpenAPI did not match updated canonical schema",
+      "resolution": "copied canonical schema; repeated full gate accepted"
+    },
+    {
+      "stage": "first live harness invocation",
+      "observation": "nil retryOn rejected in local policy validation before runtime/provider entry",
+      "resolution": "explicit empty retry array, pure policy preflight confirmed rejection; no inference replay; successful model requests each used one attempt"
+    }
+  ],
+  "accountingAndControlFlow": "provider requests, prompts, recovery, retries, cache identity, auth and history ownership unchanged; no provider SDK added to stateless core",
+  "evidence": [
+    "fast-summary.json",
+    "cpa-luna.json",
+    "cpa-claude.json"
+  ]
+}

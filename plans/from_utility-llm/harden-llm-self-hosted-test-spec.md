@@ -2680,3 +2680,23 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
 - Coverage gate: `integration`.
 - Tier: T3; `stateful/batch/ledger_error_integration_test.go` and `stateful/admission_diagnostics_integration_test.go`.
 - Oracle: A real pgx waiter read against an unavailable relation in its unique leased database retains only `postgres_42P01` and `ErrUnavailable`. A real PostgreSQL-backed cache hit after actual TLS/router/admission completion creates no additional dispatch event, provider attempt or native call and never replays provider latency as cache latency. Existing runner-owned service lifecycle and cleanup remain required.
+
+### TEST-545: Native text-bound URL citations and partial metadata
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `internal/providers/search_citations_test.go`.
+- Oracle: Anthropic supporting text blocks map to their exact concatenated answer ranges without searching source quotes. Gemini byte ranges map to Unicode code points only for the selected candidate/emitted part, valid integer/UTF-8 boundaries, matching supplied text and known sources. Repeated text, unknown types, malformed optional shapes, negative/fractional offsets and bounds preserve the answer and known sources, omit unverified annotations, deduplicate and report finite warning codes. Valid citations retain their exact-text hash; at most 200 are admitted.
+
+### TEST-546: Partial search evidence across canonical boundaries
+
+- Coverage gate: `fast`.
+- Tier: T0/T1; `internal/runtime/search_warnings_test.go`, `api/search_warnings_test.go`, `internal/gateway/httpapi/search_warnings_test.go`, and `client_cache_test.go` (TEST-534 cache oracle extended).
+- Oracle: Canonical warnings are finite and unique, imply incomplete, and preserve legacy records without warnings. Real local TLS native providers cross router/core/gateway Responses and SSE with valid citations plus omission status, exactly one provider request per client request and unchanged answer text. The opt-in diagnostic status excludes duplicated source/citation payloads and fits its existing budget. Cache replay preserves warnings and exact evidence. WEB-TEST-066 separately retains its existing component ownership and adds the readable partial-evidence notice while preserving output and source links.
+
+### TEST-547: Live CPA search through the composed library
+
+- Coverage gate: `manual`.
+- Tier: T5; `stateful/search_cpa_live_test.go`.
+- Command: `HLLM_CPA_SEARCH_CONFIRMED=yes go test -tags=live ./stateful -run '^TestSearchCPALive$' -count=1 -v`, with `CPA_API_KEY` supplied through the existing protected credential path.
+- Native Claude command: `HLLM_CLAUDE_SEARCH_CONFIRMED=yes go test -tags=live ./stateful -run '^TestSearchClaudeCPALive$' -count=1 -v`, using the same protected CPA key and optional metadata-only `HLLM_CLAUDE_SEARCH_RECEIPT`.
+- Oracle: One request per explicitly selected model through the actual stateful provider composition and stateless core returns URL sources, verified citation ranges/hash and one uncached attempt. Luna uses native low; Claude uses its provider default. No Harden retry/repair, browser, source output or credential logging. CPA's internal retry policy is not modified or inferred. Missing confirmed flags skip inference; an unconfirmed call is not replayed automatically. This does not certify native Gemini runtime behavior or deployed Harden gateway behavior.

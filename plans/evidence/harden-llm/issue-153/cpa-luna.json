@@ -1,0 +1,20 @@
+{
+  "attempts": 1,
+  "cacheServed": false,
+  "calls": 1,
+  "citationHashVerified": true,
+  "citations": 2,
+  "durationMs": 7425,
+  "incomplete": false,
+  "model": "gpt-5.6-luna",
+  "observedAt": "2026-11-14T01:31:17Z",
+  "protocol": "responses",
+  "provider": "openai",
+  "reasoningEffort": "low",
+  "route": "https://cpa.prls.co/v1",
+  "sources": 19,
+  "status": "pass",
+  "test": "TEST-547",
+  "warnings": null,
+  "sourceCommit": "866933bcb5a9783671533c7d3c2ad2908b7b1b5b"
+}

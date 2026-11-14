@@ -4,6 +4,36 @@ defmodule HardenLlmUI.ResponseComponentsTest do
   alias HardenLlmUI.ResponseComponents
 
   # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-066
+  test "partial search evidence keeps the answer and sources with a readable warning" do
+    html =
+      render_component(&ResponseComponents.llm_result/1,
+        id: "partial-result",
+        input_id: "partial-input",
+        output_id: "partial-output",
+        output: "The answer remains available.",
+        search: %{
+          "mode" => "native",
+          "executed" => true,
+          "incomplete" => true,
+          "warnings" => ["invalid_citation"],
+          "sources" => [%{"url" => "https://example.test/a", "title" => "Source"}]
+        }
+      )
+      |> LazyHTML.from_document()
+
+    assert LazyHTML.query(html, "#partial-output") |> LazyHTML.text() ==
+             "The answer remains available."
+
+    assert LazyHTML.query(html, "#partial-result-search-details") |> LazyHTML.text() =~
+             "Some search evidence is unavailable."
+
+    assert LazyHTML.query(html, "aside a") |> LazyHTML.attribute("href") ==
+             ["https://example.test/a"]
+
+    refute LazyHTML.text(html) =~ "invalid_citation"
+  end
+
+  # SPEC-HARDEN-LLM-PHOENIX-LIVEVIEW-001 WEB-TEST-066
   test "search evidence belongs to the response and shares each card's existing fold" do
     for id <- ["current-result", "history-result"], mode <- ["native", "jina"] do
       output = "Answer with a source."
