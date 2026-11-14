@@ -45,9 +45,10 @@ Add deterministic provider cases before implementation (TEST-545), then
 reference-schema, cache and gateway/client preservation checks (TEST-546).
 Verify ambiguity, malformed metadata, Unicode, repeated text, multiple blocks,
 structured output, repair and bounded evidence without relaxing existing tests.
-Use fast Go, LiveView and Node gates; no browser. Add one opt-in live CPA
-qualification (TEST-547), outside deterministic gates, retaining metadata-only
-evidence and no automatic replay of an unconfirmed call.
+Use fast Go, LiveView and Node gates; no browser. Add separately confirmed
+Luna/Responses and Claude/Messages live CPA qualifications (TEST-547), outside
+deterministic gates, retaining metadata-only evidence and no automatic replay
+of an unconfirmed call. Native Gemini live acceptance is separate.
 
 Implement on a feature branch from current `dev`, push a verified checkpoint
 and open a reviewable PR targeting `dev`. Production promotion requires a

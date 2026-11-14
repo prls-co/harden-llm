@@ -18,6 +18,7 @@ func TestSearchWarningsValidation(t *testing.T) {
 		{"without incomplete", []string{"invalid_citation"}, false, false},
 		{"unknown code", []string{"raw provider text"}, true, false},
 		{"duplicate", []string{"invalid_citation", "invalid_citation"}, true, false},
+		{"warning bound", make([]string, 13), true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			result := &SearchResult{Mode: "native", Sources: []SearchSource{}, CostStatus: "unavailable", Warnings: tc.warnings, Incomplete: tc.incomplete}

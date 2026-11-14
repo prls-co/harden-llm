@@ -31,6 +31,7 @@ const (
 	MaxSearchSourceRefs = 200
 	MaxSearchTextBytes  = 4096
 	MaxSearchCitations  = MaxSearchSourceRefs
+	MaxSearchWarnings   = 12
 )
 
 type SearchCall struct {
@@ -96,6 +97,9 @@ func ValidateSearchResult(result *SearchResult) error {
 	}
 	if result.CostStatus != "unavailable" {
 		return errors.New("runtime: search cost status is invalid")
+	}
+	if len(result.Warnings) > MaxSearchWarnings {
+		return errors.New("runtime: too many search warnings")
 	}
 	seenWarnings := make(map[string]bool, len(result.Warnings))
 	for _, code := range result.Warnings {
