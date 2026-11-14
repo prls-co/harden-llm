@@ -30,6 +30,10 @@ records without warnings stay valid. Retained citations are deduplicated and
 bounded at 200, matching the existing source-reference budget. Canonical
 cache/history validation remains strict.
 
+Existing cached producer evidence is not retroactively enriched. Callers use
+the existing cache `off` or `refresh` mode when they need a new answer with the
+new mappings; this change neither invalidates caches nor launches inference.
+
 The Go and reference API return the evidence and omission reasons. OpenAI
 Responses/Chat retain their standard annotation shapes; the opt-in `harden`
 extension returns only search completeness and warning codes, not a second

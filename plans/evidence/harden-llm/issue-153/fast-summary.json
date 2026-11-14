@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "selector": "fast",
+  "seed": 104729,
+  "accepted": true,
+  "generatedAt": "2026-11-14T01:30:51.827Z",
+  "manifestSHA256": "c3a9998fc0cea0bb9be3811463256fb2bd26c42fa41fcf82fcd9c0a05d3457e5",
+  "cleanupErrors": [],
+  "cleanupWarnings": [],
+  "sourceAtStart": "12d55223083ffde20381547ff4adcd31c7db9f13",
+  "tasks": [
+    {
+      "taskId": "go-static",
+      "status": 0,
+      "command": [
+        "make",
+        "test-static"
+      ]
+    },
+    {
+      "taskId": "runner-contracts",
+      "status": 0,
+      "command": [
+        "node",
+        "--test",
+        "scripts/test/run_test_tier_test.mjs",
+        "scripts/test/test_resource_lifecycle_test.mjs",
+        "scripts/test/test_resource_measurement_test.mjs",
+        "scripts/test/test_coverage_test.mjs"
+      ]
+    },
+    {
+      "taskId": "go-unit",
+      "status": 0,
+      "command": [
+        "make",
+        "test-unit"
+      ]
+    },
+    {
+      "taskId": "go-parity",
+      "status": 0,
+      "command": [
+        "make",
+        "test-parity"
+      ]
+    },
+    {
+      "taskId": "go-api",
+      "status": 0,
+      "command": [
+        "make",
+        "test-api"
+      ]
+    },
+    {
+      "taskId": "go-observability",
+      "status": 0,
+      "command": [
+        "make",
+        "test-observability"
+      ]
+    },
+    {
+      "taskId": "frontend-ui-package",
+      "status": 0,
+      "command": [
+        "mix",
+        "test",
+        "--seed",
+        "104729"
+      ]
+    },
+    {
+      "taskId": "frontend-deterministic",
+      "status": 0,
+      "command": [
+        "mix",
+        "test",
+        "--seed",
+        "104729"
+      ]
+    },
+    {
+      "taskId": "client-core",
+      "status": 0,
+      "command": [
+        "node",
+        "--test",
+        "frontend/assets/test/client_core.test.mjs"
+      ]
+    },
+    {
+      "taskId": "run-progress-client",
+      "status": 0,
+      "command": [
+        "node",
+        "--test",
+        "scripts/test/run_progress_test.mjs"
+      ]
+    }
+  ]
+}
