@@ -1,0 +1,6 @@
+=== RUN   TestDeployedReferenceHTTP
+    deployed_reference_test.go:76: GET /healthz status = 502, want 200
+--- FAIL: TestDeployedReferenceHTTP (0.09s)
+FAIL
+FAIL	github.com/prls-co/harden-llm/internal/smoke	0.094s
+FAIL

@@ -1,0 +1,15 @@
+{
+  "services": [
+    "harden-llm-batch-worker",
+    "harden-llm-gateway",
+    "harden-llm-web"
+  ],
+  "runtimeVerified": true,
+  "differences": [],
+  "candidate": {
+    "expectedRelease": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+    "desiredDifferences": [],
+    "runtimeDifferences": []
+  },
+  "equivalent": true
+}

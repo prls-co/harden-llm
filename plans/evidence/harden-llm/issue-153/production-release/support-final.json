@@ -1,0 +1,11 @@
+{
+  "services": [
+    "grafana",
+    "loki",
+    "otel-collector",
+    "prometheus",
+    "tempo"
+  ],
+  "equivalent": true,
+  "runtimeVerified": true
+}

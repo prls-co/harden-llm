@@ -1,0 +1,480 @@
+{
+  "schemaVersion": 1,
+  "issue": 153,
+  "deferredIssues": [
+    155
+  ],
+  "status": "production_deployed_and_qualified",
+  "verifiedAt": "2026-11-15T00:37:30.377383+00:00",
+  "branch": "main",
+  "source": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+  "url": "https://harden-llm.prls.co/",
+  "pullRequests": [
+    180,
+    181
+  ],
+  "implementationHead": "7ffb0462a386370b226a6c15395d8c2124743f84",
+  "change": "Normalize verified native Anthropic/Gemini URL citations against the returned text; retain valid output and sources with bounded omission warnings, expose search status in the optional OpenAI extension and reference UI.",
+  "release": {
+    "source": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+    "runId": 43656452327,
+    "attempt": 1,
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43656452327/attempts/1",
+    "branch": "main",
+    "accepted": true,
+    "conclusion": "success",
+    "job": 132635950119,
+    "artifact": {
+      "id": 14139395125,
+      "name": "harden-llm-runner-reports-43656452327-1-release",
+      "digest": "sha256:08b9f0987978ff714b5b34c9be9657e4bc22ee58bd657306cbc13b78903e8ede",
+      "size_in_bytes": 19567
+    },
+    "artifactDigestVerified": true,
+    "reports": [
+      {
+        "file": "hosted-go-integration.json",
+        "selector": "go-integration",
+        "taskCount": 1,
+        "accepted": true,
+        "sha256": "0f275f11e5d28e2c0a112714e5c8851a940a0012a42150dedaf730879bdcd667",
+        "taskIds": [
+          "go-integration"
+        ]
+      },
+      {
+        "file": "hosted-go-integration-race.json",
+        "selector": "go-integration-race",
+        "taskCount": 1,
+        "accepted": true,
+        "sha256": "eacafb03c7183ad4c416ca425de470073b47a4c7d1e29d8f0641d59a628f2fcf",
+        "taskIds": [
+          "go-integration-race"
+        ]
+      },
+      {
+        "file": "hosted-release.json",
+        "selector": "release",
+        "taskCount": 30,
+        "accepted": true,
+        "sha256": "5eac8e98ec0532bebd9f6d8bd074e2635ff34458f28b83206d5ad09dae7b81f5",
+        "taskIds": [
+          "go-format",
+          "go-lint",
+          "go-build",
+          "go-static",
+          "runner-contracts",
+          "production-config-compose",
+          "go-unit",
+          "go-parity",
+          "go-integration",
+          "go-temporal-integration",
+          "go-integration-race",
+          "go-api",
+          "go-observability",
+          "go-compose",
+          "go-compose-contract",
+          "go-race",
+          "go-vulnerability",
+          "frontend-ui-package",
+          "frontend-format",
+          "frontend-compile",
+          "frontend-deterministic",
+          "client-core",
+          "run-progress-client",
+          "frontend-deps-audit",
+          "frontend-hex-audit",
+          "frontend-assets-deploy",
+          "frontend-pagination-asset-check",
+          "frontend-release",
+          "backend-verify-baseline",
+          "frontend-gateway-workflows"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "runId": 43655409115,
+      "conclusion": "success",
+      "headSha": "7ffb0462a386370b226a6c15395d8c2124743f84",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43655409115",
+      "workflowName": "Harden-LLM test hierarchy"
+    },
+    {
+      "runId": 43655405612,
+      "conclusion": "success",
+      "headSha": "7ffb0462a386370b226a6c15395d8c2124743f84",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43655405612",
+      "workflowName": "Harden-LLM test hierarchy"
+    },
+    {
+      "runId": 43656153046,
+      "conclusion": "success",
+      "headSha": "4c298067458ef1ea21e663f66ecdfb717523d51e",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43656153046",
+      "workflowName": "Harden-LLM test hierarchy"
+    },
+    {
+      "runId": 43656179584,
+      "conclusion": "success",
+      "headSha": "4c298067458ef1ea21e663f66ecdfb717523d51e",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43656179584",
+      "workflowName": "Harden-LLM test hierarchy"
+    },
+    {
+      "runId": 43656177154,
+      "conclusion": "success",
+      "headSha": "4c298067458ef1ea21e663f66ecdfb717523d51e",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43656177154",
+      "workflowName": "CodeQL"
+    },
+    {
+      "runId": 43656450859,
+      "conclusion": "success",
+      "headSha": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43656450859",
+      "workflowName": "Harden-LLM test hierarchy"
+    },
+    {
+      "runId": 43656450556,
+      "conclusion": "success",
+      "headSha": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "status": "completed",
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/43656450556",
+      "workflowName": "CodeQL"
+    }
+  ],
+  "images": {
+    "gatewayAndWorker": {
+      "source": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "tag": "harden-llm-gateway:release-2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "id": "sha256:daaac0bcd675210d5edf621c2d37fd273dbdf67804f6766ea94886db3d294688",
+      "platform": "linux/amd64",
+      "size": 12865667,
+      "labels": {
+        "org.opencontainers.image.revision": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+        "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+        "org.opencontainers.image.title": "harden-llm-gateway",
+        "org.opencontainers.image.version": "2caa7dae20babbd842d62ab2afe69447fff8f037"
+      },
+      "binaryVersion": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "canonicalBuildScriptVerifiedVersion": true,
+      "releaseRun": 43656452327
+    },
+    "web": {
+      "source": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "tag": "harden-llm-web:release-2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "id": "sha256:135780270f0a67f3860ed2fa5e26c889569efdb1c03b73cd5971a1a52b4cfb9d",
+      "platform": "linux/amd64",
+      "size": 21288011,
+      "labels": {
+        "org.opencontainers.image.revision": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+        "org.opencontainers.image.source": "https://github.com/prls-co/harden-llm",
+        "org.opencontainers.image.title": "harden-llm-web",
+        "org.opencontainers.image.version": "2caa7dae20babbd842d62ab2afe69447fff8f037"
+      },
+      "releaseRun": 43656452327
+    }
+  },
+  "runtime": {
+    "gateway": {
+      "id": "7eeb93507d3e755aa8cac352979b169c3cdce0aa5acfd0bc4625ee12afa072e5",
+      "image": "sha256:daaac0bcd675210d5edf621c2d37fd273dbdf67804f6766ea94886db3d294688",
+      "revision": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "releases": {
+        "HARDEN_LLM_RELEASE": "2caa7dae20babbd842d62ab2afe69447fff8f037"
+      },
+      "binaryVersion": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "state": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "startedAt": "2026-11-15T00:36:35.509511619Z",
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/kirill/p/harden-llm/config/upstreams.local.json",
+          "Destination": "/etc/harden-llm/upstreams.json"
+        }
+      ]
+    },
+    "worker": {
+      "id": "2dfc04dcbb463b37fa502d3d76115f3b3e9b508fdc0ea7bbb92a1946a666f449",
+      "image": "sha256:daaac0bcd675210d5edf621c2d37fd273dbdf67804f6766ea94886db3d294688",
+      "revision": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "releases": {
+        "HARDEN_LLM_RELEASE": "2caa7dae20babbd842d62ab2afe69447fff8f037"
+      },
+      "binaryVersion": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "state": "running",
+      "health": null,
+      "restarts": 0,
+      "startedAt": "2026-11-15T00:35:59.795067997Z",
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/kirill/p/harden-llm/config/upstreams.local.json",
+          "Destination": "/etc/harden-llm/upstreams.json"
+        }
+      ]
+    },
+    "web": {
+      "id": "dd52676e2bed12b73832c90f4f13acee83b5db8a4eecb4842b3410995a259021",
+      "image": "sha256:135780270f0a67f3860ed2fa5e26c889569efdb1c03b73cd5971a1a52b4cfb9d",
+      "revision": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "releases": {
+        "HARDEN_LLM_RELEASE": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+        "HARDEN_LLM_WEB_RELEASE": "2caa7dae20babbd842d62ab2afe69447fff8f037"
+      },
+      "binaryVersion": null,
+      "state": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "startedAt": "2026-11-15T00:36:41.226317492Z",
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "harden-llm_harden-llm-web-logs",
+          "Source": "/var/lib/docker/volumes/harden-llm_harden-llm-web-logs/_data",
+          "Destination": "/var/log/harden-llm-web"
+        }
+      ]
+    }
+  },
+  "deployment": {
+    "controller": "scripts/production-config.mjs",
+    "workerBeforeGateway": true,
+    "workerReadiness": {
+      "verifiedAt": "2026-11-15T00:36:23.149723+00:00",
+      "source": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+      "pollers": {
+        "workflow": {
+          "newWorkerHostname": "2dfc04dcbb46",
+          "ownedPollerCount": 1,
+          "taskQueueType": "workflow",
+          "latestAccessAgeSeconds": 22.802971124649048,
+          "polledAfterContainerStart": true,
+          "readEqualsAck": true
+        },
+        "control": {
+          "newWorkerHostname": "2dfc04dcbb46",
+          "ownedPollerCount": 1,
+          "taskQueueType": "activity",
+          "latestAccessAgeSeconds": 10.3276047706604,
+          "polledAfterContainerStart": true,
+          "readEqualsAck": true
+        },
+        "provider": {
+          "newWorkerHostname": "2dfc04dcbb46",
+          "ownedPollerCount": 1,
+          "taskQueueType": "activity",
+          "latestAccessAgeSeconds": 22.904741048812866,
+          "polledAfterContainerStart": true,
+          "readEqualsAck": true
+        }
+      },
+      "upgrade": {
+        "generation": 2,
+        "outstanding": 0,
+        "pool_id": "cpa-production",
+        "status": "v2_ready"
+      }
+    },
+    "applicationController": {
+      "services": [
+        "harden-llm-batch-worker",
+        "harden-llm-gateway",
+        "harden-llm-web"
+      ],
+      "runtimeVerified": true,
+      "differences": [],
+      "candidate": {
+        "expectedRelease": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+        "desiredDifferences": [],
+        "runtimeDifferences": []
+      },
+      "equivalent": true
+    },
+    "supportControllerEquivalent": true,
+    "descriptor": {
+      "updatedAt": "2026-11-15T00:35:42.623077+00:00",
+      "beforeSHA256": "f2a8dbc2431b5bd5531c28b04876c4ce21ffeb826e32a51377a7e77e8adef78f",
+      "afterSHA256": "a740b5f5bf590c7b3fb98beeb7cd9f51aa7833f7136c2f2c3f8799dfacaa16c8",
+      "changedFields": [
+        "serviceImageOverrides.harden-llm-gateway",
+        "services.harden-llm-gateway.expectedImage",
+        "services.harden-llm-gateway.identityEnvironment.HARDEN_LLM_RELEASE",
+        "serviceEnvironmentOverrides.harden-llm-gateway.HARDEN_LLM_RELEASE",
+        "serviceImageOverrides.harden-llm-batch-worker",
+        "services.harden-llm-batch-worker.expectedImage",
+        "services.harden-llm-batch-worker.identityEnvironment.HARDEN_LLM_RELEASE",
+        "serviceEnvironmentOverrides.harden-llm-batch-worker.HARDEN_LLM_RELEASE",
+        "serviceImageOverrides.harden-llm-web",
+        "services.harden-llm-web.expectedImage",
+        "services.harden-llm-web.identityEnvironment.HARDEN_LLM_RELEASE",
+        "serviceEnvironmentOverrides.harden-llm-web.HARDEN_LLM_RELEASE",
+        "services.harden-llm-web.identityEnvironment.HARDEN_LLM_WEB_RELEASE",
+        "serviceEnvironmentOverrides.harden-llm-web.HARDEN_LLM_WEB_RELEASE"
+      ],
+      "onlyApplicationImageAndReleaseFieldsChanged": true,
+      "checkpoint": "/home/kirill/.config/harden-llm/issue-153-t7_mxzl1"
+    },
+    "priorImagesRetained": true
+  },
+  "acceptance": {
+    "test435Passed": true,
+    "portalLogin": {
+      "url": "https://a.prls.co/login",
+      "http": 200
+    },
+    "healthReadinessAuthModelDiscoveryAndReferenceStatusPassed": true,
+    "newProviderInference": false,
+    "browserLayoutChecked": false,
+    "storedCustomerRecordReads": false
+  },
+  "preservation": {
+    "protectedInputsUnchanged": true,
+    "sharedContainers": {
+      "prls-control-plane-postgres-1": {
+        "id": "1121d3a95edbd6059bb641dc556c4a1deb9cd9b28c753779099c72d607e9786c",
+        "image": "sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609",
+        "sameContainerAndImage": true
+      },
+      "compose-temporal-1": {
+        "id": "7d74cf9a7306fbe34a4fd435b9a7f36183371ca2b0657d73f4a54e2b2bb3937f",
+        "image": "sha256:d4cdc015d667ab5ccc3c6d1221a8792f4603c62378313db9391e47f0cb367305",
+        "sameContainerAndImage": true
+      },
+      "garage-shared-garage-shared-1": {
+        "id": "ce190d35981ea78c3809d04da816cf52fef36d6233d2f72270710ea332b73d7a",
+        "image": "sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690",
+        "sameContainerAndImage": true
+      },
+      "harden-llm-otel-collector-1": {
+        "id": "32daddb31bd7018423b62b1ee1ad270b2241fc777489b89bb33d005d7b73c1d3",
+        "image": "sha256:125bdbeb7590cc1952c5b3430ecf14063568980c2c93d5b38676cc0446ed8108",
+        "sameContainerAndImage": true
+      },
+      "harden-llm-loki-1": {
+        "id": "8398992c73d5fc0872c236e31c6d9bb18aea7d7ab601296694f6ed95751b59b3",
+        "image": "sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86",
+        "sameContainerAndImage": true
+      },
+      "harden-llm-prometheus-1": {
+        "id": "4122d08a7710d0466c98671073133b9d1e85cc060f11345bc589f16ccfdd2bfb",
+        "image": "sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac",
+        "sameContainerAndImage": true
+      },
+      "harden-llm-tempo-1": {
+        "id": "3a3d4416cbea42537c684220d5ae6f59910bfc8632ee234b0c349fa6df67eefc",
+        "image": "sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33",
+        "sameContainerAndImage": true
+      },
+      "harden-llm-grafana-1": {
+        "id": "93c87fe0939c4bd5bc0099cd97101209d96f32f2f9d0ef6e6663129c861dc571",
+        "image": "sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2",
+        "sameContainerAndImage": true
+      }
+    },
+    "before": {
+      "at": "2026-11-15T00:22:36.894Z",
+      "counts": {
+        "credentials": 0,
+        "profiles": 0,
+        "hidden_presets": 0,
+        "cache_entries": 28,
+        "history": 422,
+        "drafts": 2,
+        "batch_jobs": 2,
+        "batch_items": 1000
+      },
+      "batchItemStates": {
+        "succeeded": 1000
+      }
+    },
+    "after": {
+      "at": "2026-11-15T00:37:08.679Z",
+      "counts": {
+        "credentials": 0,
+        "profiles": 0,
+        "hidden_presets": 0,
+        "cache_entries": 28,
+        "history": 422,
+        "drafts": 2,
+        "batch_jobs": 2,
+        "batch_items": 1000
+      },
+      "batchItemStates": {
+        "succeeded": 1000
+      }
+    },
+    "allTableCountsUnchanged": true,
+    "acceptedBatchItems": 1000,
+    "databaseSchemaChanged": false,
+    "dataReset": false
+  },
+  "existingEdgeRecovery": {
+    "verifiedAt": "2026-11-15T00:18:47.016977+00:00",
+    "service": "caddy-shared-caddy-1",
+    "baselinePublicHealth": 502,
+    "baselineContainerState": "exited",
+    "baselineFinishedAt": "2026-11-14T21:40:17.585896339Z",
+    "action": "docker start caddy-shared-caddy-1",
+    "sameContainerAndImage": true,
+    "configurationChanged": false,
+    "currentContainerState": "running",
+    "currentContainerHealth": "healthy",
+    "startedAt": "2026-11-15T00:04:33.582704771Z",
+    "baselineHTTPAfterRecoveryPassed": true,
+    "outageCause": "shared Caddy container was stopped before this rollout; why it stopped was not established"
+  },
+  "qualificationBoundaries": {
+    "CPA": {
+      "source": "866933bcb5a9783671533c7d3c2ad2908b7b1b5b",
+      "receipts": [
+        "../cpa-luna.json",
+        "../cpa-claude.json"
+      ],
+      "status": "retained real-provider qualification through the composed library; not repeated against deployed gateway",
+      "sourceDelta": "Later strict warning-count validation, Gemini entry-point selection/clipping correction, deterministic tests and documentation; provider requests, prompts, retries and answer extraction unchanged."
+    },
+    "nativeGemini": "official-contract fixtures; live qualification not run",
+    "browser": "not requested; not run",
+    "issue155": "deferred"
+  },
+  "parity": {
+    "generationPromptsModelsReasoningAndOutputSchemasUnchanged": true,
+    "providerRetryRecoveryAndCacheIdentityUnchanged": true,
+    "newInferenceReplay": false,
+    "OpenAPIChange": "optional bounded search warnings; canonical and bundled OpenAPI match"
+  },
+  "documentationOnlyCloseoutDoesNotRelabelImages": true,
+  "sha256": {
+    "app-apply.log": "a3a90fb87e0ae5d8d39805c91403654b33038c23089db6face966cecb62233ad",
+    "app-before-apply.json": "f04c6099c222a72d25d0e7c7aa022689108c56695e083892f3c74fcdd19f3e04",
+    "application-final.json": "093f4ee216ad194ef6b5fc3e773cb8aa0761b180faa9c68f1afd909a25a505e0",
+    "baseline-http-before-edge-recovery.log": "3be22f5440ac1d6eeeee95219727fc02d7a8a99fb03243f56cc004efacf68b18",
+    "baseline-http.log": "41db8c4894d7acf2b953cd14dbc483fd62d5cade42393fecc6b59f8349ce781b",
+    "checks.json": "8cea10ecf3f1c5f65491cdbc510b4054f5490eacc7ed4111fcc832076557e708",
+    "data-after.json": "82f3bd2483c5bac1e0ebbf63c4c001bc208c6ca7e5227af201e353824d90a1cc",
+    "data-before.json": "20a93554a3bfbe303e23b1b8b5f8ee4cb273b3f57fb2e8d513c88e4eb16390c2",
+    "deployed-http.log": "42258606bb1e859c12bb535c8d1f31b01751c4435f529ee027898206a952be0c",
+    "edge-recovery.json": "998357198d54d2b1af45a9e67e667694ab23779aa7d5322c9a4bc9f1b2f0a74b",
+    "hosted-go-integration-race.json": "eacafb03c7183ad4c416ca425de470073b47a4c7d1e29d8f0641d59a628f2fcf",
+    "hosted-go-integration.json": "0f275f11e5d28e2c0a112714e5c8851a940a0012a42150dedaf730879bdcd667",
+    "hosted-release.json": "5eac8e98ec0532bebd9f6d8bd074e2635ff34458f28b83206d5ad09dae7b81f5",
+    "portal-http.json": "7294214c1d7499f3bd42214a0d7ce44edeaf3b79279ca32d342bc53e375a0217",
+    "worker-apply.log": "3cfad43ed3bc8023ece7b556e4b4282932b16665fe2d4b617df330c46ca0c5fa",
+    "worker-before-apply.json": "b1b343f8288c4b918b536d8529894b327bf7a3aa1b70bc4beaba488df80a1636",
+    "worker-ready.json": "a33e5adca3744eb93a6bb3d98d776436d9f19fedbda82e17c304dc79a3ab270b",
+    "support-final.json": "ec0d165285cd6aa63587d7f7c49540c3ce17d4c5734d8f5c63ae03b8d753c8f5"
+  }
+}

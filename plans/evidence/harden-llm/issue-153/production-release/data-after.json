@@ -1,0 +1,16 @@
+{
+  "at": "2026-11-15T00:37:08.679Z",
+  "counts": {
+    "credentials": 0,
+    "profiles": 0,
+    "hidden_presets": 0,
+    "cache_entries": 28,
+    "history": 422,
+    "drafts": 2,
+    "batch_jobs": 2,
+    "batch_items": 1000
+  },
+  "batchItemStates": {
+    "succeeded": 1000
+  }
+}

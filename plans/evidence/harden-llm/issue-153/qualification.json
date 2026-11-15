@@ -3,12 +3,12 @@
   "deferredIssues": [
     155
   ],
-  "status": "implemented and qualified on feature branch; production not promoted",
-  "branch": "feat/issue-153-citation-metadata",
+  "status": "production deployed and qualified; detailed qualification boundaries retained below",
+  "branch": "main",
   "reviewBase": "dev",
   "implementationCommit": "60c32546297e16a403a83853a7a9f00985bc4996",
   "liveProbeSource": "866933bcb5a9783671533c7d3c2ad2908b7b1b5b",
-  "liveAfterSourceDelta": "only warning-count early rejection and qualification documentation; live responses contained no warnings",
+  "liveAfterSourceDelta": "Later strict warning-count validation, Gemini entry-point selection/clipping correction, deterministic tests and documentation; provider requests, prompts, retries and answer extraction unchanged.",
   "canonicalSchemaSha256": "34469becadc9f3ffbebd5250ebc2787e2c605d3506efba71398408b63b327857",
   "bundledSchemaMatches": true,
   "cpa": {
@@ -27,7 +27,8 @@
     "claudeThroughCPA": "pass; one uncached native Messages attempt, 9 sources, 4 citations, exact-text hash/ranges valid",
     "nativeGeminiLive": "not run; deterministic/official-contract qualification only",
     "browser": "not run",
-    "productionDeployment": "not performed"
+    "productionDeployment": "pass; gateway, worker and web at exact certified source; TEST-435 HTTP/auth and Portal login pass without inference",
+    "exactMainRelease": "pass; all 30 tasks and integration/race reports accepted; artifact checksum verified"
   },
   "retainedFailures": [
     {
@@ -50,6 +51,12 @@
   "evidence": [
     "fast-summary.json",
     "cpa-luna.json",
-    "cpa-claude.json"
-  ]
+    "cpa-claude.json",
+    "entry-point-review-fix.json",
+    "production-release/receipt.json"
+  ],
+  "qualificationBranch": "feat/issue-153-citation-metadata",
+  "finalImplementationCommit": "7ffb0462a386370b226a6c15395d8c2124743f84",
+  "productionSource": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+  "productionRelease": "production-release/receipt.json"
 }

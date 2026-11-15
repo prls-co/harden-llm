@@ -1,6 +1,6 @@
 # Release Certification
 
-Latest production qualification: [Browser and paid-provider acceptance for diagnostics, November 11](#2026-11-11-browser-and-paid-provider-acceptance-for-diagnostics).
+Latest production qualification: [Search citation evidence and partial-result warnings, November 15 UTC](#2026-11-15-search-citation-evidence-and-partial-result-warnings).
 
 Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
 
@@ -3505,3 +3505,35 @@ configuration, the web/shared-storage containers, stable table counts and all
 1,000 completed batch items are preserved. No schema change, data reset,
 browser launch or paid inference was performed; browser layout is not checked.
 Later test/documentation commits do not relabel these application images.
+
+## 2026-11-15 search citation evidence and partial-result warnings
+
+Issue [#153](https://github.com/prls-co/harden-llm/issues/153) is implemented,
+merged through PRs [#180](https://github.com/prls-co/harden-llm/pull/180) and
+[#181](https://github.com/prls-co/harden-llm/pull/181), and deployed to
+`https://harden-llm.prls.co/`. Native Anthropic text-block citations and Gemini
+byte ranges map only to verified returned text. Invalid optional evidence
+retains the answer and known sources with bounded warning codes; the optional
+OpenAI extension and reference UI expose partial status. The review correction
+retains candidate 0's Gemini entry-point HTML and detects actual UTF-8-safe byte
+clipping. Issue #155 remains deferred.
+
+| Evidence | Result |
+| --- | --- |
+| Certified application source | `main`, `2caa7dae20babbd842d62ab2afe69447fff8f037` |
+| Exact-source release | [43656452327, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/43656452327/attempts/1): all 30 browser-free tasks passed, including real-service integration, race, Temporal, Compose, API and frontend gates. All three reports are accepted without cleanup errors or warnings; the downloaded artifact checksum matches GitHub's digest. |
+| Gateway/worker image | `harden-llm-gateway:release-2caa7dae20babbd842d62ab2afe69447fff8f037`, ID `sha256:daaac0bcd675210d5edf621c2d37fd273dbdf67804f6766ea94886db3d294688` |
+| Web image | `harden-llm-web:release-2caa7dae20babbd842d62ab2afe69447fff8f037`, ID `sha256:135780270f0a67f3860ed2fa5e26c889569efdb1c03b73cd5971a1a52b4cfb9d` |
+| Rollout | Scoped controller applied schema/worker first. Typed queue reads confirmed the new worker's workflow, control and provider pollers. Existing generation 2 reported `v2_ready`, zero outstanding work, before gateway/web promotion. All application and support-service checks are equivalent. Gateway/web are healthy; all three applications have zero restarts. |
+| Deployed acceptance | TEST-435 public health/readiness, bearer rejection, authenticated models and reference feature-status checks passed. Portal `/login` returned HTTP 200. No inference or stored customer-record reads. |
+| Preservation | Only 14 application image/release descriptor fields changed. Protected environment/upstream files and shared PostgreSQL, Garage, Temporal and support-container identities were retained. Counts remained: two batch jobs, 1,000 succeeded items, two drafts, 422 history rows and 28 cache entries; no reset or schema change. |
+| Existing outage recovery | The baseline public health check returned 502 because the existing shared Caddy container was stopped. Starting that same container restored HTTP 200 and the baseline acceptance checks before application deployment. Its image/configuration was not changed. Why it had stopped was not established. |
+| Provider qualification | Retained real CPA Luna/Responses and Claude/native Messages receipts qualify library source `866933bcb5a9783671533c7d3c2ad2908b7b1b5b`. They were not repeated against the deployed gateway. Later warning validation and Gemini entry-point corrections have deterministic coverage; prompts, model settings, answer extraction, cache identity and retry/recovery control flow are unchanged. |
+| Explicit limits | Native Gemini has official-contract fixture coverage; native Gemini live qualification was not run. Browser layout was not checked. No new provider call was used as a deployment smoke test. Existing cached evidence is not retroactively enriched. |
+
+The [production receipt](../plans/evidence/harden-llm/issue-153/production-release/receipt.json)
+retains image identities, accepted runner reports, controller comparisons,
+worker readiness, HTTP acceptance, count snapshots and the separate edge
+recovery. [ADR-HLLM-036](adr/ADR-HLLM-036-search-citation-evidence.md) records the
+library boundary. Later documentation-only closeout commits do not rebuild or
+relabel these deployed images.

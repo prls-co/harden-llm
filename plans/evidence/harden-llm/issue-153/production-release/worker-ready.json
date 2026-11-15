@@ -1,0 +1,36 @@
+{
+  "verifiedAt": "2026-11-15T00:36:23.149723+00:00",
+  "source": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+  "pollers": {
+    "workflow": {
+      "newWorkerHostname": "2dfc04dcbb46",
+      "ownedPollerCount": 1,
+      "taskQueueType": "workflow",
+      "latestAccessAgeSeconds": 22.802971124649048,
+      "polledAfterContainerStart": true,
+      "readEqualsAck": true
+    },
+    "control": {
+      "newWorkerHostname": "2dfc04dcbb46",
+      "ownedPollerCount": 1,
+      "taskQueueType": "activity",
+      "latestAccessAgeSeconds": 10.3276047706604,
+      "polledAfterContainerStart": true,
+      "readEqualsAck": true
+    },
+    "provider": {
+      "newWorkerHostname": "2dfc04dcbb46",
+      "ownedPollerCount": 1,
+      "taskQueueType": "activity",
+      "latestAccessAgeSeconds": 22.904741048812866,
+      "polledAfterContainerStart": true,
+      "readEqualsAck": true
+    }
+  },
+  "upgrade": {
+    "generation": 2,
+    "outstanding": 0,
+    "pool_id": "cpa-production",
+    "status": "v2_ready"
+  }
+}

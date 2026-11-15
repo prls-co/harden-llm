@@ -54,3 +54,34 @@ Implement on a feature branch from current `dev`, push a verified checkpoint
 and open a reviewable PR targeting `dev`. Production promotion requires a
 separate explicit instruction. Native-provider fixture qualification and CPA
 runtime qualification are recorded separately.
+
+## 4. Merged implementation
+
+PR [#180](https://github.com/prls-co/harden-llm/pull/180) merged the implementation
+and its review correction into `dev`. PR
+[#181](https://github.com/prls-co/harden-llm/pull/181) promoted it to `main` at
+`2caa7dae20babbd842d62ab2afe69447fff8f037`. The correction retains only candidate
+0's Gemini entry-point HTML and reports clipping using the existing UTF-8-safe
+byte limiter; seven deterministic cases protect that boundary.
+
+The retained CPA Luna and Claude receipts qualify source
+`866933bcb5a9783671533c7d3c2ad2908b7b1b5b`. Subsequent changes include strict
+warning-count validation and the Gemini entry-point correction, with unchanged
+provider requests, prompts, retries and answer extraction. Native Gemini live
+qualification and browser layout checks remain separate from those receipts.
+
+Exact-source [release run 43656452327, attempt 1](https://github.com/prls-co/harden-llm/actions/runs/43656452327/attempts/1)
+passed all 30 browser-free release tasks at the merged `main` SHA, including
+real-service integration, race, Temporal, Compose, OpenAPI and frontend gates.
+Its downloaded artifact checksum and all three accepted runner reports were
+verified before the production image builds.
+
+Gateway, worker and web were then deployed from that certified source through
+the protected production controller. New-worker pollers and existing pool
+readiness passed before gateway/web promotion. TEST-435 HTTP/auth/reference
+acceptance and Portal login passed; all three applications had zero restarts.
+Protected configuration, shared storage containers and database counts were
+preserved. The [production receipt](evidence/harden-llm/issue-153/production-release/receipt.json)
+records exact image IDs, the earlier shared-edge recovery and qualification
+limits. Issue #155 remains deferred. Documentation-only closeout commits do not
+change the deployed application identity.

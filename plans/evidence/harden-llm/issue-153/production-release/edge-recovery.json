@@ -1,0 +1,15 @@
+{
+  "verifiedAt": "2026-11-15T00:18:47.016977+00:00",
+  "service": "caddy-shared-caddy-1",
+  "baselinePublicHealth": 502,
+  "baselineContainerState": "exited",
+  "baselineFinishedAt": "2026-11-14T21:40:17.585896339Z",
+  "action": "docker start caddy-shared-caddy-1",
+  "sameContainerAndImage": true,
+  "configurationChanged": false,
+  "currentContainerState": "running",
+  "currentContainerHealth": "healthy",
+  "startedAt": "2026-11-15T00:04:33.582704771Z",
+  "baselineHTTPAfterRecoveryPassed": true,
+  "outageCause": "shared Caddy container was stopped before this rollout; why it stopped was not established"
+}
