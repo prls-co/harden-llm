@@ -1250,6 +1250,19 @@ components:
         executed: {type: boolean}
         costStatus: {type: string, const: unavailable}
         incomplete: {type: boolean}
+        warnings:
+          type: array
+          maxItems: 12
+          uniqueItems: true
+          description: Reasons optional search evidence was omitted. Nonempty warnings
+            imply incomplete; a valid answer remains available. Unsupported types may
+            require a provider adapter update. Values contain no provider-controlled text.
+          items:
+            type: string
+            enum: [invalid_source, source_limit, invalid_call, call_limit,
+              source_reference_limit, unsupported_source_type, invalid_citation,
+              unsupported_citation_type, citation_text_unavailable, citation_limit,
+              malformed_metadata, entry_point_truncated]
         citationTextSha256: {type: string}
         calls:
           type: array
@@ -1285,6 +1298,7 @@ components:
             HTML.'}
         citations:
           type: array
+          maxItems: 200
           items:
             type: object
             additionalProperties: false
@@ -2654,4 +2668,11 @@ components:
         attempts: {type: array, items: {type: object}}
         cache: {type: object}
         diagnostics: {type: object}
+        search:
+          type: object
+          additionalProperties: false
+          required: [incomplete]
+          properties:
+            incomplete: {type: boolean}
+            warnings: {$ref: '#/components/schemas/ReferenceWebSearchResult/properties/warnings'}
       additionalProperties: false

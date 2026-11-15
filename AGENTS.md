@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+Architecture decisions are indexed in [docs/adr/README.md](docs/adr/README.md).
+
 ## Project structure and ownership
 
 The Go library is at the repository root, internal packages are under

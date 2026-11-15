@@ -1,0 +1,73 @@
+{
+  "reviewComment": "https://github.com/prls-co/harden-llm/pull/180#issuecomment-6885727718",
+  "reviewedCommit": "8c5dac06e9bdc2887c56bfc3a83bf3106103c41b",
+  "fix": "Select candidate 0 search-entry HTML and warn only when its existing 32768-byte UTF-8-safe limiter actually clips text.",
+  "test": "TEST-545: TestSearchCitationGeminiSelectedEntryPoint",
+  "regressionCases": 7,
+  "redGreenEvidence": {
+    "originalReviewCases": "four fail before the selected-candidate guard, then pass",
+    "unicodeWarningCases": "two fail with character-count warning despite byte clipping, then pass with actual-clipping detection",
+    "selectedEntryByteBound": "existing limiter and UTF-8 boundary preserved"
+  },
+  "focused": {
+    "command": "go test ./internal/providers -run 'TestSearchCitation|TestSearchProvenance' -count=1 -v",
+    "status": "pass"
+  },
+  "fast": {
+    "command": "make test-fast",
+    "accepted": true,
+    "generatedAt": "2026-11-14T23:51:17.806Z",
+    "tasks": [
+      {
+        "taskId": "go-static",
+        "status": 0
+      },
+      {
+        "taskId": "runner-contracts",
+        "status": 0
+      },
+      {
+        "taskId": "go-unit",
+        "status": 0
+      },
+      {
+        "taskId": "go-parity",
+        "status": 0
+      },
+      {
+        "taskId": "go-api",
+        "status": 0
+      },
+      {
+        "taskId": "go-observability",
+        "status": 0
+      },
+      {
+        "taskId": "frontend-ui-package",
+        "status": 0
+      },
+      {
+        "taskId": "frontend-deterministic",
+        "status": 0
+      },
+      {
+        "taskId": "client-core",
+        "status": 0
+      },
+      {
+        "taskId": "run-progress-client",
+        "status": 0
+      }
+    ],
+    "reportSha256": "978fc3a7ca1c93f8abbb817d2c5615e5d5b92d02812765f1b2064144fe77de31"
+  },
+  "sourceFilesSha256": {
+    "internal/providers/search_result.go": "48eeb683e9699ce2674f34fa8a2730e35770862653fbc651b2dfb30b096d1730",
+    "internal/providers/search_citations_test.go": "f09aeeaad026b6dc8e735c67b198fd86ef39d23d8338be313e1edc74945991d1",
+    "plans/from_utility-llm/harden-llm-self-hosted-test-spec.md": "057ba5d9cd161543f0ccb423d70e1e318e6d104a18de1a40da6e1a8bc7afe3ee"
+  },
+  "apiSchemaChanged": false,
+  "browser": "not run",
+  "liveProviders": "not run for this deterministic fix; earlier receipts remain retained evidence",
+  "productionPromotion": "not performed"
+}
