@@ -1,0 +1,22 @@
+{
+  "services": [
+    "harden-llm-batch-worker"
+  ],
+  "runtimeVerified": true,
+  "differences": [
+    "harden-llm-batch-worker.candidate.runtime-label",
+    "harden-llm-batch-worker.candidate.runtime-release",
+    "harden-llm-batch-worker.environment.HARDEN_LLM_RELEASE",
+    "harden-llm-batch-worker.identity.HARDEN_LLM_RELEASE",
+    "harden-llm-batch-worker.image"
+  ],
+  "candidate": {
+    "expectedRelease": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+    "desiredDifferences": [],
+    "runtimeDifferences": [
+      "harden-llm-batch-worker.candidate.runtime-label",
+      "harden-llm-batch-worker.candidate.runtime-release"
+    ]
+  },
+  "equivalent": false
+}

@@ -27,11 +27,23 @@ decision.
 ## 2. Artifact and production identity
 
 The latest production identity is recorded in the
-[issue #149 SSE cleanup receipt](evidence/harden-llm/issue-149/production-release/receipt.json)
-and [release certification](../docs/release-certification.md#2026-11-13-size-limit-review-and-sse-cleanup).
-Gateway and worker use certified source
+[issue #153 citation evidence receipt](evidence/harden-llm/issue-153/production-release/receipt.json)
+and [release certification](../docs/release-certification.md#2026-11-15-search-citation-evidence-and-partial-result-warnings).
+Gateway, worker and web use certified source
+`2caa7dae20babbd842d62ab2afe69447fff8f037`, from exact-main release run
+`43656452327`, attempt 1. Gateway/worker image ID is
+`sha256:daaac0bcd675210d5edf621c2d37fd273dbdf67804f6766ea94886db3d294688`;
+web image ID is
+`sha256:135780270f0a67f3860ed2fa5e26c889569efdb1c03b73cd5971a1a52b4cfb9d`.
+Worker pollers and generation-2 pool readiness were confirmed before applying
+gateway/web. TEST-435 HTTP/auth/reference checks and Portal login pass without
+inference. Retained CPA qualification and native Gemini fixture coverage are
+separate from these deployment checks; no browser ran.
+
+The prior [issue #149 SSE cleanup receipt](evidence/harden-llm/issue-149/production-release/receipt.json)
+records gateway/worker source
 `240037abb731773edf2a63dd78d5e6a8f755600d`; unchanged web inputs retain
-source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f` and its image.
+source `efd0d85eb488b0dc8a78a97f6a7851218d9ed53f` and its image at that checkpoint.
 The cumulative provider-stream byte limit and request inspections remain intact;
 only the redundant equal-sized event check was removed. PR #179's subsequent
 one-line test wait changes no application image inputs.

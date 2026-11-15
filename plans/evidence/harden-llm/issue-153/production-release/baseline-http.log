@@ -1,0 +1,5 @@
+=== RUN   TestDeployedReferenceHTTP
+    deployed_reference_test.go:135: TEST-435: origin=https://harden-llm.prls.co expected_release=240037abb731773edf2a63dd78d5e6a8f755600d models=38 history.rows=422 history.tableBytes=3661824; HTTP only, no inference or stored-record reads
+--- PASS: TestDeployedReferenceHTTP (0.67s)
+PASS
+ok  	github.com/prls-co/harden-llm/internal/smoke	0.678s

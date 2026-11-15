@@ -1,0 +1,32 @@
+{
+  "services": [
+    "harden-llm-gateway",
+    "harden-llm-web"
+  ],
+  "runtimeVerified": true,
+  "differences": [
+    "harden-llm-gateway.candidate.runtime-label",
+    "harden-llm-gateway.candidate.runtime-release",
+    "harden-llm-gateway.environment.HARDEN_LLM_RELEASE",
+    "harden-llm-gateway.identity.HARDEN_LLM_RELEASE",
+    "harden-llm-gateway.image",
+    "harden-llm-web.candidate.runtime-label",
+    "harden-llm-web.candidate.runtime-release",
+    "harden-llm-web.environment.HARDEN_LLM_RELEASE",
+    "harden-llm-web.environment.HARDEN_LLM_WEB_RELEASE",
+    "harden-llm-web.identity.HARDEN_LLM_RELEASE",
+    "harden-llm-web.identity.HARDEN_LLM_WEB_RELEASE",
+    "harden-llm-web.image"
+  ],
+  "candidate": {
+    "expectedRelease": "2caa7dae20babbd842d62ab2afe69447fff8f037",
+    "desiredDifferences": [],
+    "runtimeDifferences": [
+      "harden-llm-gateway.candidate.runtime-label",
+      "harden-llm-gateway.candidate.runtime-release",
+      "harden-llm-web.candidate.runtime-label",
+      "harden-llm-web.candidate.runtime-release"
+    ]
+  },
+  "equivalent": false
+}

@@ -1,7 +1,8 @@
 # ADR-HLLM-036: Text-bound citations and partial search evidence
 
-Status: Accepted for implementation, 2026-11-13. Runtime qualification is
-recorded separately; this record does not establish deployment completion.
+Status: Accepted, 2026-11-13. Implementation merged through PRs #180 and #181.
+Runtime qualification is recorded separately; this decision alone does not
+establish deployment completion.
 
 ## 1. Context
 
@@ -64,6 +65,7 @@ results remain issue #155.
 ## 4. References and checks
 
 - [Implementation plan](../../plans/issue-153-citation-metadata-plan.md).
+- [Production qualification and retained provider evidence](../../plans/evidence/harden-llm/issue-153/production-release/receipt.json).
 - [Anthropic SDK text block contract](https://github.com/anthropics/anthropic-sdk-python/blob/main/src/anthropic/types/text_block.py).
 - [Gemini segment byte indices](https://aistudio.google.com/api-reference/generate-content).
 - TEST-545: native mappings, malformed/unsupported metadata, Unicode, bounds.
