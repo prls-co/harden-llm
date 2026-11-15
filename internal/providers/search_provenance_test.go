@@ -107,7 +107,7 @@ func testSearchProvenanceRepair(t *testing.T, required, alternate bool) {
 func TestSearchProvenanceJinaDuplicates(t *testing.T) {
 	contextText := strings.Repeat("https://example.test/first\n", 50) + "https://example.test/second\n"
 	prepared := preparedRequest{searchMode: "jina", webSearch: &preparedWebSearch{state: &webSearchResult{result: contextText}}}
-	result := normalizeSearch(prepared, map[string]any{})
+	result := normalizeSearch(prepared, map[string]any{}, "")
 	t.Logf("raw_matches=51 distinct_urls=2 retained_sources=%d", len(result.Sources))
 	if !result.Executed || len(result.Sources) != 2 {
 		t.Fatalf("duplicates must not hide a later distinct URL: got %d sources", len(result.Sources))
@@ -242,7 +242,7 @@ func TestSearchProvenanceBounds(t *testing.T) {
 		}
 		output = append(output, map[string]any{"id": fmt.Sprintf("ws_%d", i), "type": "web_search_call", "status": "completed", "action": map[string]any{"type": "search", "query": "q", "sources": sources}})
 	}
-	s := normalizeSearch(preparedRequest{searchMode: "native"}, map[string]any{"output": output})
+	s := normalizeSearch(preparedRequest{searchMode: "native"}, map[string]any{"output": output}, "")
 	refs := 0
 	for _, c := range s.Calls {
 		refs += len(c.Sources)
@@ -271,7 +271,7 @@ func TestSearchProvenanceJinaSourceCap(t *testing.T) {
 		}(), 50, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			s := normalizeSearch(preparedRequest{searchMode: "jina", webSearch: &preparedWebSearch{state: &webSearchResult{result: test.context}}}, nil)
+			s := normalizeSearch(preparedRequest{searchMode: "jina", webSearch: &preparedWebSearch{state: &webSearchResult{result: test.context}}}, nil, "")
 			if len(s.Sources) != test.count || s.Incomplete != test.incomplete {
 				t.Fatalf("sources=%d incomplete=%v", len(s.Sources), s.Incomplete)
 			}
@@ -281,7 +281,7 @@ func TestSearchProvenanceJinaSourceCap(t *testing.T) {
 
 func TestSearchProvenanceDroppedCallRetainsSourceUnion(t *testing.T) {
 	response := map[string]any{"output": []any{map[string]any{"type": "web_search_call", "action": map[string]any{"type": "search", "sources": []any{map[string]any{"type": "url", "url": "https://example.test/a"}}}}}}
-	s := normalizeSearch(preparedRequest{searchMode: "native"}, response)
+	s := normalizeSearch(preparedRequest{searchMode: "native"}, response, "")
 	if len(s.Calls) != 0 || !s.Incomplete || len(s.Sources) != 1 || s.Sources[0].URL != "https://example.test/a" {
 		t.Fatalf("dropped malformed call must not discard known source union: %#v", s)
 	}
