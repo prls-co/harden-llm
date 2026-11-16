@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 1,
+  "issue": 156,
+  "pullRequest": 183,
+  "decision": "Keep native Anthropic search optional and report observed execution; no forced-tool policy or production behavior change.",
+  "campaignComplete": true,
+  "liveTestPassed": false,
+  "qualificationStatus": "partial",
+  "sourceCommit": "154ad631cc565322442346624ad7e378d9f15c4e",
+  "catalogSha256": "0a1e9d98dcb283d48e5870fa9a363f6f2fb8f125506b74764678e97bae3def71",
+  "presetCount": 40,
+  "selectedCaseCount": 80,
+  "configuredPresetCount": 30,
+  "attemptedCaseCount": 60,
+  "statusCounts": {
+    "succeeded": 49,
+    "failed": 10,
+    "not_configured": 20,
+    "unconfirmed": 1
+  },
+  "successfulWithObservedSearch": 47,
+  "successfulWithoutObservedSearch": 2,
+  "modelInvokedCaseCount": 54,
+  "byProvider": {
+    "anthropic": {
+      "not_configured": 10
+    },
+    "cpa": {
+      "succeeded": 35,
+      "failed": 3
+    },
+    "google": {
+      "succeeded": 9,
+      "unconfirmed": 1
+    },
+    "novita": {
+      "failed": 1,
+      "succeeded": 1
+    },
+    "openai": {
+      "not_configured": 10
+    },
+    "openrouter": {
+      "failed": 6,
+      "succeeded": 2
+    },
+    "perplexity": {
+      "succeeded": 2
+    }
+  },
+  "failedOrUnconfirmedCases": [
+    {
+      "id": "CPA claude-haiku-4-5-20251001",
+      "mode": "structured",
+      "status": "failed",
+      "durationMs": 3100,
+      "providerInvoked": true,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        0
+      ],
+      "expectedSearchMode": "native",
+      "searchExecuted": true,
+      "searchCallCount": 1,
+      "sourceCount": 0,
+      "citationCount": 0
+    },
+    {
+      "id": "CPA gpt-5.5",
+      "mode": "text",
+      "status": "failed",
+      "durationMs": 30,
+      "providerInvoked": true,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        400
+      ],
+      "expectedSearchMode": "native"
+    },
+    {
+      "id": "CPA gpt-5.5",
+      "mode": "structured",
+      "status": "failed",
+      "durationMs": 28,
+      "providerInvoked": true,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        400
+      ],
+      "expectedSearchMode": "native"
+    },
+    {
+      "id": "Gemini 3.7 Flash",
+      "mode": "structured",
+      "status": "unconfirmed",
+      "durationMs": 30032,
+      "providerInvoked": true,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        0
+      ],
+      "expectedSearchMode": "native"
+    },
+    {
+      "id": "Novita DeepSeek V4 Pro",
+      "mode": "text",
+      "status": "failed",
+      "durationMs": 20002,
+      "providerInvoked": false,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        0
+      ],
+      "expectedSearchMode": "jina"
+    },
+    {
+      "id": "OpenRouter DeepSeek V4 Flash",
+      "mode": "text",
+      "status": "failed",
+      "durationMs": 2816,
+      "providerInvoked": false,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        0
+      ],
+      "expectedSearchMode": "jina"
+    },
+    {
+      "id": "OpenRouter DeepSeek V4 Pro",
+      "mode": "text",
+      "status": "failed",
+      "durationMs": 4211,
+      "providerInvoked": false,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        0
+      ],
+      "expectedSearchMode": "jina"
+    },
+    {
+      "id": "OpenRouter DeepSeek V4 Pro",
+      "mode": "structured",
+      "status": "failed",
+      "durationMs": 20022,
+      "providerInvoked": false,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        0
+      ],
+      "expectedSearchMode": "jina"
+    },
+    {
+      "id": "OpenRouter GPT-OSS 120B",
+      "mode": "text",
+      "status": "failed",
+      "durationMs": 20015,
+      "providerInvoked": false,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        0
+      ],
+      "expectedSearchMode": "jina"
+    },
+    {
+      "id": "OpenRouter GPT-OSS 20B",
+      "mode": "text",
+      "status": "failed",
+      "durationMs": 2840,
+      "providerInvoked": false,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        0
+      ],
+      "expectedSearchMode": "jina"
+    },
+    {
+      "id": "OpenRouter GPT-OSS 20B",
+      "mode": "structured",
+      "status": "failed",
+      "durationMs": 3918,
+      "providerInvoked": true,
+      "errorCode": "inference_failed",
+      "httpStatuses": [
+        0
+      ],
+      "expectedSearchMode": "jina"
+    }
+  ],
+  "optionalSearchNotObserved": [
+    {
+      "id": "Gemini 3.1 Pro Preview",
+      "mode": "structured"
+    },
+    {
+      "id": "Gemini 3.5 Flash Lite",
+      "mode": "structured"
+    }
+  ],
+  "localFast": {
+    "accepted": true,
+    "taskCount": 10,
+    "report": "fast.json"
+  },
+  "hostedFast": {
+    "runId": 43973295931,
+    "status": "passed",
+    "sourceCommit": "154ad631cc565322442346624ad7e378d9f15c4e",
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/43973295931"
+  },
+  "subtestFilterCheck": {
+    "status": "passed",
+    "selectedCaseCount": 0,
+    "recordedStartedCaseCount": 0,
+    "credentials": "synthetic",
+    "providerCalls": 0,
+    "initialPreflightFailure": "The first synthetic incoming token was too short; configuration rejected it before dispatch. Corrected to the existing 43-character fixture length."
+  },
+  "sourceParity": {
+    "productionCode": "unchanged",
+    "productionPromptsAndSchemas": "unchanged",
+    "shippedCatalog": "unchanged",
+    "postCampaignChange": "Only move the started receipt inside the selected Go subtest and stop before inference if that receipt cannot be saved. No paid call was replayed."
+  },
+  "additionalReadOnlyProbe": {
+    "operation": "Unauthenticated HEAD https://s.jina.ai/ without query or credentials",
+    "httpStatus": null,
+    "connectSeconds": 0.004542,
+    "tlsSeconds": 0.017884,
+    "totalSeconds": 10.000983,
+    "result": "no HTTP response before the explicit 10-second probe limit",
+    "interpretation": "Connectivity observation only; does not establish the cause of a failed search."
+  },
+  "limits": [
+    "Direct OpenAI and Anthropic presets remain unconfigured; CPA routes are separate evidence.",
+    "Original assistant text is unavailable for structured reference results; citation-text verification is not claimed for them.",
+    "Six Jina failures preceded model execution; Jina request settlement is not inferred.",
+    "One Gemini transport outcome is unconfirmed and was not replayed.",
+    "The retained fixed metadata does not establish deeper causes for all provider failures.",
+    "No browser, production deployment, user history mutation or automatic paid replay."
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "command": "PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast",
+  "accepted": true,
+  "generatedAt": "2026-11-16T22:45:46.830Z",
+  "manifestSHA256": "698364bd2be7d7ef52af9c449a1f772495ea06b86daf250425a31d34b6ad9538",
+  "tasks": [
+    {
+      "id": "go-static",
+      "exitCode": 0
+    },
+    {
+      "id": "runner-contracts",
+      "exitCode": 0
+    },
+    {
+      "id": "go-unit",
+      "exitCode": 0
+    },
+    {
+      "id": "go-parity",
+      "exitCode": 0
+    },
+    {
+      "id": "go-api",
+      "exitCode": 0
+    },
+    {
+      "id": "go-observability",
+      "exitCode": 0
+    },
+    {
+      "id": "frontend-ui-package",
+      "exitCode": 0
+    },
+    {
+      "id": "frontend-deterministic",
+      "exitCode": 0
+    },
+    {
+      "id": "client-core",
+      "exitCode": 0
+    },
+    {
+      "id": "run-progress-client",
+      "exitCode": 0
+    }
+  ],
+  "cleanupErrors": [],
+  "cleanupWarnings": []
+}

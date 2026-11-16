@@ -1946,8 +1946,27 @@ Explicit T3 task `frontend-gateway-workflows` starts the actual Go gateway with 
 
 Selection requires `HARDEN_LLM_LIVE_PRESETS=1` and a mode-0600 report named by
 `HARDEN_LLM_LIVE_PRESET_REPORT`, with the deployment's protected startup sources.
-`HARDEN_LLM_LIVE_PRESET_MODE=text` selects only text cases when those cases were
-proven unexecuted; it never authorizes replaying a dispatched/ambiguous call.
+`HARDEN_LLM_LIVE_PRESET_MODE=text` or `structured` selects only that mode when
+those cases were proven unexecuted; it never authorizes replaying a
+dispatched/ambiguous call. `HARDEN_LLM_LIVE_PRESET_SEARCH=1` selects search
+qualification instead of the basic generation prompt. It preserves each
+shipped model, reasoning, schema and provider options and supplies the configured
+Jina key to the existing stateful client. All selected preset/mode cases are
+reported, including missing provider or Jina credentials. Native search may be
+unobserved without making a valid answer fail; that outcome is explicitly
+distinct from observed retrieval. Completed fallback calls require Jina
+execution. Evidence validates the expected route and canonical search metadata,
+records counts/completeness/warnings, and verifies citation hash and Unicode
+ranges against text answers. The reference result does not expose original
+structured assistant text, so its citation-text verification remains explicitly
+unavailable. See [operator instructions](../../docs/preset-live-qualification.md).
+
+The report path must be new. Mode-0600 atomic snapshots record the full plan
+before inference, then each started and completed outcome. Interrupted started
+rows and transport outcomes with unknown acknowledgement are unconfirmed and
+must not be replayed. Reports contain metadata, not model output, source URLs,
+credentials or raw provider diagnostics. These live calls remain outside
+`test-fast`, `verify`, release and automatic deployment checks.
 No live canary is part of `make test-fast`, `make verify` or deployment smoke.
 
 ### Exact-source corrective acceptance
@@ -2701,3 +2720,17 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
 - Command: `HLLM_CPA_SEARCH_CONFIRMED=yes go test -tags=live ./stateful -run '^TestSearchCPALive$' -count=1 -v`, with `CPA_API_KEY` supplied through the existing protected credential path.
 - Native Claude command: `HLLM_CLAUDE_SEARCH_CONFIRMED=yes go test -tags=live ./stateful -run '^TestSearchClaudeCPALive$' -count=1 -v`, using the same protected CPA key and optional metadata-only `HLLM_CLAUDE_SEARCH_RECEIPT`.
 - Oracle: One request per explicitly selected model through the actual stateful provider composition and stateless core returns URL sources, verified citation ranges/hash and one uncached attempt. Luna uses native low; Claude uses its provider default. No Harden retry/repair, browser, source output or credential logging. CPA's internal retry policy is not modified or inferred. Missing confirmed flags skip inference; an unconfirmed call is not replayed automatically. This does not certify native Gemini runtime behavior or deployed Harden gateway behavior.
+
+### TEST-548: Credential-free live preset search matrix invariants
+
+- Coverage gate: `fast`.
+- Tier: T0; `cmd/harden-llm-gateway/preset_matrix_test.go` and `preset_matrix_helpers_test.go`.
+- Oracle: Every shipped preset/mode retains its model, reasoning, options,
+  schema, cache-off and one-attempt/no-repair settings when search is selected.
+  Native/fallback routing matches the accepted protocol/capability contract.
+  Optional unobserved native search and executed searches with no results remain
+  distinguishable from missing/malformed evidence, incorrect fallback routing,
+  or a Jina call that did not run. Citation hashes and Unicode ranges bind to
+  returned text; structured citation verification never invents unavailable
+  original text. Private atomic report snapshots preserve started outcomes and
+  refuse to overwrite an existing campaign. No provider or browser is started.
