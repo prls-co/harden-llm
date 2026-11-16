@@ -53,6 +53,16 @@ generic expiration and `cache`, `refresh`, and `off` semantics. Callers accept
 cached answers or explicitly request new execution. No search-specific TTL,
 maximum-age check, or additional freshness metadata is required.
 
+Decision confirmed 2026-11-16 in [issue #156](https://github.com/prls-co/harden-llm/issues/156):
+keep Anthropic native search optional and expose observed execution. The
+`required` search choice remains a documented hint on Anthropic; it does not
+disable thinking, introduce a forced-tool model allowlist, retry an answer
+without search, or switch providers. Consumers decide whether the returned
+evidence meets their requirements. TEST-455 adds explicit live search selection
+across the shipped catalog, with deterministic TEST-548 protecting its reporting
+and execution settings. The decision does not establish that every preset or
+provider route has passed live qualification.
+
 The gateway has one additional fixed-host outbound dependency and must keep
 its key in the protected environment. Search results are treated as
 untrusted prompt material, bounded before injection, and excluded from logs,
