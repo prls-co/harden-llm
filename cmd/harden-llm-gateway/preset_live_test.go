@@ -104,11 +104,15 @@ func TestLivePresetMatrix(t *testing.T) {
 		if row["status"] != "planned" {
 			continue
 		}
-		// Persist intent before dispatch. An interrupted `started` row is
-		// unconfirmed and must never be automatically replayed.
-		row["status"], row["startedAt"] = "started", time.Now().UTC().Format(time.RFC3339Nano)
-		write()
+		var reportErr error
 		t.Run(input.ProfileID+"/"+string(input.CallType), func(t *testing.T) {
+			// Persist intent only after Go selects this subtest. An interrupted
+			// started row is unconfirmed and must never be replayed automatically.
+			row["status"], row["startedAt"] = "started", time.Now().UTC().Format(time.RFC3339Nano)
+			if reportErr = writeLivePresetReport(reportPath, rows); reportErr != nil {
+				t.Error("could not preserve dispatch intent; no call made")
+				return
+			}
 			output, _, callErr := service.Run(context.Background(), scope, input)
 			row["status"], row["providerInvoked"], row["attemptCount"], row["usedRepair"] = output.Status, output.ProviderInvoked, len(output.Attempts), output.UsedRepair
 			row["durationMs"], row["cacheServed"], row["finishedAt"] = output.TotalCallDurationMs, output.Cache.Served, time.Now().UTC().Format(time.RFC3339Nano)
@@ -146,6 +150,9 @@ func TestLivePresetMatrix(t *testing.T) {
 				t.Error(evidenceErr)
 			}
 		})
+		if reportErr != nil {
+			t.Fatal(reportErr)
+		}
 		write()
 	}
 }

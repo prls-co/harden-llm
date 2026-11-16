@@ -1,0 +1,32 @@
+{
+  "sourceCommit": "154ad631cc565322442346624ad7e378d9f15c4e",
+  "catalogSha256": "0a1e9d98dcb283d48e5870fa9a363f6f2fb8f125506b74764678e97bae3def71",
+  "configSha256": "77ba0e35287d7eac3084fdd3aabddeb1701ed61d4e8a4f1e61e75a126f584729",
+  "startedAt": "2026-11-16T22:45:13.271125+00:00",
+  "command": [
+    "go",
+    "test",
+    "-tags=live",
+    "./cmd/harden-llm-gateway",
+    "-run",
+    "^TestLivePresetMatrix$",
+    "-count=1",
+    "-v",
+    "-timeout=90m"
+  ],
+  "search": true,
+  "cache": "off",
+  "maxAttempts": 1,
+  "retries": false,
+  "browser": false,
+  "configuredUpstreams": [
+    "cpa",
+    "google",
+    "novita",
+    "openrouter",
+    "perplexity"
+  ],
+  "jinaConfigured": true,
+  "exitCode": 1,
+  "finishedAt": "2026-11-16T22:53:10.294647+00:00"
+}
