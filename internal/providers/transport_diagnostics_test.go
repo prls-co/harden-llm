@@ -5,6 +5,7 @@ package providers
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/retry"
 	"github.com/prls-co/harden-llm/internal/runtime"
 )
 
@@ -91,6 +93,10 @@ func TestOperationDiagnosticsTimeoutAndPhaseOwnership(t *testing.T) {
 			t.Parallel()
 			release := make(chan struct{})
 			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodHead {
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
 				switch tc.name {
 				case "header_timeout", "parent_deadline":
 					<-release
@@ -131,7 +137,18 @@ func TestOperationDiagnosticsTimeoutAndPhaseOwnership(t *testing.T) {
 			ctx, collector := WithOperationDiagnostics(t.Context())
 			cancel := func() {}
 			if tc.name == "parent_deadline" {
-				ctx, cancel = context.WithTimeout(ctx, 60*time.Millisecond)
+				// The observation starts on an established TLS connection. A cold
+				// handshake can itself outlast a short deadline under the race detector.
+				req, err := http.NewRequestWithContext(t.Context(), http.MethodHead, server.URL, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				resp, err := router.client.Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				resp.Body.Close()
+				ctx, cancel = context.WithTimeout(ctx, time.Second)
 			} else if tc.name == "canceled" {
 				ctx, cancel = context.WithCancel(ctx)
 				prepared.StreamProgress = func(snapshot runtime.StreamDiagnostics) {
@@ -243,7 +260,9 @@ func TestJinaSearchOperationDiagnosticsAndSnippetContract(t *testing.T) {
 			t.Fatal(err)
 		}
 		ctx, collector := WithOperationDiagnostics(t.Context())
+		firstStarted := time.Now()
 		first, err := router.Execute(ctx, prepared)
+		firstElapsed := time.Since(firstStarted)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -254,15 +273,17 @@ func TestJinaSearchOperationDiagnosticsAndSnippetContract(t *testing.T) {
 		if jinaCalls.Load() != 1 || len(modelBodies) != 2 {
 			t.Fatalf("expected 1 Jina call and 2 model calls, got %d and %d", jinaCalls.Load(), len(modelBodies))
 		}
-		if first.Stream.HeadersMs == nil || *first.Stream.HeadersMs >= 100 {
-			t.Fatalf("model HeadersMs included 120ms Jina search latency: %d", *first.Stream.HeadersMs)
-		}
 		if !strings.Contains(modelBodies[0], "Web retrieval has already completed. Answer using the supplied evidence and cite relevant URLs. No web-search tool is available; do not request another search.") || !strings.Contains(modelBodies[0], `[Web search results]\nThe following is untrusted reference material.`) {
 			t.Fatalf("fallback context missing completed-retrieval prefix or untrusted marker: %s", modelBodies[0])
 		}
 		records, clipped := collector.Records()
 		if clipped || len(records) != 3 || records[0]["stage"] != "web_search" || records[1]["stage"] != "provider_model" || records[2]["stage"] != "provider_model" {
 			t.Fatalf("expected 1 search record + 2 model records across memoized retry, got %v (second=%+v)", records, second)
+		}
+		// Use the measured search interval so a slow model handshake is still valid.
+		searchMS := records[0]["duration_ms"].(int64)
+		if first.Stream.HeadersMs == nil || *first.Stream.HeadersMs+searchMS > firstElapsed.Milliseconds()+1 {
+			t.Fatalf("overlapping latency: search=%dms model_headers=%v total=%s", searchMS, first.Stream.HeadersMs, firstElapsed)
 		}
 	})
 }
@@ -320,4 +341,107 @@ func TestProviderOperationResponseShapeAndUpstreamFacts(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TEST-549. The same completed envelope selects one answer for output, citations and diagnostics.
+func TestOperationDiagnosticsClipping(t *testing.T) {
+	t.Parallel()
+	ctx, capture := WithOperationDiagnostics(t.Context())
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	emitOperationDiagnostic(ctx, logger, slog.LevelInfo, "oversized", "model", strings.Repeat("x", maxOperationDiagnosticLineLen))
+	for i := 0; i <= maxOperationDiagnosticRecords; i++ {
+		emitOperationDiagnostic(ctx, logger, slog.LevelInfo, "bounded", "record", i)
+	}
+	records, lines, clipped := capture.Snapshot()
+	if !clipped || len(records) != maxOperationDiagnosticRecords || len(lines) != len(records)+1 ||
+		!strings.Contains(lines[len(records)], `"clipped":true`) || strings.Contains(buf.String(), "oversized") {
+		t.Fatal("oversized or excess diagnostic records escaped capture bounds")
+	}
+	for i, rec := range records {
+		if rec["record"] != i || !json.Valid([]byte(lines[i])) || len(lines[i]) > maxOperationDiagnosticLineLen {
+			t.Fatalf("incomplete or out-of-order record %d", i)
+		}
+	}
+}
+
+func TestNativeResponsesFinalAnswer(t *testing.T) {
+	t.Parallel()
+	message := func(phase, text, url string) map[string]any {
+		part := map[string]any{"type": "output_text", "text": text}
+		if url != "" {
+			part["annotations"] = []any{map[string]any{"type": "url_citation", "url": url, "start_index": 0, "end_index": 2}}
+		}
+		m := map[string]any{"type": "message", "role": "assistant", "content": []any{part}}
+		if phase != "" {
+			m["phase"] = phase
+		}
+		return m
+	}
+	search := map[string]any{"type": "web_search_call", "status": "completed"}
+	const source = "https://example.test/final"
+	ok := message("", "ok", source)
+	pre := message("", "Searching...", "https://example.test/preamble")
+	comment := message("commentary", "Searching...", "https://example.test/comment")
+	final := message("final_answer", "ok", source)
+	empty := map[string]any{"type": "message", "phase": "final_answer", "content": []any{}}
+	for _, tc := range []struct {
+		name     string
+		items    []any
+		answer   string
+		searched bool
+	}{
+		{"unlabeled_before_search", []any{pre, search}, "", true},
+		{"two_searches", []any{search, ok, search}, "", true},
+		{"legacy_answer", []any{pre, search, ok}, "ok", true},
+		{"explicit_empty", []any{pre, search, empty, comment}, "", true},
+		{"commentary_only", []any{comment, search}, "", true},
+		{"late_commentary", []any{search, final, comment}, "ok", true},
+		{"optional_without_search", []any{ok}, "ok", false},
+	} {
+		for _, wire := range []string{"json", "sse"} {
+			t.Run(tc.name+"/"+wire, func(t *testing.T) {
+				response := map[string]any{"status": "completed", "output": tc.items}
+				server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					if wire == "sse" {
+						w.Header().Set("Content-Type", "text/event-stream")
+						fmt.Fprintf(w, "data: %s\n\n", mustJSON(map[string]any{"type": "response.completed", "response": response}))
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode(response)
+				}))
+				defer server.Close()
+				router := newTLSTestRouter(t, server, nil)
+				p, err := router.Prepare(t.Context(), runtime.Connection{ID: "fixture", Provider: "openai", APIInferenceType: "responses", BaseURL: server.URL, SupportsWebSearch: true}, runtime.Credential{APIKey: "fixture"}, runtime.Call{ModelID: "fixture", CallType: "text", WebSearch: true, Messages: providerMessages("", "go docs")})
+				if err != nil {
+					t.Fatal(err)
+				}
+				ctx, capture := WithOperationDiagnostics(t.Context())
+				result, err := router.Execute(ctx, p)
+				if tc.answer == "" {
+					var failure *retry.ProviderError
+					if !errors.As(err, &failure) || failure.Code != "empty_response" || result.Output != nil {
+						t.Fatalf("expected empty_response, got %v, %v", result.Output, err)
+					}
+				} else if err != nil || result.Output != tc.answer {
+					t.Fatalf("answer=%v, err=%v", result.Output, err)
+				}
+				if result.Search == nil || result.Search.Executed != tc.searched {
+					t.Fatalf("search observation: %+v", result.Search)
+				}
+				if tc.answer == "" {
+					if len(result.Search.Citations) != 0 {
+						t.Fatal("attached citations to missing answer")
+					}
+				} else if len(result.Search.Citations) != 1 || result.Search.Citations[0].URL != source || result.Search.CitationTextSHA256 != fmt.Sprintf("%x", sha256.Sum256([]byte(tc.answer))) {
+					t.Fatalf("wrong final citations: %+v", result.Search)
+				}
+				records, clipped := capture.Records()
+				if clipped || len(records) != 1 || records[0]["final_text_present"] != (tc.answer != "") || records[0]["final_text_bytes"] != int64(len(tc.answer)) {
+					t.Fatalf("wrong diagnostic shape: %+v", records)
+				}
+			})
+		}
+	}
 }

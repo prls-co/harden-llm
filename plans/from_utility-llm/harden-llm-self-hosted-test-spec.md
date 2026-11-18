@@ -2733,17 +2733,24 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
   or a Jina call that did not run. Citation hashes and Unicode ranges bind to
   returned text; structured citation verification never invents unavailable
   original text. Private atomic report snapshots preserve started outcomes and
-  refuse to overwrite an existing campaign. No provider or browser is started.
+  refuse to overwrite an existing campaign. Evaluated rows retain their
+  run/call/trace IDs and preserve execution status independently from
+  `qualificationStatus`. A successful Jina fallback qualifies only with both
+  terminal records in order on the same attempt. Missing, contradictory,
+  reordered, duplicated, clipped or unpublished evidence is distinguishable.
+  No provider or browser is started.
 
 ### TEST-549: Shared provider/search operation diagnostics and issue 184 corrections
 
 - Coverage gate: `fast`.
-- Tier: T0/T1; `internal/providers/transport_diagnostics_test.go`, `stateful/admission_diagnostics_test.go`, `stateful/default_catalog_test.go`, `cmd/harden-llm-gateway/preset_matrix_test.go`, and `cmd/harden-llm-gateway/preset_matrix_helpers_test.go`.
+- Tier: T0/T1; `internal/gateway/httpapi/chat_web_search_test.go`, `internal/providers/transport_diagnostics_test.go`, `stateful/admission_diagnostics_test.go`, `stateful/default_catalog_test.go`, `cmd/harden-llm-gateway/preset_matrix_test.go`, and `cmd/harden-llm-gateway/preset_matrix_helpers_test.go`.
 - Oracle:
   - Provider and Jina search boundaries emit bounded, finite operation diagnostic records (`"web search operation observed"` and `"provider operation observed"`) without changing public HTTP/OpenAPI, trace, or cache schemas or fabricating `Attempt.Stream` on `no_headers`.
   - Timeout ownership distinguishes `response_headers` timeout while the parent context is live (`error_class: "timeout"`) from parent deadline expiry (`error_class: "deadline"`), caller cancellation, and partial stream disconnect.
   - Jina HTTP 200 oversize responses retain `http_status: 200`, `received_bytes`, `max_response_bytes`, and `error_code: "RESPONSE_TOO_LARGE"` with `ProviderDispatched == false`; Jina requests send `X-Respond-With: no-content`; fallback context prepends the completed-retrieval status prefix while preserving prompt/schema/untrusted markers; `SearchMemo` reuse across retries emits one search record; model `Stream.HeadersMs` excludes Jina search duration.
   - Response-shape and upstream-identity facts distinguish reasoning-only empty answers (`reasoning_present: true`, `final_text_present: false`, `upstream_provider`, `provider_request_id`, `finish_reason`) and upstream tool-call rejections (`upstream_error_code: "model_called_tool_when_none_enabled"`) without logging reasoning, prompts, raw errors, or credentials.
   - Reference runs isolate per-call diagnostics across concurrent scopes, redact provider/header/`JinaAPIKey` secrets into `support-bundle.json` `Logs`, and preserve accepted inference when artifact publication fails.
+  - The process logger and persisted support bundle agree on attempt numbers. A search timeout followed by a successful retry records `1, 2, 2`. A memoized search produces one search record. A post-transport schema rejection stays on its trace attempt and preserves the successful model operation.
+  - Native Responses JSON and SSE select an explicit final message or eligible unlabeled assistant content after the last completed search. An explicit empty final or commentary alone yields `empty_response` and zero final-text bytes. Citations bind to the selected answer while the full response supplies search actions and usage.
   - Preset matrix reporting retains `STRUCTURED_PARSE`, `STRUCTURED_SCHEMA`, `ACCOUNTING_INVALID`, `empty_response`, `model_not_found`, `RESPONSE_TOO_LARGE`, and `ETIMEDOUT` causes alongside `configIdentity` and `diagnosticCaptureStatus` while preserving public `ProjectRunError` codes and unconfirmed outcomes.
   - `CPA claude-haiku-4-5-20251001` uses `anthropic-messages` with `"provider": "cpa"` preserved across `Prepare`/`Execute`, `CPA gpt-5.5` is removed from the starting catalog without invalidating saved profiles, and shipped Google Gemini presets price reasoning tokens at their documented output-token rates.

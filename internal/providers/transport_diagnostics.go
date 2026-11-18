@@ -24,148 +24,108 @@ const (
 )
 
 type operationDiagnosticsKey struct{}
+type diagnosticAttemptKey struct{}
+
+type diagnosticAttempt struct {
+	number   int
+	redactor *redaction.Redactor
+}
+
+// WithDiagnosticAttempt binds the runtime attempt to its external operations.
+func WithDiagnosticAttempt(ctx context.Context, number int, redactor *redaction.Redactor) context.Context {
+	return context.WithValue(ctx, diagnosticAttemptKey{}, diagnosticAttempt{number, redactor})
+}
 
 // OperationDiagnostics collects bounded, request-owned operation records for one
 // logical call without global state or wire-schema changes.
 type OperationDiagnostics struct {
-	mu      sync.Mutex
-	records []map[string]any
-	clipped bool
+	redactor *redaction.Redactor
+	mu       sync.Mutex
+	records  []map[string]any
+	lines    []string
+	clipped  bool
 }
 
 // WithOperationDiagnostics attaches a fresh request-scoped operation collector.
-func WithOperationDiagnostics(ctx context.Context) (context.Context, *OperationDiagnostics) {
+func WithOperationDiagnostics(ctx context.Context, secrets ...string) (context.Context, *OperationDiagnostics) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	collector := &OperationDiagnostics{}
+	collector := &OperationDiagnostics{redactor: redaction.New(secrets...)}
 	return context.WithValue(ctx, operationDiagnosticsKey{}, collector), collector
 }
 
-// OperationDiagnosticsFromContext returns the active collector when present.
-func OperationDiagnosticsFromContext(ctx context.Context) *OperationDiagnostics {
-	if ctx == nil {
-		return nil
-	}
-	collector, _ := ctx.Value(operationDiagnosticsKey{}).(*OperationDiagnostics)
-	return collector
-}
-
-// Record appends one structured diagnostic event to the collector.
-func (c *OperationDiagnostics) Record(msg string, attrs ...any) {
-	if c == nil {
-		return
-	}
-	entry := make(map[string]any, 1+len(attrs)/2)
-	entry["msg"] = msg
-	for i := 0; i+1 < len(attrs); i += 2 {
-		key, ok := attrs[i].(string)
-		if !ok || key == "" {
-			continue
-		}
-		entry[key] = attrs[i+1]
-	}
+func (c *OperationDiagnostics) record(entry map[string]any, line []byte, clipped bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if len(c.records) >= maxOperationDiagnosticRecords {
+	if clipped || len(c.records) >= maxOperationDiagnosticRecords {
 		c.clipped = true
 		return
 	}
 	c.records = append(c.records, entry)
-}
-
-// ReconcileAttempt updates the nth provider_model record when post-Execute
-// validation or accounting (such as STRUCTURED_SCHEMA or ACCOUNTING_INVALID)
-// rejects a response after transport/normalization completed.
-func (c *OperationDiagnostics) ReconcileAttempt(attemptIndex int, code, category, stage string) {
-	if c == nil || code == "" {
-		return
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	modelIdx := 0
-	for _, rec := range c.records {
-		if rec["stage"] != "provider_model" {
-			continue
-		}
-		if modelIdx == attemptIndex {
-			if existing, _ := rec["error_code"].(string); existing == "" {
-				rec["error_code"] = boundedCode(code)
-			}
-			if existing, _ := rec["error_category"].(string); existing == "" || existing == "success" {
-				rec["error_category"] = boundedCode(category)
-			}
-			if stage != "" {
-				rec["attempt_stage"] = boundedCode(stage)
-			}
-			return
-		}
-		modelIdx++
-	}
+	c.lines = append(c.lines, string(line))
 }
 
 // Records returns a detached copy of the captured records and clipping state.
 func (c *OperationDiagnostics) Records() ([]map[string]any, bool) {
+	records, _, clipped := c.Snapshot()
+	return records, clipped
+}
+
+// Snapshot renders the same redacted operation records for reports and support bundles.
+func (c *OperationDiagnostics) Snapshot() ([]map[string]any, []string, bool) {
 	if c == nil {
-		return nil, false
+		return nil, nil, false
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	out := make([]map[string]any, len(c.records))
+	records := make([]map[string]any, len(c.records))
 	for i, rec := range c.records {
-		out[i] = maps.Clone(rec)
+		records[i] = maps.Clone(rec)
 	}
-	return out, c.clipped
-}
-
-// RedactedSnapshot returns scrubbed records, JSON log lines for support bundles,
-// and whether capture was clipped.
-func (c *OperationDiagnostics) RedactedSnapshot(redactor *redaction.Redactor) ([]map[string]any, []string, bool) {
-	records, clipped := c.Records()
-	if len(records) == 0 && !clipped {
-		return nil, nil, false
-	}
-	scrubbed := make([]map[string]any, 0, len(records))
-	lines := make([]string, 0, len(records)+1)
-	for _, rec := range records {
-		clean := redactRecordMap(redactor, rec)
-		scrubbed = append(scrubbed, clean)
-		if encoded, err := json.Marshal(clean); err == nil {
-			line := string(encoded)
-			if redactor != nil {
-				line = redactor.Text(line)
-			}
-			if len(line) > maxOperationDiagnosticLineLen {
-				line = line[:maxOperationDiagnosticLineLen]
-				clipped = true
-			}
-			lines = append(lines, line)
-		}
-	}
-	if clipped {
+	lines := append([]string(nil), c.lines...)
+	if c.clipped {
 		lines = append(lines, `{"msg":"diagnostic capture clipped","clipped":true}`)
 	}
-	return scrubbed, lines, clipped
-}
-
-func redactRecordMap(redactor *redaction.Redactor, input map[string]any) map[string]any {
-	out := make(map[string]any, len(input))
-	for k, v := range input {
-		if text, ok := v.(string); ok && redactor != nil {
-			out[k] = redactor.Text(text)
-			continue
-		}
-		out[k] = v
-	}
-	return out
+	return records, lines, c.clipped
 }
 
 func emitOperationDiagnostic(ctx context.Context, logger *slog.Logger, level slog.Level, msg string, attrs ...any) {
-	if logger != nil {
-		logger.Log(ctx, level, msg, attrs...)
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	if collector := OperationDiagnosticsFromContext(ctx); collector != nil {
-		collector.Record(msg, attrs...)
+	collector, _ := ctx.Value(operationDiagnosticsKey{}).(*OperationDiagnostics)
+	attempt, _ := ctx.Value(diagnosticAttemptKey{}).(diagnosticAttempt)
+	scrubber := attempt.redactor
+	if collector != nil {
+		scrubber = collector.redactor
+	}
+	if collector == nil && (logger == nil || !logger.Enabled(ctx, level)) {
+		return
+	}
+	if scrubber == nil {
+		scrubber = redaction.New()
+	}
+	if attempt.number > 0 {
+		attrs = append(attrs, "attempt_number", attempt.number)
+	}
+	entry := map[string]any{"msg": msg}
+	for i := 0; i < len(attrs); i += 2 {
+		key := attrs[i].(string)
+		attrs[i+1] = scrubber.Attribute(key, attrs[i+1])
+		entry[key] = attrs[i+1]
+	}
+	line, err := json.Marshal(entry)
+	clipped := err != nil || len(line) > maxOperationDiagnosticLineLen
+	if collector != nil {
+		collector.record(entry, line, clipped)
+	}
+	if logger != nil {
+		if clipped {
+			logger.WarnContext(ctx, "diagnostic capture clipped", "clipped", true, "attempt_number", attempt.number)
+		} else {
+			logger.Log(ctx, level, msg, attrs...)
+		}
 	}
 }
 
@@ -183,7 +143,7 @@ type modelOperationFacts struct {
 	responseObserved  bool
 }
 
-func inspectResponseShape(protocol string, response map[string]any) modelOperationFacts {
+func inspectResponseShape(protocol string, response map[string]any, extraction providerOutputExtraction) modelOperationFacts {
 	if len(response) == 0 {
 		return modelOperationFacts{}
 	}
@@ -211,10 +171,8 @@ func inspectResponseShape(protocol string, response map[string]any) modelOperati
 			}
 		}
 		facts.finishReason = status
-		extraction := extractProviderOutputState(protocol, response)
 		if extraction.output != nil {
 			if assistant, ok := extraction.output.(runtime.AssistantOutput); ok {
-				facts.toolCallCount = len(assistant.ToolCalls)
 				facts.finalTextBytes = int64(len(assistant.Content))
 				facts.finalTextPresent = strings.TrimSpace(assistant.Content) != ""
 			} else {
@@ -231,9 +189,7 @@ func inspectResponseShape(protocol string, response map[string]any) modelOperati
 			case "reasoning":
 				facts.reasoningPresent = true
 			case "function_call":
-				if facts.toolCallCount == 0 {
-					facts.toolCallCount++
-				}
+				facts.toolCallCount++
 			}
 		}
 		if usage, err := normalizeOpenAIUsage(response); err == nil && usage.ReasoningTokens > 0 {

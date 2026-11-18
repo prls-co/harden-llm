@@ -5,6 +5,8 @@ import (
 	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/providers"
+	"github.com/prls-co/harden-llm/internal/redaction"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
@@ -18,7 +20,10 @@ func trackingSession(ctx context.Context) *TrackingSession {
 	return s
 }
 
-type trackingObserver struct{ next hardenllm.Observer }
+type trackingObserver struct {
+	next     hardenllm.Observer
+	redactor *redaction.Redactor
+}
 
 func (o trackingObserver) StartCall(ctx context.Context, v hardenllm.CallObservation) (context.Context, func(hardenllm.CallSummary, error)) {
 	return o.next.StartCall(ctx, v)
@@ -33,7 +38,7 @@ func (o trackingObserver) StartAttempt(ctx context.Context, t hardenllm.Observer
 	if s := trackingSession(ctx); s != nil {
 		s.Attempt(n)
 	}
-	return o.next.StartAttempt(ctx, t, c, n)
+	return o.next.StartAttempt(providers.WithDiagnosticAttempt(ctx, n, o.redactor), t, c, n)
 }
 func (o trackingObserver) StartRetry(ctx context.Context, t hardenllm.ObserverTarget, c string, v hardenllm.RetryClassification, d time.Duration) (context.Context, func(error)) {
 	next, finish := o.next.StartRetry(ctx, t, c, v, d)

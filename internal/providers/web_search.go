@@ -83,43 +83,30 @@ func (search *preparedWebSearch) results(ctx context.Context, searcher Searcher)
 	if searcher == nil {
 		return "", errors.New("providers: web-search fallback is not configured")
 	}
-	started := time.Now()
-	_, isJina := searcher.(*jinaSearcher)
+	var err error
+	if _, usesJinaTransport := searcher.(*jinaSearcher); !usesJinaTransport {
+		// Only the injected searcher knows whether it contacted an upstream.
+		started := time.Now()
+		defer func() {
+			code, _, category := classifyDiagnosticError(err)
+			level := slog.LevelInfo
+			if err != nil {
+				level = slog.LevelWarn
+			}
+			emitOperationDiagnostic(ctx, nil, level, "web search operation observed", "stage", "web_search",
+				"duration_ms", time.Since(started).Milliseconds(), "error_code", code, "error_category", category)
+		}()
+	}
 	result, err := searcher.Search(ctx, search.query)
 	if err != nil {
-		if !isJina {
-			code, _, category := classifyDiagnosticError(err)
-			emitOperationDiagnostic(ctx, nil, slog.LevelWarn, "web search operation observed",
-				"stage", "web_search", "provider", "jina", "protocol", "jina.search",
-				"dispatched", true, "duration_ms", time.Since(started).Milliseconds(),
-				"error_code", code, "error_category", category, "parent_context_expired", ctx != nil && ctx.Err() != nil,
-			)
-		}
 		return "", err
 	}
 	result = strings.TrimSpace(result)
 	if result == "" {
-		emptyErr := &retry.ProviderError{Err: errors.New("web search returned an empty result"), Code: "WEB_SEARCH_EMPTY", Category: retry.CategoryEmpty}
-		if !isJina {
-			emitOperationDiagnostic(ctx, nil, slog.LevelWarn, "web search operation observed",
-				"stage", "web_search", "provider", "jina", "protocol", "jina.search",
-				"dispatched", true, "duration_ms", time.Since(started).Milliseconds(),
-				"received_bytes", int64(0), "error_code", "WEB_SEARCH_EMPTY", "error_category", string(retry.CategoryEmpty),
-			)
-		}
-		return "", emptyErr
+		err = &retry.ProviderError{Err: errors.New("web search returned an empty result"), Code: "WEB_SEARCH_EMPTY", Category: retry.CategoryEmpty}
+		return "", err
 	}
-	if !isJina {
-		emitOperationDiagnostic(ctx, nil, slog.LevelInfo, "web search operation observed",
-			"stage", "web_search", "provider", "jina", "protocol", "jina.search",
-			"dispatched", true, "duration_ms", time.Since(started).Milliseconds(),
-			"received_bytes", int64(len(result)), "error_category", string(retry.CategorySuccess),
-		)
-	}
-	if search.state.result == "" {
-		search.state.result = result
-	}
-	result = search.state.result
+	search.state.result = result
 	return result, nil
 }
 

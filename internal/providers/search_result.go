@@ -1,7 +1,6 @@
 package providers
 
 import (
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -32,13 +31,9 @@ func normalizeSearch(prepared preparedRequest, response map[string]any, assistan
 			e.addCall(runtime.SearchCall{Status: "completed", Action: &runtime.SearchAction{Type: "search", Query: prepared.webSearch.query}}, sources)
 		}
 	}
-	final := finalResponseOutput(response)
-	var finalItem any
-	if len(final) > 0 {
-		finalItem = final[0]
-	}
+	finalIndex := finalResponseOutput(response)
 	citationTextSeen := false
-	for _, raw := range arrayValue(response["output"]) {
+	for i, raw := range arrayValue(response["output"]) {
 		item := objectValue(raw)
 		if item["type"] == "web_search_call" {
 			result.Executed = result.Executed || item["status"] == "completed"
@@ -70,7 +65,7 @@ func normalizeSearch(prepared preparedRequest, response map[string]any, assistan
 		}
 		for _, content := range arrayValue(item["content"]) {
 			part := objectValue(content)
-			firstText := !citationTextSeen && reflect.DeepEqual(item, finalItem) && strings.TrimSpace(stringValue(part["text"])) != ""
+			firstText := !citationTextSeen && i == finalIndex && strings.TrimSpace(stringValue(part["text"])) != ""
 			for _, annotation := range e.array(part["annotations"]) {
 				a := objectValue(annotation)
 				if a["type"] != "url_citation" {
@@ -165,13 +160,30 @@ func normalizeSearch(prepared preparedRequest, response map[string]any, assistan
 	return result
 }
 
-func finalResponseOutput(response map[string]any) []any {
-	output := arrayValue(response["output"])
-	for index := len(output) - 1; index >= 0; index-- {
-		item := objectValue(output[index])
-		if len(arrayValue(item["content"])) > 0 {
-			return []any{output[index]}
+// finalResponseOutput identifies the assistant message whose text owns the citations.
+// An explicit final answer takes precedence even when its content is empty.
+func finalResponseOutput(response map[string]any) int {
+	explicit, unlabeled := -1, -1
+	for i, raw := range arrayValue(response["output"]) {
+		item := objectValue(raw)
+		if item["type"] == "web_search_call" && item["status"] == "completed" {
+			unlabeled = -1
+			continue
+		}
+		if item["type"] != "message" || (item["role"] != nil && item["role"] != "assistant") {
+			continue
+		}
+		switch item["phase"] {
+		case "final_answer":
+			explicit = i
+		case nil, "":
+			if len(arrayValue(item["content"])) > 0 {
+				unlabeled = i
+			}
 		}
 	}
-	return output
+	if explicit >= 0 {
+		return explicit
+	}
+	return unlabeled
 }

@@ -140,12 +140,14 @@ func newLivePresetRow(id string, preset stateful.Preset, input stateful.RunInput
 	_ = json.Unmarshal(preset.Definition, &profile)
 	optionsJSON, _ := json.Marshal(input.ProviderOptions)
 	configIdentity := map[string]any{
-		"promptSha256":     sha256HexBytes([]byte(input.UserPrompt)),
-		"optionsSha256":    sha256HexBytes(optionsJSON),
-		"definitionSha256": sha256HexBytes(preset.Definition),
-		"timeoutMs":        input.TimeoutMS,
-		"reasoningEffort":  input.ReasoningEffort,
-		"cacheMode":        string(input.CacheMode),
+		"upstreamId":           preset.Binding.DeploymentUpstreamID,
+		"recoveryPolicySha256": sha256HexBytes(input.RecoveryPolicy),
+		"promptSha256":         sha256HexBytes([]byte(input.UserPrompt)),
+		"optionsSha256":        sha256HexBytes(optionsJSON),
+		"definitionSha256":     sha256HexBytes(preset.Definition),
+		"timeoutMs":            input.TimeoutMS,
+		"reasoningEffort":      input.ReasoningEffort,
+		"cacheMode":            string(input.CacheMode),
 	}
 	if input.SystemPrompt != "" {
 		configIdentity["systemPromptSha256"] = sha256HexBytes([]byte(input.SystemPrompt))
@@ -166,8 +168,94 @@ func newLivePresetRow(id string, preset stateful.Preset, input stateful.RunInput
 	}
 }
 
+// completeMatrixOperations checks the single-attempt, cache-off contract of TEST-455.
+func completeMatrixOperations(route string, input stateful.RunInput, out stateful.RunOutput) bool {
+	if len(out.Attempts) != 1 || out.Attempts[0].Number != 1 || out.Cache.Served || out.RunID == "" || out.CallID == "" || out.TraceID == "" {
+		return false
+	}
+	attempt := out.Attempts[0]
+	ops := out.OperationDiagnostics
+	if route == "jina" {
+		if len(ops) == 0 || !matrixTerminalFacts(ops[0], "web_search", attempt.Number) || ops[0]["provider"] != "jina" || ops[0]["protocol"] != "jina.search" {
+			return false
+		}
+		search := ops[0]
+		if search["error_category"] != "success" {
+			return len(ops) == 1 && out.Status != "succeeded" && !attempt.DispatchObserved &&
+				!out.ProviderInvoked && search["error_category"] == attempt.Category
+		}
+		ops = ops[1:]
+	}
+	if len(ops) != 1 || !matrixTerminalFacts(ops[0], "provider_model", attempt.Number) {
+		return false
+	}
+	model := ops[0]
+	if model["provider"] != attempt.Target.Provider || model["protocol"] != attempt.Target.Protocol ||
+		model["model"] != input.ModelID || model["call_type"] != string(input.CallType) ||
+		model["dispatched"] != attempt.DispatchObserved || (attempt.HTTPStatus != 0 && model["http_status"] != attempt.HTTPStatus) {
+		return false
+	}
+	if route == "off" {
+		if model["search_mode"] != nil {
+			return false
+		}
+	} else if model["search_mode"] != route {
+		return false
+	}
+	if model["error_category"] != "success" {
+		if out.Status == "succeeded" || model["error_category"] != attempt.Category {
+			return false
+		}
+		switch model["error_code"] {
+		case "empty_response", "STRUCTURED_PARSE", "OUTPUT_MALFORMED":
+			// Normalization reached a decoded provider response.
+		default:
+			return true
+		}
+	}
+	// The engine can still reject the schema or accounting after Execute returns.
+	present, hasPresence := model["final_text_present"].(bool)
+	size, hasSize := model["final_text_bytes"].(int64)
+	_, hasReasoning := model["reasoning_present"].(bool)
+	tools, hasTools := model["tool_call_count"].(int)
+	return hasPresence && hasSize && size >= 0 && (!present || size > 0) && hasReasoning && hasTools && tools >= 0
+}
+
+func matrixTerminalFacts(rec map[string]any, stage string, number int) bool {
+	if rec["stage"] != stage || rec["attempt_number"] != number {
+		return false
+	}
+	status, hasStatus := rec["http_status"].(int)
+	headers, hasHeaders := rec["headers_received"].(bool)
+	dispatch, hasDispatch := rec["dispatched"].(bool)
+	size, hasSize := rec["received_bytes"].(int64)
+	limit, hasLimit := rec["max_response_bytes"].(int64)
+	category, hasCategory := rec["error_category"].(string)
+	duration, hasDuration := rec["duration_ms"].(int64)
+	_, hasParent := rec["parent_context_expired"].(bool)
+	_, hasRequest := rec["request_context_expired"].(bool)
+	if !hasDuration || duration < 0 || !hasParent || !hasRequest || !hasStatus || !hasHeaders || !hasDispatch || !hasSize || !hasLimit || !hasCategory ||
+		size < 0 || limit <= 0 || category == "" || (headers && (!dispatch || status < 100 || status > 599)) ||
+		(!headers && (status != 0 || size != 0)) {
+		return false
+	}
+	if category == "success" {
+		return status >= 200 && status < 300 && size > 0 && size <= limit && rec["error_code"] == nil
+	}
+	if rec["error_code"] == "RESPONSE_TOO_LARGE" {
+		return headers && size > limit
+	}
+	if !headers {
+		phase, _ := rec["error_phase"].(string)
+		class, _ := rec["error_class"].(string)
+		return class != "" && (phase == "request" && !dispatch || phase == "response_headers" && dispatch)
+	}
+	return true
+}
+
 func recordLivePresetOutcome(row map[string]any, input stateful.RunInput, output stateful.RunOutput, callErr error, finishedAt time.Time) bool {
 	row["status"], row["providerInvoked"], row["attemptCount"], row["usedRepair"] = output.Status, output.ProviderInvoked, len(output.Attempts), output.UsedRepair
+	row["runId"], row["callId"], row["traceId"] = output.RunID, output.CallID, output.TraceID
 	row["durationMs"], row["cacheServed"], row["finishedAt"] = output.TotalCallDurationMs, output.Cache.Served, finishedAt.UTC().Format(time.RFC3339Nano)
 	statuses := []int{}
 	attemptRows := make([]map[string]any, 0, len(output.Attempts))
@@ -263,6 +351,7 @@ func recordLivePresetOutcome(row map[string]any, input stateful.RunInput, output
 			row["diagnosticCategory"] = "canceled"
 		}
 	}
+	route := row["expectedSearchMode"].(string)
 	captureStatus := "not_applicable"
 	operationAttempted := output.ProviderInvoked || len(output.Attempts) > 0 || (output.Search != nil && output.Search.Executed)
 	if output.ArtifactDiagnostic != nil {
@@ -271,7 +360,10 @@ func recordLivePresetOutcome(row map[string]any, input stateful.RunInput, output
 	} else if output.DiagnosticsClipped {
 		captureStatus = "clipped"
 	} else if len(output.OperationDiagnostics) > 0 {
-		captureStatus = "complete"
+		captureStatus = "incomplete"
+		if completeMatrixOperations(route, input, output) {
+			captureStatus = "complete"
+		}
 	} else if operationAttempted && !output.Cache.Served {
 		captureStatus = "missing"
 	}
@@ -279,7 +371,7 @@ func recordLivePresetOutcome(row map[string]any, input stateful.RunInput, output
 
 	var evidenceErr error
 	if input.WebSearch && (callErr == nil || output.Search != nil) {
-		facts, err := livePresetSearchFacts(output, row["expectedSearchMode"].(string))
+		facts, err := livePresetSearchFacts(output, route)
 		for key, value := range facts {
 			row[key] = value
 		}
@@ -288,25 +380,22 @@ func recordLivePresetOutcome(row map[string]any, input stateful.RunInput, output
 			row["evidenceError"] = err.Error()
 		}
 	}
-	if callErr != nil {
+	verdict := "passed"
+	switch {
+	case callErr != nil:
 		problem := stateful.ProjectRunError(callErr)
 		row["errorCode"] = problem.Code
 		if problem.Code == "execution_unconfirmed" {
 			row["status"] = "unconfirmed"
 		}
-		return false
+		verdict = "failed"
+	case output.Status != "succeeded" || !output.ProviderInvoked || len(output.Attempts) != 1 || output.UsedRepair || output.Cache.Served:
+		verdict = "invalid_execution"
+	case evidenceErr != nil:
+		verdict = "invalid_evidence"
+	case captureStatus != "complete":
+		verdict = "invalid_diagnostics"
 	}
-	if output.Status != "succeeded" || !output.ProviderInvoked || len(output.Attempts) != 1 || output.UsedRepair || output.Cache.Served {
-		row["status"] = "invalid_execution"
-		return false
-	}
-	if evidenceErr != nil {
-		row["status"] = "invalid_evidence"
-		return false
-	}
-	if captureStatus != "complete" {
-		row["status"] = "invalid_diagnostics"
-		return false
-	}
-	return true
+	row["qualificationStatus"] = verdict
+	return verdict == "passed"
 }

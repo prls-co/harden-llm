@@ -223,7 +223,18 @@ func TestReferenceRunCapturesSharedOperationDiagnosticsAndRedactedBundleLogs(t *
 	}))
 	defer s3Server.Close()
 
+	var echoID atomic.Bool
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if echoID.Load() {
+			w.Header().Set("X-Request-ID", "synthetic-private-prefix")
+		} else {
+			var payload struct{ Model string }
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Error(err)
+				return
+			}
+			w.Header().Set("X-Request-ID", "req-"+payload.Model)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "chat/completions") {
 			w.WriteHeader(http.StatusOK)
@@ -282,6 +293,10 @@ func TestReferenceRunCapturesSharedOperationDiagnosticsAndRedactedBundleLogs(t *
 	scopeA := strings.Repeat("a", 64)
 	scopeB := strings.Repeat("b", 64)
 
+	input.ModelID = "scope-a"
+	inputB := input
+	inputB.ModelID = "scope-b"
+
 	var wg sync.WaitGroup
 	var outA, outB RunOutput
 	var errA, errB error
@@ -292,7 +307,7 @@ func TestReferenceRunCapturesSharedOperationDiagnosticsAndRedactedBundleLogs(t *
 	}()
 	go func() {
 		defer wg.Done()
-		outB, _, errB = service.Run(t.Context(), scopeB, input)
+		outB, _, errB = service.Run(t.Context(), scopeB, inputB)
 	}()
 	wg.Wait()
 	if errA != nil || errB != nil || outA.Output != "OK" || outB.Output != "OK" {
@@ -301,7 +316,7 @@ func TestReferenceRunCapturesSharedOperationDiagnosticsAndRedactedBundleLogs(t *
 	if len(outA.OperationDiagnostics) != 1 || len(outB.OperationDiagnostics) != 1 || outA.DiagnosticsClipped || outB.DiagnosticsClipped {
 		t.Fatalf("expected 1 isolated operation diagnostic per run: A=%v B=%v", outA.OperationDiagnostics, outB.OperationDiagnostics)
 	}
-	if outA.OperationDiagnostics[0]["upstream_provider"] != "Groq" || outA.OperationDiagnostics[0]["provider_request_id"] != "gen-or-1" || outA.OperationDiagnostics[0]["finish_reason"] != "stop" || outA.OperationDiagnostics[0]["final_text_present"] != true {
+	if outA.OperationDiagnostics[0]["upstream_provider"] != "Groq" || outA.OperationDiagnostics[0]["provider_request_id"] != "req-scope-a" || outB.OperationDiagnostics[0]["provider_request_id"] != "req-scope-b" || outA.OperationDiagnostics[0]["finish_reason"] != "stop" || outA.OperationDiagnostics[0]["final_text_present"] != true {
 		t.Fatalf("non-CPA operation diagnostic missing response-shape facts: %#v", outA.OperationDiagnostics[0])
 	}
 
@@ -315,7 +330,7 @@ func TestReferenceRunCapturesSharedOperationDiagnosticsAndRedactedBundleLogs(t *
 	if err := json.Unmarshal(bundleBytes, &bundle); err != nil {
 		t.Fatal(err)
 	}
-	if len(bundle.Logs) != 1 || !strings.Contains(bundle.Logs[0], `"provider operation observed"`) || !strings.Contains(bundle.Logs[0], `"Groq"`) {
+	if len(bundle.Logs) != 1 || !strings.Contains(bundle.Logs[0], `"provider operation observed"`) || !strings.Contains(bundle.Logs[0], `"Groq"`) || !strings.Contains(bundle.Logs[0], `"req-scope-a"`) {
 		t.Fatalf("support-bundle.json missing operation logs: %v", bundle.Logs)
 	}
 	for _, secret := range []string{"synthetic-provider-key", "synthetic-private-prefix", "synthetic-jina-secret", "private prompt"} {
@@ -324,6 +339,12 @@ func TestReferenceRunCapturesSharedOperationDiagnosticsAndRedactedBundleLogs(t *
 		}
 	}
 
+	// A bounded upstream identifier can still equal a configured credential.
+	echoID.Store(true)
+	redacted, _, err := service.Run(t.Context(), scopeA, input)
+	if err != nil || len(redacted.OperationDiagnostics) != 1 || redacted.OperationDiagnostics[0]["provider_request_id"] != "[REDACTED]" || bytes.Contains(logBuf.Bytes(), []byte("synthetic-private-prefix")) {
+		t.Fatal("operation identifier was not scrubbed in both log sinks")
+	}
 	// Writer failure must surface ArtifactDiagnostic while preserving accepted inference.
 	failPut.Store(true)
 	outFail, _, errFail := service.Run(t.Context(), scopeA, input)

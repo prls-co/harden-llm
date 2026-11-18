@@ -3,6 +3,7 @@ package httpapi
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-534 TEST-537
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -11,6 +12,8 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
@@ -18,6 +21,7 @@ import (
 	"net/netip"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -25,6 +29,7 @@ import (
 
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/api"
+	"github.com/prls-co/harden-llm/internal/diagnostics"
 	"github.com/prls-co/harden-llm/stateful"
 )
 
@@ -153,7 +158,8 @@ func (chatJinaResolver) LookupNetIP(_ context.Context, _, host string) ([]netip.
 	return nil, fmt.Errorf("unexpected DNS lookup %q", host)
 }
 
-func TestChatWebSearchFallback(t *testing.T) {
+func searchFixture(t *testing.T, handler http.Handler) (string, hardenllm.EndpointPolicy) {
+	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -167,8 +173,21 @@ func TestChatWebSearchFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	upstream := httptest.NewUnstartedServer(handler)
+	upstream.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}}
+	upstream.StartTLS()
+	t.Cleanup(upstream.Close)
+	roots := x509.NewCertPool()
+	roots.AddCert(cert)
+	dialer := &net.Dialer{}
+	return upstream.URL + "/v1", hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}, Resolver: chatJinaResolver{}, DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return dialer.DialContext(ctx, network, upstream.Listener.Addr().String())
+	}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}
+}
+
+func TestChatWebSearchFallback(t *testing.T) {
 	var searchCalls, providerCalls, repairCalls atomic.Int32
-	upstream := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	baseURL, policy := searchFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			searchCalls.Add(1)
 			w.Header().Set("Content-Type", "text/plain")
@@ -198,15 +217,7 @@ func TestChatWebSearchFallback(t *testing.T) {
 		}
 		fmt.Fprint(w, `{"choices":[{"finish_reason":"stop","message":{"content":"fallback answer"}}]}`)
 	}))
-	upstream.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}}
-	upstream.StartTLS()
-	defer upstream.Close()
-	roots := x509.NewCertPool()
-	roots.AddCert(cert)
-	dialer := &net.Dialer{}
-	options := stateful.ClientOptions{Connections: []hardenllm.Connection{{ID: "fallback", Provider: "openai", Protocol: "chat-completions", BaseURL: upstream.URL + "/v1", CacheDomain: "test", APIKey: "synthetic"}}, DefaultConnection: "fallback", WebSearch: stateful.WebSearchOptions{JinaAPIKey: "synthetic"}, Cache: &projectionCache{records: make(map[string]hardenllm.CacheRecord)}, EndpointPolicy: hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}, Resolver: chatJinaResolver{}, DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-		return dialer.DialContext(ctx, network, upstream.Listener.Addr().String())
-	}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}}
+	options := stateful.ClientOptions{Connections: []hardenllm.Connection{{ID: "fallback", Provider: "openai", Protocol: "chat-completions", BaseURL: baseURL, CacheDomain: "test", APIKey: "synthetic"}}, DefaultConnection: "fallback", WebSearch: stateful.WebSearchOptions{JinaAPIKey: "synthetic"}, Cache: &projectionCache{records: make(map[string]hardenllm.CacheRecord)}, EndpointPolicy: policy}
 	service, err := stateful.NewService(stateful.Config{Client: options})
 	if err != nil {
 		t.Fatal(err)
@@ -314,5 +325,157 @@ func TestChatWebSearchNonSearchGolden(t *testing.T) {
 	const want = `{"id":"chatcmpl-fixture","object":"chat.completion","created":1,"model":"model","choices":[{"index":0,"message":{"role":"assistant","content":"answer"},"finish_reason":"stop"}]}`
 	if string(raw) != want {
 		t.Fatalf("non-search Chat response changed: %s", raw)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-549.
+func TestSearchOperationAttemptOwnership(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name                                     string
+		searchTimeout, modelRetry, schemaFailure bool
+		ordinals                                 []int
+	}{
+		{"search_timeout_then_success", true, false, false, []int{1, 2, 2}},
+		{"model_retry_reuses_search", false, true, false, []int{1, 1, 2}},
+		{"post_transport_schema_failure", false, false, true, []int{1, 1}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var searches, models atomic.Int32
+			baseURL, policy := searchFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Host == "s.jina.ai" {
+					if searches.Add(1) == 1 && tc.searchTimeout {
+						<-r.Context().Done()
+						return
+					}
+					fmt.Fprint(w, "https://example.test/source")
+					return
+				}
+				if models.Add(1) == 1 && tc.modelRetry {
+					w.WriteHeader(503)
+					fmt.Fprint(w, `{"error":{"code":"busy"}}`)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprint(w, `{"choices":[{"finish_reason":"stop","message":{"content":"{}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}`)
+			}))
+			bundles := make(chan diagnostics.Bundle, 1)
+			store := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == "PUT" && strings.HasSuffix(r.URL.Path, "/support-bundle.json") {
+					var bundle diagnostics.Bundle
+					if err := json.NewDecoder(r.Body).Decode(&bundle); err != nil {
+						t.Error(err)
+						return
+					}
+					bundles <- bundle
+				}
+			}))
+			defer store.Close()
+			artifacts, err := stateful.NewArtifactStore(stateful.ArtifactOptions{Endpoint: store.URL, Bucket: "bucket", Region: "test", AccessKeyID: "fixture", SecretAccessKey: "fixture-secret", HTTPClient: store.Client()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			const id = "OpenRouter DeepSeek V4 Pro"
+			catalog, err := stateful.DefaultCatalog()
+			if err != nil {
+				t.Fatal(err)
+			}
+			preset := catalog[id]
+			var def stateful.Profile
+			if err = json.Unmarshal(preset.Definition, &def); err != nil {
+				t.Fatal(err)
+			}
+			def.BaseURL = baseURL
+			preset.Definition, err = json.Marshal(def)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var logs bytes.Buffer
+			service, err := stateful.NewService(stateful.Config{Presets: stateful.Catalog{id: preset}, Artifacts: artifacts, Client: stateful.ClientOptions{
+				Connections: []hardenllm.Connection{{ID: preset.Binding.DeploymentUpstreamID, Provider: def.Provider, Protocol: def.APIInferenceType, BaseURL: baseURL, APIKey: "fixture-model-key"}}, DefaultConnection: preset.Binding.DeploymentUpstreamID,
+				Logger: slog.New(slog.NewJSONHandler(&logs, nil)), EndpointPolicy: policy, WebSearch: stateful.WebSearchOptions{JinaAPIKey: "fixture-search-key", JinaTimeout: 250 * time.Millisecond},
+			}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			input := stateful.RunInput{ProfileID: id, UserPrompt: "Search for docs", WebSearch: true, CacheMode: hardenllm.CacheModeOff, CallType: hardenllm.CallTypeText, TimeoutMS: 5000, RecoveryPolicy: json.RawMessage(`{"maxAttempts":2,"retryOn":["network","server_error"],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`)}
+			if tc.schemaFailure {
+				input.CallType = hardenllm.CallTypeStructured
+				input.Schema = json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}`)
+			}
+			out, _, err := service.Run(t.Context(), strings.Repeat("a", 64), input)
+			if tc.schemaFailure != (err != nil) || len(out.Attempts) != tc.ordinals[len(tc.ordinals)-1] || out.ArtifactDiagnostic != nil {
+				t.Fatalf("run status=%s err=%v attempts=%v", out.Status, err, out.Attempts)
+			}
+			var bundle diagnostics.Bundle
+			select {
+			case bundle = <-bundles:
+			default:
+				t.Fatal("support bundle not written")
+			}
+			wantCode := ""
+			if tc.schemaFailure {
+				wantCode = "STRUCTURED_SCHEMA"
+			}
+			if len(bundle.Trace.Attempts) != len(out.Attempts) || bundle.Trace.Attempts[len(out.Attempts)-1].Code != wantCode {
+				t.Fatalf("trace attempts=%+v", bundle.Trace.Attempts)
+			}
+			operations := []string{}
+			ordinals := []int{}
+			for _, line := range bundle.Logs {
+				var rec struct {
+					Stage    string
+					Attempt  int    `json:"attempt_number"`
+					Category string `json:"error_category"`
+					Code     string `json:"error_code"`
+				}
+				if err := json.Unmarshal([]byte(line), &rec); err != nil {
+					t.Fatal(err)
+				}
+				operations = append(operations, rec.Stage+"/"+rec.Category+"/"+rec.Code)
+				ordinals = append(ordinals, rec.Attempt)
+			}
+			expected := []string{"web_search/success/", "provider_model/success/"}
+			if tc.searchTimeout {
+				expected = append([]string{"web_search/network/ETIMEDOUT"}, expected...)
+			}
+			if tc.modelRetry {
+				expected = slices.Insert(expected, 1, "provider_model/server_error/busy")
+			}
+			if !slices.Equal(ordinals, tc.ordinals) || !slices.Equal(operations, expected) {
+				t.Fatalf("bundle ordinals=%v operations=%v", ordinals, operations)
+			}
+			dec := json.NewDecoder(&logs)
+			var logOrdinals []int
+			for {
+				var rec struct {
+					Attempt int `json:"attempt_number"`
+					Stage   string
+				}
+				err := dec.Decode(&rec)
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				if rec.Stage == "web_search" || rec.Stage == "provider_model" {
+					logOrdinals = append(logOrdinals, rec.Attempt)
+				}
+			}
+			if !slices.Equal(logOrdinals, tc.ordinals) {
+				t.Fatalf("process log ordinals=%v", logOrdinals)
+			}
+			wantSearch, wantModel := int32(1), int32(1)
+			if tc.searchTimeout {
+				wantSearch++
+			}
+			if tc.modelRetry {
+				wantModel++
+			}
+			if searches.Load() != wantSearch || models.Load() != wantModel {
+				t.Fatalf("search=%d model=%d", searches.Load(), models.Load())
+			}
+		})
 	}
 }

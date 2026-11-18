@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -129,6 +130,59 @@ func TestPresetMatrixReportPreservesExistingEvidence(t *testing.T) {
 	}
 }
 
+// The matrix consumes the in-process operation records before JSON encoding.
+func matrixOperationFixture(stage string, status int, category string) map[string]any {
+	rec := map[string]any{
+		"stage": stage, "attempt_number": 1, "http_status": status, "headers_received": status > 0,
+		"dispatched": true, "error_category": category, "received_bytes": int64(0), "max_response_bytes": int64(512 << 10),
+		"duration_ms": int64(1), "parent_context_expired": false, "request_context_expired": false,
+	}
+	if status > 0 {
+		rec["headers_ms"] = int64(1)
+		rec["received_bytes"] = int64(16)
+	}
+	if stage == "web_search" {
+		rec["msg"] = "web search operation observed"
+		rec["provider"] = "jina"
+		rec["protocol"] = "jina.search"
+		rec["timeout_ms"] = int64(20000)
+	} else {
+		rec["msg"] = "provider operation observed"
+		rec["provider"] = "cpa"
+		rec["protocol"] = "anthropic.messages"
+		rec["model"] = "claude-haiku-4-5-20251001"
+		rec["call_type"] = "structured"
+		rec["search_mode"] = "jina"
+		rec["event_count"] = 0
+		rec["output_bytes"] = int64(2)
+		rec["output_code_points"] = int64(2)
+		if status > 0 {
+			rec["terminal_state"] = "not_streaming"
+			rec["final_text_present"] = true
+			rec["final_text_bytes"] = int64(2)
+			rec["reasoning_present"] = false
+			rec["tool_call_count"] = 0
+		}
+	}
+	return rec
+}
+func matrixFallbackFixture(status int, category, code string) []map[string]any {
+	model := matrixOperationFixture("provider_model", status, category)
+	if code != "" {
+		model["error_code"] = code
+	}
+	if code == "empty_response" {
+		model["reasoning_present"] = true
+		model["final_text_present"] = false
+		model["final_text_bytes"] = int64(0)
+	}
+	if code == "ETIMEDOUT" {
+		model["error_class"] = "timeout"
+		model["error_phase"] = "response_headers"
+	}
+	return []map[string]any{matrixOperationFixture("web_search", 200, "success"), model}
+}
+
 func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 	t.Parallel()
 	catalog, err := stateful.DefaultCatalog()
@@ -144,6 +198,9 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 	started := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
 	finished := started.Add(1500 * time.Millisecond)
 
+	oversize := matrixOperationFixture("web_search", 200, "other")
+	oversize["error_code"] = "RESPONSE_TOO_LARGE"
+	oversize["received_bytes"] = int64(524289)
 	cases := []struct {
 		name               string
 		output             stateful.RunOutput
@@ -162,7 +219,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 					Status: "failed", ProviderInvoked: true, TotalCallDurationMs: 1500,
 					Attempts: []stateful.Attempt{{Number: 1, ProfileID: input.ProfileID, Target: target, Category: "parse_error", Code: "STRUCTURED_PARSE", HTTPStatus: 200, DispatchObserved: true, ProviderUsed: true, Duration: 1500 * time.Millisecond, StartedAt: &started, FinishedAt: &finished}},
 				},
-				OperationDiagnostics: []map[string]any{{"msg": "provider operation observed", "stage": "provider_model", "http_status": 200, "error_code": "STRUCTURED_PARSE"}},
+				OperationDiagnostics: matrixFallbackFixture(200, "parse_error", "STRUCTURED_PARSE"),
 			},
 			callErr:            &hardenllm.ProviderError{Code: "STRUCTURED_PARSE", Category: "parse_error", Err: errors.New("parse failed")},
 			wantStatus:         "failed",
@@ -179,7 +236,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 					Status: "failed", ProviderInvoked: true, TotalCallDurationMs: 1200,
 					Attempts: []stateful.Attempt{{Number: 1, ProfileID: input.ProfileID, Target: target, Category: "parse_error", Code: "STRUCTURED_SCHEMA", HTTPStatus: 200, DispatchObserved: true, ProviderUsed: true, Duration: 1200 * time.Millisecond}},
 				},
-				OperationDiagnostics: []map[string]any{{"msg": "provider operation observed", "stage": "provider_model", "http_status": 200, "error_code": "STRUCTURED_SCHEMA"}},
+				OperationDiagnostics: matrixFallbackFixture(200, "success", ""),
 			},
 			callErr:            &hardenllm.ProviderError{Code: "STRUCTURED_SCHEMA", Category: "parse_error", Err: errors.New("schema failed")},
 			wantStatus:         "failed",
@@ -196,7 +253,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 					Status: "failed", ProviderInvoked: true, TotalCallDurationMs: 900,
 					Attempts: []stateful.Attempt{{Number: 1, ProfileID: input.ProfileID, Target: target, Category: "other", Code: "ACCOUNTING_INVALID", HTTPStatus: 200, DispatchObserved: true, ProviderUsed: true}},
 				},
-				OperationDiagnostics: []map[string]any{{"msg": "provider operation observed", "stage": "provider_model", "http_status": 200, "error_code": "ACCOUNTING_INVALID"}},
+				OperationDiagnostics: matrixFallbackFixture(200, "success", ""),
 			},
 			callErr:            &hardenllm.ProviderError{Code: "ACCOUNTING_INVALID", Category: "other", Err: errors.New("accounting invalid")},
 			wantStatus:         "failed",
@@ -213,7 +270,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 					Status: "failed", ProviderInvoked: true, TotalCallDurationMs: 800,
 					Attempts: []stateful.Attempt{{Number: 1, ProfileID: input.ProfileID, Target: target, Category: "empty_response", Code: "empty_response", HTTPStatus: 200, DispatchObserved: true, ProviderUsed: true}},
 				},
-				OperationDiagnostics: []map[string]any{{"msg": "provider operation observed", "stage": "provider_model", "http_status": 200, "error_code": "empty_response", "reasoning_present": true, "final_text_present": false}},
+				OperationDiagnostics: matrixFallbackFixture(200, "empty_response", "empty_response"),
 			},
 			callErr:            &hardenllm.ProviderError{Code: "empty_response", Category: "empty_response", Err: errors.New("empty response")},
 			wantStatus:         "failed",
@@ -230,7 +287,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 					Status: "failed", ProviderInvoked: true, TotalCallDurationMs: 300,
 					Attempts: []stateful.Attempt{{Number: 1, ProfileID: input.ProfileID, Target: target, Category: "other", Code: "model_not_found", Type: "invalid_request_error", HTTPStatus: 400, DispatchObserved: true, ProviderUsed: true}},
 				},
-				OperationDiagnostics: []map[string]any{{"msg": "provider operation observed", "stage": "provider_model", "http_status": 400, "error_code": "model_not_found"}},
+				OperationDiagnostics: matrixFallbackFixture(400, "other", "model_not_found"),
 			},
 			callErr:            &hardenllm.ProviderError{Code: "model_not_found", Type: "invalid_request_error", Status: 400, Category: "other", Err: errors.New("HTTP 400")},
 			wantStatus:         "failed",
@@ -247,7 +304,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 					Status: "failed", ProviderInvoked: false, TotalCallDurationMs: 3700,
 					Attempts: []stateful.Attempt{{Number: 1, ProfileID: input.ProfileID, Target: target, Category: "other", Code: "RESPONSE_TOO_LARGE", HTTPStatus: 0, DispatchObserved: false, ProviderUsed: false}},
 				},
-				OperationDiagnostics: []map[string]any{{"msg": "web search operation observed", "stage": "web_search", "provider": "jina", "http_status": 200, "received_bytes": int64(524289), "error_code": "RESPONSE_TOO_LARGE"}},
+				OperationDiagnostics: []map[string]any{oversize},
 			},
 			callErr:            &hardenllm.ProviderError{Code: "RESPONSE_TOO_LARGE", Category: "other", Err: errors.New("response too large")},
 			wantStatus:         "failed",
@@ -264,7 +321,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 					Status: "failed", ProviderInvoked: true, TotalCallDurationMs: 30032,
 					Attempts: []stateful.Attempt{{Number: 1, ProfileID: input.ProfileID, Target: target, Category: "network", Code: "ETIMEDOUT", HTTPStatus: 0, DispatchObserved: true, ProviderUsed: true}},
 				},
-				OperationDiagnostics: []map[string]any{{"msg": "provider operation observed", "stage": "provider_model", "dispatched": true, "headers_received": false, "error_code": "ETIMEDOUT", "error_class": "timeout", "error_phase": "response_headers"}},
+				OperationDiagnostics: matrixFallbackFixture(0, "network", "ETIMEDOUT"),
 			},
 			callErr:            &hardenllm.ProviderError{Code: "ETIMEDOUT", Category: "network", Err: errors.New("timed out")},
 			wantStatus:         "unconfirmed",
@@ -285,7 +342,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 				},
 			},
 			callErr:           nil,
-			wantStatus:        "invalid_diagnostics",
+			wantStatus:        "succeeded",
 			wantCaptureStatus: "missing",
 			wantValid:         false,
 		},
@@ -313,9 +370,17 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			row := newLivePresetRow(input.ProfileID, preset, input, route)
+			tc.output.RunID, tc.output.CallID, tc.output.TraceID = "fixture-run", "fixture-call", "fixture-trace"
 			ok := recordLivePresetOutcome(row, input, tc.output, tc.callErr, finished)
 			if ok != tc.wantValid || row["status"] != tc.wantStatus || row["diagnosticCaptureStatus"] != tc.wantCaptureStatus {
 				t.Fatalf("row=%#v ok=%v wantValid=%v", row, ok, tc.wantValid)
+			}
+			wantVerdict := "failed"
+			if tc.callErr == nil {
+				wantVerdict = "invalid_diagnostics"
+			}
+			if row["qualificationStatus"] != wantVerdict {
+				t.Fatalf("qualification=%v want=%s", row["qualificationStatus"], wantVerdict)
 			}
 			if tc.wantErrorCode != "" && row["errorCode"] != tc.wantErrorCode {
 				t.Fatalf("public errorCode changed: got=%v want=%s", row["errorCode"], tc.wantErrorCode)
@@ -336,5 +401,99 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 		if !seenCodes[required] {
 			t.Fatalf("missing cause witness %s", required)
 		}
+	}
+}
+
+func TestPresetMatrixValidatesOperationSequence(t *testing.T) {
+	t.Parallel()
+	catalog, err := stateful.DefaultCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const id = "CPA claude-haiku-4-5-20251001"
+	p := catalog[id]
+	input, route, err := livePresetInput(id, p, hardenllm.CallTypeStructured, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := stateful.ExecutionTarget{Provider: "cpa", ModelID: input.ModelID, Protocol: "anthropic.messages"}
+	base := stateful.RecordedRunOutput{Status: "succeeded", RunID: "run1", CallID: "call1", TraceID: "trace1", ProviderInvoked: true, Attempts: []stateful.Attempt{{Number: 1, Category: "success", Target: target, HTTPStatus: 200, ProviderUsed: true, DispatchObserved: true}}, Search: &hardenllm.SearchResult{Mode: "jina", Executed: true, Sources: []hardenllm.SearchSource{}, CostStatus: "unavailable"}}
+	pair := matrixFallbackFixture(200, "success", "")
+	search, model := pair[0], pair[1]
+	wrong := maps.Clone(model)
+	wrong["attempt_number"] = 2
+	contradiction := maps.Clone(model)
+	contradiction["dispatched"] = false
+	absent := maps.Clone(model)
+	delete(absent, "headers_received")
+	noShape := maps.Clone(model)
+	delete(noShape, "final_text_bytes")
+	wrongStatus := maps.Clone(model)
+	wrongStatus["http_status"] = 201
+	noDuration := maps.Clone(search)
+	delete(noDuration, "duration_ms")
+	for _, mode := range []string{"native", "off"} {
+		t.Run(mode, func(t *testing.T) {
+			in := input
+			in.WebSearch = mode == "native"
+			out := stateful.RunOutput{RecordedRunOutput: base}
+			m := maps.Clone(model)
+			delete(m, "search_mode")
+			out.Search = nil
+			if in.WebSearch {
+				m["search_mode"] = mode
+				out.Search = &hardenllm.SearchResult{Mode: mode, Sources: []hardenllm.SearchSource{}, CostStatus: "unavailable"}
+			}
+			out.OperationDiagnostics = []map[string]any{m}
+			row := newLivePresetRow(id, p, in, mode)
+			if !recordLivePresetOutcome(row, in, out, nil, time.Now()) || row["qualificationStatus"] != "passed" {
+				t.Fatalf("%s generation without search invocation failed qualification: %v", mode, row)
+			}
+		})
+	}
+	for _, tc := range []struct {
+		name    string
+		records []map[string]any
+		capture string
+	}{
+		{"complete", pair, "complete"}, {"none", nil, "missing"}, {"missing model", pair[:1], "incomplete"}, {"missing search", pair[1:], "incomplete"},
+		{"duplicated", []map[string]any{search, search, model}, "incomplete"}, {"reordered", []map[string]any{model, search}, "incomplete"},
+		{"wrong attempt", []map[string]any{search, wrong}, "incomplete"}, {"dispatch contradiction", []map[string]any{search, contradiction}, "incomplete"},
+		{"missing terminal fact", []map[string]any{search, absent}, "incomplete"}, {"missing response shape", []map[string]any{search, noShape}, "incomplete"},
+		{"conflicting model status", []map[string]any{search, wrongStatus}, "incomplete"},
+		{"missing search latency", []map[string]any{noDuration, model}, "incomplete"},
+		{"missing correlation", pair, "incomplete"}, {"clipped", pair, "clipped"}, {"publication failed", pair, "publication_failed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := stateful.RunOutput{RecordedRunOutput: base, OperationDiagnostics: tc.records, DiagnosticsClipped: tc.capture == "clipped"}
+			if tc.name == "missing correlation" {
+				out.TraceID = ""
+			}
+			if tc.capture == "publication_failed" {
+				out.ArtifactDiagnostic = &stateful.Diagnostic{Code: "artifact_write_failed"}
+			}
+			row := newLivePresetRow(id, p, input, route)
+			passed := recordLivePresetOutcome(row, input, out, nil, time.Now())
+			path := filepath.Join(t.TempDir(), "report.json")
+			if err := writeLivePresetReport(path, []map[string]any{row}); err != nil {
+				t.Fatal(err)
+			}
+			b, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var rows []map[string]any
+			if err = json.Unmarshal(b, &rows); err != nil {
+				t.Fatal(err)
+			}
+			r := rows[0]
+			verdict := "invalid_diagnostics"
+			if tc.capture == "complete" {
+				verdict = "passed"
+			}
+			if r["status"] != "succeeded" || r["runId"] != base.RunID || r["traceId"] != out.TraceID || r["callId"] != base.CallID || r["qualificationStatus"] != verdict || r["diagnosticCaptureStatus"] != tc.capture || passed != (verdict == "passed") {
+				t.Fatalf("status=%v qualification=%v capture=%v IDs=%v/%v/%v passed=%t", r["status"], r["qualificationStatus"], r["diagnosticCaptureStatus"], r["runId"], r["callId"], r["traceId"], passed)
+			}
+		})
 	}
 }

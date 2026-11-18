@@ -412,7 +412,7 @@ func TestProviderNormalizationCollectsResponsesEventStream(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collectResponsesEventStream: %v", err)
 	}
-	result, err := normalizeDecodedResponse(preparedRequest{provider: "openai", protocol: "openai.responses", callType: "text"}, collected)
+	result, err := normalizeDecodedResponse(preparedRequest{provider: "openai", protocol: "openai.responses", callType: "text"}, collected, nil)
 	if err != nil {
 		t.Fatalf("normalizeResponse: %v", err)
 	}
@@ -585,7 +585,7 @@ func TestRecoveryBoundaryCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := normalizeDecodedResponse(preparedRequest{provider: "fixture", protocol: "openai.responses", callType: "text"}, collected)
+	result, err := normalizeDecodedResponse(preparedRequest{provider: "fixture", protocol: "openai.responses", callType: "text"}, collected, nil)
 	if err != nil || result.Output != "authoritative" {
 		t.Fatalf("terminal output authority = %#v / %v", result, err)
 	}
@@ -818,7 +818,7 @@ func completeProviderUsage(input, cacheRead, cacheCreation, output, reasoning in
 func TestIncompleteResponseRetainsOriginalAssistantText(t *testing.T) {
 	const partial = `{"schema_version": "5.`
 	response := map[string]any{"status": "incomplete", "incomplete_details": map[string]any{"reason": "max_output_tokens"}, "output": []any{map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": partial}}}}, "output_text": partial, "usage": map[string]any{"input_tokens": 4, "output_tokens": 3, "total_tokens": 7}}
-	result, err := normalizeDecodedResponse(preparedRequest{protocol: "openai.responses", callType: "structured"}, response)
+	result, err := normalizeDecodedResponse(preparedRequest{protocol: "openai.responses", callType: "structured"}, response, nil)
 	if err == nil || result.AssistantText != partial {
 		t.Fatalf("partial evidence changed: text=%q err=%v", result.AssistantText, err)
 	}

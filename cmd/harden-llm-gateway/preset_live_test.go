@@ -11,7 +11,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -56,6 +58,10 @@ func TestLivePresetMatrix(t *testing.T) {
 	default:
 		t.Fatal("HARDEN_LLM_LIVE_PRESET_MODE must be empty, text or structured")
 	}
+	revision, err := exec.CommandContext(t.Context(), "git", "rev-parse", "--verify", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("could not identify source revision before dispatch: %v", err)
+	}
 	digest := sha256.Sum256([]byte(config.apiKeys[0]))
 	scope := hex.EncodeToString(digest[:])
 	available := map[string]bool{}
@@ -82,6 +88,7 @@ func TestLivePresetMatrix(t *testing.T) {
 				t.Fatal(err)
 			}
 			row := newLivePresetRow(id, preset, input, route)
+			row["sourceRevision"] = strings.TrimSpace(string(revision))
 			if !available[preset.Binding.DeploymentUpstreamID] {
 				row["status"], row["missing"] = "not_configured", "provider_credential"
 			} else if route == "jina" && config.jinaAPIKey == "" {
@@ -110,7 +117,7 @@ func TestLivePresetMatrix(t *testing.T) {
 			}
 			output, _, callErr := service.Run(context.Background(), scope, input)
 			if !recordLivePresetOutcome(row, input, output, callErr, time.Now().UTC()) {
-				t.Errorf("preset qualification failed: status=%v errorCode=%v diagnosticCode=%v providerInvoked=%v", row["status"], row["errorCode"], row["diagnosticCode"], output.ProviderInvoked)
+				t.Errorf("preset qualification failed: qualification=%v status=%v capture=%v errorCode=%v diagnosticCode=%v providerInvoked=%v", row["qualificationStatus"], row["status"], row["diagnosticCaptureStatus"], row["errorCode"], row["diagnosticCode"], output.ProviderInvoked)
 			}
 		})
 		if reportErr != nil {

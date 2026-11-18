@@ -43,8 +43,10 @@ CPA are separate routes and require separate evidence.
 
 Every selected preset/mode receives a row. Atomic mode-0600 snapshots record the
 whole plan, then `started` before dispatch and the final result afterward.
-Reports refuse an existing destination. Preserve the report and exact source
-SHA even when the command exits with failures.
+Reports refuse an existing destination. Each row records the Git checkout revision in
+`sourceRevision` and hashes the effective prompt, schema (when applicable),
+provider options, preset definition and recovery policy in `configIdentity`.
+Preserve local source changes alongside the report if the checkout was dirty.
 
 Successful search cases record expected/observed mode, execution, call/source/
 citation counts, omission warnings and completeness. `searchObservation` is
@@ -57,6 +59,30 @@ code-point bounds. Structured reference results do not expose original
 assistant text; `original_text_unavailable` reports this verification limit.
 Reports retain counts and fixed diagnostics, not answer bodies, source URLs,
 credentials or raw provider error output.
+
+Read three fields together in reports with `qualificationStatus`.
+
+| Field | Meaning |
+| --- | --- |
+| `status` | Execution outcome. A dispatched request with an unknown outcome is `unconfirmed`. |
+| `diagnosticCaptureStatus` | `complete` requires the expected operations, in order, on the actual attempt. `missing`, `incomplete`, `clipped` and `publication_failed` explain evidence gaps. `not_applicable` covers a run with no operation to observe. |
+| `qualificationStatus` | `passed`, `failed`, `invalid_execution`, `invalid_evidence` or `invalid_diagnostics`. Planned, started and unconfigured rows have no verdict. |
+
+For example, a successful Jina fallback needs a successful search record
+followed by a model record. If the latter is missing, the answer remains
+`succeeded` and qualification is `invalid_diagnostics`. A Jina failure before
+model dispatch can have complete diagnostics with just the failed search.
+Use `runId`, `callId` and `traceId` to join the row to its evidence.
+
+Count passes in a new report with the following command.
+
+```sh
+jq '[.[] | select(.qualificationStatus == "passed")] | length' report.json
+```
+
+Archived reports without the verdict field used `status` for both execution and
+qualification. Read their counts under that original convention. Their rows
+cannot establish that the newly required operation sequence was captured.
 
 Missing credentials remain `not_configured`. Provider failures, malformed
 evidence and invalid execution remain failures. A leftover `started` row or an

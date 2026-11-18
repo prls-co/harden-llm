@@ -4,13 +4,14 @@ package stateful
 import (
 	"context"
 	"fmt"
-	"github.com/prls-co/harden-llm/internal/observability"
-	"github.com/prls-co/harden-llm/internal/providers"
 	"log/slog"
 	"strings"
 	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/observability"
+	"github.com/prls-co/harden-llm/internal/providers"
+	"github.com/prls-co/harden-llm/internal/redaction"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -59,7 +60,7 @@ func newEffects(options ClientOptions) (hardenllm.Options, error) {
 	if err != nil {
 		return hardenllm.Options{}, err
 	}
-	return hardenllm.Options{Connections: connections, DefaultConnection: options.DefaultConnection, Cache: options.Cache, Executor: trackingExecutor{next: executor}, Observer: trackingObserver{next: observer}, DiscoverModels: func(ctx context.Context, c hardenllm.Connection) ([]hardenllm.Model, error) {
+	return hardenllm.Options{Connections: connections, DefaultConnection: options.DefaultConnection, Cache: options.Cache, Executor: trackingExecutor{next: executor}, Observer: trackingObserver{next: observer, redactor: redaction.New(operationSecrets(options.WebSearch.JinaAPIKey, connections)...)}, DiscoverModels: func(ctx context.Context, c hardenllm.Connection) ([]hardenllm.Model, error) {
 		found, err := discovery.Discover(ctx, providers.ModelDiscoveryRequest{BaseURL: c.BaseURL, APIInferenceType: c.Protocol, APIKey: c.APIKey, Headers: c.Headers})
 		if err != nil {
 			return nil, err

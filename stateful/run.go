@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	hardenllm "github.com/prls-co/harden-llm"
-	"github.com/prls-co/harden-llm/internal/providers"
-	"github.com/prls-co/harden-llm/internal/redaction"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/providers"
 )
 
 type RunInput struct {
@@ -125,7 +125,6 @@ func (s *Service) Run(ctx context.Context, hash string, input RunInput) (output 
 	}
 	callCtx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
-	callCtx, diagCollector := providers.WithOperationDiagnostics(callCtx)
 	resolved := resolvedRun{}
 	result := hardenllm.Result{}
 	var capture hardenllm.DiagnosticCapture
@@ -137,6 +136,8 @@ func (s *Service) Run(ctx context.Context, hash string, input RunInput) (output 
 	if callErr == nil {
 		resolved, callErr = s.resolveRun(callCtx, hash, input)
 	}
+	secrets := operationSecrets(s.config.Client.WebSearch.JinaAPIKey, s.effects.Connections, resolved.connections)
+	callCtx, diagCollector := providers.WithOperationDiagnostics(callCtx, secrets...)
 	if callErr == nil {
 		options := s.scopedEffects(hash)
 		options.Connections = resolved.connections
@@ -169,11 +170,7 @@ func (s *Service) Run(ctx context.Context, hash string, input RunInput) (output 
 			return output, state, &OperationError{Code: "run_id_failed", Message: "Could not create a trace identifier."}
 		}
 	}
-	for i, attempt := range result.Attempts {
-		diagCollector.ReconcileAttempt(i, attempt.Code, attempt.Category, attempt.Stage)
-	}
-	secrets := s.runSecrets(resolved)
-	records, logLines, clipped := diagCollector.RedactedSnapshot(redaction.New(secrets...))
+	records, logLines, clipped := diagCollector.Snapshot()
 	output.RecordedRunOutput = projectRun(runID, input, resolved, result, callErr, started, finished)
 	output.OperationDiagnostics = records
 	output.DiagnosticsClipped = clipped
@@ -282,24 +279,15 @@ func ProjectRunError(err error) *RunError {
 	return &RunError{Code: "inference_failed", Message: "LLM execution failed; inspect the run's correlated diagnostics."}
 }
 
-func (s *Service) runSecrets(resolved resolvedRun) []string {
-	secrets := []string{}
-	if s.config.Client.WebSearch.JinaAPIKey != "" {
-		secrets = append(secrets, s.config.Client.WebSearch.JinaAPIKey)
-	}
-	addConnections := func(catalog hardenllm.ConnectionCatalog) {
+func operationSecrets(jinaKey string, catalogs ...hardenllm.ConnectionCatalog) []string {
+	secrets := []string{jinaKey}
+	for _, catalog := range catalogs {
 		for _, conn := range catalog {
-			if conn.APIKey != "" {
-				secrets = append(secrets, conn.APIKey)
-			}
+			secrets = append(secrets, conn.APIKey)
 			for _, v := range conn.Headers {
-				if v != "" {
-					secrets = append(secrets, v)
-				}
+				secrets = append(secrets, v)
 			}
 		}
 	}
-	addConnections(s.effects.Connections)
-	addConnections(resolved.connections)
 	return secrets
 }

@@ -4,9 +4,19 @@
 
 [PR #185](https://github.com/prls-co/harden-llm/pull/185) targets `dev`.
 Its first implementation, `9c401a6`, exposed three defects during review.
-The owner approved **1A** for native Responses answer selection and **2A**
-for preset report qualification. Those changes and the attempt attribution
-correction below are pending on the PR.
+The owner accepted both review recommendations.
+
+- **1A. Select the final answer.** Native Responses uses an explicit
+  `final_answer`, even if empty. Without phase labels, only assistant text
+  after the last completed search qualifies. The adapter uses the same message
+  for returned text, citation attribution and diagnostic byte counts.
+- **2A. Report execution and qualification independently.** `status` records
+  what happened to the call. Only `qualificationStatus=passed` counts as a
+  qualified preset run. `diagnosticCaptureStatus` explains missing or partial
+  evidence even when the call succeeded.
+
+The same branch implements these decisions and stamps search and model
+operations with their owning attempt when each operation occurs.
 
 Make provider failures explainable from retained evidence, then apply the small
 fixes demonstrated by the issue 156/184 qualification work. Reuse the existing
@@ -56,7 +66,13 @@ one of its two operation records. Both JSON and streamed Responses could
 return explicit commentary as the final answer. Under the race detector, 4 of
 30 review cases passed at `9c401a6` and all 30 passed on a temporary prototype.
 The prototype retained legacy ordering for unlabeled replies. Decision 1A
-adds a stricter ordering case that still needs its own regression.
+adds a stricter ordering case. TEST-549 exercises that sequence in JSON and
+SSE, and the gateway projection test covers the public `empty_response` error.
+All 30 retained review cases also passed against the feature implementation
+under the race detector, using the original test-only overlay and local HTTP
+fixtures. The review corrections change response handling and private
+diagnostics. They preserve the prompts, structured schemas and retry policy
+from `9c401a6`.
 
 ## 3. Design and reuse boundaries
 
@@ -229,7 +245,7 @@ Compile the live matrix with no selected tests; do not dispatch providers.
 Run `git diff HEAD --check` and check diagnostic secret/cross-call isolation.
 
 ```sh
-go test -race ./internal/providers ./internal/diagnostics ./stateful ./cmd/harden-llm-gateway
+go test -race -count=1 ./internal/providers ./internal/diagnostics ./stateful ./cmd/harden-llm-gateway ./internal/gateway/httpapi
 PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast
 go test -tags=live ./cmd/harden-llm-gateway -run '^$' -count=1
 git diff HEAD --check

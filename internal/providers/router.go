@@ -183,7 +183,7 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 
 // Execute performs a prepared request and normalizes its result.
 func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOperation) (finalResult runtime.ProviderResult, finalErr error) {
-	modelStarted := time.Now()
+	var modelStarted time.Time
 	cpaID := ""
 	var headerMS atomic.Int64
 	headerMS.Store(-1)
@@ -204,13 +204,12 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	}
 	defer cancel()
 	var facts modelOperationFacts
-	modelEntered := false
 	defer func() {
 		finalResult.Stream.CorrelationID = cpaID
 		if n := headerMS.Load(); n >= 0 {
 			finalResult.Stream.HeadersMs = &n
 		}
-		if !modelEntered {
+		if modelStarted.IsZero() {
 			return
 		}
 		code, typeName, category := classifyDiagnosticError(finalErr)
@@ -300,8 +299,6 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 			return runtime.ProviderResult{}, fmt.Errorf("providers: encode web-search request payload: %w", err)
 		}
 	}
-	modelStarted = time.Now()
-	modelEntered = true
 	request, err := http.NewRequestWithContext(requestContext, http.MethodPost, prepared.url.String(), bytes.NewReader(body))
 	if err != nil {
 		return runtime.ProviderResult{}, fmt.Errorf("providers: build request: %w", err)
@@ -312,6 +309,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		WroteHeaders:         func() { dispatched.Store(true) },
 		GotFirstResponseByte: func() { headerMS.Store(time.Since(modelStarted).Milliseconds()) },
 	}))
+	modelStarted = time.Now()
 	response, err := router.client.Do(request)
 	if err != nil {
 		phase := "request"
@@ -332,8 +330,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	if response.StatusCode >= 200 && response.StatusCode <= 299 && prepared.protocol == "openai.responses" && isEventStreamContentType(response.Header.Get("Content-Type")) {
 		streamResponse, streamErr, streamDiagnostics := collectResponsesEventStreamReaderContextWithProgress(ctx, requestContext, response.Body, router.maxResponseBytes, operation.StreamProgress)
 		if streamResponse != nil {
-			mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, streamResponse))
-			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
+			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse, &facts)
 			result.ProviderDispatched = dispatched.Load()
 			result.Stream = streamDiagnostics
 			if streamErr != nil {
@@ -350,8 +347,9 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	}
 	body, err = readBounded(response.Body, router.maxResponseBytes)
 	nonStreamingDiagnostics := runtime.StreamDiagnostics{ReceivedBytes: int64(len(body)), TerminalState: "not_streaming"}
-	if decoded, decodeErr := decodeJSONObject(body); decodeErr == nil {
-		mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, decoded))
+	decoded, _ := decodeJSONObject(body)
+	if decoded != nil && (response.StatusCode < 200 || response.StatusCode > 299) {
+		mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, decoded, responseOutputState(prepared, decoded)))
 	}
 	if err != nil {
 		if !errors.Is(err, errResponseTooLarge) {
@@ -365,14 +363,13 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
 		}
 		if response.StatusCode < 200 || response.StatusCode > 299 {
-			result, failure := providerResultForFailure(prepared, response, body, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
+			result, failure := providerResultForFailure(prepared, decoded, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
 			result.Stream = nonStreamingDiagnostics
 			return result, failure
 		}
 		if prepared.protocol == "openai.responses" {
 			if streamResponse, streamErr := collectResponsesEventStreamIfPresent(response.Header.Get("Content-Type"), body); streamResponse != nil {
-				mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, streamResponse))
-				partial, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
+				partial, normalizeErr := normalizeDecodedResponse(prepared, streamResponse, &facts)
 				partial.ProviderDispatched = dispatched.Load()
 				partial.Stream = nonStreamingDiagnostics
 				clearProviderOutput(&partial)
@@ -388,8 +385,8 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 				return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, streamErr
 			}
 		}
-		if decoded, decodeErr := decodeJSONObject(body); decodeErr == nil {
-			partial, normalizeErr := normalizeDecodedResponse(prepared, decoded)
+		if decoded != nil {
+			partial, normalizeErr := normalizeDecodedResponse(prepared, decoded, &facts)
 			partial.ProviderDispatched = dispatched.Load()
 			partial.Stream = nonStreamingDiagnostics
 			clearProviderOutput(&partial)
@@ -398,15 +395,14 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, bodyFailure
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		result, failure := providerResultForFailure(prepared, response, body, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
+		result, failure := providerResultForFailure(prepared, decoded, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
 		result.Stream = nonStreamingDiagnostics
 		return result, failure
 	}
 	if prepared.protocol == "openai.responses" && isEventStream(response.Header.Get("Content-Type"), body) {
 		streamResponse, streamErr := collectResponsesEventStream(body)
 		if streamResponse != nil {
-			mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, streamResponse))
-			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
+			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse, &facts)
 			result.ProviderDispatched = dispatched.Load()
 			if streamErr != nil {
 				clearProviderOutput(&result)
@@ -422,7 +418,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, streamErr
 		}
 	}
-	result, err := normalizeResponse(prepared, body)
+	result, err := normalizeDecodedResponse(prepared, decoded, &facts)
 	result.ProviderDispatched = dispatched.Load()
 	nonStreamingDiagnostics.OutputBytes = outputByteCount(result.Output)
 	nonStreamingDiagnostics.OutputCodePoints = outputCodePointCount(result.Output)
@@ -460,9 +456,10 @@ func mergeModelFacts(dst *modelOperationFacts, src modelOperationFacts) {
 	dst.toolCallCount = src.toolCallCount
 }
 
-func providerResultForFailure(prepared preparedRequest, response *http.Response, body []byte, dispatched bool, failure error) (runtime.ProviderResult, error) {
+func providerResultForFailure(prepared preparedRequest, decoded map[string]any, dispatched bool, failure error) (runtime.ProviderResult, error) {
 	result := runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched}
-	if decoded, err := decodeJSONObject(body); err == nil {
+	if decoded != nil {
+		var err error
 		result.Accounting, err = normalizeResponseAccounting(prepared, decoded)
 		if err != nil {
 			return result, preferAccountingFailure(accountingProviderError(err), failure)
@@ -503,10 +500,10 @@ func providerResponseReadFailure() error {
 	return &retry.ProviderError{Err: errors.New("provider response could not be read"), Code: "PROVIDER_RESPONSE_READ", Category: retry.CategoryNetwork}
 }
 
-// A completed response can provide search evidence even when its JSON needs repair.
+// Completed responses can retain search evidence even when generation fails.
 func clearNormalizationOutput(result *runtime.ProviderResult, failure error) {
 	var providerError *retry.ProviderError
-	if errors.As(failure, &providerError) && providerError.Code == "STRUCTURED_PARSE" {
+	if errors.As(failure, &providerError) && (providerError.Code == "STRUCTURED_PARSE" || providerError.Code == "empty_response") {
 		result.Output = nil
 		return
 	}

@@ -61,6 +61,14 @@ func TestResponsesSearchProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The original edge fixture ends in a completed search. Add a final answer
+	// for the successful projection while keeping all original search actions.
+	var answeredEdge map[string]any
+	if err := json.Unmarshal(edge, &answeredEdge); err != nil {
+		t.Fatal(err)
+	}
+	answeredEdge["output"] = append(answeredEdge["output"].([]any), map[string]any{"type": "message", "phase": "final_answer",
+		"content": []any{map[string]any{"type": "output_text", "text": "Final answer"}}})
 	gemini, err := os.ReadFile("../../providers/testdata/web_search/gemini.json")
 	if err != nil {
 		t.Fatal(err)
@@ -78,8 +86,12 @@ func TestResponsesSearchProjection(t *testing.T) {
 			_, _ = w.Write(gemini)
 			return
 		}
-		if strings.Contains(fmt.Sprint(input["input"]), "edge request") {
+		if strings.Contains(fmt.Sprint(input["input"]), "unanswered edge") {
 			_, _ = w.Write(edge)
+			return
+		}
+		if strings.Contains(fmt.Sprint(input["input"]), "edge request") {
+			_ = json.NewEncoder(w).Encode(answeredEdge)
 			return
 		}
 		if input["text"] != nil {
@@ -207,6 +219,17 @@ func TestResponsesSearchProjection(t *testing.T) {
 		}
 		if _, ok := items[0].(map[string]any)["action"]; ok {
 			t.Fatal("unreported action invented")
+		}
+	})
+	t.Run("unanswered edge returns typed failure", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"fixture","input":"unanswered edge","tools":[{"type":"web_search"}]}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+proxyTestToken)
+		w := httptest.NewRecorder()
+		handler.Handler().ServeHTTP(w, req)
+		var body struct{ Error struct{ Code string } }
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || w.Code != http.StatusBadGateway || body.Error.Code != "empty_response" {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 		}
 	})
 	t.Run("Gemini generated IDs", func(t *testing.T) {
