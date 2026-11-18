@@ -2,9 +2,11 @@
 
 ## 1. Objective and status
 
-Status: reviewed implementation plan; implementation authorized on feature
-branch `feat/issue-184-provider-diagnostics` from `dev` at
-`79a7371fa7b03d9bca761ccf25f0e2903458e840`.
+[PR #185](https://github.com/prls-co/harden-llm/pull/185) targets `dev`.
+Its first implementation, `9c401a6`, exposed three defects during review.
+The owner approved **1A** for native Responses answer selection and **2A**
+for preset report qualification. Those changes and the attempt attribution
+correction below are pending on the PR.
 
 Make provider failures explainable from retained evidence, then apply the small
 fixes demonstrated by the issue 156/184 qualification work. Reuse the existing
@@ -46,6 +48,15 @@ or credentials.
 The cumulative RCA cost accounting is $0.453134487 of the authorized $1,
 including $0.27 of held unknown-call reservations. Equivalents are not invoices.
 No additional paid work is needed to implement the deterministic changes below.
+
+The PR review exercised `Service.Run`, loopback HTTP servers, the persisted
+support bundle and the matrix reporter. A search timeout on attempt 1 appeared
+on attempt 2's successful model operation. A fallback row qualified with only
+one of its two operation records. Both JSON and streamed Responses could
+return explicit commentary as the final answer. Under the race detector, 4 of
+30 review cases passed at `9c401a6` and all 30 passed on a temporary prototype.
+The prototype retained legacy ordering for unlabeled replies. Decision 1A
+adds a stricter ordering case that still needs its own regression.
 
 ## 3. Design and reuse boundaries
 
@@ -124,7 +135,13 @@ failures and acceptance oracles in section 5 before implementation. Register
 new canonical `TEST-###` entries in
 `from_utility-llm/harden-llm-self-hosted-test-spec.md` and
 `../test/test-tiers.json`; extend TEST-025/455/542/548 where their existing
-assertion owns the behavior. Do not create another runner or fixture framework.
+assertion owns the behavior. For this review, extend TEST-548/549 in place.
+Update the eight affected subtests in
+`TestPresetMatrixCauseRetentionAndCaptureStatus`. Seven need complete
+operation fixtures for their claimed route. One must assert that missing
+diagnostics fails qualification while preserving a successful call. Retain
+their typed-error and public-projection assertions. Use the existing runner
+and fixtures.
 
 ### P02. Complete capture and persistence through the existing paths
 
@@ -141,6 +158,12 @@ assertion owns the behavior. Do not create another runner or fixture framework.
    diagnostic.
 4. Test ordinary `/v1`, reference runs, CPA and non-CPA paths. Keep the existing
    public error, trace/cache shapes and unknown-outcome behavior unchanged.
+5. Carry the attempt number supplied to `trackingObserver.StartAttempt` in the
+   request context. Stamp each search/model record at emission for both the
+   process log and the support bundle. Remove the positional join in
+   `OperationDiagnostics.ReconcileAttempt`. A later schema or accounting error
+   belongs to the numbered trace attempt. The operation record retains the
+   outcome observed at the HTTP boundary.
 
 Exit: a locally injected failure can be explained from its durable private
 record without the temporary RCA overlays or an additional provider call.
@@ -152,12 +175,27 @@ record without the temporary RCA overlays or an additional provider call.
 2. Capture the same provider/search records with the existing logger injection;
    use the existing private atomic report writer. Keep public API error codes
    as a separate summary, not the diagnostic cause.
-3. Record effective configuration identity and diagnostic capture status.
-   Missing/clipped evidence makes qualification incomplete or invalid; it must
-   not turn a failed business call into a pass or overwrite its outcome.
+3. **Decision 2A.** Keep the execution outcome or uncertainty in `status`.
+   Write the verdict for each evaluated row in `qualificationStatus`.
+   `recordLivePresetOutcome` computes it once for both the Go test and the
+   private report. Record `invalid_execution`, `invalid_evidence` and
+   `invalid_diagnostics` as qualification verdicts. A successful answer with
+   missing model evidence yields
+   `status=succeeded`, `diagnosticCaptureStatus=missing` (or `incomplete` for
+   partial capture) and `qualificationStatus=invalid_diagnostics`. Only
+   `qualificationStatus=passed` counts as a pass. Retain the configuration
+   identity and copy `runId`, `callId` and `traceId` from the run.
 4. Preserve started/unconfirmed rows, filtered unstarted rows, missing
    credentials and optional unobserved native search. Derive row counts from
    the shipped catalog. Never rerun an ambiguous case automatically.
+5. For this single-attempt, cache-off matrix, validate record stage, order,
+   attempt number, dispatch and required terminal facts against the route
+   and outcome. A successful Jina fallback needs a successful search record
+   followed by a model record. A terminal Jina failure before model execution
+   needs just the failed search record. A native or search-off generation
+   needs its model record. An optional native answer may report zero searches.
+   Clipping, missing fields, duplicates, contradictions and publication
+   failures must remain visible to the verdict.
 
 Exit: TEST-455's normal report contains the evidence needed for the same RCA
 that previously required a private probe harness. Its deterministic helper
@@ -167,6 +205,7 @@ tests exercise reporting without credentials or internet access.
 
 | Change | Exact scope and acceptance |
 | --- | --- |
+| Native Responses final answer (decision 1A) | Use `finalResponseOutput` for returned text, citation attribution and diagnostic final-text presence/byte count in JSON and streamed Responses. Honor an explicit `final_answer`, including an empty one. Exclude `commentary`. When labels are absent and a web search completed, only assistant text after the last completed search is eligible. With only earlier text, return `empty_response`. A valid answer remains eligible when optional search never ran. Read search activity and usage from the full response. |
 | Jina snippets | Set `X-Respond-With: no-content`; retain the 20-second search timeout, 512 KiB response limit, 64 KiB injected-context limit and fixed-host policy |
 | Completed-retrieval context | Add the exact tested prefix from the continued RCA to the existing fallback context; preserve the user's prompt, strict schema, untrusted-material warning and source citation instructions |
 | Haiku preset | Change only `CPA claude-haiku-4-5-20251001` to `anthropic-messages`, set `responsesTokensParam` to `null` and remove default `stream`; preserve non-empty `connection.Provider` in `buildPayload` so `SelectedTarget.Provider` and `Attempt.Target.Provider` retain `cpa` |
@@ -190,7 +229,7 @@ Compile the live matrix with no selected tests; do not dispatch providers.
 Run `git diff HEAD --check` and check diagnostic secret/cross-call isolation.
 
 ```sh
-go test -race ./internal/providers ./internal/diagnostics ./stateful
+go test -race ./internal/providers ./internal/diagnostics ./stateful ./cmd/harden-llm-gateway
 PATH=/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin:$PATH make test-fast
 go test -tags=live ./cmd/harden-llm-gateway -run '^$' -count=1
 git diff HEAD --check
@@ -202,14 +241,20 @@ boundaries and needs no new ADR unless implementation introduces a real
 contract departure. Reassess any such departure explicitly before expanding
 the implementation.
 
-Implement from current `dev` on a feature branch, push a verified checkpoint
-and open a PR targeting `dev`. Report local tests, hosted checks and deployment
-as separate evidence. Main/production promotion remains separately authorized.
+Deliver the corrections on the existing PR. Update the
+[qualification guide](../docs/preset-live-qualification.md) and known report
+readers together. Document how to count passes in new reports and how to
+interpret archived rows under their original format. Report local tests,
+hosted checks and deployment separately. Production promotion requires
+separate authorization.
 
 ## 5. Required test oracles
 
 | Boundary | Lowest sufficient check and oracle |
 | --- | --- |
+| Final-answer selection | T1, identical JSON and SSE fixtures. Unlabeled text only before a completed search yields `empty_response` and zero final-text bytes. Unlabeled `ok` after the last completed search yields two bytes. Late commentary cannot replace a labeled final or supply text for an explicit empty final. Verify citations against the selected text and retain optional-search success without a search call. |
+| Attempt attribution | T1, through `Service.Run` and a read-back of the support bundle. A search timeout on attempt 1, then successful search and model on attempt 2, yields operation ordinals `1, 2, 2`. A model retry using memoized search produces one search record total. A successful HTTP exchange followed by `STRUCTURED_SCHEMA` retains both facts under the same attempt number. |
+| Matrix verdict | T0/T1, read back the private report. For a successful fallback, remove, duplicate, reorder or misattribute one record and assert successful inference plus failed qualification. Restore both valid records and assert `passed`. Cover a failed search before model dispatch and a dispatched header timeout with `status=unconfirmed`. Verify the persisted IDs match the run. |
 | Cause retention | T0/T1: parse, schema, accounting, empty output, HTTP rejection and response-too-large errors remain distinguishable in the private report while public projection is unchanged |
 | Timeout ownership | T1 TLS: header timeout while parent is live, parent expiry, cancellation and partial disconnect retain correct phase/dispatch facts, one attempt and unconfirmed remote outcome where appropriate |
 | Jina before model | T1: HTTP 200 plus oversize/search deadline is retained; model dispatch remains false; header treatment accepts snippets under unchanged bounds |
@@ -229,6 +274,11 @@ not a pass for a later implementation SHA.
 
 ## 6. Compatibility and completion
 
+- An unlabeled answer listed only before a completed native search will now
+  yield `empty_response`. How often providers emit this ordering is unknown.
+- New private report readers use `qualificationStatus` for pass counts.
+  A reader that continues counting `status=succeeded` can overcount.
+  Apply the new interpretation to new reports only.
 - HTTP/OpenAPI, public Go result/attempt DTOs, strict trace/cache formats and
   client decoders retain their shapes. New private fields use the existing
   structured-log/support-bundle mechanisms, with no new dependency or service.
