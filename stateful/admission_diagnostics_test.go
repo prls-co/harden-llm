@@ -1,20 +1,28 @@
 package stateful
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-542 / TEST-543.
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-542 / TEST-543 / TEST-549.
 
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/diagnostics"
 	"github.com/prls-co/harden-llm/stateful/batch"
 )
 
@@ -190,5 +198,136 @@ func TestCPAAdmissionEarlyFailureLogsSafeClass(t *testing.T) {
 				t.Fatalf("safe cause lost at %s: want=%s records=%v", stage, want, records)
 			}
 		})
+	}
+}
+
+func TestReferenceRunCapturesSharedOperationDiagnosticsAndRedactedBundleLogs(t *testing.T) {
+	t.Parallel()
+	var s3Mu sync.Mutex
+	s3Objects := map[string][]byte{}
+	failPut := atomic.Bool{}
+	s3Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			if failPut.Load() && strings.HasSuffix(r.URL.Path, "/support-bundle.json") {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			data, _ := io.ReadAll(r.Body)
+			s3Mu.Lock()
+			s3Objects[r.URL.Path] = data
+			s3Mu.Unlock()
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer s3Server.Close()
+
+	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "chat/completions") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":"gen-or-1","provider":"Groq","choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"OK"}}],"usage":{"prompt_tokens":8,"completion_tokens":2,"total_tokens":10}}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"msg-1","stop_reason":"end_turn","content":[{"type":"text","text":"OK"}],"usage":{"input_tokens":5,"output_tokens":2}}`))
+	}))
+	defer provider.Close()
+
+	roots := x509.NewCertPool()
+	roots.AddCert(provider.Certificate())
+	artifacts, err := NewArtifactStore(ArtifactOptions{
+		Endpoint: s3Server.URL, Bucket: "bucket", Region: "us-east-1",
+		AccessKeyID: "garage-key", SecretAccessKey: "garage-secret", HTTPClient: s3Server.Client(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog := fixtureCatalog(t)
+	orPreset := catalog["CPA Responses"]
+	var def Profile
+	_ = json.Unmarshal(orPreset.Definition, &def)
+	def.Provider = "openrouter"
+	def.APIInferenceType = "chat-completions"
+	def.BaseURL = provider.URL + "/v1"
+	def.DefaultOptions = map[string]any{"max_tokens": float64(128)}
+	orPreset.Definition, _ = json.Marshal(def)
+	orPreset.Binding = ProfileCredentialBinding{Source: "deployment", DeploymentUpstreamID: "openrouter"}
+
+	var logBuf bytes.Buffer
+	service, err := NewService(Config{
+		Presets:   Catalog{"OpenRouter Test": orPreset},
+		Artifacts: artifacts,
+		Client: ClientOptions{
+			Connections: []hardenllm.Connection{{
+				ID: "openrouter", Provider: "openrouter", Protocol: "chat-completions",
+				BaseURL: def.BaseURL, APIKey: "synthetic-provider-key",
+				Headers: map[string]string{"X-Custom-Auth": "synthetic-private-prefix"},
+			}},
+			DefaultConnection: "openrouter",
+			WebSearch:         WebSearchOptions{JinaAPIKey: "synthetic-jina-secret"},
+			Logger:            slog.New(slog.NewJSONHandler(&logBuf, nil)),
+			EndpointPolicy:    hardenllm.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := RunInput{
+		ProfileID: "OpenRouter Test", UserPrompt: "private prompt", CallType: hardenllm.CallTypeText,
+		CacheMode: hardenllm.CacheModeOff, TimeoutMS: 5000,
+		RecoveryPolicy: json.RawMessage(`{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`),
+	}
+	scopeA := strings.Repeat("a", 64)
+	scopeB := strings.Repeat("b", 64)
+
+	var wg sync.WaitGroup
+	var outA, outB RunOutput
+	var errA, errB error
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		outA, _, errA = service.Run(t.Context(), scopeA, input)
+	}()
+	go func() {
+		defer wg.Done()
+		outB, _, errB = service.Run(t.Context(), scopeB, input)
+	}()
+	wg.Wait()
+	if errA != nil || errB != nil || outA.Output != "OK" || outB.Output != "OK" {
+		t.Fatalf("runs failed: errA=%v errB=%v", errA, errB)
+	}
+	if len(outA.OperationDiagnostics) != 1 || len(outB.OperationDiagnostics) != 1 || outA.DiagnosticsClipped || outB.DiagnosticsClipped {
+		t.Fatalf("expected 1 isolated operation diagnostic per run: A=%v B=%v", outA.OperationDiagnostics, outB.OperationDiagnostics)
+	}
+	if outA.OperationDiagnostics[0]["upstream_provider"] != "Groq" || outA.OperationDiagnostics[0]["provider_request_id"] != "gen-or-1" || outA.OperationDiagnostics[0]["finish_reason"] != "stop" || outA.OperationDiagnostics[0]["final_text_present"] != true {
+		t.Fatalf("non-CPA operation diagnostic missing response-shape facts: %#v", outA.OperationDiagnostics[0])
+	}
+
+	s3Mu.Lock()
+	bundleBytes := s3Objects["/bucket/artifacts/"+scopeA+"/"+outA.RunID+"/support-bundle.json"]
+	s3Mu.Unlock()
+	if len(bundleBytes) == 0 {
+		t.Fatal("support-bundle.json was not written")
+	}
+	var bundle diagnostics.Bundle
+	if err := json.Unmarshal(bundleBytes, &bundle); err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.Logs) != 1 || !strings.Contains(bundle.Logs[0], `"provider operation observed"`) || !strings.Contains(bundle.Logs[0], `"Groq"`) {
+		t.Fatalf("support-bundle.json missing operation logs: %v", bundle.Logs)
+	}
+	for _, secret := range []string{"synthetic-provider-key", "synthetic-private-prefix", "synthetic-jina-secret", "private prompt"} {
+		if bytes.Contains(bundleBytes, []byte(secret)) {
+			t.Fatalf("support bundle leaked secret %q", secret)
+		}
+	}
+
+	// Writer failure must surface ArtifactDiagnostic while preserving accepted inference.
+	failPut.Store(true)
+	outFail, _, errFail := service.Run(t.Context(), scopeA, input)
+	if errFail != nil || outFail.Status != "succeeded" || outFail.Output != "OK" || outFail.ArtifactDiagnostic == nil || outFail.ArtifactDiagnostic.Code != "artifact_write_failed" {
+		t.Fatalf("artifact writer failure did not preserve accepted inference or report diagnostic: out=%+v err=%v", outFail, errFail)
 	}
 }

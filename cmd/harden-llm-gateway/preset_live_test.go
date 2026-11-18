@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
@@ -82,11 +81,7 @@ func TestLivePresetMatrix(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var profile stateful.Profile
-			if err = json.Unmarshal(preset.Definition, &profile); err != nil {
-				t.Fatal(err)
-			}
-			row := map[string]any{"id": id, "mode": string(mode), "model": input.ModelID, "provider": profile.Provider, "protocol": profile.APIInferenceType, "status": "planned", "searchRequested": input.WebSearch, "expectedSearchMode": route}
+			row := newLivePresetRow(id, preset, input, route)
 			if !available[preset.Binding.DeploymentUpstreamID] {
 				row["status"], row["missing"] = "not_configured", "provider_credential"
 			} else if route == "jina" && config.jinaAPIKey == "" {
@@ -114,40 +109,8 @@ func TestLivePresetMatrix(t *testing.T) {
 				return
 			}
 			output, _, callErr := service.Run(context.Background(), scope, input)
-			row["status"], row["providerInvoked"], row["attemptCount"], row["usedRepair"] = output.Status, output.ProviderInvoked, len(output.Attempts), output.UsedRepair
-			row["durationMs"], row["cacheServed"], row["finishedAt"] = output.TotalCallDurationMs, output.Cache.Served, time.Now().UTC().Format(time.RFC3339Nano)
-			statuses := []int{}
-			for _, attempt := range output.Attempts {
-				statuses = append(statuses, attempt.HTTPStatus)
-				if callErr != nil && (attempt.DispatchObserved || attempt.ProviderUsed) && (attempt.Category == "network" || attempt.Category == "timeout" || attempt.Category == "canceled") {
-					row["status"] = "unconfirmed"
-				}
-			}
-			row["httpStatuses"] = statuses
-			var evidenceErr error
-			if input.WebSearch && (callErr == nil || output.Search != nil) {
-				facts, err := livePresetSearchFacts(output, row["expectedSearchMode"].(string))
-				for key, value := range facts {
-					row[key] = value
-				}
-				evidenceErr = err
-				if err != nil {
-					row["evidenceError"] = err.Error()
-				}
-			}
-			if callErr != nil {
-				problem := stateful.ProjectRunError(callErr)
-				row["errorCode"] = problem.Code
-				if problem.Code == "execution_unconfirmed" {
-					row["status"] = "unconfirmed"
-				}
-				t.Errorf("preset call failed: code=%s providerInvoked=%v", problem.Code, output.ProviderInvoked)
-			} else if output.Status != "succeeded" || !output.ProviderInvoked || len(output.Attempts) != 1 || output.UsedRepair || output.Cache.Served {
-				row["status"] = "invalid_execution"
-				t.Error("canary did not execute exactly one successful generation")
-			} else if evidenceErr != nil {
-				row["status"] = "invalid_evidence"
-				t.Error(evidenceErr)
+			if !recordLivePresetOutcome(row, input, output, callErr, time.Now().UTC()) {
+				t.Errorf("preset qualification failed: status=%v errorCode=%v diagnosticCode=%v providerInvoked=%v", row["status"], row["errorCode"], row["diagnosticCode"], output.ProviderInvoked)
 			}
 		})
 		if reportErr != nil {

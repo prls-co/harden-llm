@@ -105,7 +105,7 @@ func NewRouter(config Config) (*Router, error) {
 	}
 	webSearcher := config.WebSearcher
 	if webSearcher == nil {
-		webSearcher, err = newJinaSearcher(config.EndpointPolicy, config.JinaAPIKey, config.JinaTimeout, config.JinaMaxResponseBytes, now)
+		webSearcher, err = newJinaSearcher(config.EndpointPolicy, logger, config.JinaAPIKey, config.JinaTimeout, config.JinaMaxResponseBytes, now)
 		if err != nil {
 			return nil, err
 		}
@@ -183,16 +183,10 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 
 // Execute performs a prepared request and normalizes its result.
 func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOperation) (finalResult runtime.ProviderResult, finalErr error) {
-	started := time.Now()
+	modelStarted := time.Now()
 	cpaID := ""
 	var headerMS atomic.Int64
 	headerMS.Store(-1)
-	defer func() {
-		finalResult.Stream.CorrelationID = cpaID
-		if n := headerMS.Load(); n >= 0 {
-			finalResult.Stream.HeadersMs = &n
-		}
-	}()
 	if router == nil || router.client == nil {
 		return runtime.ProviderResult{}, errors.New("providers: router is not initialized")
 	}
@@ -209,6 +203,82 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		requestContext, cancel = context.WithTimeout(ctx, prepared.timeout)
 	}
 	defer cancel()
+	var facts modelOperationFacts
+	modelEntered := false
+	defer func() {
+		finalResult.Stream.CorrelationID = cpaID
+		if n := headerMS.Load(); n >= 0 {
+			finalResult.Stream.HeadersMs = &n
+		}
+		if !modelEntered {
+			return
+		}
+		code, typeName, category := classifyDiagnosticError(finalErr)
+		level := slog.LevelInfo
+		if finalErr != nil {
+			level = slog.LevelWarn
+		}
+		attrs := []any{
+			"stage", "provider_model",
+			"provider", prepared.provider, "protocol", prepared.protocol,
+			"model", prepared.operation.Model, "call_type", prepared.callType,
+			"dispatched", finalResult.ProviderDispatched, "headers_received", facts.headersReceived,
+			"http_status", facts.httpStatus, "duration_ms", time.Since(modelStarted).Milliseconds(),
+			"received_bytes", finalResult.Stream.ReceivedBytes, "event_count", finalResult.Stream.EventCount,
+			"output_bytes", finalResult.Stream.OutputBytes, "output_code_points", finalResult.Stream.OutputCodePoints,
+			"max_response_bytes", router.maxResponseBytes,
+			"error_category", category,
+			"parent_context_expired", ctx != nil && ctx.Err() != nil,
+			"request_context_expired", requestContext != nil && requestContext.Err() != nil,
+		}
+		if prepared.searchMode != "" {
+			attrs = append(attrs, "search_mode", prepared.searchMode)
+		}
+		if prepared.timeout > 0 {
+			attrs = append(attrs, "request_timeout_ms", prepared.timeout.Milliseconds())
+		}
+		if rt, ok := router.client.Transport.(*safeRoundTripper); ok && rt.headerTimeout > 0 {
+			attrs = append(attrs, "response_header_timeout_ms", rt.headerTimeout.Milliseconds())
+		} else if transport, ok := router.client.Transport.(*http.Transport); ok && transport.ResponseHeaderTimeout > 0 {
+			attrs = append(attrs, "response_header_timeout_ms", transport.ResponseHeaderTimeout.Milliseconds())
+		}
+		if h := headerMS.Load(); h >= 0 {
+			attrs = append(attrs, "headers_ms", h)
+		}
+		if finalResult.Stream.TerminalState != "" {
+			attrs = append(attrs, "terminal_state", finalResult.Stream.TerminalState)
+		}
+		if code != "" {
+			attrs = append(attrs, "error_code", code)
+		}
+		if typeName != "" {
+			attrs = append(attrs, "error_type", typeName)
+		}
+		if finalResult.Stream.TransportErrorClass != "" {
+			attrs = append(attrs, "error_class", finalResult.Stream.TransportErrorClass, "error_phase", finalResult.Stream.TransportErrorPhase)
+		}
+		if facts.upstreamProvider != "" {
+			attrs = append(attrs, "upstream_provider", facts.upstreamProvider)
+		}
+		if facts.providerRequestID != "" {
+			attrs = append(attrs, "provider_request_id", facts.providerRequestID)
+		}
+		if facts.upstreamErrorCode != "" {
+			attrs = append(attrs, "upstream_error_code", facts.upstreamErrorCode)
+		}
+		if facts.finishReason != "" {
+			attrs = append(attrs, "finish_reason", facts.finishReason)
+		}
+		if facts.responseObserved {
+			attrs = append(attrs,
+				"final_text_present", facts.finalTextPresent,
+				"final_text_bytes", facts.finalTextBytes,
+				"reasoning_present", facts.reasoningPresent,
+				"tool_call_count", facts.toolCallCount,
+			)
+		}
+		emitOperationDiagnostic(ctx, router.logger, level, "provider operation observed", attrs...)
+	}()
 	body := prepared.body
 	var err error
 	if prepared.webSearch != nil {
@@ -230,6 +300,8 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 			return runtime.ProviderResult{}, fmt.Errorf("providers: encode web-search request payload: %w", err)
 		}
 	}
+	modelStarted = time.Now()
+	modelEntered = true
 	request, err := http.NewRequestWithContext(requestContext, http.MethodPost, prepared.url.String(), bytes.NewReader(body))
 	if err != nil {
 		return runtime.ProviderResult{}, fmt.Errorf("providers: build request: %w", err)
@@ -238,7 +310,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	var dispatched atomic.Bool
 	request = request.WithContext(httptrace.WithClientTrace(request.Context(), &httptrace.ClientTrace{
 		WroteHeaders:         func() { dispatched.Store(true) },
-		GotFirstResponseByte: func() { headerMS.Store(time.Since(started).Milliseconds()) },
+		GotFirstResponseByte: func() { headerMS.Store(time.Since(modelStarted).Milliseconds()) },
 	}))
 	response, err := router.client.Do(request)
 	if err != nil {
@@ -254,9 +326,13 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	if match := cpaCorrelationSuffix.FindStringSubmatch(response.Header.Get("X-Cpa-Trace-Id")); match != nil {
 		cpaID = strings.ToLower(match[1])
 	}
+	facts.headersReceived = true
+	facts.httpStatus = response.StatusCode
+	facts.providerRequestID = responseHeaderRequestID(response.Header, cpaID)
 	if response.StatusCode >= 200 && response.StatusCode <= 299 && prepared.protocol == "openai.responses" && isEventStreamContentType(response.Header.Get("Content-Type")) {
 		streamResponse, streamErr, streamDiagnostics := collectResponsesEventStreamReaderContextWithProgress(ctx, requestContext, response.Body, router.maxResponseBytes, operation.StreamProgress)
 		if streamResponse != nil {
+			mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, streamResponse))
 			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
 			result.ProviderDispatched = dispatched.Load()
 			result.Stream = streamDiagnostics
@@ -274,6 +350,9 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	}
 	body, err = readBounded(response.Body, router.maxResponseBytes)
 	nonStreamingDiagnostics := runtime.StreamDiagnostics{ReceivedBytes: int64(len(body)), TerminalState: "not_streaming"}
+	if decoded, decodeErr := decodeJSONObject(body); decodeErr == nil {
+		mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, decoded))
+	}
 	if err != nil {
 		if !errors.Is(err, errResponseTooLarge) {
 			captureTransportFailure(&nonStreamingDiagnostics, ctx, err, "response_body")
@@ -292,6 +371,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		}
 		if prepared.protocol == "openai.responses" {
 			if streamResponse, streamErr := collectResponsesEventStreamIfPresent(response.Header.Get("Content-Type"), body); streamResponse != nil {
+				mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, streamResponse))
 				partial, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
 				partial.ProviderDispatched = dispatched.Load()
 				partial.Stream = nonStreamingDiagnostics
@@ -325,6 +405,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	if prepared.protocol == "openai.responses" && isEventStream(response.Header.Get("Content-Type"), body) {
 		streamResponse, streamErr := collectResponsesEventStream(body)
 		if streamResponse != nil {
+			mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, streamResponse))
 			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse)
 			result.ProviderDispatched = dispatched.Load()
 			if streamErr != nil {
@@ -354,6 +435,29 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		return result, err
 	}
 	return result, nil
+}
+
+func mergeModelFacts(dst *modelOperationFacts, src modelOperationFacts) {
+	if dst == nil || !src.responseObserved {
+		return
+	}
+	dst.responseObserved = true
+	if src.upstreamProvider != "" {
+		dst.upstreamProvider = src.upstreamProvider
+	}
+	if dst.providerRequestID == "" && src.providerRequestID != "" {
+		dst.providerRequestID = src.providerRequestID
+	}
+	if src.upstreamErrorCode != "" {
+		dst.upstreamErrorCode = src.upstreamErrorCode
+	}
+	if src.finishReason != "" {
+		dst.finishReason = src.finishReason
+	}
+	dst.finalTextPresent = src.finalTextPresent
+	dst.finalTextBytes = src.finalTextBytes
+	dst.reasoningPresent = src.reasoningPresent
+	dst.toolCallCount = src.toolCallCount
 }
 
 func providerResultForFailure(prepared preparedRequest, response *http.Response, body []byte, dispatched bool, failure error) (runtime.ProviderResult, error) {
