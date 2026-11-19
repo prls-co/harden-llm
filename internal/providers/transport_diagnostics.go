@@ -66,12 +66,6 @@ func (c *OperationDiagnostics) record(entry map[string]any, line []byte, clipped
 	c.lines = append(c.lines, string(line))
 }
 
-// Records returns a detached copy of the captured records and clipping state.
-func (c *OperationDiagnostics) Records() ([]map[string]any, bool) {
-	records, _, clipped := c.Snapshot()
-	return records, clipped
-}
-
 // Snapshot renders the same redacted operation records for reports and support bundles.
 func (c *OperationDiagnostics) Snapshot() ([]map[string]any, []string, bool) {
 	if c == nil {
@@ -109,23 +103,28 @@ func emitOperationDiagnostic(ctx context.Context, logger *slog.Logger, level slo
 	if attempt.number > 0 {
 		attrs = append(attrs, "attempt_number", attempt.number)
 	}
-	entry := map[string]any{"msg": msg}
 	for i := 0; i < len(attrs); i += 2 {
-		key := attrs[i].(string)
-		attrs[i+1] = scrubber.Attribute(key, attrs[i+1])
-		entry[key] = attrs[i+1]
+		attrs[i+1] = scrubber.Attribute(attrs[i].(string), attrs[i+1])
 	}
-	line, err := json.Marshal(entry)
-	clipped := err != nil || len(line) > maxOperationDiagnosticLineLen
 	if collector != nil {
+		entry := map[string]any{"msg": msg}
+		for i := 0; i < len(attrs); i += 2 {
+			entry[attrs[i].(string)] = attrs[i+1]
+		}
+		line, err := json.Marshal(entry)
+		clipped := err != nil || len(line) > maxOperationDiagnosticLineLen
 		collector.record(entry, line, clipped)
+		if clipped {
+			for i := 1; i < len(attrs); i += 2 {
+				if value, ok := attrs[i].(string); ok {
+					attrs[i] = boundedWebSearchText(value, 128)
+				}
+			}
+			attrs = append(attrs, "clipped", true)
+		}
 	}
 	if logger != nil {
-		if clipped {
-			logger.WarnContext(ctx, "diagnostic capture clipped", "clipped", true, "attempt_number", attempt.number)
-		} else {
-			logger.Log(ctx, level, msg, attrs...)
-		}
+		logger.Log(ctx, level, msg, attrs...)
 	}
 }
 
@@ -143,14 +142,10 @@ type modelOperationFacts struct {
 	responseObserved  bool
 }
 
-func inspectResponseShape(protocol string, response map[string]any, extraction providerOutputExtraction) modelOperationFacts {
-	if len(response) == 0 {
-		return modelOperationFacts{}
-	}
-	facts := modelOperationFacts{
-		responseObserved:  true,
-		upstreamProvider:  boundedProviderLabel(stringValue(response["provider"])),
-		providerRequestID: boundedRequestID(stringValue(response["id"])),
+func (facts *modelOperationFacts) observeUpstream(response map[string]any) {
+	facts.upstreamProvider = boundedProviderLabel(stringValue(response["provider"]))
+	if facts.providerRequestID == "" {
+		facts.providerRequestID = boundedRequestID(stringValue(response["id"]))
 	}
 	if errObj := objectValue(response["error"]); len(errObj) > 0 {
 		if facts.providerRequestID == "" {
@@ -162,6 +157,14 @@ func inspectResponseShape(protocol string, response map[string]any, extraction p
 		}
 		facts.upstreamErrorCode = extractUpstreamErrorCode(errObj)
 	}
+}
+
+func (facts *modelOperationFacts) observeResponse(protocol string, response map[string]any, extraction providerOutputExtraction) {
+	facts.observeUpstream(response)
+	if len(response) == 0 {
+		return
+	}
+	facts.responseObserved = true
 	switch protocol {
 	case "openai.responses":
 		status := boundedCode(stringValue(response["status"]))
@@ -259,7 +262,6 @@ func inspectResponseShape(protocol string, response map[string]any, extraction p
 			}
 		}
 	}
-	return facts
 }
 
 func extractUpstreamErrorCode(errObj map[string]any) string {
@@ -269,7 +271,7 @@ func extractUpstreamErrorCode(errObj map[string]any) string {
 	meta := objectValue(errObj["metadata"])
 	if raw, ok := meta["raw"].(string); ok && raw != "" {
 		lower := strings.ToLower(raw)
-		if strings.Contains(lower, "tool choice is none, but model called a tool") || strings.Contains(lower, "called a tool") && strings.Contains(lower, "none") {
+		if strings.Contains(lower, "tool choice is none, but model called a tool") {
 			return "model_called_tool_when_none_enabled"
 		}
 		var rawPayload map[string]any

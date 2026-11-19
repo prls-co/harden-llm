@@ -46,7 +46,8 @@ whole plan, then `started` before dispatch and the final result afterward.
 Reports refuse an existing destination. Each row records the Git checkout revision in
 `sourceRevision` and hashes the effective prompt, schema (when applicable),
 provider options, preset definition and recovery policy in `configIdentity`.
-Preserve local source changes alongside the report if the checkout was dirty.
+`sourceDirty` records whether Git found tracked changes or untracked files before
+the first dispatch. Preserve those changes alongside a dirty checkout's report.
 
 Successful search cases record expected/observed mode, execution, call/source/
 citation counts, omission warnings and completeness. `searchObservation` is

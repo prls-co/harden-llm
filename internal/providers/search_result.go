@@ -170,7 +170,7 @@ func finalResponseOutput(response map[string]any) int {
 			unlabeled = -1
 			continue
 		}
-		if item["type"] != "message" || (item["role"] != nil && item["role"] != "assistant") {
+		if (item["type"] != nil && item["type"] != "message") || (item["role"] != nil && item["role"] != "assistant") {
 			continue
 		}
 		switch item["phase"] {

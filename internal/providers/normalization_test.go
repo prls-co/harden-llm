@@ -823,3 +823,8 @@ func TestIncompleteResponseRetainsOriginalAssistantText(t *testing.T) {
 		t.Fatalf("partial evidence changed: text=%q err=%v", result.AssistantText, err)
 	}
 }
+
+func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderResult, error) {
+	response, _ := decodeJSONObject(body)
+	return normalizeDecodedResponse(prepared, response, nil)
+}

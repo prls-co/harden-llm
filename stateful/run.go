@@ -10,6 +10,7 @@ import (
 
 	hardenllm "github.com/prls-co/harden-llm"
 	"github.com/prls-co/harden-llm/internal/providers"
+	"github.com/prls-co/harden-llm/internal/redaction"
 )
 
 type RunInput struct {
@@ -284,9 +285,7 @@ func operationSecrets(jinaKey string, catalogs ...hardenllm.ConnectionCatalog) [
 	for _, catalog := range catalogs {
 		for _, conn := range catalog {
 			secrets = append(secrets, conn.APIKey)
-			for _, v := range conn.Headers {
-				secrets = append(secrets, v)
-			}
+			secrets = append(secrets, redaction.HeaderSecrets(conn.Headers, conn.Provider)...)
 		}
 	}
 	return secrets

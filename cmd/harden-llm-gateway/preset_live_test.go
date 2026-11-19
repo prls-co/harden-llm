@@ -62,6 +62,10 @@ func TestLivePresetMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not identify source revision before dispatch: %v", err)
 	}
+	status, err := exec.CommandContext(t.Context(), "git", "status", "--porcelain=v1").Output()
+	if err != nil {
+		t.Fatalf("could not identify checkout state before dispatch: %v", err)
+	}
 	digest := sha256.Sum256([]byte(config.apiKeys[0]))
 	scope := hex.EncodeToString(digest[:])
 	available := map[string]bool{}
@@ -83,12 +87,13 @@ func TestLivePresetMatrix(t *testing.T) {
 	for _, id := range ids {
 		preset := catalog[id]
 		for _, mode := range modes {
-			input, route, err := livePresetInput(id, preset, mode, search == "1")
+			input, profile, route, err := livePresetInput(id, preset, mode, search == "1")
 			if err != nil {
 				t.Fatal(err)
 			}
-			row := newLivePresetRow(id, preset, input, route)
+			row := newLivePresetRow(preset, profile, input, route)
 			row["sourceRevision"] = strings.TrimSpace(string(revision))
+			row["sourceDirty"] = len(status) != 0
 			if !available[preset.Binding.DeploymentUpstreamID] {
 				row["status"], row["missing"] = "not_configured", "provider_credential"
 			} else if route == "jina" && config.jinaAPIKey == "" {

@@ -19,11 +19,6 @@ import (
 	contractschema "github.com/prls-co/harden-llm/internal/schema"
 )
 
-func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderResult, error) {
-	response, _ := decodeJSONObject(body)
-	return normalizeDecodedResponse(prepared, response, nil)
-}
-
 func emptyProviderLedger() runtime.Ledger {
 	return accounting.EmptyLedger()
 }
@@ -35,7 +30,7 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any,
 	ledger, accountingErr := normalizeResponseAccounting(prepared, response)
 	extraction := responseOutputState(prepared, response)
 	if facts != nil {
-		mergeModelFacts(facts, inspectResponseShape(prepared.protocol, response, extraction))
+		facts.observeResponse(prepared.protocol, response, extraction)
 	}
 	partial := runtime.ProviderResult{Accounting: ledger, AssistantText: extraction.text}
 	if accountingErr != nil {

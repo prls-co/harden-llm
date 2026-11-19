@@ -278,30 +278,38 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		}
 		emitOperationDiagnostic(ctx, router.logger, level, "provider operation observed", attrs...)
 	}()
+	requestFailure := func(code string, err error) (runtime.ProviderResult, error) {
+		return runtime.ProviderResult{Stream: runtime.StreamDiagnostics{TransportErrorClass: "configuration", TransportErrorPhase: "request"}},
+			&retry.ProviderError{Err: err, Code: code, Category: retry.CategoryOther}
+	}
 	body := prepared.body
+	var searchResults string
 	var err error
 	if prepared.webSearch != nil {
-		searchResults, searchErr := prepared.webSearch.results(requestContext, router.webSearcher)
-		if searchErr != nil {
-			return runtime.ProviderResult{}, normalizeTransportError(ctx, requestContext, searchErr)
+		searchResults, err = prepared.webSearch.results(requestContext, router.webSearcher, router.logger)
+		if err != nil {
+			return runtime.ProviderResult{}, normalizeTransportError(ctx, requestContext, err)
 		}
+	}
+	modelStarted = time.Now()
+	if prepared.webSearch != nil {
 		searchCall := prepared.webSearch.call
 		searchCall.Messages = append(searchCall.Messages, runtime.Message{Role: "user", Content: mustJSONRaw(appendWebSearchContext("", searchResults))})
 		_, protocol, path, payload, _, buildErr := buildPayload(prepared.webSearch.connection, searchCall)
 		if buildErr != nil {
-			return runtime.ProviderResult{}, buildErr
+			return requestFailure("MODEL_REQUEST_BUILD", buildErr)
 		}
 		if protocol != prepared.protocol || path != prepared.operation.Endpoint.Path {
-			return runtime.ProviderResult{}, errors.New("providers: web-search fallback changed provider routing")
+			return requestFailure("MODEL_REQUEST_ROUTE", errors.New("providers: web-search fallback changed provider routing"))
 		}
 		body, err = json.Marshal(payload)
 		if err != nil {
-			return runtime.ProviderResult{}, fmt.Errorf("providers: encode web-search request payload: %w", err)
+			return requestFailure("MODEL_REQUEST_ENCODE", fmt.Errorf("providers: encode web-search request payload: %w", err))
 		}
 	}
 	request, err := http.NewRequestWithContext(requestContext, http.MethodPost, prepared.url.String(), bytes.NewReader(body))
 	if err != nil {
-		return runtime.ProviderResult{}, fmt.Errorf("providers: build request: %w", err)
+		return requestFailure("MODEL_REQUEST_BUILD", fmt.Errorf("providers: build request: %w", err))
 	}
 	request.Header = prepared.headers.Clone()
 	var dispatched atomic.Bool
@@ -328,45 +336,32 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	facts.httpStatus = response.StatusCode
 	facts.providerRequestID = responseHeaderRequestID(response.Header, cpaID)
 	if response.StatusCode >= 200 && response.StatusCode <= 299 && prepared.protocol == "openai.responses" && isEventStreamContentType(response.Header.Get("Content-Type")) {
-		streamResponse, streamErr, streamDiagnostics := collectResponsesEventStreamReaderContextWithProgress(ctx, requestContext, response.Body, router.maxResponseBytes, operation.StreamProgress)
-		if streamResponse != nil {
-			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse, &facts)
-			result.ProviderDispatched = dispatched.Load()
-			result.Stream = streamDiagnostics
-			if streamErr != nil {
-				clearProviderOutput(&result)
-				return result, preferAccountingFailure(normalizeErr, streamErr)
-			}
-			if normalizeErr != nil {
-				clearNormalizationOutput(&result, normalizeErr)
-				return result, normalizeErr
-			}
-			return result, nil
-		}
-		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: streamDiagnostics}, streamErr
+		streamResponse, streamErr, streamDiagnostics := collectResponsesEventStreamReaderContextWithProgress(ctx, requestContext, response.Body, router.maxResponseBytes, operation.StreamProgress, false)
+		return normalizeStreamResult(prepared, &facts, dispatched.Load(), streamResponse, streamErr, streamDiagnostics)
 	}
 	body, err = readBounded(response.Body, router.maxResponseBytes)
 	nonStreamingDiagnostics := runtime.StreamDiagnostics{ReceivedBytes: int64(len(body)), TerminalState: "not_streaming"}
-	decoded, _ := decodeJSONObject(body)
-	if decoded != nil && (response.StatusCode < 200 || response.StatusCode > 299) {
-		mergeModelFacts(&facts, inspectResponseShape(prepared.protocol, decoded, responseOutputState(prepared, decoded)))
-	}
+	var bodyFailure error
 	if err != nil {
 		if !errors.Is(err, errResponseTooLarge) {
 			captureTransportFailure(&nonStreamingDiagnostics, ctx, err, "response_body")
 		}
-		bodyFailure := normalizeTransportError(ctx, requestContext, err)
+		bodyFailure = normalizeTransportError(ctx, requestContext, err)
 		if errors.Is(bodyFailure, context.Canceled) || errors.Is(bodyFailure, context.DeadlineExceeded) {
 			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, bodyFailure
 		}
 		if errors.Is(err, errResponseTooLarge) {
 			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, &retry.ProviderError{Err: errors.New("provider response exceeded the size limit"), Code: "RESPONSE_TOO_LARGE", Category: retry.CategoryOther}
 		}
-		if response.StatusCode < 200 || response.StatusCode > 299 {
-			result, failure := providerResultForFailure(prepared, decoded, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
-			result.Stream = nonStreamingDiagnostics
-			return result, failure
-		}
+	}
+	if response.StatusCode < 200 || response.StatusCode > 299 {
+		decoded, _ := decodeJSONObject(body)
+		facts.observeUpstream(decoded)
+		result, failure := providerResultForFailure(prepared, decoded, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
+		result.Stream = nonStreamingDiagnostics
+		return result, failure
+	}
+	if bodyFailure != nil {
 		if prepared.protocol == "openai.responses" {
 			if streamResponse, streamErr := collectResponsesEventStreamIfPresent(response.Header.Get("Content-Type"), body); streamResponse != nil {
 				partial, normalizeErr := normalizeDecodedResponse(prepared, streamResponse, &facts)
@@ -385,7 +380,7 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 				return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, streamErr
 			}
 		}
-		if decoded != nil {
+		if decoded, _ := decodeJSONObject(body); decoded != nil {
 			partial, normalizeErr := normalizeDecodedResponse(prepared, decoded, &facts)
 			partial.ProviderDispatched = dispatched.Load()
 			partial.Stream = nonStreamingDiagnostics
@@ -394,30 +389,16 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 		}
 		return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, bodyFailure
 	}
-	if response.StatusCode < 200 || response.StatusCode > 299 {
-		result, failure := providerResultForFailure(prepared, decoded, dispatched.Load(), providerHTTPErrorAt(response, body, router.now()))
-		result.Stream = nonStreamingDiagnostics
-		return result, failure
-	}
 	if prepared.protocol == "openai.responses" && isEventStream(response.Header.Get("Content-Type"), body) {
-		streamResponse, streamErr := collectResponsesEventStream(body)
-		if streamResponse != nil {
-			result, normalizeErr := normalizeDecodedResponse(prepared, streamResponse, &facts)
-			result.ProviderDispatched = dispatched.Load()
-			if streamErr != nil {
-				clearProviderOutput(&result)
-				return result, preferAccountingFailure(normalizeErr, streamErr)
-			}
-			if normalizeErr != nil {
-				clearNormalizationOutput(&result, normalizeErr)
-				return result, normalizeErr
-			}
-			return result, nil
+		streamResponse, streamErr, diag := collectResponsesEventStreamReaderContextWithProgress(ctx, requestContext, bytes.NewReader(body), router.maxResponseBytes, nil, true)
+		// readBounded has already consumed the whole body, including trailing SSE data.
+		diag.ReceivedBytes = int64(len(body))
+		if operation.StreamProgress != nil {
+			operation.StreamProgress(diag)
 		}
-		if streamErr != nil {
-			return runtime.ProviderResult{Accounting: emptyProviderLedger(), ProviderDispatched: dispatched.Load(), Stream: nonStreamingDiagnostics}, streamErr
-		}
+		return normalizeStreamResult(prepared, &facts, dispatched.Load(), streamResponse, streamErr, diag)
 	}
+	decoded, _ := decodeJSONObject(body)
 	result, err := normalizeDecodedResponse(prepared, decoded, &facts)
 	result.ProviderDispatched = dispatched.Load()
 	nonStreamingDiagnostics.OutputBytes = outputByteCount(result.Output)
@@ -433,27 +414,21 @@ func (router *Router) Execute(ctx context.Context, operation runtime.PreparedOpe
 	return result, nil
 }
 
-func mergeModelFacts(dst *modelOperationFacts, src modelOperationFacts) {
-	if dst == nil || !src.responseObserved {
-		return
+func normalizeStreamResult(prepared preparedRequest, facts *modelOperationFacts, dispatched bool, response map[string]any, streamErr error, diag runtime.StreamDiagnostics) (runtime.ProviderResult, error) {
+	result := runtime.ProviderResult{Accounting: emptyProviderLedger()}
+	var err error
+	if response != nil {
+		result, err = normalizeDecodedResponse(prepared, response, facts)
 	}
-	dst.responseObserved = true
-	if src.upstreamProvider != "" {
-		dst.upstreamProvider = src.upstreamProvider
+	result.Stream, result.ProviderDispatched = diag, dispatched
+	if streamErr != nil {
+		clearProviderOutput(&result)
+		return result, preferAccountingFailure(err, streamErr)
 	}
-	if dst.providerRequestID == "" && src.providerRequestID != "" {
-		dst.providerRequestID = src.providerRequestID
+	if err != nil {
+		clearNormalizationOutput(&result, err)
 	}
-	if src.upstreamErrorCode != "" {
-		dst.upstreamErrorCode = src.upstreamErrorCode
-	}
-	if src.finishReason != "" {
-		dst.finishReason = src.finishReason
-	}
-	dst.finalTextPresent = src.finalTextPresent
-	dst.finalTextBytes = src.finalTextBytes
-	dst.reasoningPresent = src.reasoningPresent
-	dst.toolCallCount = src.toolCallCount
+	return result, err
 }
 
 func providerResultForFailure(prepared preparedRequest, decoded map[string]any, dispatched bool, failure error) (runtime.ProviderResult, error) {
@@ -636,10 +611,10 @@ func collectResponsesEventStreamReader(reader io.Reader, maximum int64) (map[str
 }
 
 func collectResponsesEventStreamReaderContext(parent, local context.Context, reader io.Reader, maximum int64) (map[string]any, error, runtime.StreamDiagnostics) {
-	return collectResponsesEventStreamReaderContextWithProgress(parent, local, reader, maximum, nil)
+	return collectResponsesEventStreamReaderContextWithProgress(parent, local, reader, maximum, nil, false)
 }
 
-func collectResponsesEventStreamReaderContextWithProgress(parent, local context.Context, reader io.Reader, maximum int64, progress func(runtime.StreamDiagnostics)) (map[string]any, error, runtime.StreamDiagnostics) {
+func collectResponsesEventStreamReaderContextWithProgress(parent, local context.Context, reader io.Reader, maximum int64, progress func(runtime.StreamDiagnostics), bufferedBody bool) (map[string]any, error, runtime.StreamDiagnostics) {
 	if parent == nil {
 		parent = context.Background()
 	}
@@ -678,11 +653,14 @@ func collectResponsesEventStreamReaderContextWithProgress(parent, local context.
 		}
 		diagnostics.EventCount++
 		now := time.Now().UTC()
-		if diagnostics.LastEventAt == nil {
-			first := maxDurationMilliseconds(now.Sub(started), 0)
-			diagnostics.FirstEventMs = &first
+		// A buffered body provides counts and terminal state but no event arrival times.
+		if !bufferedBody {
+			if diagnostics.LastEventAt == nil {
+				first := maxDurationMilliseconds(now.Sub(started), 0)
+				diagnostics.FirstEventMs = &first
+			}
+			diagnostics.LastEventAt = &now
 		}
-		diagnostics.LastEventAt = &now
 		event, decodeErr := decodeJSONObject([]byte(data))
 		if decodeErr != nil {
 			return false, &retry.ProviderError{Err: errors.New("provider returned a malformed event stream"), Code: "MALFORMED_STREAM", Category: retry.CategoryOther}
@@ -692,7 +670,7 @@ func collectResponsesEventStreamReaderContextWithProgress(parent, local context.
 			delta := stringValue(event["delta"])
 			diagnostics.OutputBytes += int64(len([]byte(delta)))
 			diagnostics.OutputCodePoints += int64(len([]rune(delta)))
-			if delta != "" {
+			if !bufferedBody && delta != "" {
 				if diagnostics.FirstOutputMs == nil {
 					first := maxDurationMilliseconds(now.Sub(started), 0)
 					diagnostics.FirstOutputMs = &first
@@ -713,7 +691,7 @@ func collectResponsesEventStreamReaderContextWithProgress(parent, local context.
 			}
 			diagnostics.TerminalState = "completed"
 			publish()
-			return true, nil
+			return !bufferedBody, nil
 		case "response.incomplete":
 			if response := objectValue(event["response"]); len(response) > 0 {
 				observed = cloneMap(response)
@@ -752,11 +730,13 @@ func collectResponsesEventStreamReaderContextWithProgress(parent, local context.
 		}
 		block = append(block, []byte(line)...)
 		trimmed := strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(string(line), "\n"), "\r"))
-		if trimmed == "" {
+		if trimmed == "" || errors.Is(readErr, io.EOF) {
 			stop, processErr := process(block)
 			block = block[:0]
 			if processErr != nil {
-				diagnostics.TerminalState = "failed"
+				if diagnostics.TerminalState != "incomplete" {
+					diagnostics.TerminalState = "failed"
+				}
 				publish()
 				return observed, processErr, diagnostics
 			}
@@ -766,16 +746,8 @@ func collectResponsesEventStreamReaderContextWithProgress(parent, local context.
 		}
 		if readErr != nil && !errors.Is(readErr, bufio.ErrBufferFull) {
 			if errors.Is(readErr, io.EOF) {
-				if len(block) > 0 {
-					stop, processErr := process(block)
-					if processErr != nil {
-						diagnostics.TerminalState = "failed"
-						publish()
-						return observed, processErr, diagnostics
-					}
-					if stop {
-						return terminalOrObserved(terminal, observed), nil, diagnostics
-					}
+				if terminal != nil {
+					return terminal, nil, diagnostics
 				}
 				diagnostics.TerminalState = "missing"
 				captureTransportFailure(&diagnostics, parent, readErr, "response_stream")
@@ -807,58 +779,8 @@ func terminalOrObserved(terminal, observed map[string]any) map[string]any {
 }
 
 func collectResponsesEventStream(body []byte) (map[string]any, error) {
-	var terminal map[string]any
-	var observed map[string]any
-	for _, block := range splitSSEBlocks(string(body)) {
-		dataLines := make([]string, 0)
-		for _, line := range strings.Split(block, "\n") {
-			line = strings.TrimSuffix(line, "\r")
-			if strings.HasPrefix(line, "data:") {
-				dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
-			}
-		}
-		data := strings.Join(dataLines, "\n")
-		if data == "" || data == "[DONE]" {
-			continue
-		}
-		event, decodeErr := decodeJSONObject([]byte(data))
-		if decodeErr != nil {
-			return observed, &retry.ProviderError{Err: errors.New("provider returned a malformed event stream"), Code: "MALFORMED_STREAM", Category: retry.CategoryOther}
-		}
-		switch stringValue(event["type"]) {
-		case "response.output_text.delta", "response.output_text.done":
-			// Deltas are progress observations only. They are never promoted to
-			// an accepted response or combined into a synthetic output.
-		case "response.completed":
-			responseValue, present := event["response"]
-			response, ok := responseValue.(map[string]any)
-			if !present || responseValue == nil || !ok || len(response) == 0 {
-				return observed, &retry.ProviderError{Err: errors.New("provider completed event has no response object"), Code: "COMPLETION_MALFORMED", Category: retry.CategoryOther}
-			}
-			terminal = cloneMap(response)
-			observed = terminal
-			if _, present := terminal["status"]; !present {
-				terminal["status"] = "completed"
-			}
-		case "response.incomplete":
-			if response := objectValue(event["response"]); len(response) > 0 {
-				observed = cloneMap(response)
-			}
-			return observed, validateCompletion("openai.responses", observedOrStatus(observed, "incomplete"))
-		case "response.failed", "error":
-			if response := objectValue(event["response"]); len(response) > 0 {
-				observed = cloneMap(response)
-			}
-			return observed, normalizeResponsesStreamError(event)
-		}
-	}
-	if terminal != nil {
-		return terminal, nil
-	}
-	if observed != nil {
-		return observed, &retry.ProviderError{Err: errors.New("provider response stream ended before completion"), Code: "STREAM_TERMINAL_REQUIRED", Category: retry.CategoryNetwork}
-	}
-	return nil, &retry.ProviderError{Err: errors.New("provider response stream ended before completion"), Code: "STREAM_TERMINAL_REQUIRED", Category: retry.CategoryNetwork}
+	response, err, _ := collectResponsesEventStreamReaderContextWithProgress(context.Background(), context.Background(), bytes.NewReader(body), int64(len(body)), nil, true)
+	return response, err
 }
 
 func observedOrStatus(observed map[string]any, status string) map[string]any {
@@ -959,11 +881,6 @@ func firstStatus(primary, fallback map[string]any) int {
 		}
 	}
 	return 0
-}
-
-func splitSSEBlocks(value string) []string {
-	value = strings.ReplaceAll(value, "\r\n", "\n")
-	return strings.Split(value, "\n\n")
 }
 
 func validateConnection(connection runtime.Connection, call runtime.Call) error {

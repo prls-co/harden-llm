@@ -349,3 +349,12 @@ func metricAttributeSets(data metricdata.Aggregation) []attribute.Set {
 		return nil
 	}
 }
+
+func TestProviderFamilyUsesWireProtocol(t *testing.T) {
+	t.Parallel()
+	for protocol, want := range map[string]string{"anthropic-messages": "anthropic", "anthropic.messages": "anthropic", "gemini-generate-content": "gemini", "google.gemini.generateContent": "gemini"} {
+		if got := providerFamily("openrouter", protocol); got != want {
+			t.Errorf("%s family = %s, want %s", protocol, got, want)
+		}
+	}
+}

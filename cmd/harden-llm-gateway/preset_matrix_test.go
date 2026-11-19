@@ -5,10 +5,15 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,6 +22,8 @@ import (
 	"time"
 
 	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/providers"
+	"github.com/prls-co/harden-llm/internal/runtime"
 	"github.com/prls-co/harden-llm/stateful"
 )
 
@@ -28,11 +35,11 @@ func TestPresetSearchMatrixInputs(t *testing.T) {
 	}
 	for id, preset := range catalog {
 		for _, mode := range []hardenllm.CallType{hardenllm.CallTypeText, hardenllm.CallTypeStructured} {
-			baseline, off, err := livePresetInput(id, preset, mode, false)
+			baseline, _, off, err := livePresetInput(id, preset, mode, false)
 			if err != nil || off != "off" || baseline.WebSearch {
 				t.Fatalf("%s/%s baseline: %s %v", id, mode, off, err)
 			}
-			searched, route, err := livePresetInput(id, preset, mode, true)
+			searched, _, route, err := livePresetInput(id, preset, mode, true)
 			if err != nil || !searched.WebSearch || !strings.Contains(searched.UserPrompt, "Search the web") {
 				t.Fatalf("%s/%s search input: %v", id, mode, err)
 			}
@@ -190,7 +197,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	preset := catalog["CPA claude-haiku-4-5-20251001"]
-	input, route, err := livePresetInput("CPA claude-haiku-4-5-20251001", preset, hardenllm.CallTypeStructured, true)
+	input, profile, route, err := livePresetInput("CPA claude-haiku-4-5-20251001", preset, hardenllm.CallTypeStructured, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +376,7 @@ func TestPresetMatrixCauseRetentionAndCaptureStatus(t *testing.T) {
 	seenCodes := map[string]bool{}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			row := newLivePresetRow(input.ProfileID, preset, input, route)
+			row := newLivePresetRow(preset, profile, input, route)
 			tc.output.RunID, tc.output.CallID, tc.output.TraceID = "fixture-run", "fixture-call", "fixture-trace"
 			ok := recordLivePresetOutcome(row, input, tc.output, tc.callErr, finished)
 			if ok != tc.wantValid || row["status"] != tc.wantStatus || row["diagnosticCaptureStatus"] != tc.wantCaptureStatus {
@@ -412,7 +419,7 @@ func TestPresetMatrixValidatesOperationSequence(t *testing.T) {
 	}
 	const id = "CPA claude-haiku-4-5-20251001"
 	p := catalog[id]
-	input, route, err := livePresetInput(id, p, hardenllm.CallTypeStructured, true)
+	input, profile, route, err := livePresetInput(id, p, hardenllm.CallTypeStructured, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -445,7 +452,7 @@ func TestPresetMatrixValidatesOperationSequence(t *testing.T) {
 				out.Search = &hardenllm.SearchResult{Mode: mode, Sources: []hardenllm.SearchSource{}, CostStatus: "unavailable"}
 			}
 			out.OperationDiagnostics = []map[string]any{m}
-			row := newLivePresetRow(id, p, in, mode)
+			row := newLivePresetRow(p, profile, in, mode)
 			if !recordLivePresetOutcome(row, in, out, nil, time.Now()) || row["qualificationStatus"] != "passed" {
 				t.Fatalf("%s generation without search invocation failed qualification: %v", mode, row)
 			}
@@ -472,7 +479,7 @@ func TestPresetMatrixValidatesOperationSequence(t *testing.T) {
 			if tc.capture == "publication_failed" {
 				out.ArtifactDiagnostic = &stateful.Diagnostic{Code: "artifact_write_failed"}
 			}
-			row := newLivePresetRow(id, p, input, route)
+			row := newLivePresetRow(p, profile, input, route)
 			passed := recordLivePresetOutcome(row, input, out, nil, time.Now())
 			path := filepath.Join(t.TempDir(), "report.json")
 			if err := writeLivePresetReport(path, []map[string]any{row}); err != nil {
@@ -495,5 +502,99 @@ func TestPresetMatrixValidatesOperationSequence(t *testing.T) {
 				t.Fatalf("status=%v qualification=%v capture=%v IDs=%v/%v/%v passed=%t", r["status"], r["qualificationStatus"], r["diagnosticCaptureStatus"], r["runId"], r["callId"], r["traceId"], passed)
 			}
 		})
+	}
+}
+
+func TestPresetMatrixRejectsMalformedDefinition(t *testing.T) {
+	t.Parallel()
+	for _, def := range []string{"{", "null", "{}"} {
+		p := stateful.Preset{Definition: json.RawMessage(def), Inputs: json.RawMessage("{}")}
+		if _, _, _, err := livePresetInput("fixture", p, hardenllm.CallTypeText, false); err == nil {
+			t.Errorf("accepted malformed preset definition %q", def)
+		}
+	}
+}
+
+func TestPresetMatrixRetainsMissingJinaCredential(t *testing.T) {
+	t.Parallel()
+	router, err := providers.NewRouter(providers.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, capture := providers.WithOperationDiagnostics(t.Context())
+	ctx = providers.WithDiagnosticAttempt(ctx, 1, nil)
+	conn := runtime.Connection{ID: "fixture", Provider: "fixture", APIInferenceType: "chat-completions", BaseURL: "https://example.invalid"}
+	call := runtime.Call{ModelID: "fixture", CallType: "text", WebSearch: true, Messages: []runtime.Message{{Role: "user", Content: json.RawMessage(`"query"`)}}}
+	op, err := router.Prepare(ctx, conn, runtime.Credential{APIKey: "synthetic"}, call)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := router.Execute(ctx, op)
+	records, _, _ := capture.Snapshot()
+	if err == nil || out.ProviderDispatched || len(records) != 1 || records[0]["error_code"] != "WEB_SEARCH_NOT_CONFIGURED" || !matrixTerminalFacts(records[0], "web_search", 1) {
+		t.Fatalf("missing credential: records=%v err=%v", records, err)
+	}
+}
+
+func TestPresetMatrixStreamTerminalFacts(t *testing.T) {
+	t.Parallel()
+	const complete = "data: " + `{"type":"response.completed","response":{"output_text":"ok"}}` + "\n\ndata: [DONE]\n\n"
+	for _, tc := range []struct {
+		name, contentType, body, terminal, code string
+		limit                                   int64
+	}{
+		{"sniffed success", "application/json", complete, "completed", "", 1024},
+		{"sniffed delta", "text/plain", "data: " + `{"type":"response.output_text.delta","delta":"ok"}` + "\n\n" + complete, "completed", "", 1024},
+		{"sniffed normalization error", "text/plain", "data: " + `{"type":"response.completed","response":{"output_text":""}}` + "\n\n", "completed", "empty_response", 1024},
+		{"sniffed incomplete", "text/plain", "data: " + `{"type":"response.incomplete","response":{"status":"incomplete"}}`, "incomplete", "COMPLETION_INCOMPLETE", 1024},
+		{"sniffed error after completed", "text/plain", complete + "data: " + `{"type":"response.failed","error":{"code":"fixture_error"}}` + "\n\n", "failed", "fixture_error", 1024},
+		{"sniffed error", "text/plain", "data: " + `{"type":"response.failed","error":{"code":"fixture_error"}}` + "\n\n", "failed", "fixture_error", 1024},
+		{"stream overflow", "text/event-stream", complete, "missing", "RESPONSE_TOO_LARGE", 32},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", tc.contentType)
+				fmt.Fprint(w, tc.body)
+			}))
+			defer server.Close()
+			pool := x509.NewCertPool()
+			pool.AddCert(server.Certificate())
+			router, err := providers.NewRouter(providers.Config{MaxResponseBytes: tc.limit, EndpointPolicy: providers.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, TLSConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, capture := providers.WithOperationDiagnostics(t.Context())
+			ctx = providers.WithDiagnosticAttempt(ctx, 1, nil)
+			conn := runtime.Connection{ID: "test", Provider: "openai", APIInferenceType: "responses", BaseURL: server.URL}
+			call := runtime.Call{ModelID: "test", CallType: "text", Messages: []runtime.Message{{Role: "user", Content: json.RawMessage(`"hello"`)}}}
+			op, err := router.Prepare(ctx, conn, runtime.Credential{APIKey: "fixture"}, call)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := router.Execute(ctx, op)
+			records, _, clipped := capture.Snapshot()
+			wantBytes := min(int64(len(tc.body)), tc.limit)
+			if (err != nil) != (tc.code != "") || clipped || len(records) != 1 ||
+				result.Stream.ReceivedBytes != wantBytes || result.Stream.TerminalState != tc.terminal ||
+				records[0]["received_bytes"] != wantBytes || !matrixTerminalFacts(records[0], "provider_model", 1) {
+				t.Fatalf("stream=%+v records=%v err=%v", result.Stream, records, err)
+			}
+			if tc.code != "" && records[0]["error_code"] != tc.code {
+				t.Fatalf("error code=%v", records[0]["error_code"])
+			}
+			if tc.contentType != "text/event-stream" && (result.Stream.FirstEventMs != nil || result.Stream.LastEventAt != nil ||
+				result.Stream.FirstOutputMs != nil || result.Stream.LastOutputAt != nil) {
+				t.Fatalf("buffered body has unobserved arrival times: %+v", result.Stream)
+			}
+		})
+	}
+}
+
+func TestConfigurationRedactorPreservesRoutingFacts(t *testing.T) {
+	t.Parallel()
+	config := serverConfig{connections: []hardenllm.Connection{{Provider: "cpa", Headers: map[string]string{"X-Provider": "cpa", "X-Use-Cache": "1", "X-Custom-Auth": "fixture-header-value", "X-Unknown": "fixture-other-value"}}}}
+	got := configurationRedactor(config).Text("cpa request-123 fixture-header-value fixture-other-value")
+	if got != "cpa request-123 [REDACTED] [REDACTED]" {
+		t.Fatal("redaction lost safe routing facts or exposed a custom credential")
 	}
 }

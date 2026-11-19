@@ -274,7 +274,7 @@ func TestReferenceRunCapturesSharedOperationDiagnosticsAndRedactedBundleLogs(t *
 			Connections: []hardenllm.Connection{{
 				ID: "openrouter", Provider: "openrouter", Protocol: "chat-completions",
 				BaseURL: def.BaseURL, APIKey: "synthetic-provider-key",
-				Headers: map[string]string{"X-Custom-Auth": "synthetic-private-prefix"},
+				Headers: map[string]string{"X-Custom-Auth": "synthetic-private-prefix", "X-Provider": "openrouter", "X-Use-Cache": "1"},
 			}},
 			DefaultConnection: "openrouter",
 			WebSearch:         WebSearchOptions{JinaAPIKey: "synthetic-jina-secret"},
@@ -316,7 +316,7 @@ func TestReferenceRunCapturesSharedOperationDiagnosticsAndRedactedBundleLogs(t *
 	if len(outA.OperationDiagnostics) != 1 || len(outB.OperationDiagnostics) != 1 || outA.DiagnosticsClipped || outB.DiagnosticsClipped {
 		t.Fatalf("expected 1 isolated operation diagnostic per run: A=%v B=%v", outA.OperationDiagnostics, outB.OperationDiagnostics)
 	}
-	if outA.OperationDiagnostics[0]["upstream_provider"] != "Groq" || outA.OperationDiagnostics[0]["provider_request_id"] != "req-scope-a" || outB.OperationDiagnostics[0]["provider_request_id"] != "req-scope-b" || outA.OperationDiagnostics[0]["finish_reason"] != "stop" || outA.OperationDiagnostics[0]["final_text_present"] != true {
+	if outA.OperationDiagnostics[0]["provider"] != "openrouter" || outA.OperationDiagnostics[0]["upstream_provider"] != "Groq" || outA.OperationDiagnostics[0]["provider_request_id"] != "req-scope-a" || outB.OperationDiagnostics[0]["provider_request_id"] != "req-scope-b" || outA.OperationDiagnostics[0]["finish_reason"] != "stop" || outA.OperationDiagnostics[0]["final_text_present"] != true {
 		t.Fatalf("non-CPA operation diagnostic missing response-shape facts: %#v", outA.OperationDiagnostics[0])
 	}
 

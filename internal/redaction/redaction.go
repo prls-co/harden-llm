@@ -46,6 +46,27 @@ func New(secrets ...string) *Redactor {
 	return &Redactor{literals: literals}
 }
 
+// HeaderSecrets keeps custom credential values private. A boolean cache switch
+// and the already-public provider name can safely appear in unrelated evidence.
+func HeaderSecrets(headers map[string]string, provider string) []string {
+	var secrets []string
+	for name, value := range headers {
+		switch strings.ToLower(name) {
+		case "x-provider":
+			if value == provider {
+				continue
+			}
+		case "x-use-cache":
+			switch strings.ToLower(value) {
+			case "0", "1", "false", "true":
+				continue
+			}
+		}
+		secrets = append(secrets, value)
+	}
+	return secrets
+}
+
 func JSON(input []byte) ([]byte, error) {
 	return New().JSON(input)
 }

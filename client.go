@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/prls-co/harden-llm/internal/cachekey"
+	"github.com/prls-co/harden-llm/internal/redaction"
 	"github.com/prls-co/harden-llm/internal/retry"
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 	contractschema "github.com/prls-co/harden-llm/internal/schema"
@@ -237,9 +238,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		secrets := []string{}
 		for _, binding := range bindings {
 			secrets = append(secrets, binding.Credential.APIKey)
-			for _, value := range binding.Credential.Headers {
-				secrets = append(secrets, value)
-			}
+			secrets = append(secrets, redaction.HeaderSecrets(binding.Credential.Headers, binding.Connection.Provider)...)
 		}
 		artifacts, captureErr := traces.ArtifactProjections(projected, record.ParseFailureResponse, secrets...)
 		if captureErr == nil && len(artifacts) > 0 {

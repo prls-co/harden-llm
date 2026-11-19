@@ -19,7 +19,7 @@ import (
 	"github.com/prls-co/harden-llm/stateful"
 )
 
-func livePresetInput(id string, preset stateful.Preset, mode hardenllm.CallType, search bool) (stateful.RunInput, string, error) {
+func livePresetInput(id string, preset stateful.Preset, mode hardenllm.CallType, search bool) (stateful.RunInput, stateful.Profile, string, error) {
 	var inputs struct {
 		ModelID   string          `json:"modelId"`
 		Schema    json.RawMessage `json:"schema"`
@@ -27,11 +27,14 @@ func livePresetInput(id string, preset stateful.Preset, mode hardenllm.CallType,
 		Options   map[string]any  `json:"providerOptions"`
 	}
 	if err := json.Unmarshal(preset.Inputs, &inputs); err != nil {
-		return stateful.RunInput{}, "", err
+		return stateful.RunInput{}, stateful.Profile{}, "", err
 	}
 	var profile stateful.Profile
 	if err := json.Unmarshal(preset.Definition, &profile); err != nil {
-		return stateful.RunInput{}, "", err
+		return stateful.RunInput{}, stateful.Profile{}, "", err
+	}
+	if profile.Provider == "" || profile.APIInferenceType == "" {
+		return stateful.RunInput{}, stateful.Profile{}, "", errors.New("preset definition missing provider or protocol")
 	}
 	input := stateful.RunInput{ProfileID: id, ModelID: inputs.ModelID, UserPrompt: `Reply with exactly {"joke":"ok","explanation":"ok"}. No tools. No extra text.`, CallType: mode, Schema: inputs.Schema, ReasoningEffort: inputs.Reasoning, ProviderOptions: inputs.Options, CacheMode: hardenllm.CacheModeOff, TimeoutMS: 60000, RecoveryPolicy: json.RawMessage(`{"maxAttempts":1,"retryOn":[],"jsonRepair":null,"rerun":null,"backoff":{"baseDelayMs":0,"maxDelayMs":0}}`)}
 	if mode == hardenllm.CallTypeText {
@@ -56,7 +59,7 @@ func livePresetInput(id string, preset stateful.Preset, mode hardenllm.CallType,
 			}
 		}
 	}
-	return input, route, nil
+	return input, profile, route, nil
 }
 
 func livePresetSearchFacts(output stateful.RunOutput, expected string) (map[string]any, error) {
@@ -135,9 +138,7 @@ func sha256HexBytes(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func newLivePresetRow(id string, preset stateful.Preset, input stateful.RunInput, route string) map[string]any {
-	var profile stateful.Profile
-	_ = json.Unmarshal(preset.Definition, &profile)
+func newLivePresetRow(preset stateful.Preset, profile stateful.Profile, input stateful.RunInput, route string) map[string]any {
 	optionsJSON, _ := json.Marshal(input.ProviderOptions)
 	configIdentity := map[string]any{
 		"upstreamId":           preset.Binding.DeploymentUpstreamID,
@@ -156,7 +157,7 @@ func newLivePresetRow(id string, preset stateful.Preset, input stateful.RunInput
 		configIdentity["schemaSha256"] = sha256HexBytes(input.Schema)
 	}
 	return map[string]any{
-		"id":                 id,
+		"id":                 input.ProfileID,
 		"mode":               string(input.CallType),
 		"model":              input.ModelID,
 		"provider":           profile.Provider,
@@ -234,16 +235,25 @@ func matrixTerminalFacts(rec map[string]any, stage string, number int) bool {
 	duration, hasDuration := rec["duration_ms"].(int64)
 	_, hasParent := rec["parent_context_expired"].(bool)
 	_, hasRequest := rec["request_context_expired"].(bool)
-	if !hasDuration || duration < 0 || !hasParent || !hasRequest || !hasStatus || !hasHeaders || !hasDispatch || !hasSize || !hasLimit || !hasCategory ||
-		size < 0 || limit <= 0 || category == "" || (headers && (!dispatch || status < 100 || status > 599)) ||
+	if !hasDuration || duration < 0 || !hasParent || !hasRequest || !hasStatus || !hasHeaders || !hasDispatch || !hasSize || !hasCategory ||
+		size < 0 || category == "" || (headers && (!dispatch || status < 100 || status > 599)) ||
 		(!headers && (status != 0 || size != 0)) {
+		return false
+	}
+	// A local configuration error can precede installation of any HTTP limit.
+	if !headers && !dispatch && category != "success" && rec["error_class"] == "configuration" && rec["error_phase"] == "request" {
+		code, _ := rec["error_code"].(string)
+		return code != ""
+	}
+	if !hasLimit || limit <= 0 {
 		return false
 	}
 	if category == "success" {
 		return status >= 200 && status < 300 && size > 0 && size <= limit && rec["error_code"] == nil
 	}
 	if rec["error_code"] == "RESPONSE_TOO_LARGE" {
-		return headers && size > limit
+		// TEST-247 caps the public streaming counter at the byte limit.
+		return headers && (size > limit || size == limit && stage == "provider_model" && rec["terminal_state"] == "missing")
 	}
 	if !headers {
 		phase, _ := rec["error_phase"].(string)

@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prls-co/harden-llm/internal/redaction"
 	"github.com/prls-co/harden-llm/internal/retry"
 	"github.com/prls-co/harden-llm/internal/runtime"
 )
@@ -332,6 +333,14 @@ func TestProviderOperationResponseShapeAndUpstreamFacts(t *testing.T) {
 			t.Fatalf("Bedrock reasoning-only facts missing: %#v", bedrock)
 		}
 		groq := records[1]
+		for _, key := range []string{"final_text_present", "final_text_bytes", "reasoning_present", "tool_call_count"} {
+			if _, present := groq[key]; present {
+				t.Errorf("HTTP rejection invented %s", key)
+			}
+		}
+		if code := extractUpstreamErrorCode(map[string]any{"metadata": map[string]any{"raw": "model called a tool but none of the supplied tools matched"}}); code != "" {
+			t.Errorf("inferred tool policy from unrelated error: %q", code)
+		}
 		if groq["http_status"] != 502 || groq["upstream_provider"] != "Groq" || groq["upstream_error_code"] != "model_called_tool_when_none_enabled" {
 			t.Fatalf("Groq upstream tool-call facts missing: %#v", groq)
 		}
@@ -349,19 +358,110 @@ func TestOperationDiagnosticsClipping(t *testing.T) {
 	ctx, capture := WithOperationDiagnostics(t.Context())
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitOperationDiagnostic(ctx, logger, slog.LevelInfo, "oversized", "model", strings.Repeat("x", maxOperationDiagnosticLineLen))
+	emitOperationDiagnostic(ctx, logger, slog.LevelInfo, "provider operation observed", "stage", "provider_model", "http_status", 400, "model", strings.Repeat("x", maxOperationDiagnosticLineLen))
 	for i := 0; i <= maxOperationDiagnosticRecords; i++ {
 		emitOperationDiagnostic(ctx, logger, slog.LevelInfo, "bounded", "record", i)
 	}
 	records, lines, clipped := capture.Snapshot()
 	if !clipped || len(records) != maxOperationDiagnosticRecords || len(lines) != len(records)+1 ||
-		!strings.Contains(lines[len(records)], `"clipped":true`) || strings.Contains(buf.String(), "oversized") {
+		!strings.Contains(lines[len(records)], `"clipped":true`) || strings.Contains(buf.String(), strings.Repeat("x", maxOperationDiagnosticLineLen)) || !strings.Contains(buf.String(), `"stage":"provider_model"`) || !strings.Contains(buf.String(), `"http_status":400`) {
 		t.Fatal("oversized or excess diagnostic records escaped capture bounds")
 	}
 	for i, rec := range records {
 		if rec["record"] != i || !json.Valid([]byte(lines[i])) || len(lines[i]) > maxOperationDiagnosticLineLen {
 			t.Fatalf("incomplete or out-of-order record %d", i)
 		}
+	}
+}
+
+func TestDirectDiagnosticKeepsRedactedRecord(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	ctx := WithDiagnosticAttempt(t.Context(), 1, redaction.New("fixture-private"))
+	emitOperationDiagnostic(ctx, slog.New(slog.NewJSONHandler(&buf, nil)), slog.LevelInfo, "provider operation observed",
+		"stage", "provider_model", "model", strings.Repeat("m", maxOperationDiagnosticLineLen)+"fixture-private")
+	if !strings.Contains(buf.String(), strings.Repeat("m", maxOperationDiagnosticLineLen)+redaction.Replacement) || strings.Contains(buf.String(), "fixture-private") {
+		t.Fatal("direct operation lost the redacted model field")
+	}
+}
+
+func TestSearchDiagnosticBeforeDispatch(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, code, query string
+		searcher          *jinaSearcher
+	}{
+		{"uninitialized", "WEB_SEARCH_NOT_INITIALIZED", "query", nil},
+		{"no key", "WEB_SEARCH_NOT_CONFIGURED", "query", &jinaSearcher{client: http.DefaultClient, baseURL: &url.URL{}}},
+		{"no query", "WEB_SEARCH_QUERY_EMPTY", " ", &jinaSearcher{apiKey: "fixture", client: http.DefaultClient, baseURL: &url.URL{}}},
+		{"invalid URL", "WEB_SEARCH_REQUEST_INVALID", "query", &jinaSearcher{apiKey: "fixture", client: http.DefaultClient, baseURL: &url.URL{Scheme: "invalid scheme"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, capture := WithOperationDiagnostics(t.Context())
+			_, err := tc.searcher.Search(ctx, tc.query)
+			records, _ := capture.Records()
+			if err == nil || len(records) != 1 || records[0]["error_code"] != tc.code || records[0]["dispatched"] != false || records[0]["headers_received"] != false || records[0]["error_phase"] != "request" {
+				t.Fatalf("pre-dispatch search cause: err=%v records=%v", err, records)
+			}
+		})
+	}
+}
+
+// Provider options can implement json.Marshaler. Exercise the write after validation.
+type failOnReencode bool
+
+func (used *failOnReencode) MarshalJSON() ([]byte, error) {
+	if *used {
+		return nil, errors.New("fixture encode failure")
+	}
+	*used = true
+	return []byte("1"), nil
+}
+
+func TestSearchFollowedByLocalModelFailure(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("model dispatched after a preparation failure")
+	}))
+	defer server.Close()
+	for _, tc := range []struct {
+		name, code string
+		change     func(*preparedRequest)
+	}{
+		{"payload", "MODEL_REQUEST_BUILD", func(p *preparedRequest) { p.webSearch.connection.APIInferenceType = "unknown" }},
+		{"encode", "MODEL_REQUEST_ENCODE", func(p *preparedRequest) {
+			p.webSearch.call.ProviderOptions = map[string]any{"temperature": new(failOnReencode)}
+		}},
+		{"route", "MODEL_REQUEST_ROUTE", func(p *preparedRequest) { p.webSearch.connection.APIInferenceType = "responses" }},
+		{"request", "MODEL_REQUEST_BUILD", func(p *preparedRequest) { p.url = &url.URL{Scheme: "invalid scheme"} }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			searcher := &recordingSearcher{result: "snippet"}
+			router := newTLSTestRouter(t, server, searcher)
+			var logs bytes.Buffer
+			router.logger = slog.New(slog.NewJSONHandler(&logs, nil))
+			op, err := router.Prepare(t.Context(), runtime.Connection{ID: "fixture", Provider: "test", APIInferenceType: "chat-completions", BaseURL: server.URL}, runtime.Credential{APIKey: "fixture"}, runtime.Call{ModelID: "model", CallType: "text", WebSearch: true, Messages: providerMessages("", "query")})
+			if err != nil {
+				t.Fatal(err)
+			}
+			p := op.Opaque.(preparedRequest)
+			tc.change(&p)
+			op.Opaque = p
+			ctx, capture := WithOperationDiagnostics(t.Context())
+			out, err := router.Execute(ctx, op)
+			records, _ := capture.Records()
+			if err == nil || out.ProviderDispatched || len(records) != 2 {
+				t.Fatalf("dispatched=%v records=%v err=%v", out.ProviderDispatched, records, err)
+			}
+			search, model := records[0], records[1]
+			if search["search_implementation"] != "injected" || search["error_category"] != "success" ||
+				search["error_code"] != nil || search["dispatched"] != nil || !strings.Contains(logs.String(), `"search_implementation":"injected"`) {
+				t.Fatalf("unexpected injected search facts: %v", search)
+			}
+			if model["error_code"] != tc.code || model["dispatched"] != false || model["headers_received"] != false || model["error_phase"] != "request" {
+				t.Fatalf("unexpected model preparation facts: %v", model)
+			}
+		})
 	}
 }
 
@@ -381,6 +481,8 @@ func TestNativeResponsesFinalAnswer(t *testing.T) {
 	search := map[string]any{"type": "web_search_call", "status": "completed"}
 	const source = "https://example.test/final"
 	ok := message("", "ok", source)
+	typeless := message("", "ok", source)
+	delete(typeless, "type")
 	pre := message("", "Searching...", "https://example.test/preamble")
 	comment := message("commentary", "Searching...", "https://example.test/comment")
 	final := message("final_answer", "ok", source)
@@ -391,6 +493,8 @@ func TestNativeResponsesFinalAnswer(t *testing.T) {
 		answer   string
 		searched bool
 	}{
+		{"typeless_after_search", []any{search, typeless}, "ok", true},
+		{"typeless_before_search", []any{typeless, search}, "", true},
 		{"unlabeled_before_search", []any{pre, search}, "", true},
 		{"two_searches", []any{search, ok, search}, "", true},
 		{"legacy_answer", []any{pre, search, ok}, "ok", true},
@@ -444,4 +548,10 @@ func TestNativeResponsesFinalAnswer(t *testing.T) {
 			})
 		}
 	}
+}
+
+// Records returns a detached copy of the captured records and clipping state.
+func (c *OperationDiagnostics) Records() ([]map[string]any, bool) {
+	records, _, clipped := c.Snapshot()
+	return records, clipped
 }
