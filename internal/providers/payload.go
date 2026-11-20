@@ -54,13 +54,20 @@ func buildPayload(connection runtime.Connection, call runtime.Call) (string, str
 	case "gemini-generate-content":
 		path := "/v1beta/models/" + strings.TrimPrefix(strings.TrimLeft(call.ModelID, "/"), "models/") + ":generateContent"
 		payload, payloadErr := buildGeminiPayload(connection, call, options, schema)
-		return "google", "google.gemini.generateContent", path, payload, map[string]any{}, payloadErr
+		return defaultProviderName(connection.Provider, "google"), "google.gemini.generateContent", path, payload, map[string]any{}, payloadErr
 	case "anthropic-messages":
 		payload, payloadErr := buildAnthropicPayload(connection, call, options, schema)
-		return "anthropic", "anthropic.messages", "/messages", payload, map[string]any{"anthropic-version": defaultAnthropicVersion}, payloadErr
+		return defaultProviderName(connection.Provider, "anthropic"), "anthropic.messages", "/messages", payload, map[string]any{"anthropic-version": defaultAnthropicVersion}, payloadErr
 	default:
 		return "", "", "", nil, nil, fmt.Errorf("providers: unsupported API inference type %q", connection.APIInferenceType)
 	}
+}
+
+func defaultProviderName(configured, fallback string) string {
+	if trimmed := strings.TrimSpace(configured); trimmed != "" {
+		return trimmed
+	}
+	return fallback
 }
 
 func validatePayloadCapabilities(connection runtime.Connection, call runtime.Call, options map[string]any) error {

@@ -294,9 +294,9 @@ func outcomeValue(err error) string {
 func providerFamily(provider, inferenceType string) string {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	switch strings.TrimSpace(inferenceType) {
-	case "gemini-generate-content":
+	case "gemini-generate-content", "google.gemini.generateContent":
 		return "gemini"
-	case "anthropic-messages":
+	case "anthropic-messages", "anthropic.messages":
 		return "anthropic"
 	}
 	switch provider {

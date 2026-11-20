@@ -8,11 +8,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,6 +58,14 @@ func TestLivePresetMatrix(t *testing.T) {
 	default:
 		t.Fatal("HARDEN_LLM_LIVE_PRESET_MODE must be empty, text or structured")
 	}
+	revision, err := exec.CommandContext(t.Context(), "git", "rev-parse", "--verify", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("could not identify source revision before dispatch: %v", err)
+	}
+	status, err := exec.CommandContext(t.Context(), "git", "status", "--porcelain=v1").Output()
+	if err != nil {
+		t.Fatalf("could not identify checkout state before dispatch: %v", err)
+	}
 	digest := sha256.Sum256([]byte(config.apiKeys[0]))
 	scope := hex.EncodeToString(digest[:])
 	available := map[string]bool{}
@@ -78,15 +87,13 @@ func TestLivePresetMatrix(t *testing.T) {
 	for _, id := range ids {
 		preset := catalog[id]
 		for _, mode := range modes {
-			input, route, err := livePresetInput(id, preset, mode, search == "1")
+			input, profile, route, err := livePresetInput(id, preset, mode, search == "1")
 			if err != nil {
 				t.Fatal(err)
 			}
-			var profile stateful.Profile
-			if err = json.Unmarshal(preset.Definition, &profile); err != nil {
-				t.Fatal(err)
-			}
-			row := map[string]any{"id": id, "mode": string(mode), "model": input.ModelID, "provider": profile.Provider, "protocol": profile.APIInferenceType, "status": "planned", "searchRequested": input.WebSearch, "expectedSearchMode": route}
+			row := newLivePresetRow(preset, profile, input, route)
+			row["sourceRevision"] = strings.TrimSpace(string(revision))
+			row["sourceDirty"] = len(status) != 0
 			if !available[preset.Binding.DeploymentUpstreamID] {
 				row["status"], row["missing"] = "not_configured", "provider_credential"
 			} else if route == "jina" && config.jinaAPIKey == "" {
@@ -114,40 +121,8 @@ func TestLivePresetMatrix(t *testing.T) {
 				return
 			}
 			output, _, callErr := service.Run(context.Background(), scope, input)
-			row["status"], row["providerInvoked"], row["attemptCount"], row["usedRepair"] = output.Status, output.ProviderInvoked, len(output.Attempts), output.UsedRepair
-			row["durationMs"], row["cacheServed"], row["finishedAt"] = output.TotalCallDurationMs, output.Cache.Served, time.Now().UTC().Format(time.RFC3339Nano)
-			statuses := []int{}
-			for _, attempt := range output.Attempts {
-				statuses = append(statuses, attempt.HTTPStatus)
-				if callErr != nil && (attempt.DispatchObserved || attempt.ProviderUsed) && (attempt.Category == "network" || attempt.Category == "timeout" || attempt.Category == "canceled") {
-					row["status"] = "unconfirmed"
-				}
-			}
-			row["httpStatuses"] = statuses
-			var evidenceErr error
-			if input.WebSearch && (callErr == nil || output.Search != nil) {
-				facts, err := livePresetSearchFacts(output, row["expectedSearchMode"].(string))
-				for key, value := range facts {
-					row[key] = value
-				}
-				evidenceErr = err
-				if err != nil {
-					row["evidenceError"] = err.Error()
-				}
-			}
-			if callErr != nil {
-				problem := stateful.ProjectRunError(callErr)
-				row["errorCode"] = problem.Code
-				if problem.Code == "execution_unconfirmed" {
-					row["status"] = "unconfirmed"
-				}
-				t.Errorf("preset call failed: code=%s providerInvoked=%v", problem.Code, output.ProviderInvoked)
-			} else if output.Status != "succeeded" || !output.ProviderInvoked || len(output.Attempts) != 1 || output.UsedRepair || output.Cache.Served {
-				row["status"] = "invalid_execution"
-				t.Error("canary did not execute exactly one successful generation")
-			} else if evidenceErr != nil {
-				row["status"] = "invalid_evidence"
-				t.Error(evidenceErr)
+			if !recordLivePresetOutcome(row, input, output, callErr, time.Now().UTC()) {
+				t.Errorf("preset qualification failed: qualification=%v status=%v capture=%v errorCode=%v diagnosticCode=%v providerInvoked=%v", row["qualificationStatus"], row["status"], row["diagnosticCaptureStatus"], row["errorCode"], row["diagnosticCode"], output.ProviderInvoked)
 			}
 		})
 		if reportErr != nil {

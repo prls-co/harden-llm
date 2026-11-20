@@ -96,7 +96,7 @@ func TestJinaMemoIsPerCallAndConcurrentAcrossPreparedOperations(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			s := fallbackWebSearch(runtime.Connection{}, call)
-			if _, err := s.results(context.Background(), searcher); err != nil {
+			if _, err := s.results(context.Background(), searcher, nil); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -106,7 +106,7 @@ func TestJinaMemoIsPerCallAndConcurrentAcrossPreparedOperations(t *testing.T) {
 		t.Fatalf("same call repeated search %d times", searcher.calls)
 	}
 	call.SearchMemo = &sync.Map{}
-	if _, err := fallbackWebSearch(runtime.Connection{}, call).results(context.Background(), searcher); err != nil {
+	if _, err := fallbackWebSearch(runtime.Connection{}, call).results(context.Background(), searcher, nil); err != nil {
 		t.Fatal(err)
 	}
 	if searcher.calls != 2 {

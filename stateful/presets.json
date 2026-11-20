@@ -603,7 +603,7 @@
         "output_cost_per_token": 1.5e-06,
         "cache_read_input_token_cost": 2.5e-08,
         "cache_creation_input_token_cost": 0,
-        "output_cost_per_reasoning_token": 0
+        "output_cost_per_reasoning_token": 1.5e-06
       },
       "supportsTemperature": null,
       "supportsContractedStructuredOutput": true,
@@ -700,7 +700,7 @@
         "output_cost_per_token": 1.2e-05,
         "cache_read_input_token_cost": 2e-07,
         "cache_creation_input_token_cost": 0,
-        "output_cost_per_reasoning_token": 0
+        "output_cost_per_reasoning_token": 1.2e-05
       },
       "supportsTemperature": false,
       "supportsContractedStructuredOutput": true,
@@ -797,7 +797,7 @@
         "output_cost_per_token": 9e-06,
         "cache_read_input_token_cost": 1.5e-07,
         "cache_creation_input_token_cost": 0,
-        "output_cost_per_reasoning_token": 0
+        "output_cost_per_reasoning_token": 9e-06
       },
       "supportsTemperature": false,
       "supportsContractedStructuredOutput": true,
@@ -894,7 +894,7 @@
         "output_cost_per_token": 2.5e-06,
         "cache_read_input_token_cost": 3e-08,
         "cache_creation_input_token_cost": 0,
-        "output_cost_per_reasoning_token": 0
+        "output_cost_per_reasoning_token": 2.5e-06
       },
       "supportsTemperature": false,
       "supportsContractedStructuredOutput": true,
@@ -991,7 +991,7 @@
         "output_cost_per_token": 3.75e-06,
         "cache_read_input_token_cost": 7.5e-08,
         "cache_creation_input_token_cost": 0,
-        "output_cost_per_reasoning_token": 0
+        "output_cost_per_reasoning_token": 3.75e-06
       },
       "supportsTemperature": false,
       "supportsContractedStructuredOutput": true,
@@ -2084,7 +2084,7 @@
     "definition": {
       "schemaVersion": 4,
       "provider": "cpa",
-      "apiInferenceType": "responses",
+      "apiInferenceType": "anthropic-messages",
       "baseUrl": "https://cpa.prls.co/v1",
       "modelId": "claude-haiku-4-5-20251001",
       "pricing": {
@@ -2096,10 +2096,9 @@
       "supportsTemperature": false,
       "supportsContractedStructuredOutput": true,
       "tokensParam": null,
-      "responsesTokensParam": "max_output_tokens",
+      "responsesTokensParam": null,
       "defaultOptions": {
-        "max_tokens": 16000,
-        "stream": true
+        "max_tokens": 16000
       },
       "supportsWebSearch": true,
       "recoveryPolicy": {
@@ -2915,102 +2914,6 @@
     },
     "inputs": {
       "modelId": "codex-auto-review",
-      "callType": "structured",
-      "systemPrompt": "You are a helpful assistant",
-      "schema": {
-        "type": "object",
-        "properties": {
-          "joke": {
-            "type": "string"
-          },
-          "explanation": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "joke",
-          "explanation"
-        ],
-        "additionalProperties": false
-      },
-      "reasoningEffort": "lowest",
-      "providerOptions": {},
-      "cacheMode": "off",
-      "webSearch": false,
-      "timeoutMs": 60000,
-      "schemaShorthand": "{\n  \"joke\": \"string\",\n  \"explanation\": \"string\"\n}",
-      "userPrompt": "write a haiku joke"
-    },
-    "credentialBinding": {
-      "source": "deployment",
-      "deploymentUpstreamId": "cpa"
-    }
-  },
-  "CPA gpt-5.5": {
-    "name": "CPA gpt-5.5",
-    "definition": {
-      "schemaVersion": 4,
-      "provider": "cpa",
-      "apiInferenceType": "responses",
-      "baseUrl": "https://cpa.prls.co/v1",
-      "modelId": "gpt-5.5",
-      "pricing": {
-        "input_cost_per_token": 5e-06,
-        "output_cost_per_token": 3e-05,
-        "cache_read_input_token_cost": 5e-07
-      },
-      "supportsTemperature": false,
-      "supportsContractedStructuredOutput": true,
-      "tokensParam": null,
-      "responsesTokensParam": "max_output_tokens",
-      "defaultOptions": {
-        "max_tokens": 16000,
-        "stream": true
-      },
-      "supportsWebSearch": true,
-      "recoveryPolicy": {
-        "maxAttempts": 4,
-        "retryOn": [
-          "network",
-          "rate_limit",
-          "server_error",
-          "empty_response",
-          "provider_retry"
-        ],
-        "jsonRepair": {
-          "initial": {
-            "source": "generation"
-          },
-          "escalation": {
-            "source": "generation"
-          }
-        },
-        "rerun": null,
-        "backoff": {
-          "baseDelayMs": 500,
-          "maxDelayMs": 8000
-        }
-      },
-      "reasoningEffortMap": {
-        "lowest": {
-          "reasoning": {
-            "effort": "low"
-          }
-        },
-        "middle": {
-          "reasoning": {
-            "effort": "medium"
-          }
-        },
-        "highest": {
-          "reasoning": {
-            "effort": "xhigh"
-          }
-        }
-      }
-    },
-    "inputs": {
-      "modelId": "gpt-5.5",
       "callType": "structured",
       "systemPrompt": "You are a helpful assistant",
       "schema": {

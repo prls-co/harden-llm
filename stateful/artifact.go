@@ -116,7 +116,7 @@ func (store *ArtifactStore) put(ctx context.Context, hash, runID, id, kind strin
 	}
 	return ArtifactMetadata{ArtifactID: id, Kind: kind, State: "available", ContentType: "application/json", SizeBytes: int64(len(data)), SHA256: text}, nil
 }
-func (s *Service) publishArtifacts(ctx context.Context, hash, runID string, capture hardenllm.DiagnosticCapture) ([]ArtifactMetadata, *Diagnostic) {
+func (s *Service) publishArtifacts(ctx context.Context, hash, runID string, capture hardenllm.DiagnosticCapture, logs, secrets []string) ([]ArtifactMetadata, *Diagnostic) {
 	if s.config.Artifacts == nil {
 		return []ArtifactMetadata{}, nil
 	}
@@ -144,7 +144,7 @@ func (s *Service) publishArtifacts(ctx context.Context, hash, runID string, capt
 		}
 		refs = append(refs, ref)
 	}
-	bundle, err := diagnostics.Build(diagnostics.Input{Trace: capture.Trace, EndpointURL: capture.Trace.SelectedTarget.Endpoint, RuntimeIdentity: diagnostics.RuntimeIdentity{Version: capture.Trace.Context.Release, GoVersion: runtime.Version(), OS: runtime.GOOS, Arch: runtime.GOARCH, CapturedAt: s.now().UTC()}})
+	bundle, err := diagnostics.Build(diagnostics.Input{Trace: capture.Trace, EndpointURL: capture.Trace.SelectedTarget.Endpoint, Logs: logs, Secrets: secrets, RuntimeIdentity: diagnostics.RuntimeIdentity{Version: capture.Trace.Context.Release, GoVersion: runtime.Version(), OS: runtime.GOOS, Arch: runtime.GOARCH, CapturedAt: s.now().UTC()}})
 	if err != nil {
 		return failure(err)
 	}

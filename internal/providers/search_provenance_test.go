@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -189,7 +190,13 @@ func TestSearchProvenanceFixtures(t *testing.T) {
 				t.Fatal(err)
 			}
 			result, err := normalizeResponse(preparedRequest{protocol: tc.protocol, callType: tc.callType, searchMode: "native"}, data)
-			if err != nil {
+			if tc.name == "openai_edge.json" {
+				// The retained fixture ends in a completed find_in_page after its only answer.
+				var failure *retry.ProviderError
+				if !errors.As(err, &failure) || failure.Code != "empty_response" || result.Output != nil {
+					t.Fatalf("expected empty answer after last search, got %v, %v", result.Output, err)
+				}
+			} else if err != nil {
 				t.Fatal(err)
 			}
 			s := result.Search

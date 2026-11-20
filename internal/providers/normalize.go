@@ -19,29 +19,19 @@ import (
 	contractschema "github.com/prls-co/harden-llm/internal/schema"
 )
 
-func normalizeResponse(prepared preparedRequest, body []byte) (runtime.ProviderResult, error) {
-	response, err := decodeJSONObject(body)
-	if err != nil {
-		return runtime.ProviderResult{Accounting: accounting.EmptyLedger()}, &retry.ProviderError{Err: errors.New("provider returned malformed JSON"), Code: "MALFORMED_RESPONSE", Category: retry.CategoryOther}
-	}
-	return normalizeDecodedResponse(prepared, response)
-}
-
 func emptyProviderLedger() runtime.Ledger {
 	return accounting.EmptyLedger()
 }
 
-func normalizeDecodedResponse(prepared preparedRequest, response map[string]any) (runtime.ProviderResult, error) {
-	projection := response
-	if prepared.searchMode == "native" && prepared.protocol == "openai.responses" {
-		// Search may emit a commentary message before the final answer. Never
-		// return that preamble as a successful searched answer.
-		projection = cloneMap(response)
-		projection["output"] = finalResponseOutput(response)
-		delete(projection, "output_text")
+func normalizeDecodedResponse(prepared preparedRequest, response map[string]any, facts *modelOperationFacts) (runtime.ProviderResult, error) {
+	if response == nil {
+		return runtime.ProviderResult{Accounting: accounting.EmptyLedger()}, &retry.ProviderError{Err: errors.New("provider returned malformed JSON"), Code: "MALFORMED_RESPONSE", Category: retry.CategoryOther}
 	}
 	ledger, accountingErr := normalizeResponseAccounting(prepared, response)
-	extraction := extractProviderOutputState(prepared.protocol, projection)
+	extraction := responseOutputState(prepared, response)
+	if facts != nil {
+		facts.observeResponse(prepared.protocol, response, extraction)
+	}
 	partial := runtime.ProviderResult{Accounting: ledger, AssistantText: extraction.text}
 	if accountingErr != nil {
 		return partial, accountingProviderError(accountingErr)
@@ -65,6 +55,9 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any)
 		return partial, &retry.ProviderError{Err: errors.New("provider refusal or content filter"), Code: "PROVIDER_REFUSAL", Category: retry.CategoryRefusal}
 	}
 	if empty {
+		if prepared.searchMode == "native" && prepared.protocol == "openai.responses" {
+			partial.Search = normalizeSearch(prepared, response, "")
+		}
 		return partial, &retry.ProviderError{
 			Err: errors.New("provider returned an empty or null response"), Code: "empty_response",
 			RawResponse: string(mustJSON(response)), Category: retry.CategoryEmpty,
@@ -149,6 +142,24 @@ func decodeJSONValue(input []byte) (any, error) {
 		return nil, err
 	}
 	return value, nil
+}
+
+func responseOutputState(prepared preparedRequest, response map[string]any) providerOutputExtraction {
+	if prepared.protocol != "openai.responses" || prepared.searchMode != "native" {
+		return extractProviderOutputState(prepared.protocol, response)
+	}
+	if !validResponsesOutputShape(response) {
+		return providerOutputExtraction{malformed: true}
+	}
+	output := arrayValue(response["output"])
+	if i := finalResponseOutput(response); i >= 0 {
+		output = output[i : i+1]
+	} else {
+		output = []any{}
+	}
+	return extractProviderOutputState(prepared.protocol, map[string]any{
+		"output": output, "status": response["status"], "incomplete_details": response["incomplete_details"],
+	})
 }
 
 func extractProviderOutput(protocol string, response map[string]any) (output any, text string, refusal bool, empty bool) {

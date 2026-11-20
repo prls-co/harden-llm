@@ -73,7 +73,22 @@ evidence and citations on both fresh and cached results. Search fees have an
 explicit unavailable cost status, separate from model token accounting. Jina
 failures before the model request have `providerUsed:false`. Bounds: one query
 without query-planning LLM calls, 4096 UTF-8 bytes, 20-second search timeout,
-512-KiB HTTP response and 64-KiB injected context, all under the run deadline.
+512-KiB HTTP response (`Accept: text/plain`, `X-Respond-With: no-content`) and
+64-KiB injected context with the completed-retrieval status prefix, all under
+the run deadline. `CPA claude-haiku-4-5-20251001` uses `anthropic-messages` (so
+text search uses optional native Claude search and structured search uses the
+existing Jina fallback while preserving strict JSON schema output), and the
+unavailable `CPA gpt-5.5` starting preset is removed until upstream restores
+that exact model ID.
+
+For native Responses search, the adapter uses the explicit `final_answer`
+message, including when it is empty. With unlabeled messages, only assistant
+content following the last completed search can supply the answer. Commentary
+cannot supply it. JSON and SSE use the same selected message for text,
+citations and diagnostic final-text size. A completed search without an
+eligible answer yields `empty_response`; the private operation and normalized
+search evidence retain what was observed. An optional call that performs no
+search can still return a valid answer.
 
 CPA v7.2.135's translator accepts hosted search on `/v1/responses`, and its local
 contract fixtures assert completed search SSE events. Its translator overwrites

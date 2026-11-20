@@ -195,8 +195,9 @@ func configurationRedactor(config serverConfig) *redaction.Redactor {
 	secrets := append([]string{config.jinaAPIKey, config.reference.credentialKey, config.reference.databaseURL, config.reference.artifactAccessKey, config.reference.artifactSecretKey}, config.apiKeys...)
 	for _, connection := range config.connections {
 		secrets = append(secrets, connection.APIKey)
-		for name, value := range connection.Headers {
-			secrets = append(secrets, name, value)
+		secrets = append(secrets, redaction.HeaderSecrets(connection.Headers, connection.Provider)...)
+		for name := range connection.Headers {
+			secrets = append(secrets, name)
 		}
 	}
 	return redaction.New(secrets...)

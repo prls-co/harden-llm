@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	hardenllm "github.com/prls-co/harden-llm"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	hardenllm "github.com/prls-co/harden-llm"
+	"github.com/prls-co/harden-llm/internal/providers"
+	"github.com/prls-co/harden-llm/internal/redaction"
 )
 
 type RunInput struct {
@@ -67,8 +70,10 @@ type RunState struct {
 
 type RunOutput struct {
 	RecordedRunOutput
-	History            RecordingOutcome `json:"history"`
-	ArtifactDiagnostic *Diagnostic      `json:"-"`
+	History              RecordingOutcome `json:"history"`
+	ArtifactDiagnostic   *Diagnostic      `json:"-"`
+	OperationDiagnostics []map[string]any `json:"-"`
+	DiagnosticsClipped   bool             `json:"-"`
 }
 
 func cloneRunInput(input RunInput) (RunInput, error) {
@@ -132,6 +137,8 @@ func (s *Service) Run(ctx context.Context, hash string, input RunInput) (output 
 	if callErr == nil {
 		resolved, callErr = s.resolveRun(callCtx, hash, input)
 	}
+	secrets := operationSecrets(s.config.Client.WebSearch.JinaAPIKey, s.effects.Connections, resolved.connections)
+	callCtx, diagCollector := providers.WithOperationDiagnostics(callCtx, secrets...)
 	if callErr == nil {
 		options := s.scopedEffects(hash)
 		options.Connections = resolved.connections
@@ -164,10 +171,13 @@ func (s *Service) Run(ctx context.Context, hash string, input RunInput) (output 
 			return output, state, &OperationError{Code: "run_id_failed", Message: "Could not create a trace identifier."}
 		}
 	}
+	records, logLines, clipped := diagCollector.Snapshot()
 	output.RecordedRunOutput = projectRun(runID, input, resolved, result, callErr, started, finished)
+	output.OperationDiagnostics = records
+	output.DiagnosticsClipped = clipped
 	state = RunState{LastRunID: runID, LastTraceID: output.TraceID}
 	if captured {
-		refs, diagnostic := s.publishArtifacts(ctx, hash, runID, capture)
+		refs, diagnostic := s.publishArtifacts(ctx, hash, runID, capture, logLines, secrets)
 		output.Artifacts = refs
 		if diagnostic != nil {
 			diagnostic.InferenceOutcome = output.Status
@@ -268,4 +278,15 @@ func ProjectRunError(err error) *RunError {
 		return &RunError{Code: "canceled", Message: "The caller canceled execution."}
 	}
 	return &RunError{Code: "inference_failed", Message: "LLM execution failed; inspect the run's correlated diagnostics."}
+}
+
+func operationSecrets(jinaKey string, catalogs ...hardenllm.ConnectionCatalog) []string {
+	secrets := []string{jinaKey}
+	for _, catalog := range catalogs {
+		for _, conn := range catalog {
+			secrets = append(secrets, conn.APIKey)
+			secrets = append(secrets, redaction.HeaderSecrets(conn.Headers, conn.Provider)...)
+		}
+	}
+	return secrets
 }
