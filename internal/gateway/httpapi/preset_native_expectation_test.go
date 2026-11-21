@@ -80,8 +80,8 @@ func presetNativeExpectation(catalog stateful.Catalog, id, model, effort, mode s
 		e.path = "/v1beta/models/" + model + ":generateContent"
 		e.header = "X-Goog-Api-Key"
 		tokenPath = "generationConfig.maxOutputTokens"
-		schemaPath = "generationConfig.response_schema"
-		e.absent = append(e.absent, "model", "generationConfig.temperature")
+		schemaPath = "generationConfig.responseJsonSchema"
+		e.absent = append(e.absent, "model", "generationConfig.temperature", "generationConfig.response_schema")
 		if mode == "structured" {
 			e.fields["generationConfig.response_mime_type"] = "application/json"
 		} else {
@@ -127,11 +127,7 @@ func presetNativeExpectation(catalog stateful.Catalog, id, model, effort, mode s
 		e.fields[schemaPath+".properties.joke.type"] = "string"
 		e.fields[schemaPath+".properties.explanation.type"] = "string"
 		e.fields[schemaPath+".required"] = []any{"joke", "explanation"}
-		if d.Protocol == "gemini-generate-content" {
-			e.absent = append(e.absent, schemaPath+".additionalProperties")
-		} else {
-			e.fields[schemaPath+".additionalProperties"] = false
-		}
+		e.fields[schemaPath+".additionalProperties"] = false
 	}
 	return e, nil
 }

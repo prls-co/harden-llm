@@ -116,13 +116,20 @@ func TestLiveProviders(t *testing.T) {
 			if !item.SupportsContractedStructuredOutput {
 				return
 			}
+			prompt := json.RawMessage(`"Return one JSON object whose ok field is true."`)
+			schema := json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}`)
+			requiresNullable := item.Connection.Protocol == "gemini-generate-content"
+			if requiresNullable {
+				prompt = json.RawMessage(`"Return a JSON object with ok true and sources containing exactly one object whose reference is null."`)
+				schema = json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"},"sources":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"object","properties":{"reference":{"type":["string","null"]}},"required":["reference"],"additionalProperties":false}}},"required":["ok","sources"],"additionalProperties":false}`)
+			}
 			waitLiveProvider(t, pace, name)
 			structuredContext, cancelStructured := context.WithTimeout(context.Background(), 90*time.Second)
 			structuredResult, err := client.Call(structuredContext, hardenllm.Request{
 				ConnectionID: item.Connection.ID, ModelID: item.ModelID,
-				Messages:       []hardenllm.Message{{Role: "user", Content: json.RawMessage(`"Return one JSON object whose ok field is true."`)}},
+				Messages:       []hardenllm.Message{{Role: "user", Content: prompt}},
 				CallType:       hardenllm.CallTypeStructured,
-				Schema:         json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}`),
+				Schema:         schema,
 				CacheMode:      hardenllm.CacheModeOff,
 				RecoveryPolicy: hardenllm.RecoveryPolicy{MaxAttempts: 1, RetryOn: []hardenllm.RecoveryCategory{}, Backoff: hardenllm.RecoveryBackoff{}},
 			})
@@ -133,6 +140,17 @@ func TestLiveProviders(t *testing.T) {
 			object, ok := structuredResult.Output.(map[string]any)
 			if !ok || object["ok"] != true {
 				t.Fatalf("provider %s returned a non-conforming structured result", name)
+			}
+			if requiresNullable {
+				sources, ok := object["sources"].([]any)
+				if !ok || len(sources) != 1 {
+					t.Fatalf("provider %s did not retain the structured sources array", name)
+				}
+				source, ok := sources[0].(map[string]any)
+				reference, present := source["reference"]
+				if !ok || !present || reference != nil {
+					t.Fatalf("provider %s did not return the required null reference", name)
+				}
 			}
 			assertLiveAccounting(t, name, structuredResult)
 		})

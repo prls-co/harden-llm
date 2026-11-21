@@ -785,7 +785,7 @@ func buildGeminiPayload(connection runtime.Connection, call runtime.Call, option
 	}
 	if call.CallType == "structured" {
 		config["response_mime_type"] = "application/json"
-		config["response_schema"] = sanitizeGeminiSchema(schema)
+		config["responseJsonSchema"] = schema
 	}
 	contents, err := geminiMessages(call.Messages)
 	if err != nil {
@@ -830,7 +830,7 @@ func buildGeminiPayload(connection runtime.Connection, call runtime.Call, option
 		systemParts = append(systemParts, map[string]any{"text": text})
 	}
 	if call.CallType == "structured" {
-		systemParts = append(systemParts, map[string]any{"text": "Return ONLY a valid JSON value that strictly conforms to response_schema. Do not include markdown code fences, explanations, or any text before or after the JSON."})
+		systemParts = append(systemParts, map[string]any{"text": "Return ONLY a valid JSON value that strictly conforms to the supplied response schema. Do not include markdown code fences, explanations, or any text before or after the JSON."})
 	}
 	if len(systemParts) > 0 {
 		payload["system_instruction"] = map[string]any{"parts": systemParts}
@@ -924,43 +924,6 @@ func anthropicSchema(schema any) any {
 	}
 	object["$schema"] = "http://json-schema.org/draft-07/schema#"
 	return object
-}
-
-func sanitizeGeminiSchema(value any) any {
-	switch typed := cloneJSONValue(value).(type) {
-	case map[string]any:
-		for _, key := range []string{
-			"$schema", "$defs", "definitions", "additionalProperties", "patternProperties", "unevaluatedProperties",
-			"dependentSchemas", "dependencies", "const", "default", "examples", "minItems", "maxItems", "prefixItems", "uniqueItems",
-		} {
-			delete(typed, key)
-		}
-		if properties, ok := typed["properties"].(map[string]any); ok {
-			for key, child := range properties {
-				properties[key] = sanitizeGeminiSchema(child)
-			}
-		}
-		if items, ok := typed["items"]; ok {
-			if array, arrayOK := items.([]any); arrayOK {
-				if len(array) == 0 {
-					typed["items"] = map[string]any{}
-				} else {
-					typed["items"] = sanitizeGeminiSchema(array[0])
-				}
-			} else {
-				typed["items"] = sanitizeGeminiSchema(items)
-			}
-		}
-		return typed
-	case []any:
-		result := make([]any, len(typed))
-		for index, child := range typed {
-			result[index] = sanitizeGeminiSchema(child)
-		}
-		return result
-	default:
-		return typed
-	}
 }
 
 func normalizeTokenOption(options map[string]any, target string, sources ...string) {
