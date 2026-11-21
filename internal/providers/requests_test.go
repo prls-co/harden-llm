@@ -41,7 +41,7 @@ func TestProviderRequestParity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRouter: %v", err)
 	}
-	schema := json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}`)
+	schema := json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"},"sources":{"type":"array","minItems":1,"items":{"type":"object","properties":{"reference":{"type":["string","null"]}},"required":["reference"],"additionalProperties":false}}},"required":["answer","sources"],"additionalProperties":false}`)
 	baseCall := runtime.Call{
 		Messages: providerMessages("Be exact.", "Answer."), CallType: "structured", Schema: schema,
 		ProviderOptions: map[string]any{
@@ -120,6 +120,16 @@ func TestProviderRequestParity(t *testing.T) {
 				config := payload["generationConfig"].(map[string]any)
 				if config["maxOutputTokens"] != float64(42) || config["response_mime_type"] != "application/json" {
 					t.Fatalf("unexpected Gemini config: %#v", config)
+				}
+				if _, ok := config["response_schema"]; ok {
+					t.Fatal("legacy Gemini schema field cannot carry JSON Schema types")
+				}
+				want, err := decodedSchema(baseCall)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := config["responseJsonSchema"]; !reflect.DeepEqual(got, want) {
+					t.Fatalf("Gemini JSON Schema differs from the supplied contract: %#v", got)
 				}
 				if _, ok := payload["provider_native"]; ok {
 					t.Fatal("unknown OpenAI-native option leaked into Gemini")
