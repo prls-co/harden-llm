@@ -1,0 +1,5 @@
+{
+  "Replace": {
+    "internal/gateway/httpapi/issue_186_baseline_test.go": "plans/evidence/harden-llm/issue-186/testdata/baseline_test.go"
+  }
+}
