@@ -88,7 +88,7 @@ func TestHistoryQueries(t *testing.T) {
 		s.config.Pool = p
 		s.config.History.Enabled = true
 		storedHistoryFixture(t, s, keyHashA, runID, now.Add(-time.Minute))
-		if refs, d := s.publishArtifacts(context.Background(), keyHashA, runID, capture); d != nil || len(refs) != 3 {
+		if refs, d := s.publishArtifacts(context.Background(), keyHashA, runID, capture, nil, nil); d != nil || len(refs) != 3 {
 			t.Fatal(d)
 		}
 		requireCode(t, s.DeleteHistory(context.Background(), keyHashB, runID), "history_not_found")
@@ -125,7 +125,7 @@ func TestHistoryQueries(t *testing.T) {
 		s.config.Pool = p
 		s.config.History.Enabled = true
 		storedHistoryFixture(t, s, keyHashA, runID, now.Add(-time.Minute))
-		if _, d := s.publishArtifacts(context.Background(), keyHashA, runID, capture); d != nil {
+		if _, d := s.publishArtifacts(context.Background(), keyHashA, runID, capture, nil, nil); d != nil {
 			t.Fatal(d)
 		}
 		calls := 0
@@ -175,7 +175,7 @@ func TestHistoryQueries(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			id := fmt.Sprintf("00000000-0000-4000-8000-%012d", i)
 			storedHistoryFixture(t, s, keyHashA, id, now.Add(-time.Minute))
-			if _, d := s.publishArtifacts(context.Background(), keyHashA, id, capture); d != nil {
+			if _, d := s.publishArtifacts(context.Background(), keyHashA, id, capture, nil, nil); d != nil {
 				t.Fatal(d)
 			}
 		}

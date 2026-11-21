@@ -46,7 +46,7 @@ func TestReferenceArtifacts(t *testing.T) {
 	runID := "00000000-0000-4000-8000-000000000001"
 	t.Run("publish metadata and bytes live under the exact key and run prefix", func(t *testing.T) {
 		s, store, garage, capture := artifactFixture(t)
-		refs, diagnostic := s.publishArtifacts(context.Background(), keyHashA, runID, capture)
+		refs, diagnostic := s.publishArtifacts(context.Background(), keyHashA, runID, capture, nil, nil)
 		if diagnostic != nil || len(refs) != 3 {
 			t.Fatal("trace parse evidence and support bundle not published", diagnostic, len(refs))
 		}
@@ -69,7 +69,7 @@ func TestReferenceArtifacts(t *testing.T) {
 	})
 	t.Run("same-key clients stream bytes without needing a history row", func(t *testing.T) {
 		s, _, _, capture := artifactFixture(t)
-		refs, diagnostic := s.publishArtifacts(context.Background(), keyHashA, runID, capture)
+		refs, diagnostic := s.publishArtifacts(context.Background(), keyHashA, runID, capture, nil, nil)
 		if diagnostic != nil || len(refs) == 0 {
 			t.Fatal(diagnostic)
 		}
@@ -98,7 +98,7 @@ func TestReferenceArtifacts(t *testing.T) {
 	})
 	t.Run("digest mismatch returns no bytes", func(t *testing.T) {
 		s, store, garage, capture := artifactFixture(t)
-		if refs, d := s.publishArtifacts(context.Background(), keyHashA, runID, capture); d != nil || len(refs) != 3 {
+		if refs, d := s.publishArtifacts(context.Background(), keyHashA, runID, capture, nil, nil); d != nil || len(refs) != 3 {
 			t.Fatal("publication fixture is incomplete", d)
 		}
 		key := store.testPrefix + "artifacts/" + keyHashA + "/" + runID + "/trace.json"
@@ -120,7 +120,7 @@ func TestReferenceArtifacts(t *testing.T) {
 		s.config.Artifacts = store
 		before, _ := json.Marshal(capture)
 		started := time.Now()
-		_, diagnostic := s.publishArtifacts(context.Background(), keyHashA, runID, capture)
+		_, diagnostic := s.publishArtifacts(context.Background(), keyHashA, runID, capture, nil, nil)
 		after, _ := json.Marshal(capture)
 		if diagnostic == nil || time.Since(started) > 2*time.Second || !bytes.Equal(before, after) {
 			t.Fatal("publication changed capture or exceeded budget", diagnostic, time.Since(started))
@@ -130,7 +130,7 @@ func TestReferenceArtifacts(t *testing.T) {
 		s, store, _, capture := artifactFixture(t)
 		otherRun := "00000000-0000-4000-8000-000000000002"
 		for _, pair := range [][2]string{{keyHashA, runID}, {keyHashA, otherRun}, {keyHashB, runID}} {
-			if _, d := s.publishArtifacts(context.Background(), pair[0], pair[1], capture); d != nil {
+			if _, d := s.publishArtifacts(context.Background(), pair[0], pair[1], capture, nil, nil); d != nil {
 				t.Fatal(d)
 			}
 		}
@@ -162,7 +162,7 @@ func TestReferenceArtifacts(t *testing.T) {
 	t.Run("disabled artifacts perform no publication and report disabled", func(t *testing.T) {
 		s, _, _, capture := artifactFixture(t)
 		s.config.Artifacts = nil
-		refs, diagnostic := s.publishArtifacts(context.Background(), keyHashA, runID, capture)
+		refs, diagnostic := s.publishArtifacts(context.Background(), keyHashA, runID, capture, nil, nil)
 		if len(refs) != 0 || diagnostic != nil || s.artifactFeature().Status != "disabled" {
 			t.Fatal("disabled artifacts created diagnostic or work")
 		}
