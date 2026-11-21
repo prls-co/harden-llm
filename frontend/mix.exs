@@ -51,7 +51,8 @@ defmodule HardenLlm.MixProject do
       # while the host selects the patched attribute-escaping implementation.
       {:phoenix_html, "~> 4.4.0", override: true},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "== 1.2.10"},
+      # prls_web still pins 1.2.10. Use the patched LiveView across the host.
+      {:phoenix_live_view, "== 1.2.14", override: true},
       {:phoenix_template,
        git: "https://github.com/phoenixframework/phoenix_template.git",
        ref: "a5dd67cee1190bca4b7662ec3553373b5d67a0e6",

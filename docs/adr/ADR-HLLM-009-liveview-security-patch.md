@@ -31,7 +31,7 @@ Rolling back to 1.2.6 is prohibited while the advisory applies. A future
 upgrade follows the same exact-pin, audit, and full-certification process; it
 does not require an application data migration or REST contract change.
 
-## Current patch
+## 2026-08-10 patch
 
 On 2026-08-10, the exact pin was advanced from 1.2.7 to 1.2.9 after the Hex
 advisory feed reported EEF-CVE-2026-64941 against 1.2.7. Version 1.2.9 is the
@@ -39,3 +39,12 @@ current upstream release at certification time. The package remains an exact
 pin, and the same regression, dependency-audit, and full frontend certification
 gates apply. This amendment supersedes the 1.2.7 package version in the
 implementation lock while preserving the original 1.2.7 decision provenance.
+
+## 2026-11-20 patch
+
+The host and reusable UI package pin LiveView 1.2.14 to address
+EEF-CVE-2026-126334. The host overrides the older exact requirement in its
+pinned `prls_web` dependency. Both lockfiles use Plug 1.20.4 for
+EEF-CVE-2026-120287. The host's test dependency Hackney resolves idna 8.0.0
+for EEF-CVE-2026-117678. WEB-TEST-001 checks the LiveView pin. Both projects
+can be audited independently with `mix hex.audit`.

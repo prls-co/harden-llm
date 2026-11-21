@@ -1830,7 +1830,7 @@ the original provenance record.
 | ADR-HLLM-006 | Planned | A Harden-LLM storage owner changes, a second application database/object store is proposed, or a Langfuse-owned dependency is locally substituted. |
 | ADR-HLLM-007 | Planned | Temporal, Sentry, OIDC, idempotency infrastructure, retention automation, or backup automation enters scope. |
 | ADR-HLLM-008 | Accepted | Complete the redacted profile collection, historical-run, and process-bind REST contracts. |
-| ADR-HLLM-009 | Accepted | Keep the patched Phoenix LiveView 1.2.9 security pin. |
+| ADR-HLLM-009 | Accepted | Keep the exact patched Phoenix LiveView pin recorded in the ADR. |
 | ADR-HLLM-010 | Accepted | Use independent read-only frontend Caddy and Grafana mount points. |
 | ADR-HLLM-011 | Accepted | Keep the current Go 1.26.6 security-patched toolchain after the original 1.26.5 decision. |
 | ADR-HLLM-012 | Accepted | Complete utility frontend behavior through one self-hosted Phoenix/Go path with explicit editor, pagination, and infrastructure adaptations. |

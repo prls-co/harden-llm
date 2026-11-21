@@ -14,7 +14,7 @@ defmodule HardenLlmWeb.BoundaryTest do
 
     for {name, version} <- %{
           phoenix: "1.8.9",
-          phoenix_live_view: "1.2.10",
+          phoenix_live_view: "1.2.14",
           req: "0.6.1",
           prom_ex: "1.12.0",
           logger_json: "7.0.4",

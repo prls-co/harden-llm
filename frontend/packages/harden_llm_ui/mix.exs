@@ -11,7 +11,7 @@ defmodule HardenLlmUI.MixProject do
       deps: [
         {:phoenix, "== 1.8.9"},
         {:phoenix_html, "~> 4.4.0"},
-        {:phoenix_live_view, "== 1.2.10"},
+        {:phoenix_live_view, "== 1.2.14"},
         {:phoenix_template,
          git: "https://github.com/phoenixframework/phoenix_template.git",
          ref: "a5dd67cee1190bca4b7662ec3553373b5d67a0e6",
