@@ -3537,3 +3537,24 @@ worker readiness, HTTP acceptance, count snapshots and the separate edge
 recovery. [ADR-HLLM-036](adr/ADR-HLLM-036-search-citation-evidence.md) records the
 library boundary. Later documentation-only closeout commits do not rebuild or
 relabel these deployed images.
+
+## 2026-11-21 preset search diagnostics and frontend security patches
+
+Production runs `main` source `c86895c24b82a35ebac2e91399c2f2c7f2404fc3` with PR #185's optional-search diagnostics and preset corrections. [Production](https://harden-llm.prls.co/) · [PR #185](https://github.com/prls-co/harden-llm/pull/185)
+
+The Hex audit blocked the original candidate at `cc6002b`. Commit `e2bcf30` patches LiveView and Plug in the host and reusable UI package, and idna in the host's test dependencies. The production web container contains LiveView 1.2.14 and Plug 1.20.4. [Hex audit failure](https://github.com/prls-co/harden-llm/actions/runs/44843422506)
+
+After the audit passed, full Go integration found nine test fixtures calling the former artifact publication signature. Commit `c86895c` updates their calls and preserves their assertions. [Integration failure](https://github.com/prls-co/harden-llm/actions/runs/44845649949)
+
+| Production evidence | Result |
+| --- | --- |
+| Certification | All 30 browser-free release tasks passed. The downloaded runner archive matched GitHub's SHA-256 digest. [Release attempt](https://github.com/prls-co/harden-llm/actions/runs/44847061643/attempts/1) · [Main fast checks](https://github.com/prls-co/harden-llm/actions/runs/44847060530) |
+| Gateway and worker | `harden-llm-gateway:release-c86895c24b82a35ebac2e91399c2f2c7f2404fc3`, image `sha256:b8aef0321b99cc5ef1a61d57ce7d89bd1d73151490284332f9b3f76c4150ff0a`. Both running binaries reported the certified SHA. |
+| Frontend | `harden-llm-web:release-c86895c24b82a35ebac2e91399c2f2c7f2404fc3`, image `sha256:15f1aa93efba88fec2a6f03dfca619b421019c68af5e64c940f9e1c6883d4941`. Both HTTP-serving containers were healthy. |
+| Worker | Fresh workflow, control and provider queue pollers preceded the gateway and web rollout. The production pool reported generation 2 ready and zero outstanding work. |
+| HTTP and presets | TEST-435 passed health, readiness, Portal redirect, bearer rejection, authenticated model discovery and reference status. Portal login returned 200. All 39 deployed preset definitions matched the release catalog. |
+| Preservation | All five managed support containers retained their identities, as did the shared PostgreSQL, Garage and Temporal owners. The previous gateway and web images remain available for rollback. |
+| Descriptor SHA-256 | Before `a740b5f5bf590c7b3fb98beeb7cd9f51aa7833f7136c2f2c3f8799dfacaa16c8`. After `0ec1c803fcadb70642dcea70fef72f54ece24279207c1f648e608d292d33f56c`. |
+| Verification scope | The production smoke used HTTP and issued zero paid inference calls. Browser layout was not checked. The prior preset matrix passed 58 calls across 29 configured presets and observed search on 56. Twenty direct-provider cases lacked credentials. |
+
+The public Go module is `v0.0.0-20261121005541-c86895c24b82`. Its archive and `go.mod` hashes matched the public checksum database in a fresh cache. [Production receipt](../plans/evidence/harden-llm/issue-184/2026-11-20-production/deployment.json) · [Module checksum record](https://sum.golang.org/lookup/github.com/prls-co/harden-llm@v0.0.0-20261121005541-c86895c24b82)

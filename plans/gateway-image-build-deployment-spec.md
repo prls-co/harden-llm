@@ -26,7 +26,12 @@ decision.
 
 ## 2. Artifact and production identity
 
-The latest production identity is recorded in the
+The production gateway, worker and frontend run `c86895c24b82a35ebac2e91399c2f2c7f2404fc3`. The
+[issue #184 production receipt](evidence/harden-llm/issue-184/2026-11-20-production/deployment.json)
+and [release certification](../docs/release-certification.md#2026-11-21-preset-search-diagnostics-and-frontend-security-patches)
+record both images, the worker-first rollout and the authenticated HTTP checks.
+
+The prior production identity is recorded in the
 [issue #153 citation evidence receipt](evidence/harden-llm/issue-153/production-release/receipt.json)
 and [release certification](../docs/release-certification.md#2026-11-15-search-citation-evidence-and-partial-result-warnings).
 Gateway, worker and web use certified source
