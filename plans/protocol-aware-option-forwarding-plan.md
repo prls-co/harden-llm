@@ -2,7 +2,7 @@
 
 - Document ID: PLAN-HLLM-186. Version: 3.0. Date: 2026-11-23. Status: Pending implementation.
 - Owners: gateway maintainers for ingress and public responses, provider/runtime maintainers for translation and recovery, stateful maintainers for batch identity. CPA owns its Codex translator.
-- Configuration: implementation base `dev@29cdd3d`; historical reproduction at `9554f5f`; plan branch `research/issue-186-gateway-rca`.
+- Configuration: implementation base `dev@29cdd3d`; historical reproduction at `9554f5f`; plan branch [research/issue-186-gateway-rca](https://github.com/prls-co/harden-llm/blob/research/issue-186-gateway-rca/plans/protocol-aware-option-forwarding-plan.md).
 
 Fix three defects in [issue #186](https://github.com/prls-co/harden-llm/issues/186) and replace manual native-option forwarding on ordinary Responses and Chat Completions. Harden consumes its controls, forwards eligible native JSON to matching endpoints and translates supported options at the selected destination. The two tool fixes can ship independently. Ship the expanded forwarding contract after ingress, translation, recovery and schema qualification pass together. This document specifies future work. [Historical reproduction and evidence](issue-186-gateway-contract-rca-and-plan.md)
 
@@ -215,7 +215,7 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
   - Unlocks: P02.S02.
 
 - P02.S02 Carry native members through shared preparation
-  - Action: Use one bounded member collection with number preservation. Consume Harden and execution-owned leaves. Carry source format beside Request.ProviderOptions into runtime. Reject unsupported public output at admission.
+  - Action: Use one bounded member collection with number preservation. Consume Harden and execution-owned leaves. Carry source format beside `Request.ProviderOptions` into runtime. Reject unsupported public output at admission.
   - Why now: Preparation evidence identifies which values are lost.
   - Files/surfaces: `internal/gateway/httpapi/requests.go`, `internal/gateway/httpapi/handlers.go`, `types.go`, `client.go`, `internal/runtime/types.go`.
   - Requirement link: REQ-600, REQ-601, REQ-604, REQ-608, REQ-610
@@ -228,7 +228,7 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
   - Unlocks: P02.S03.
 
 - P02.S03 Remove scalar copying from both handlers
-  - Action: Delete both forwarding lists and putValue. Reuse Responses preparation for batch while keeping its closed decoder, timeout defaults and worker snapshot settings.
+  - Action: Delete both forwarding lists and `putValue`. Reuse Responses preparation for batch while keeping its closed decoder, timeout defaults and worker snapshot settings.
   - Why now: Both routes now supply the same options representation.
   - Files/surfaces: `internal/gateway/httpapi/handlers.go`, `internal/gateway/httpapi/jobs.go`.
   - Requirement link: REQ-600, REQ-608, REQ-610
@@ -250,7 +250,7 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
   - Command/procedure: `make test-api`
   - Expected result: Zero prohibited effects and zero snapshot differences.
   - Evidence produced: Comparison output.
-  - Stop/escalate condition: Keep this phase private if downstream forwarding is incomplete.
+  - Stop/escalate condition: Keep the expanded contract off deployed routes until downstream forwarding is complete.
   - Unlocks: phase exit.
 
 ### Phase P03: Each selected endpoint accounts for every caller option
@@ -346,7 +346,7 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
   - Unlocks: P04.S03.
 
 - P04.S03 Inspect cache and retrieval identity
-  - Action: No refactor needed if operationPayload still supplies the sole key input and Jina rebuilds through the same builder. Keep native Go/reference model-target replacement intact.
+  - Action: No refactor needed if `operationPayload` supplies the payload portion of the existing key and Jina uses the same builder after retrieval. Keep native Go/reference model-target replacement intact.
   - Why now: The router already keys the prepared operation.
   - Files/surfaces: `internal/providers/web_search.go`, `internal/providers/router.go`, `internal/cachekey/cache.go`.
   - Requirement link: REQ-606, REQ-607
