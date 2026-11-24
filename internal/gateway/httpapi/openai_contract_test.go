@@ -426,3 +426,91 @@ func TestOpenAIContractOrdinaryAdmission(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenAIContractNativeOptionWire(t *testing.T) {
+	for _, protocol := range []string{"responses", "chat-completions"} {
+		t.Run(protocol, func(t *testing.T) {
+			var calls atomic.Int32
+			var received atomic.Value
+			path, input, limit := "/v1/responses", `"input":"hello"`, "max_output_tokens"
+			if protocol == "chat-completions" {
+				path, input, limit = "/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}]`, "max_completion_tokens"
+			}
+			upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				if r.Method != "POST" || r.URL.Path != path {
+					t.Errorf("unexpected upstream %s %s", r.Method, r.URL.Path)
+				}
+				var captured map[string]any
+				decoder := json.NewDecoder(r.Body)
+				decoder.UseNumber()
+				if err := decoder.Decode(&captured); err != nil {
+					t.Error(err)
+				}
+				received.Store(captured)
+				w.Header().Set("Content-Type", "application/json")
+				if protocol == "responses" {
+					io.WriteString(w, `{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"{\"answer\":\"ok\"}"}]}]}`)
+				} else {
+					io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"{}"},"finish_reason":"stop"}]}`)
+				}
+			}))
+			defer upstream.Close()
+			api := newContractAPI(t, upstream)
+			opts := contractClientOptions(upstream)
+			opts.Connections[0].Protocol = protocol
+			if protocol == "responses" {
+				opts.Connections[0].Provider = "cpa"
+			}
+			client, err := stateful.NewClient(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
+			for _, store := range []string{"", `,"store":false`, `,"store":true`} {
+				before := calls.Load()
+				w := postOrdinary(api, path, fmt.Sprintf(`{"model":"fixture",%s,%q:128,"temperature":0,"fixture_option":{"values":[null,false,9007199254740993]},"harden":{"cache":"off"}%s}`, input, limit, store))
+				if store == `,"store":true` {
+					if w.Code != 400 || !strings.Contains(w.Body.String(), `"param":"store"`) || calls.Load() != before {
+						t.Errorf("store true: %d %s", w.Code, w.Body.String())
+					}
+					continue
+				}
+				if w.Code != 200 || calls.Load() != before+1 {
+					t.Fatalf("HTTP %d: %s", w.Code, w.Body.String())
+				}
+				captured := received.Load().(map[string]any)
+				v, present := captured["store"]
+				opaque, _ := json.Marshal(captured["fixture_option"])
+				if present != (store != "") || present && v != false || captured[limit] != json.Number("128") || captured["temperature"] != json.Number("0") || string(opaque) != `{"values":[null,false,9007199254740993]}` {
+					t.Errorf("wire = %v", captured)
+				}
+				if _, ok := captured["harden"]; ok {
+					t.Fatal("harden reached upstream")
+				}
+			}
+			// These are opaque caller data, including a key name often used in schemas.
+			large := strings.Repeat("x", 33<<10)
+			w := postOrdinary(api, path, fmt.Sprintf(`{"model":"fixture",%s,"metadata":{"secret":%q}}`, input, large))
+			if w.Code != 200 {
+				t.Fatalf("native metadata HTTP %d: %s", w.Code, w.Body.String())
+			}
+			metadata, _ := received.Load().(map[string]any)["metadata"].(map[string]any)
+			if metadata["secret"] != large {
+				t.Fatal("opaque nested metadata was altered")
+			}
+			if protocol == "responses" {
+				for _, format := range []string{"", `,"format":{"type":"json_schema","name":"answer","schema":{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}}`} {
+					w := postOrdinary(api, path, `{"model":"fixture","input":"hello","text":{"verbosity":"low"`+format+`},"reasoning":{"effort":"low","fixture_sibling":true}}`)
+					captured := received.Load().(map[string]any)
+					text, _ := captured["text"].(map[string]any)
+					reasoning, _ := captured["reasoning"].(map[string]any)
+					f, hasFormat := text["format"].(map[string]any)
+					if w.Code != 200 || text["verbosity"] != "low" || hasFormat != (format != "") || hasFormat && f["type"] != "json_schema" || reasoning["effort"] != "low" || reasoning["fixture_sibling"] != true {
+						t.Errorf("HTTP %d: %s text=%v reasoning=%v", w.Code, w.Body.String(), text, reasoning)
+					}
+				}
+			}
+		})
+	}
+}

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/prls-co/harden-llm/internal/retry"
 	"io"
 	"net/http"
 	"reflect"
@@ -165,10 +164,6 @@ func (api *API) decodeRequest(writer http.ResponseWriter, request *http.Request,
 		writeError(writer, http.StatusBadRequest, "invalid_request_error", "invalid_json", "The request body could not be read.", nil)
 		return false
 	}
-	if len(body) > maximumRequestBytes {
-		writeError(writer, http.StatusRequestEntityTooLarge, "invalid_request_error", "request_too_large", "The request body exceeds the configured size limit.", nil)
-		return false
-	}
 	return decodeGeneration(writer, body, target, true)
 }
 
@@ -215,7 +210,7 @@ func decodeGeneration(w http.ResponseWriter, body []byte, target generationInput
 		}
 	}
 	for key, raw := range fields {
-		if !ordinary || retry.ReservedOrdinaryOption(key) {
+		if !ordinary || hardenllm.ReservedOrdinaryOption(key) {
 			writeRequestError(w, errors.New("field is not available on this endpoint"), key)
 			return false
 		}

@@ -236,6 +236,11 @@ type ObservabilityContext struct {
 
 // RecoveryPolicy is the complete explicit policy used by every execution path.
 type RecoveryPolicy = retry.Policy
+
+// ReservedOrdinaryOption reports which top-level names belong to gateway or
+// transport controls. Nested option values are ordinary JSON data.
+func ReservedOrdinaryOption(name string) bool { return retry.ReservedOrdinaryOption(name) }
+
 type RecoveryBackoff = retry.Backoff
 type RecoveryCategory = retry.Category
 type RecoveryPolicyError = retry.ValidationError

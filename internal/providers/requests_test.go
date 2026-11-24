@@ -1070,3 +1070,48 @@ func TestRecoveryIntegrityAccountingProviderResponses(t *testing.T) {
 		}
 	})
 }
+
+func TestProviderRequestParityOrdinaryTranslation(t *testing.T) {
+	for _, tc := range []struct {
+		source, dest, provider, key, wire string
+		val                               any
+	}{
+		{"chat-completions", "responses", "openai", "store", "store", false},
+		{"chat-completions", "responses", "openai", "max_completion_tokens", "max_output_tokens", 128},
+		{"responses", "chat-completions", "openai", "max_output_tokens", "max_completion_tokens", 128},
+		{"responses", "gemini-generate-content", "google", "max_output_tokens", "maxOutputTokens", 128},
+		{"responses", "anthropic-messages", "anthropic", "max_output_tokens", "max_tokens", 128},
+		{"responses", "gemini-generate-content", "google", "fixture_option", "", false},
+		{"responses", "anthropic-messages", "anthropic", "fixture_option", "", false},
+		{"responses", "responses", "perplexity", "fixture_option", "", false},
+		{"responses", "responses", "perplexity", "store", "", false},
+		{"responses", "gemini-generate-content", "google", "store", "", false},
+		{"chat-completions", "responses", "openai", "stop", "", []any{"stop"}},
+	} {
+		t.Run(tc.dest+"/"+tc.provider+"/"+tc.key, func(t *testing.T) {
+			call := runtime.Call{ModelID: "fixture", Messages: providerMessages("instruction", "hello"), CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`), OptionProtocol: tc.source, ProviderOptions: map[string]any{tc.key: tc.val}}
+			_, _, _, payload, _, err := buildPayload(runtime.Connection{Provider: tc.provider, APIInferenceType: tc.dest}, call)
+			if tc.wire == "" {
+				var invalid *retry.ValidationError
+				if !errors.As(err, &invalid) || invalid.Field != tc.key {
+					t.Errorf("expected rejection of %s, got %v payload %v", tc.key, err, payload)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.dest == "gemini-generate-content" {
+				payload = payload["generationConfig"].(map[string]any)
+				if payload["responseJsonSchema"] == nil {
+					t.Fatal("missing native schema")
+				}
+			}
+			got, _ := json.Marshal(payload[tc.wire])
+			want, _ := json.Marshal(tc.val)
+			if string(got) != string(want) {
+				t.Errorf("%s = %s, want %s", tc.wire, got, want)
+			}
+		})
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/prls-co/harden-llm/internal/retry"
@@ -26,6 +27,13 @@ func buildPayload(connection runtime.Connection, call runtime.Call) (string, str
 			return "", "", "", nil, nil, repairErr
 		}
 	}
+	// Ordinary options belong to the source protocol. Native configuration
+	// belongs to the selected target and retains its existing validation.
+	var incoming ordinaryMembers
+	if call.OptionProtocol != "" {
+		incoming = maps.Clone(call.ProviderOptions)
+		call.ProviderOptions = nil
+	}
 	options, err := mergedOptions(connection, call)
 	if err != nil {
 		return "", "", "", nil, nil, err
@@ -40,26 +48,76 @@ func buildPayload(connection runtime.Connection, call runtime.Call) (string, str
 	if err != nil {
 		return "", "", "", nil, nil, err
 	}
+	var path, protocol string
+	provider := connection.Provider
+	headers := map[string]any{}
+	var payload map[string]any
 	switch connection.APIInferenceType {
 	case "responses":
-		path := "/responses"
-		if strings.EqualFold(connection.Provider, "perplexity") {
+		path, protocol = "/responses", "openai.responses"
+		if strings.EqualFold(provider, "perplexity") {
 			path = "/agent"
+		} else if call.OptionProtocol == "chat-completions" {
+			incoming.openAI(options)
+			incoming.move(options, "max_output_tokens", "max_completion_tokens", "max_tokens")
 		}
-		payload, payloadErr := buildResponsesPayload(connection, call, options, schema)
-		return connection.Provider, "openai.responses", path, payload, map[string]any{}, payloadErr
+		payload, err = buildResponsesPayload(connection, call, options, schema)
 	case "chat-completions":
-		payload, payloadErr := buildChatPayload(connection, call, options, schema)
-		return connection.Provider, "openai-compatible.chat.completions", "/chat/completions", payload, map[string]any{}, payloadErr
+		path, protocol = "/chat/completions", "openai-compatible.chat.completions"
+		if call.OptionProtocol == "responses" {
+			incoming.openAI(options)
+			incoming.move(options, "max_completion_tokens", "max_output_tokens")
+		}
+		payload, err = buildChatPayload(connection, call, options, schema)
 	case "gemini-generate-content":
-		path := "/v1beta/models/" + strings.TrimPrefix(strings.TrimLeft(call.ModelID, "/"), "models/") + ":generateContent"
-		payload, payloadErr := buildGeminiPayload(connection, call, options, schema)
-		return defaultProviderName(connection.Provider, "google"), "google.gemini.generateContent", path, payload, map[string]any{}, payloadErr
+		path = "/v1beta/models/" + strings.TrimPrefix(strings.TrimLeft(call.ModelID, "/"), "models/") + ":generateContent"
+		protocol, provider = "google.gemini.generateContent", defaultProviderName(provider, "google")
+		payload, err = buildGeminiPayload(connection, call, options, schema, incoming)
 	case "anthropic-messages":
-		payload, payloadErr := buildAnthropicPayload(connection, call, options, schema)
-		return defaultProviderName(connection.Provider, "anthropic"), "anthropic.messages", "/messages", payload, map[string]any{"anthropic-version": defaultAnthropicVersion}, payloadErr
+		path, protocol, provider = "/messages", "anthropic.messages", defaultProviderName(provider, "anthropic")
+		headers["anthropic-version"] = defaultAnthropicVersion
+		incoming.move(options, "max_tokens", "max_tokens", "max_completion_tokens", "max_output_tokens")
+		for _, key := range []string{"temperature", "top_p", "stop"} {
+			incoming.move(options, key, key)
+		}
+		payload, err = buildAnthropicPayload(connection, call, options, schema)
 	default:
 		return "", "", "", nil, nil, fmt.Errorf("providers: unsupported API inference type %q", connection.APIInferenceType)
+	}
+	if err == nil && len(incoming) > 0 {
+		if call.OptionProtocol == connection.APIInferenceType && path != "/agent" {
+			payload = mergeNested(incoming, payload)
+		} else {
+			// A translated endpoint must account for every remaining member.
+			// Stable ordering makes the first error independent of map iteration.
+			field := slices.Min(slices.Collect(maps.Keys(incoming)))
+			if object, ok := incoming[field].(map[string]any); ok && (field == "reasoning" || field == "text") && len(object) > 0 {
+				field += "." + slices.Min(slices.Collect(maps.Keys(object)))
+			}
+			err = &retry.ValidationError{Field: field, Message: "has no equivalent on the selected upstream"}
+		}
+	}
+	return provider, protocol, path, payload, headers, err
+}
+
+// move consumes a caller value only where a destination writes its equivalent.
+// Explicit native settings on the selected target take precedence.
+type ordinaryMembers map[string]any
+
+func (m ordinaryMembers) move(target map[string]any, destination string, sources ...string) {
+	for _, source := range sources {
+		if value, present := m[source]; present {
+			if _, override := target[destination]; !override {
+				target[destination] = value
+			}
+			delete(m, source)
+		}
+	}
+}
+
+func (m ordinaryMembers) openAI(options map[string]any) {
+	for _, key := range []string{"temperature", "top_p", "store", "service_tier", "parallel_tool_calls"} {
+		m.move(options, key, key)
 	}
 }
 
@@ -467,9 +525,6 @@ func mergedOptions(connection runtime.Connection, call runtime.Call) (map[string
 		return nil, err
 	}
 	options := make(map[string]any, len(call.ProviderOptions))
-	for key := range runtimeOptionKeys {
-		delete(options, key)
-	}
 	for key, value := range call.ProviderOptions {
 		if _, runtimeOnly := runtimeOptionKeys[key]; runtimeOnly {
 			continue
@@ -490,6 +545,13 @@ func mergedOptions(connection runtime.Connection, call runtime.Call) (map[string
 		case "chat-completions":
 			options["reasoning_effort"] = effort
 		default:
+			if call.OptionProtocol != "" {
+				field := "reasoning_effort"
+				if call.OptionProtocol == "responses" {
+					field = "reasoning.effort"
+				}
+				return nil, &retry.ValidationError{Field: field, Message: "has no equivalent on the selected upstream"}
+			}
 			return nil, fmt.Errorf("providers: native reasoning_effort is unsupported by protocol %q", connection.APIInferenceType)
 		}
 	}
@@ -753,17 +815,24 @@ func buildChatPayload(connection runtime.Connection, call runtime.Call, options 
 	return payload, nil
 }
 
-func buildGeminiPayload(connection runtime.Connection, call runtime.Call, options map[string]any, schema any) (map[string]any, error) {
+func buildGeminiPayload(connection runtime.Connection, call runtime.Call, options map[string]any, schema any, incoming ordinaryMembers) (map[string]any, error) {
 	config := make(map[string]any)
-	if value := numericOption(options, "temperature"); value != nil {
-		config["temperature"] = value
+	// Use the same destination write for native configuration and translated
+	// OpenAI sampling fields. Camel-case Gemini aliases are target-local.
+	numeric := func(key string, nativeAliases []string, public ...string) {
+		incoming.move(config, key, public...)
+		if value := numericOption(options, append(nativeAliases, public...)...); value != nil {
+			config[key] = value
+		}
 	}
-	copyNumericOption(config, "maxOutputTokens", options, "maxOutputTokens", "max_output_tokens", "max_tokens", "max_completion_tokens")
-	copyNumericOption(config, "topP", options, "topP", "top_p")
-	copyNumericOption(config, "topK", options, "topK", "top_k")
-	copyNumericOption(config, "frequencyPenalty", options, "frequency_penalty")
-	copyNumericOption(config, "presencePenalty", options, "presence_penalty")
-	copyNumericOption(config, "seed", options, "seed")
+	numeric("temperature", nil, "temperature")
+	numeric("maxOutputTokens", []string{"maxOutputTokens"}, "max_output_tokens", "max_tokens", "max_completion_tokens")
+	numeric("topP", []string{"topP"}, "top_p")
+	numeric("topK", []string{"topK", "top_k"})
+	numeric("frequencyPenalty", nil, "frequency_penalty")
+	numeric("presencePenalty", nil, "presence_penalty")
+	numeric("seed", nil, "seed")
+	incoming.move(options, "stop", "stop")
 	if value, ok := firstOption(options, "stop", "stopSequences"); ok {
 		switch values := value.(type) {
 		case string:
@@ -962,12 +1031,6 @@ func normalizeResponsesTokenOptions(options map[string]any, target string) {
 		if source != target {
 			delete(options, source)
 		}
-	}
-}
-
-func copyNumericOption(target map[string]any, targetKey string, options map[string]any, keys ...string) {
-	if value := numericOption(options, keys...); value != nil {
-		target[targetKey] = value
 	}
 }
 
