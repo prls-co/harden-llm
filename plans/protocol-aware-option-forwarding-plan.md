@@ -548,7 +548,7 @@ Use the trusted Linux checkout or hosted `ubuntu-latest` with Go 1.26.11, Node 2
 
 ## 11. Execution log template
 
-P00–P03 are Done. P04–P05 are Pending.
+P00–P04 are Done. P05 is Pending.
 
 - P00.S01–S02 / REQ-608 / TEST-475 / EVAL-600. On the production code from `29cdd3d`, two independent `make test-api` runs passed (httpapi 12.303 s and 12.444 s). The existing batch writer produced the pinned bytes both times, with zero additional submissions on rejection. The snapshot includes the worker stream, default timeout, normalized temperature and caller token limit. The test and this entry form the P00 checkpoint. No deviation or ADR change.
 
@@ -557,6 +557,8 @@ P00–P03 are Done. P04–P05 are Pending.
 - P02.S01–S04 / REQ-600, 601, 604, 608, 610. From P01 checkpoint `fca9c47`, the RED API gate rejected the native fixture and both verbosity shapes, and reported missing or incorrect field paths for summary, probability and control requests. GREEN, refactor and measurement gates passed with the same `make test-api` command. All protected-field errors leave the model count unchanged. Both summary shapes fail by their leaf name. Number-preserving parsing retained 9007199254740993, false and null. The fixed batch bytes stayed identical, and both new batch rejection controls made zero submissions. Removed both scalar-copy lists and the synthetic batch HTTP request. Feature branch only.
 
 - P03.S01–S04 / REQ-600, 601, 604, 605, 610 / EVAL-602. From `69b8a45`, the RED gates exposed a dropped text sibling and a reasoning collision, an unconverted Chat token limit, and unsupported options silently dropped or forwarded by Gemini, Anthropic and Agent. The schema wire control uses a valid explicit JSON schema, because the existing internally generated json_object case has its own failure contract. GREEN, review and measurement passed with `make test-api` and `make test-parity`. A final testkit check verified package ownership. Both native wire captures preserved 9007199254740993, zero, an omitted versus explicit false store, and 33 KiB of nested caller metadata. Gemini retained responseJsonSchema. The synthetic option occurs only in tests and evidence. One provider destination switch, zero production registrations for the native test extension.
+
+- P04.S01–S04 / REQ-606–607 / EVAL-603. From `90210eb`, RED showed the second model receiving only its override and a third model receiving no ordinary options. The wire test observed two calls to a stateless-incompatible target and two on a protected storage override. After the fix, the second model received 128 or 512 as configured, with false storage present on both attempts; temperature changed only on the selected target. An incompatible second target received zero calls and the first model's four input tokens remained accounted for. A protected override incurred zero calls. Three consecutive model preparations retained the original map. Both native and Jina fixtures produced three distinct misses and two equivalent hits, with zero model/search effects on hits. GREEN, review and measurement `make test-observability`, `make test-api` and `make test-parity` gates passed. Target visitation is shared, and operationPayload remains the only cache payload source. Hosted fast CI passed on P03.
 
 Copy this blank entry for each remaining phase. Record observed values only. For a single deterministic observation, record its count and mark dispersion and interval inapplicable.
 

@@ -548,36 +548,10 @@ func cloneNestedAnyMap(input map[string]map[string]any) map[string]map[string]an
 }
 
 func validateRecoveryConnections(policy RecoveryPolicy, bindings map[string]coreruntime.ResolvedConnection) error {
-	check := func(target RecoveryTarget) error {
+	for _, target := range policy.Targets {
 		if target.ConnectionID != "" {
-			if _, ok := bindings[target.ConnectionID]; !ok {
+			if _, configured := bindings[target.ConnectionID]; !configured {
 				return fmt.Errorf("hardenllm: recovery upstream %q is not configured", target.ConnectionID)
-			}
-		}
-		return nil
-	}
-	if policy.JSONRepair != nil {
-		if err := check(policy.JSONRepair.Initial); err != nil {
-			return err
-		}
-		if policy.JSONRepair.Escalation != nil {
-			if err := check(*policy.JSONRepair.Escalation); err != nil {
-				return err
-			}
-		}
-	}
-	if policy.Rerun != nil {
-		if err := check(policy.Rerun.Target); err != nil {
-			return err
-		}
-		if policy.Rerun.JSONRepair != nil {
-			if err := check(policy.Rerun.JSONRepair.Initial); err != nil {
-				return err
-			}
-			if policy.Rerun.JSONRepair.Escalation != nil {
-				if err := check(*policy.Rerun.JSONRepair.Escalation); err != nil {
-					return err
-				}
 			}
 		}
 	}

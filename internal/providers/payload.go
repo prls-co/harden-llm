@@ -32,7 +32,7 @@ func buildPayload(connection runtime.Connection, call runtime.Call) (string, str
 	var incoming ordinaryMembers
 	if call.OptionProtocol != "" {
 		incoming = maps.Clone(call.ProviderOptions)
-		call.ProviderOptions = nil
+		call.ProviderOptions = call.NativeOptions()
 	}
 	options, err := mergedOptions(connection, call)
 	if err != nil {

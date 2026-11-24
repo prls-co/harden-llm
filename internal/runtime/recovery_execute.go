@@ -495,14 +495,15 @@ func preparePlannedWork(ctx context.Context, executor Executor, connection Conne
 				connection = binding.Connection
 				credential = binding.Credential
 			}
-			// A model target is a leaf operation. Do not carry provider
-			// options from the failed generation into a different model.
-			call.ProviderOptions = nil
-			// An omitted target reasoning setting means the selected model's
-			// native default, not the failed model's override, applies.
-			call.ReasoningEffort = target.ReasoningEffort
-			if target.ProviderOptions != nil {
+			if call.OptionProtocol == "" {
+				// Direct Go, reference and batch settings belong to their model.
 				call.ProviderOptions = cloneMap(target.ProviderOptions)
+				call.ReasoningEffort = target.ReasoningEffort
+			} else {
+				call.TargetOptions = cloneMap(target.ProviderOptions)
+				if target.ReasoningEffort != "" {
+					call.ReasoningEffort = target.ReasoningEffort
+				}
 			}
 			if target.ModelID != "" {
 				call.ModelID = target.ModelID
@@ -527,35 +528,9 @@ func preparePlannedWork(ctx context.Context, executor Executor, connection Conne
 // dispatch. Every recovery target uses the one configured connection and its
 // credential; only the requested model and native options may change.
 func validateRecoveryTargets(policy retry.Policy) error {
-	check := func(role string, target retry.RecoveryTarget, allowGeneration bool) error {
-		if err := target.Validate("recoveryPolicy."+role, allowGeneration); err != nil {
+	for path, target := range policy.Targets {
+		if err := target.Validate("recoveryPolicy."+path, path != "rerun.target"); err != nil {
 			return err
-		}
-		return nil
-	}
-	if policy.JSONRepair != nil {
-		if err := check("jsonRepair.initial", policy.JSONRepair.Initial, true); err != nil {
-			return err
-		}
-		if policy.JSONRepair.Escalation != nil {
-			if err := check("jsonRepair.escalation", *policy.JSONRepair.Escalation, true); err != nil {
-				return err
-			}
-		}
-	}
-	if policy.Rerun != nil {
-		if err := check("rerun.target", policy.Rerun.Target, false); err != nil {
-			return err
-		}
-		if policy.Rerun.JSONRepair != nil {
-			if err := check("rerun.jsonRepair.initial", policy.Rerun.JSONRepair.Initial, true); err != nil {
-				return err
-			}
-			if policy.Rerun.JSONRepair.Escalation != nil {
-				if err := check("rerun.jsonRepair.escalation", *policy.Rerun.JSONRepair.Escalation, true); err != nil {
-					return err
-				}
-			}
 		}
 	}
 	return nil

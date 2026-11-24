@@ -187,3 +187,28 @@ func TestExplicitRecoveryPlanDoesNotPreparePastGlobalAttemptBudget(t *testing.T)
 		t.Fatalf("budget diagnostics = %#v attempts=%#v", record.Diagnostics, record.Attempts)
 	}
 }
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-008
+func TestOrdinaryOptionsSurviveModelRecovery(t *testing.T) {
+	caller := map[string]any{"max_output_tokens": 128, "temperature": 0}
+	call := Call{ModelID: "first", CallType: "structured", OptionProtocol: "responses", ProviderOptions: caller, Messages: []Message{{Role: "user", Content: json.RawMessage(`"hello"`)}}, ValidateStructured: func(v any) error {
+		if v == "ok" {
+			return nil
+		}
+		return errors.New("invalid")
+	}}
+	policy := retry.Policy{MaxAttempts: 3, RetryOn: []retry.Category{}, JSONRepair: &retry.RepairPlan{Initial: retry.RecoveryTarget{Source: "model", ModelID: "second", ProviderOptions: map[string]any{"max_output_tokens": 512}}, Escalation: &retry.RecoveryTarget{Source: "model", ModelID: "third"}}}
+	executor := &planExecutor{sequence: map[string]any{stageOriginalGenerate: "bad", stageOriginalRepairInitial: "bad", stageOriginalRepairEscalate: "ok"}}
+	record, err := Execute(context.Background(), executor, planConnection(), Credential{APIKey: "fixture"}, call, retry.Config{Policy: policy}, nil, cachekey.ModeOff, "v1", "id", "trace")
+	if err != nil || len(record.Attempts) != 3 || len(executor.prepared) != 3 {
+		t.Fatalf("attempts %v error %v", record.Attempts, err)
+	}
+	for _, stage := range executor.prepared {
+		if !reflect.DeepEqual(stage.providerOption, caller) {
+			t.Errorf("%s lost original caller options: %v", stage.model, stage.providerOption)
+		}
+	}
+	if caller["max_output_tokens"] != 128 || record.Accounting.Provider.Usage.InputTokens != 3 {
+		t.Fatalf("original or accounting changed: %v %v", caller, record.Accounting)
+	}
+}

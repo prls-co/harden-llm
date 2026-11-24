@@ -4,14 +4,19 @@ package hardenllm
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"github.com/prls-co/harden-llm/internal/providers"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/prls-co/harden-llm/internal/accounting"
@@ -745,5 +750,72 @@ func TestSearchProvenanceCacheProjection(t *testing.T) {
 	}
 	if got.ProjectionCallID != want.ProjectionCallID || got.ProviderResult.AssistantText != want.ProviderResult.AssistantText || !reflect.DeepEqual(got.ProviderResult.Search, search) {
 		t.Fatalf("search or original text lost: %#v", got.ProviderResult)
+	}
+}
+
+type optionCacheSearcher struct{ calls int }
+
+func (s *optionCacheSearcher) Search(context.Context, string) (string, error) {
+	s.calls++
+	return "https://source.test Evidence", nil
+}
+
+func TestCacheReplayOrdinaryOptionIdentity(t *testing.T) {
+	for _, native := range []bool{true, false} {
+		t.Run(map[bool]string{true: "native", false: "jina"}[native], func(t *testing.T) {
+			var calls atomic.Int32
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"status":"completed","output":[{"type":"web_search_call","status":"completed"},{"type":"message","content":[{"type":"output_text","text":"Answer"}]}]}`))
+			}))
+			defer server.Close()
+			roots := x509.NewCertPool()
+			roots.AddCert(server.Certificate())
+			searcher := &optionCacheSearcher{}
+			router, err := providers.NewRouter(providers.Config{EndpointPolicy: providers.EndpointPolicy{PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}, TLSConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}, WebSearcher: searcher})
+			if err != nil {
+				t.Fatal(err)
+			}
+			cache := &memoryCache{records: map[string]CacheRecord{}}
+			connection := testConnection()
+			connection.BaseURL = server.URL
+			connection.SupportsWebSearch = native
+			client, err := New(Options{Connections: ConnectionCatalog{connection.ID: connection}, DefaultConnection: connection.ID, Cache: cache, Executor: router})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tc := range []struct {
+				options string
+				hit     bool
+			}{
+				{`{"fixture_option":{"a":9007199254740992,"b":false}}`, false},
+				{`{"fixture_option":{"b":false,"a":9007199254740992}}`, true},
+				{`{"fixture_option":{"a":9007199254740993,"b":false}}`, false},
+				{`{"fixture_option":{"a":9007199254740993,"b":false},"store":false}`, false},
+				{`{"store":false,"fixture_option":{"b":false,"a":9007199254740993}}`, true},
+			} {
+				var opts map[string]any
+				d := json.NewDecoder(strings.NewReader(tc.options))
+				d.UseNumber()
+				if err := d.Decode(&opts); err != nil {
+					t.Fatal(err)
+				}
+				models, searches := calls.Load(), searcher.calls
+				result, err := client.Call(context.Background(), Request{ModelID: "fixture", Messages: testMessages("query"), CallType: CallTypeText, WebSearch: true, OptionProtocol: "responses", ProviderOptions: opts, CacheMode: CacheModeCache, RecoveryPolicy: DefaultRecoveryPolicy()})
+				if err != nil || result.Cache.Served != tc.hit {
+					t.Fatalf("%s: cache=%+v err=%v", tc.options, result.Cache, err)
+				}
+				wantModels, wantSearches := int32(1), 0
+				if tc.hit {
+					wantModels = 0
+				} else if !native {
+					wantSearches = 1
+				}
+				if calls.Load()-models != wantModels || searcher.calls-searches != wantSearches {
+					t.Fatalf("model/search %d/%d", calls.Load()-models, searcher.calls-searches)
+				}
+			}
+		})
 	}
 }

@@ -309,6 +309,20 @@ func (policy Policy) Validate() error {
 	return nil
 }
 
+// Targets visits the configured leaves in execution order and reports their
+// JSON paths for admission errors.
+func (policy Policy) Targets(yield func(string, RecoveryTarget) bool) {
+	repair := func(prefix string, plan *RepairPlan) bool {
+		if plan == nil {
+			return true
+		}
+		return yield(prefix+".initial", plan.Initial) && (plan.Escalation == nil || yield(prefix+".escalation", *plan.Escalation))
+	}
+	if repair("jsonRepair", policy.JSONRepair) && policy.Rerun != nil && yield("rerun.target", policy.Rerun.Target) {
+		repair("rerun.jsonRepair", policy.Rerun.JSONRepair)
+	}
+}
+
 func (policy Policy) Allows(category Category) bool { return slices.Contains(policy.RetryOn, category) }
 
 func (policy *Policy) UnmarshalJSON(data []byte) error {

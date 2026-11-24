@@ -432,6 +432,10 @@ func (api *API) writeCallError(writer http.ResponseWriter, err error, result har
 }
 
 func writeRequestError(writer http.ResponseWriter, err error, parameter string) {
+	var invalid *hardenllm.ValidationError
+	if errors.As(err, &invalid) && strings.HasPrefix(invalid.Field, "harden.") {
+		parameter = invalid.Field
+	}
 	writeError(writer, http.StatusBadRequest, "invalid_request_error", "invalid_request", err.Error(), parameter)
 }
 

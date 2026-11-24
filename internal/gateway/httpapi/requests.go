@@ -298,6 +298,31 @@ func parseHarden(value hardenRequest) (connection string, cache hardenllm.CacheM
 	if err := recovery.Validate(); err != nil {
 		return "", "", 0, hardenllm.RecoveryPolicy{}, false, err
 	}
+	for path, target := range recovery.Targets {
+		for key, v := range target.ProviderOptions {
+			field := key
+			switch key {
+			case "store", "background":
+				if v == false {
+					continue
+				}
+			case "input", "messages", "contents", "instructions", "system", "system_instruction", "previous_response_id", "conversation",
+				"tools", "tool_choice", "web_search_options", "response_format", "output_config", "stream", "include", "logprobs", "top_logprobs":
+			case "text", "reasoning":
+				object, ok := v.(map[string]any)
+				owned := map[string]string{"text": "format", "reasoning": "summary"}[key]
+				if _, supplied := object[owned]; ok && !supplied {
+					continue
+				}
+				field += "." + owned
+			default:
+				if !hardenllm.ReservedOrdinaryOption(key) {
+					continue
+				}
+			}
+			return "", "", 0, hardenllm.RecoveryPolicy{}, false, &hardenllm.ValidationError{Field: "harden.recovery." + path + ".providerOptions." + field, Message: "target tuning cannot override this request control"}
+		}
+	}
 	return strings.TrimSpace(value.Upstream), value.Cache, timeout, recovery, value.Diagnostics, nil
 }
 

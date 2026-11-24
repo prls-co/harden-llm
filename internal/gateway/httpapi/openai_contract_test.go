@@ -400,6 +400,15 @@ func TestOpenAIContractOrdinaryAdmission(t *testing.T) {
 	}))
 	defer upstream.Close()
 	api := newContractAPI(t, upstream)
+	cache := &countedContractCache{projectionCache: projectionCache{records: map[string]hardenllm.CacheRecord{}}}
+	opts := contractClientOptions(upstream)
+	opts.Connections[0].SupportsWebSearch = true
+	opts.Cache = cache
+	client, err := stateful.NewClient(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
 	for _, tc := range []struct{ path, input, extra, field string }{
 		{"/v1/responses", `"input":"hello"`, `"reasoning":{"summary":"auto"}`, "reasoning.summary"},
 		{"/v1/responses", `"input":"hello"`, `"reasoning":{"effort":"low","summary":"auto"}`, "reasoning.summary"},
@@ -409,7 +418,15 @@ func TestOpenAIContractOrdinaryAdmission(t *testing.T) {
 		{"/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}]`, `"logprobs":false`, ""},
 	} {
 		before := calls.Load()
-		w := postOrdinary(api, tc.path, `{"model":"fixture",`+tc.input+","+tc.extra+"}")
+		extra := tc.extra
+		if tc.field == "reasoning.summary" {
+			extra += `,"tools":[{"type":"web_search"}],"harden":{"cache":"cache"}`
+		}
+		reads, writes := cache.reads, cache.writes
+		w := postOrdinary(api, tc.path, `{"model":"fixture",`+tc.input+","+extra+"}")
+		if tc.field != "" && (cache.reads != reads || cache.writes != writes) {
+			t.Fatalf("%s reached cache", tc.field)
+		}
 		if tc.field == "" {
 			if w.Code != 200 || calls.Load() != before+1 {
 				t.Errorf("%s: HTTP %d %s", tc.extra, w.Code, w.Body.String())
@@ -509,6 +526,87 @@ func TestOpenAIContractNativeOptionWire(t *testing.T) {
 					if w.Code != 200 || text["verbosity"] != "low" || hasFormat != (format != "") || hasFormat && f["type"] != "json_schema" || reasoning["effort"] != "low" || reasoning["fixture_sibling"] != true {
 						t.Errorf("HTTP %d: %s text=%v reasoning=%v", w.Code, w.Body.String(), text, reasoning)
 					}
+				}
+			}
+		})
+	}
+}
+
+func TestOpenAIContractRecoveryOptionWire(t *testing.T) {
+	for _, tc := range []struct{ name, opts, limit, protocol, field string }{
+		{"inherit", "", "128", "responses", ""},
+		{"override", `,"providerOptions":{"max_output_tokens":512,"temperature":0.5}`, "512", "responses", ""},
+		{"foreign target", "", "", "gemini-generate-content", "store"},
+		{"protected storage", `,"providerOptions":{"store":true}`, "", "responses", "harden.recovery.jsonRepair.initial.providerOptions.store"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bodies := make(chan map[string]any, 4)
+			upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				d := json.NewDecoder(r.Body)
+				d.UseNumber()
+				if err := d.Decode(&body); err != nil {
+					t.Error(err)
+					return
+				}
+				bodies <- body
+				w.Header().Set("Content-Type", "application/json")
+				answer := `{"ok":true}`
+				if body["model"] == "first" {
+					answer = `{"ok":"invalid"}`
+				}
+				fmt.Fprintf(w, `{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":%q}]}],"usage":{"input_tokens":4,"output_tokens":3,"total_tokens":7}}`, answer)
+			}))
+			defer upstream.Close()
+			opts := contractClientOptions(upstream)
+			target := opts.Connections[0]
+			target.ID = "second"
+			target.Protocol = tc.protocol
+			opts.Connections = append(opts.Connections, target)
+			client, err := stateful.NewClient(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			api := newContractAPI(t, upstream)
+			api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
+			w := postOrdinary(api, "/v1/responses", `{"model":"first","input":"hello","store":false,"max_output_tokens":128,"temperature":0,"text":{"format":{"type":"json_schema","name":"answer","schema":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}},"harden":{"diagnostics":true,"recovery":{"maxAttempts":2,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"model","upstream":"second","modelId":"second"`+tc.opts+`},"escalation":null},"rerun":null}}}`)
+			if tc.name == "protected storage" {
+				if w.Code != 400 || len(bodies) != 0 || !strings.Contains(w.Body.String(), `"param":"`+tc.field+`"`) {
+					t.Fatalf("%d calls %d: %s", w.Code, len(bodies), w.Body.String())
+				}
+				return
+			}
+			if tc.field != "" {
+				if w.Code != 400 || len(bodies) != 1 || !strings.Contains(w.Body.String(), `"param":"`+tc.field+`"`) {
+					t.Fatalf("%d calls %d: %s", w.Code, len(bodies), w.Body.String())
+				}
+				var failure struct {
+					Harden struct {
+						Accounting struct {
+							Provider struct {
+								Usage struct {
+									InputTokens int `json:"inputTokens"`
+								}
+							}
+						}
+					}
+				}
+				if json.Unmarshal(w.Body.Bytes(), &failure) != nil || failure.Harden.Accounting.Provider.Usage.InputTokens != 4 {
+					t.Fatalf("lost accounting: %s", w.Body.String())
+				}
+				return
+			}
+			if w.Code != 200 || len(bodies) != 2 {
+				t.Fatalf("%d, %d calls: %s", w.Code, len(bodies), w.Body.String())
+			}
+			for i, want := range []string{"128", tc.limit} {
+				got := <-bodies
+				wantTemperature := json.Number("0")
+				if i == 1 && tc.name == "override" {
+					wantTemperature = json.Number("0.5")
+				}
+				if got["max_output_tokens"] != json.Number(want) || got["store"] != false || got["temperature"] != wantTemperature {
+					t.Errorf("attempt %d options: %v", i+1, got)
 				}
 			}
 		})
