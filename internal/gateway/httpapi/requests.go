@@ -264,7 +264,7 @@ func decodeTools(values []json.RawMessage, responses bool) ([]hardenllm.Function
 	return tools, webSearch, nil
 }
 
-func decodeToolChoice(encoded json.RawMessage, responses bool) (hardenllm.ToolChoice, error) {
+func decodeToolChoice(encoded json.RawMessage, responses, searchDeclared bool) (hardenllm.ToolChoice, error) {
 	if len(encoded) == 0 || bytes.Equal(bytes.TrimSpace(encoded), []byte("null")) {
 		return hardenllm.ToolChoice{}, nil
 	}
@@ -282,6 +282,9 @@ func decodeToolChoice(encoded json.RawMessage, responses bool) (hardenllm.ToolCh
 		decoder := json.NewDecoder(bytes.NewReader(encoded))
 		decoder.DisallowUnknownFields()
 		if decoder.Decode(&searchChoice) == nil && hardenllm.IsWebSearchToolType(searchChoice.Type) {
+			if !searchDeclared {
+				return hardenllm.ToolChoice{}, errors.New("web search must be declared in tools before selecting it")
+			}
 			return hardenllm.ToolChoice{Mode: "required"}, nil
 		}
 	}

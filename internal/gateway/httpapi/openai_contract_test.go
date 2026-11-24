@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -242,9 +243,21 @@ func newContractAPI(t *testing.T, upstream *httptest.Server) *API {
 }
 func newContractAPIWithPool(t *testing.T, upstream *httptest.Server, pool *pgxpool.Pool) *API {
 	t.Helper()
+	service, err := stateful.NewService(stateful.Config{Pool: pool, Client: contractClientOptions(upstream)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	api, err := New(Config{APIKeys: []string{proxyTestToken}, Service: service})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return api
+}
+
+func contractClientOptions(upstream *httptest.Server) stateful.ClientOptions {
 	certificatePool := x509.NewCertPool()
 	certificatePool.AddCert(upstream.Certificate())
-	service, err := stateful.NewService(stateful.Config{Pool: pool, Client: stateful.ClientOptions{
+	return stateful.ClientOptions{
 		Connections: []hardenllm.Connection{{
 			ID: "cpa", Provider: "fixture", Protocol: "responses", BaseURL: upstream.URL + "/v1",
 			CacheDomain: "fixture-credential-1", APIKey: "synthetic-upstream-secret",
@@ -254,13 +267,99 @@ func newContractAPIWithPool(t *testing.T, upstream *httptest.Server, pool *pgxpo
 			PrivateAllowedHosts: []string{"127.0.0.1"}, PrivateAllowlist: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")},
 			TLSConfig: &tls.Config{RootCAs: certificatePool, MinVersion: tls.VersionTLS12},
 		},
-	}})
+	}
+}
+
+func postOrdinary(api *API, path, body string) *httptest.ResponseRecorder {
+	r := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	r.Header.Set("Authorization", "Bearer "+proxyTestToken)
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	api.Handler().ServeHTTP(w, r)
+	return w
+}
+
+type countedContractCache struct {
+	projectionCache
+	reads, writes int
+}
+
+func (c *countedContractCache) Get(ctx context.Context, key string) (hardenllm.CacheRecord, bool, error) {
+	c.reads++
+	return c.projectionCache.Get(ctx, key)
+}
+func (c *countedContractCache) Set(ctx context.Context, key string, record hardenllm.CacheRecord) error {
+	c.writes++
+	return c.projectionCache.Set(ctx, key, record)
+}
+
+func TestOpenAIContractFunctionCacheAdmission(t *testing.T) {
+	var calls atomic.Int32
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"status":"completed","output":[{"type":"function_call","id":"fc_fixture","call_id":"call_fixture","name":"lookup","arguments":"{}"}]}`)
+	}))
+	defer upstream.Close()
+	cache := &countedContractCache{projectionCache: projectionCache{records: map[string]hardenllm.CacheRecord{}}}
+	opts := contractClientOptions(upstream)
+	opts.Cache = cache
+	client, err := stateful.NewClient(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	api, err := New(Config{APIKeys: []string{proxyTestToken}, Service: service})
-	if err != nil {
-		t.Fatal(err)
+	api := newContractAPI(t, upstream)
+	api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
+	_, err = client.Call(context.Background(), hardenllm.Request{CallType: hardenllm.CallTypeText, RecoveryPolicy: hardenllm.DefaultRecoveryPolicy(), ModelID: "fixture", Messages: []hardenllm.Message{{Role: "user", Content: json.RawMessage(`"hello"`)}}, Tools: []hardenllm.FunctionTool{{Name: "lookup", Parameters: json.RawMessage(`{"type":"object"}`)}}, CacheMode: hardenllm.CacheModeRefresh})
+	if err != nil || cache.writes != 1 {
+		t.Fatalf("seed function entry: writes=%d err=%v", cache.writes, err)
 	}
-	return api
+	for _, tc := range []struct{ path, fields string }{
+		{"/v1/responses", `"input":"hello","tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}]`},
+		{"/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}],"tools":[{"type":"function","function":{"name":"lookup","parameters":{"type":"object"}}}]`},
+	} {
+		for _, mode := range []string{"", "off", "cache", "refresh"} {
+			options := ""
+			if mode != "" {
+				options = fmt.Sprintf(`,"harden":{"cache":%q}`, mode)
+			}
+			variants := []string{""}
+			reject := mode == "cache" || mode == "refresh"
+			if reject {
+				variants = append(variants, `,"tool_choice":"none","stream":true`)
+			}
+			for _, extra := range variants {
+				before, reads, writes := calls.Load(), cache.reads, cache.writes
+				w := postOrdinary(api, tc.path, `{"model":"fixture",`+tc.fields+options+extra+"}")
+				if reject {
+					if w.Code != 400 || !strings.Contains(w.Body.String(), `"param":"harden.cache"`) || !strings.HasPrefix(w.Header().Get("Content-Type"), "application/json") || calls.Load() != before || reads != cache.reads || writes != cache.writes {
+						t.Errorf("%s %s %s: HTTP %d, model/read/write %d/%d/%d", tc.path, mode, extra, w.Code, calls.Load()-before, cache.reads-reads, cache.writes-writes)
+					}
+					continue
+				}
+				if w.Code != 200 || calls.Load() != before+1 || reads != cache.reads || writes != cache.writes {
+					t.Fatalf("uncached %s %s: %d %s", tc.path, mode, w.Code, w.Body.String())
+				}
+				if tc.path == "/v1/responses" {
+					var res responses.Response
+					if json.Unmarshal(w.Body.Bytes(), &res) != nil || len(res.Output) != 1 {
+						t.Fatal(w.Body.String())
+					}
+					call := res.Output[0].AsFunctionCall()
+					if call.ID != "fc_fixture" || call.CallID != "call_fixture" || call.Name != "lookup" || call.Arguments != "{}" {
+						t.Fatal(call)
+					}
+				} else {
+					var res openai.ChatCompletion
+					if json.Unmarshal(w.Body.Bytes(), &res) != nil || len(res.Choices) != 1 || res.Choices[0].FinishReason != "tool_calls" || len(res.Choices[0].Message.ToolCalls) != 1 {
+						t.Fatal(w.Body.String())
+					}
+					call := res.Choices[0].Message.ToolCalls[0]
+					if call.ID != "call_fixture" || call.Function.Name != "lookup" || call.Function.Arguments != "{}" {
+						t.Fatal(call)
+					}
+				}
+			}
+		}
+	}
 }

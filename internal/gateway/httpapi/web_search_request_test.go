@@ -122,6 +122,31 @@ func TestWebSearchRequestParityGatewayToProvider(t *testing.T) {
 			}
 		})
 	}
+	const lookup = `{"type":"function","name":"lookup","parameters":{"type":"object"}}`
+	for _, tc := range []struct {
+		name, tools, choice, invalidField string
+	}{
+		{"undeclared search", lookup, `{"type":"web_search"}`, "tool_choice"},
+		{"empty declarations", "", `{"type":"web_search"}`, "tool_choice"},
+		{"mixed declarations", lookup + `,{"type":"web_search"}`, `{"type":"web_search"}`, "tools"},
+		{"required function", lookup, `"required"`, ""},
+		{"named function", lookup, `{"type":"function","name":"lookup"}`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			before := dispatches.Load()
+			w := send(fmt.Sprintf(`{"model":"fixture","input":"hello","tools":[%s],"tool_choice":%s}`, tc.tools, tc.choice))
+			if tc.invalidField != "" {
+				if w.Code != 400 || dispatches.Load() != before || !strings.Contains(w.Body.String(), `"param":"`+tc.invalidField+`"`) {
+					t.Errorf("HTTP %d, dispatches %d: %s", w.Code, dispatches.Load()-before, w.Body.String())
+				}
+			} else if w.Code != 200 || dispatches.Load() != before+1 {
+				t.Errorf("HTTP %d, dispatches %d: %s", w.Code, dispatches.Load()-before, w.Body.String())
+			}
+			if dispatches.Load() > before {
+				<-received
+			}
+		})
+	}
 	t.Run("prior output becomes conversation", func(t *testing.T) {
 		w := send(`{"model":"fixture","input":[{"id":"ws_1","type":"web_search_call","status":"completed","action":{"type":"search","query":"q"}},{"id":"msg_1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"answer","annotations":[]}]},{"role":"user","content":"next"}]}`)
 		if w.Code != 200 {

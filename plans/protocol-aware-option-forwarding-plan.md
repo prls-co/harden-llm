@@ -548,9 +548,11 @@ Use the trusted Linux checkout or hosted `ubuntu-latest` with Go 1.26.11, Node 2
 
 ## 11. Execution log template
 
-P00 is Done. P01–P05 are Pending.
+P00 and P01 are Done. P02–P05 are Pending.
 
 - P00.S01–S02 / REQ-608 / TEST-475 / EVAL-600. On the production code from `29cdd3d`, two independent `make test-api` runs passed (httpapi 12.303 s and 12.444 s). The existing batch writer produced the pinned bytes both times, with zero additional submissions on rejection. The snapshot includes the worker stream, default timeout, normalized temperature and caller token limit. The test and this entry form the P00 checkpoint. No deviation or ADR change.
+
+- P01.S01–S06 / REQ-602–603 / EVAL-601. From P00 checkpoint `264ca9e`, TEST-535 reproduced one model dispatch and HTTP 200 for an undeclared search selection, and HTTP 502 for the empty declaration. TEST-403 reproduced HTTP 200 for eight forbidden cache requests across both endpoints, including a read of a seeded function result. A first seed omitted the Go call type and failed before exercising the defect. The corrected seed uses the supported text call and default recovery policy. Both GREEN runs and the independent review and measurement runs of `make test-api` passed. All forbidden variants incurred zero model dispatches and zero cache reads/writes. Omitted and off preserved SDK call identities and arguments. The selection decoder and the shared function admission check each own one rule. No cache codec or ADR change.
 
 Copy this blank entry for each remaining phase. Record observed values only. For a single deterministic observation, record its count and mark dispersion and interval inapplicable.
 

@@ -137,6 +137,7 @@ when the caller needs one of these controls:
 ```
 
 `harden.cache` accepts `off`, `cache`, or `refresh`; the default is `off`.
+When declaring function tools on either ordinary endpoint, omit `harden.cache` or set it to `off`. An explicit `cache` or `refresh` returns HTTP 400 with `error.param` set to `harden.cache`, including for streaming requests and `tool_choice: "none"`.
 
 - `cache` reads a saved answer and writes successful misses.
 - `refresh` bypasses reads and replaces the saved answer after successful execution.

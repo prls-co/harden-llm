@@ -80,7 +80,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 		writeRequestError(writer, errors.New("web search cannot be combined with function tools"), "web_search_options")
 		return
 	}
-	choice, err := decodeToolChoice(input.ToolChoice, false)
+	choice, err := decodeToolChoice(input.ToolChoice, false, false)
 	if err != nil {
 		writeRequestError(writer, err, "tool_choice")
 		return
@@ -138,11 +138,8 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 		}
 		options["stop"] = value
 	}
-	if callType == hardenllm.CallTypeStructured {
-		if len(tools) > 0 {
-			writeRequestError(writer, errors.New("structured output and function tools cannot be combined"), "tools")
-			return
-		}
+	if !validateFunctionTools(writer, tools, cache, callType) {
+		return
 	}
 	ctx, tracked, cancel, ok := api.beginTrackedCall(writer, request, timeout)
 	if !ok {
@@ -297,7 +294,7 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 		writeRequestError(writer, err, "tools")
 		return preparedResponses{}, false
 	}
-	choice, err := decodeToolChoice(input.ToolChoice, true)
+	choice, err := decodeToolChoice(input.ToolChoice, true, webSearch)
 	if err != nil {
 		writeRequestError(writer, err, "tool_choice")
 		return preparedResponses{}, false
@@ -316,8 +313,7 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 		writeRequestError(writer, errors.New("web search cannot be combined with function tools"), "tools")
 		return preparedResponses{}, false
 	}
-	if callType == hardenllm.CallTypeStructured && len(tools) > 0 {
-		writeRequestError(writer, errors.New("structured output and function tools cannot be combined"), "tools")
+	if !validateFunctionTools(writer, tools, cache, callType) {
 		return preparedResponses{}, false
 	}
 	if input.ServiceTier != "" && input.ServiceTier != "default" {
@@ -341,6 +337,21 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(reasoningEffort), WebSearch: webSearch, WebSearchTool: webSearchTool,
 		ProviderOptions: options,
 	}, Connection: connection, Cache: cache, Timeout: timeout, Recovery: recovery, Diagnostics: diagnostics, IncludeSearchSources: len(input.Include) > 0}, true
+}
+
+func validateFunctionTools(w http.ResponseWriter, tools []hardenllm.FunctionTool, cache hardenllm.CacheMode, callType hardenllm.CallType) bool {
+	if len(tools) == 0 {
+		return true
+	}
+	if cache != hardenllm.CacheModeOff {
+		writeRequestError(w, errors.New("function tools require cache to be off"), "harden.cache")
+		return false
+	}
+	if callType == hardenllm.CallTypeStructured {
+		writeRequestError(w, errors.New("structured output and function tools cannot be combined"), "tools")
+		return false
+	}
+	return true
 }
 
 func validatePositiveInt(writer http.ResponseWriter, field string, value *int) bool {
