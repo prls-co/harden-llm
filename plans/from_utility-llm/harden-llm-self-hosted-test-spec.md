@@ -2756,3 +2756,8 @@ are selected by the planned `TestSearchProvenance`, `TestWebSearchRequestParity`
   - Search preflight and model request preparation each record their local failure before dispatch. Injected searchers record observed success or failure through the process logger and collector. Direct diagnostic logs retain redacted operation fields. Oversized bundle captures report clipping.
   - Preset matrix reporting retains `STRUCTURED_PARSE`, `STRUCTURED_SCHEMA`, `ACCOUNTING_INVALID`, `empty_response`, `model_not_found`, `RESPONSE_TOO_LARGE`, and `ETIMEDOUT` causes alongside `configIdentity` and `diagnosticCaptureStatus` while preserving public `ProjectRunError` codes and unconfirmed outcomes.
   - `CPA claude-haiku-4-5-20251001` uses `anthropic-messages` with `"provider": "cpa"` preserved across `Prepare`/`Execute`, `CPA gpt-5.5` is removed from the starting catalog without invalidating saved profiles, and shipped Google Gemini presets price reasoning tokens at their documented output-token rates.
+
+### TEST-600: Ordinary option forwarding and durable contract isolation
+
+- Tier: T0; `TestOrdinaryOptionContract` in `api/contract_test.go`. Execute `make test-parity`.
+- Oracle: Validate native Chat and Responses extensions, explicit false storage, standalone verbosity and supported reasoning against the canonical OpenAPI. Reject storage requests, unsupported result fields and reserved controls. Batch options and the nested harden object retain closed admission. The packaged schema remains byte-identical under TEST-436.

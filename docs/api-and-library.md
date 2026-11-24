@@ -34,20 +34,18 @@ curl --fail-with-body --silent --show-error \
 ```
 
 An OpenAI Chat Completions client can use `/chat/completions` with ordinary
-`model` and `messages` fields. The supported request fields and response
-shapes are documented in OpenAPI. Unknown fields are rejected rather than
-silently ignored. This provides an OpenAI-compatible inference subset, not
-every feature in the OpenAI platform. In particular, server-side conversations,
-background runs, stored responses, multiple choices, and unsupported media or
-tools are not accepted. Model IDs come directly from the upstream; Harden LLM
-does not provide profile aliases.
+`model` and `messages` fields. Harden consumes the conversation, tool declarations, output format, stream projection and `harden` controls. It passes other native JSON members to a matching Chat or Responses endpoint, preserving explicit false, zero, null, nested objects and array order. A different destination must have a known equivalent for every supplied option. An unsupported translation returns HTTP 400 with the original field in `error.param` before that attempt makes a model or search call. Perplexity’s `/agent` has its own wire contract.
+
+For example, `{"store":false,"max_output_tokens":128}` reaches a matching Responses endpoint with both members present. Omitting `store` delegates storage behavior to the upstream. Explicit true requests server-side state and receives HTTP 400. The pinned CPA Codex translator sets `store` to false independently, removes `temperature` and retains the requested token limit. Delivery at the CPA boundary and enforcement by the model are separate observations. [CPA translator](https://github.com/router-for-me/CLIProxyAPI/blob/f7ae8feeb3710319f524730849fbe32fde1751e4/internal/translator/codex/openai/responses/codex_openai-responses_request.go#L31-L46)
+
+Responses accepts `text.verbosity` alone or beside `text.format`. Requests for Responses `reasoning.summary`, Chat `logprobs: true`, or `top_logprobs` receive a field-specific 400 because the public result omits that data. Model IDs come directly from the upstream. Durable jobs retain their closed request format.
 
 ## Web search
 
 Responses accepts the `web_search`, `web_search_preview`,
 `web_search_preview_2025_03_11`, and `web_search_2025_08_26` tool types.
 Request `include: ["web_search_call.action.sources"]` to receive URL sources
-associated with individual search calls. Other include values are rejected.
+associated with individual search calls. Selecting a web-search tool requires a web-search declaration. A contradiction returns HTTP 400 naming `tool_choice` before search or inference. Other include values are rejected.
 OpenAI search tool options are forwarded to OpenAI; other upstreams accept only
 `type`, `search_context_size`, and `user_location` as ignored hints and reject
 other search options. Chat Completions accepts `web_search_options` with search
@@ -147,9 +145,8 @@ The reference UI toggles between `cache` and `refresh`; the API also supports
 `off`.
 
 `harden.timeout_ms` can lower the deployment's synchronous limit. Recovery
-policies are explicit and bounded. When `diagnostics` is enabled, the response
-includes bounded hardening metadata. Provider-specific fields not included in
-OpenAPI are rejected.
+policies are explicit and bounded. Ordinary tuning follows each reached model. An explicit target override applies only on that target, so a target can raise a caller limit of 128 to 512 while a following target inherits 128. When `diagnostics` is enabled, the response
+includes bounded hardening metadata. The reserved names in OpenAPI protect execution, transport and key scope.
 
 Streaming uses standard endpoint-specific SSE event formats, but the gateway
 emits only the completed hardened result after validation and recovery. It does

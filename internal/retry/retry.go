@@ -203,7 +203,13 @@ func containsRecoverySecretKey(value any) bool {
 	case map[string]any:
 		for key, nested := range typed {
 			normalized := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(key, "-", ""), "_", ""))
-			if recoverySecretKey(normalized) {
+			for _, prefix := range []string{"authorization", "apikey", "credential", "password", "secret"} {
+				if strings.HasPrefix(normalized, prefix) {
+					return true
+				}
+			}
+			switch normalized {
+			case "token", "accesstoken", "authtoken", "bearertoken", "clienttoken", "idtoken", "refreshtoken", "sessiontoken":
 				return true
 			}
 			if containsRecoverySecretKey(nested) {
@@ -579,51 +585,16 @@ func nonnegativeDuration(value time.Duration) time.Duration {
 // options. All boundaries use this one list; provider serialization cannot
 // silently interpret or discard an old recovery setting.
 func (Policy) ValidateProviderOptions(options map[string]any) error {
-	for key := range options {
-		if recoveryOptionName(key) {
+	for _, key := range []string{
+		"maxAttempts", "maxRetries", "max_retries", "baseDelayMs", "maxDelayMs", "initialBackoffMs", "maximumBackoffMs",
+		"enableRetryOn429", "enableRetryOn5xx", "enableRetryOnNetworkError", "enableRetryOnParseError", "structuredRepairRetry",
+		"structuredRepair", "retryNetwork", "retryRateLimit", "retryServerError", "retryEmpty", "retryParse", "repairEscalation",
+		"backupProfiles", "retryPolicy", "recoveryPolicy", "repairInvalidOutput", "jsonRepair", "rerun", "escalation",
+		"cache", "cacheMode", "cacheVersion", "search", "webSearch", "model", "modelId", "reasoningEffort",
+	} {
+		if _, present := options[key]; present {
 			return &ValidationError{Field: "providerOptions." + key, Message: "recovery controls belong in recoveryPolicy"}
 		}
 	}
 	return validateTargetProviderOptions(options)
-}
-
-func recoveryOptionName(key string) bool {
-	switch key {
-	case "maxAttempts", "maxRetries", "max_retries", "baseDelayMs", "maxDelayMs", "initialBackoffMs", "maximumBackoffMs",
-		"enableRetryOn429", "enableRetryOn5xx", "enableRetryOnNetworkError", "enableRetryOnParseError", "structuredRepairRetry",
-		"structuredRepair", "retryNetwork", "retryRateLimit", "retryServerError", "retryEmpty", "retryParse", "repairEscalation",
-		"backupProfiles", "retryPolicy", "recoveryPolicy", "repairInvalidOutput", "jsonRepair", "rerun", "escalation",
-		"cache", "cacheMode", "cacheVersion", "search", "webSearch", "model", "modelId", "reasoningEffort":
-		return true
-	}
-	return false
-}
-
-// ReservedOrdinaryOption identifies gateway controls and transport settings
-// at the top level. Nested JSON in native options remains caller data.
-func ReservedOrdinaryOption(key string) bool {
-	if recoveryOptionName(key) {
-		return true
-	}
-	normalized := strings.ToLower(strings.NewReplacer("-", "", "_", "").Replace(key))
-	switch normalized {
-	case "timeout", "overalltimeoutms", "calltype", "useresponsesapi", "hardenllmwebsearch",
-		"baseurl", "endpoint", "headers", "httpheaders", "transport", "url", "proxy", "apikeyenvs",
-		"streamoptions", "modalities", "audio", "functions", "functioncall":
-		return true
-	}
-	return recoverySecretKey(normalized)
-}
-
-func recoverySecretKey(normalized string) bool {
-	for _, prefix := range []string{"authorization", "apikey", "credential", "password", "secret"} {
-		if strings.HasPrefix(normalized, prefix) {
-			return true
-		}
-	}
-	switch normalized {
-	case "token", "accesstoken", "authtoken", "bearertoken", "clienttoken", "idtoken", "refreshtoken", "sessiontoken":
-		return true
-	}
-	return false
 }

@@ -124,7 +124,7 @@
     },
     {
       "id": "go-parity",
-      "testIds": ["TEST-006"],
+      "testIds": ["TEST-006", "TEST-600"],
       "tier": "T0",
       "resourceClass": "cpu",
       "command": ["make", "test-parity"],

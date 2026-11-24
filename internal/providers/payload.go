@@ -76,8 +76,11 @@ func buildPayload(connection runtime.Connection, call runtime.Call) (string, str
 	case "anthropic-messages":
 		path, protocol, provider = "/messages", "anthropic.messages", defaultProviderName(provider, "anthropic")
 		headers["anthropic-version"] = defaultAnthropicVersion
-		incoming.move(options, "max_tokens", "max_tokens", "max_completion_tokens", "max_output_tokens")
-		for _, key := range []string{"temperature", "top_p", "stop"} {
+		incoming.move(options, "max_tokens", sourceTokenLimits(call.OptionProtocol)...)
+		if call.OptionProtocol == "chat-completions" {
+			incoming.move(options, "stop", "stop")
+		}
+		for _, key := range []string{"temperature", "top_p"} {
 			incoming.move(options, key, key)
 		}
 		payload, err = buildAnthropicPayload(connection, call, options, schema)
@@ -113,6 +116,13 @@ func (m ordinaryMembers) move(target map[string]any, destination string, sources
 			delete(m, source)
 		}
 	}
+}
+
+func sourceTokenLimits(protocol string) []string {
+	if protocol == "responses" {
+		return []string{"max_output_tokens"}
+	}
+	return []string{"max_tokens", "max_completion_tokens"}
 }
 
 func (m ordinaryMembers) openAI(options map[string]any) {
@@ -533,17 +543,21 @@ func mergedOptions(connection runtime.Connection, call runtime.Call) (map[string
 	}
 	effort := strings.TrimSpace(call.ReasoningEffort)
 	if effort != "" {
-		if HasReasoningOption(call.ProviderOptions) {
+		if call.OptionProtocol == "" && HasReasoningOption(call.ProviderOptions) {
 			return nil, errors.New("providers: reasoning_effort conflicts with native reasoning options")
 		}
 		switch connection.APIInferenceType {
 		case "responses":
 			reasoning, _ := options["reasoning"].(map[string]any)
 			reasoning = cloneMap(reasoning)
-			reasoning["effort"] = effort
+			if _, override := reasoning["effort"]; !override {
+				reasoning["effort"] = effort
+			}
 			options["reasoning"] = reasoning
 		case "chat-completions":
-			options["reasoning_effort"] = effort
+			if _, override := options["reasoning_effort"]; !override {
+				options["reasoning_effort"] = effort
+			}
 		default:
 			if call.OptionProtocol != "" {
 				field := "reasoning_effort"
@@ -649,9 +663,10 @@ func buildResponsesPayload(connection runtime.Connection, call runtime.Call, opt
 		}
 	}
 	if call.CallType == "structured" {
-		payload["text"] = map[string]any{
-			"format": map[string]any{"type": "json_schema", "name": "structured_output_schema", "strict": true, "schema": schema},
-		}
+		text, _ := payload["text"].(map[string]any)
+		text = cloneMap(text)
+		text["format"] = map[string]any{"type": "json_schema", "name": "structured_output_schema", "strict": true, "schema": schema}
+		payload["text"] = text
 	}
 	if nativeWebSearchEnabled(connection, call) {
 		addNativeWebSearch(payload, call)
@@ -819,20 +834,27 @@ func buildGeminiPayload(connection runtime.Connection, call runtime.Call, option
 	config := make(map[string]any)
 	// Use the same destination write for native configuration and translated
 	// OpenAI sampling fields. Camel-case Gemini aliases are target-local.
-	numeric := func(key string, nativeAliases []string, public ...string) {
+	numeric := func(key string, public []string, native ...string) {
 		incoming.move(config, key, public...)
-		if value := numericOption(options, append(nativeAliases, public...)...); value != nil {
+		if value := numericOption(options, native...); value != nil {
 			config[key] = value
 		}
 	}
-	numeric("temperature", nil, "temperature")
-	numeric("maxOutputTokens", []string{"maxOutputTokens"}, "max_output_tokens", "max_tokens", "max_completion_tokens")
-	numeric("topP", []string{"topP"}, "top_p")
-	numeric("topK", []string{"topK", "top_k"})
-	numeric("frequencyPenalty", nil, "frequency_penalty")
-	numeric("presencePenalty", nil, "presence_penalty")
-	numeric("seed", nil, "seed")
-	incoming.move(options, "stop", "stop")
+	numeric("temperature", []string{"temperature"}, "temperature")
+	numeric("maxOutputTokens", sourceTokenLimits(call.OptionProtocol), "maxOutputTokens", "max_output_tokens", "max_tokens", "max_completion_tokens")
+	numeric("topP", []string{"top_p"}, "topP", "top_p")
+	numeric("topK", nil, "topK", "top_k")
+	for _, field := range []struct{ public, native string }{{"frequency_penalty", "frequencyPenalty"}, {"presence_penalty", "presencePenalty"}, {"seed", "seed"}} {
+		if call.OptionProtocol == "chat-completions" {
+			incoming.move(config, field.native, field.public)
+		}
+		if value := numericOption(options, field.public); value != nil {
+			config[field.native] = value
+		}
+	}
+	if call.OptionProtocol == "chat-completions" {
+		incoming.move(options, "stop", "stop")
+	}
 	if value, ok := firstOption(options, "stop", "stopSequences"); ok {
 		switch values := value.(type) {
 		case string:
@@ -1052,6 +1074,11 @@ func numericOptionDefault(options map[string]any, fallback any, keys ...string) 
 
 func positiveIntegerOption(options map[string]any, keys ...string) any {
 	for _, key := range keys {
+		if number, ok := options[key].(json.Number); ok {
+			if integer, err := number.Int64(); err == nil && integer > 0 {
+				return integer
+			}
+		}
 		if value, ok := numericValue(options[key]); ok {
 			switch number := value.(type) {
 			case float64:

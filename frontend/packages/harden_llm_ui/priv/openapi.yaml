@@ -741,7 +741,11 @@ components:
         tool_choice:
           $ref: '#/components/schemas/ResponseRequest/properties/tool_choice'
         text:
-          $ref: '#/components/schemas/ResponseRequest/properties/text'
+          type: object
+          required: [format]
+          properties:
+            format: {$ref: '#/components/schemas/ResponseTextFormat'}
+          additionalProperties: false
         store:
           $ref: '#/components/schemas/ResponseRequest/properties/store'
         background:
@@ -751,7 +755,7 @@ components:
         max_output_tokens:
           type: integer
           minimum: 1
-          description: CPA Codex translation strips this field; it is not an enforceable output budget.
+          description: Requested output-token limit sent to the configured CPA upstream.
         temperature:
           $ref: '#/components/schemas/ResponseRequest/properties/temperature'
         top_p:
@@ -911,17 +915,14 @@ components:
           type: string
           format: date-time
         last_worker_heartbeat_at:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         last_progress_at:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         next_attempt_at:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         waiting_reason:
           type: string
           enum:
@@ -1014,8 +1015,7 @@ components:
         providerRequestId:
           type: string
         cpaInternalAttempts:
-          type: integer
-          nullable: true
+          type: [integer, 'null']
           description: Null when native CPA attempts are not observable.
     BatchItemResult:
       type: object
@@ -1107,7 +1107,7 @@ components:
         recoveryProfiles:
           type: object
           additionalProperties: {$ref: '#/components/schemas/ProfileDraft'}
-    ReferenceProfileID: {type: string, minLength: 1, maxLength: 1500, pattern: '^[^/\u0000-\u001F\u007F-\u009F]+$',
+    ReferenceProfileID: {type: string, minLength: 1, maxLength: 1500, pattern: '^[^/\x00-\x1F\x7F-\x9F]+$',
       description: Limited by the server to 1500 valid UTF-8 bytes without control characters.}
     ReferencePricing:
       type: object
@@ -1442,16 +1442,16 @@ components:
       additionalProperties: false
       required: [receivedBytes, eventCount, outputBytes, outputCodePoints]
       properties:
-        headersMs: {type: integer, minimum: 0, nullable: true}
+        headersMs: {type: [integer, 'null'], minimum: 0}
         correlationId: {type: string, maxLength: 128}
         receivedBytes: {type: integer, minimum: 0}
         eventCount: {type: integer, minimum: 0}
         outputBytes: {type: integer, minimum: 0}
         outputCodePoints: {type: integer, minimum: 0}
-        firstEventMs: {type: integer, minimum: 0, nullable: true}
-        firstOutputMs: {type: integer, minimum: 0, nullable: true}
-        lastEventAt: {type: string, format: date-time, nullable: true}
-        lastOutputAt: {type: string, format: date-time, nullable: true}
+        firstEventMs: {type: [integer, 'null'], minimum: 0}
+        firstOutputMs: {type: [integer, 'null'], minimum: 0}
+        lastEventAt: {type: [string, 'null'], format: date-time}
+        lastOutputAt: {type: [string, 'null'], format: date-time}
         terminalState:
           type: string
           enum: [not_streaming, awaiting_terminal, completed, incomplete, failed, missing]
@@ -1503,8 +1503,8 @@ components:
         eventCount: {type: integer, minimum: 0}
         outputBytes: {type: integer, minimum: 0}
         outputCodePoints: {type: integer, minimum: 0}
-        effectiveTimeoutMs: {type: integer, minimum: 0, nullable: true}
-        deadlineAt: {type: string, format: date-time, nullable: true}
+        effectiveTimeoutMs: {type: [integer, 'null'], minimum: 0}
+        deadlineAt: {type: [string, 'null'], format: date-time}
         branchCaches:
           type: array
           maxItems: 2
@@ -1896,7 +1896,7 @@ components:
         status:
           type: string
           enum: [succeeded, failed, timeout]
-        output: {nullable: true}
+        output: {}
         search: {$ref: '#/components/schemas/ReferenceWebSearchResult'}
         callId: {$ref: '#/components/schemas/ReferenceIdentifier'}
         traceId: {$ref: '#/components/schemas/ReferenceIdentifier'}
@@ -1922,7 +1922,7 @@ components:
         totalCallDurationMs: {type: integer, minimum: 0, description: Elapsed runtime
             call duration in milliseconds.}
         totalWaitMs: {type: integer, minimum: 0, description: Sum of retry waits in milliseconds.}
-        totalActualWaitMs: {type: integer, minimum: 0, nullable: true, description: Measured
+        totalActualWaitMs: {type: [integer, 'null'], minimum: 0, description: Measured
             elapsed retry-wait time in milliseconds; planned wait remains totalWaitMs.}
         overBudgetMs: {type: integer, minimum: 0, description: Amount by which an explicit
             per-run timeout budget was exceeded.}
@@ -2108,8 +2108,37 @@ components:
         owned_by: {type: string}
         name: {type: string, description: Optional upstream display label.}
       additionalProperties: false
+    OrdinaryOptionName:
+      type: string
+      description: Ordinary extensions cannot supply storage handles, scope, credentials, transport, recovery controls or internal cache markers.
+      not:
+        anyOf:
+          - enum: [previous_response_id, conversation, api_key_hash, apiKeyHash, owner, ownerId, owner_id, userId, user_id, sessionReference, sessionRef, session_reference, session_ref,
+                   timeout, overallTimeoutMs, callType, useResponsesApi, headers, httpHeaders, baseUrl, baseURL, base_url, url, endpoint, transport, proxy, api_key_envs,
+                   maxAttempts, maxRetries, max_retries, baseDelayMs, maxDelayMs, initialBackoffMs, maximumBackoffMs,
+                   enableRetryOn429, enableRetryOn5xx, enableRetryOnNetworkError, enableRetryOnParseError, structuredRepairRetry,
+                   structuredRepair, retryNetwork, retryRateLimit, retryServerError, retryEmpty, retryParse, repairEscalation,
+                   backupProfiles, retryPolicy, recoveryPolicy, repairInvalidOutput, jsonRepair, rerun, escalation,
+                   cache, cacheMode, cacheVersion, search, webSearch, modelId, reasoningEffort, modalities, audio, functions, function_call]
+          - pattern: '^(__harden_llm_|[Aa][Uu][Tt][Hh][Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Ss][Ee][Cc][Rr][Ee][Tt])'
+          - pattern: '^(([Aa]ccess|[Aa]uth|[Bb]earer|[Cc]lient|[Ii][Dd]|[Rr]efresh|[Ss]ession)[_-]?)?[Tt][Oo][Kk][Ee][Nn]$'
+    OrdinaryFunctionCache:
+      description: Function results require cache off for either ordinary response renderer.
+      if:
+        required: [tools]
+        properties:
+          tools:
+            contains: {type: object, required: [type], properties: {type: {const: function}}}
+      then:
+        properties:
+          harden:
+            properties:
+              cache: {const: off}
     ChatCompletionRequest:
       type: object
+      propertyNames: {$ref: '#/components/schemas/OrdinaryOptionName'}
+      allOf:
+        - {$ref: '#/components/schemas/OrdinaryFunctionCache'}
       required: [model, messages]
       properties:
         model: {type: string, minLength: 1, maxLength: 512}
@@ -2166,6 +2195,9 @@ components:
           additionalProperties: false
         n: {type: integer, const: 1}
         store: {type: boolean, const: false}
+        background: {type: boolean, const: false}
+        logprobs: {type: boolean, const: false}
+        top_logprobs: false
         max_tokens: {type: integer, minimum: 1}
         max_completion_tokens: {type: integer, minimum: 1}
         temperature: {type: number, minimum: 0, maximum: 2}
@@ -2181,7 +2213,7 @@ components:
               items: {type: string}
         reasoning_effort: {type: string, minLength: 1, maxLength: 128}
         harden: {$ref: '#/components/schemas/HardenRequest'}
-      additionalProperties: false
+      additionalProperties: true
     ChatMessage:
       oneOf:
         - type: object
@@ -2283,8 +2315,38 @@ components:
         schema: {type: object}
         strict: {type: boolean}
       additionalProperties: false
+    ResponseTextFormat:
+      oneOf:
+        - type: object
+          required: [type]
+          properties:
+            type: {const: json_object}
+          additionalProperties: false
+        - {$ref: '#/components/schemas/ResponseJSONSchemaFormat'}
+    ResponseSearchTool:
+      type: object
+      required: [type]
+      properties:
+        type: {type: string, enum: [web_search, web_search_2025_08_26, web_search_preview, web_search_preview_2025_03_11]}
+      additionalProperties: true
+    ResponseSearchChoice:
+      allOf:
+        - {$ref: '#/components/schemas/ResponseSearchTool'}
+      maxProperties: 1
     ResponseRequest:
       type: object
+      propertyNames: {$ref: '#/components/schemas/OrdinaryOptionName'}
+      allOf:
+        - {$ref: '#/components/schemas/OrdinaryFunctionCache'}
+        - if:
+            required: [tool_choice]
+            properties:
+              tool_choice: {$ref: '#/components/schemas/ResponseSearchChoice'}
+          then:
+            required: [tools]
+            properties:
+              tools:
+                contains: {$ref: '#/components/schemas/ResponseSearchTool'}
       required: [model, input]
       properties:
         model: {type: string, minLength: 1, maxLength: 512}
@@ -2302,37 +2364,23 @@ components:
           items:
             oneOf:
               - {$ref: '#/components/schemas/ResponseFunctionTool'}
-              - type: object
-                required: [type]
-                properties:
-                  type: {type: string, enum: [web_search, web_search_2025_08_26, web_search_preview, web_search_preview_2025_03_11]}
-                additionalProperties: true
+              - {$ref: '#/components/schemas/ResponseSearchTool'}
         tool_choice:
           oneOf:
             - type: string
               enum: [auto, none, required]
             - {$ref: '#/components/schemas/ResponseNamedToolChoice'}
-            - type: object
-              required: [type]
-              properties:
-                type: {type: string, enum: [web_search, web_search_2025_08_26, web_search_preview, web_search_preview_2025_03_11]}
-              additionalProperties: false
+            - {$ref: '#/components/schemas/ResponseSearchChoice'}
         include:
           type: array
           items: {type: string, enum: [web_search_call.action.sources]}
         text:
           type: object
-          required: [format]
           properties:
-            format:
-              oneOf:
-                - type: object
-                  required: [type]
-                  properties:
-                    type: {const: json_object}
-                  additionalProperties: false
-                - {$ref: '#/components/schemas/ResponseJSONSchemaFormat'}
-          additionalProperties: false
+            verbosity: {type: string}
+            format: {$ref: '#/components/schemas/ResponseTextFormat'}
+          additionalProperties: true
+        stream_options: false
         stream: {type: boolean, default: false}
         store: {type: boolean, const: false}
         background: {type: boolean, const: false}
@@ -2342,15 +2390,15 @@ components:
         top_p: {type: number, minimum: 0, maximum: 1}
         reasoning:
           type: object
-          required: [effort]
           properties:
             effort: {type: string, minLength: 1, maxLength: 128}
-          additionalProperties: false
+            summary: false
+          additionalProperties: true
         truncation: {type: string, enum: [auto, disabled]}
         parallel_tool_calls: {type: boolean}
         n: {type: integer, const: 1}
         harden: {$ref: '#/components/schemas/HardenRequest'}
-      additionalProperties: false
+      additionalProperties: true
     ResponseInputItem:
       oneOf:
         - type: object

@@ -535,7 +535,7 @@ func TestOpenAIContractNativeOptionWire(t *testing.T) {
 func TestOpenAIContractRecoveryOptionWire(t *testing.T) {
 	for _, tc := range []struct{ name, opts, limit, protocol, field string }{
 		{"inherit", "", "128", "responses", ""},
-		{"override", `,"providerOptions":{"max_output_tokens":512,"temperature":0.5}`, "512", "responses", ""},
+		{"override", `,"providerOptions":{"max_output_tokens":512,"temperature":0.5,"text":{"verbosity":"high"},"reasoning":{"effort":"medium"}}`, "512", "responses", ""},
 		{"foreign target", "", "", "gemini-generate-content", "store"},
 		{"protected storage", `,"providerOptions":{"store":true}`, "", "responses", "harden.recovery.jsonRepair.initial.providerOptions.store"},
 	} {
@@ -569,7 +569,15 @@ func TestOpenAIContractRecoveryOptionWire(t *testing.T) {
 			}
 			api := newContractAPI(t, upstream)
 			api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
-			w := postOrdinary(api, "/v1/responses", `{"model":"first","input":"hello","store":false,"max_output_tokens":128,"temperature":0,"text":{"format":{"type":"json_schema","name":"answer","schema":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}},"harden":{"diagnostics":true,"recovery":{"maxAttempts":2,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"model","upstream":"second","modelId":"second"`+tc.opts+`},"escalation":null},"rerun":null}}}`)
+			reasoning := ""
+			if tc.protocol == "responses" {
+				reasoning = `,"reasoning":{"effort":"low","fixture_sibling":true}`
+			}
+			textSibling := ""
+			if tc.protocol == "responses" {
+				textSibling = `"verbosity":"low",`
+			}
+			w := postOrdinary(api, "/v1/responses", `{"model":"first","input":"hello","store":false,"max_output_tokens":128,"temperature":0`+reasoning+`,"text":{`+textSibling+`"format":{"type":"json_schema","name":"answer","schema":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}},"harden":{"diagnostics":true,"recovery":{"maxAttempts":2,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0},"jsonRepair":{"initial":{"source":"model","upstream":"second","modelId":"second"`+tc.opts+`},"escalation":null},"rerun":null}}}`)
 			if tc.name == "protected storage" {
 				if w.Code != 400 || len(bodies) != 0 || !strings.Contains(w.Body.String(), `"param":"`+tc.field+`"`) {
 					t.Fatalf("%d calls %d: %s", w.Code, len(bodies), w.Body.String())
@@ -601,11 +609,17 @@ func TestOpenAIContractRecoveryOptionWire(t *testing.T) {
 			}
 			for i, want := range []string{"128", tc.limit} {
 				got := <-bodies
+				wantEffort := "low"
+				wantVerbosity := "low"
+				text, _ := got["text"].(map[string]any)
+				reasoning, _ := got["reasoning"].(map[string]any)
 				wantTemperature := json.Number("0")
 				if i == 1 && tc.name == "override" {
 					wantTemperature = json.Number("0.5")
+					wantEffort = "medium"
+					wantVerbosity = "high"
 				}
-				if got["max_output_tokens"] != json.Number(want) || got["store"] != false || got["temperature"] != wantTemperature {
+				if got["max_output_tokens"] != json.Number(want) || got["store"] != false || got["temperature"] != wantTemperature || reasoning["effort"] != wantEffort || reasoning["fixture_sibling"] != true || text["verbosity"] != wantVerbosity {
 					t.Errorf("attempt %d options: %v", i+1, got)
 				}
 			}

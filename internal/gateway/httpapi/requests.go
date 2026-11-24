@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	hardenllm "github.com/prls-co/harden-llm"
+	contract "github.com/prls-co/harden-llm/api"
 )
 
 type hardenRequest struct {
@@ -179,7 +180,7 @@ func decodeGeneration(w http.ResponseWriter, body []byte, target generationInput
 		writeError(w, 400, "invalid_request_error", "invalid_json", "The request body must contain one JSON object.", nil)
 		return false
 	}
-	if rejectStoredOrStateful(w, fields) {
+	if rejectStoredOrStateful(w, fields, ordinary) {
 		return false
 	}
 	opts := target.nativeOptions()
@@ -210,7 +211,7 @@ func decodeGeneration(w http.ResponseWriter, body []byte, target generationInput
 		}
 	}
 	for key, raw := range fields {
-		if !ordinary || hardenllm.ReservedOrdinaryOption(key) {
+		if !ordinary || reservedOrdinaryOption(key) || key == "stream_options" {
 			writeRequestError(w, errors.New("field is not available on this endpoint"), key)
 			return false
 		}
@@ -235,6 +236,12 @@ func (o *requestOptions) consumeMember(w http.ResponseWriter, name, member strin
 		writeRequestError(w, errors.New("field must be an object"), name)
 		return false
 	}
+	if verbosity, supplied := object["verbosity"]; name == "text" && supplied {
+		if _, ok := verbosity.(string); !ok {
+			writeRequestError(w, errors.New("verbosity must be a string"), "text.verbosity")
+			return false
+		}
+	}
 	if _, summary := object["summary"]; name == "reasoning" && summary {
 		writeRequestError(w, errors.New("reasoning summaries cannot be returned"), "reasoning.summary")
 		return false
@@ -250,7 +257,11 @@ func (o *requestOptions) consumeMember(w http.ResponseWriter, name, member strin
 	return true
 }
 
-func rejectStoredOrStateful(writer http.ResponseWriter, fields map[string]json.RawMessage) bool {
+func reservedOrdinaryOption(key string) bool {
+	return contract.Validate("OrdinaryOptionName", marshalRaw(key)) != nil
+}
+
+func rejectStoredOrStateful(writer http.ResponseWriter, fields map[string]json.RawMessage, ordinary bool) bool {
 	for _, field := range []string{"previous_response_id", "conversation"} {
 		if _, present := fields[field]; present {
 			writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", fmt.Sprintf("The %s field is not supported by this stateless API.", field), field)
@@ -266,7 +277,7 @@ func rejectStoredOrStateful(writer http.ResponseWriter, fields map[string]json.R
 	}
 	if value, present := fields["store"]; present {
 		var stored bool
-		if json.Unmarshal(value, &stored) != nil || stored || string(value) == "null" {
+		if json.Unmarshal(value, &stored) != nil || stored || (ordinary && string(value) == "null") {
 			writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", "Server-side response storage is not supported.", "store")
 			return true
 		}
@@ -316,7 +327,7 @@ func parseHarden(value hardenRequest) (connection string, cache hardenllm.CacheM
 				}
 				field += "." + owned
 			default:
-				if !hardenllm.ReservedOrdinaryOption(key) {
+				if !reservedOrdinaryOption(key) {
 					continue
 				}
 			}
