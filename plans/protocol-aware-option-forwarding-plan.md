@@ -1,16 +1,16 @@
 # 1. Harden LLM ordinary API option forwarding
 
-- Document ID: PLAN-HLLM-186. Version: 3.1. Date: 2026-11-23. Status: Implementation in progress.
+- Document ID: PLAN-HLLM-186. Version: 3.1. Approved 2026-11-23. Qualified 2026-11-24 on the implementation branch. All six phases are complete.
 - Owners: gateway maintainers for ingress and public responses, provider/runtime maintainers for translation and recovery, stateful maintainers for batch identity. CPA owns its Codex translator.
-- Configuration: implementation base `dev@29cdd3d`; historical reproduction at `9554f5f`; plan branch [research/issue-186-gateway-rca](https://github.com/prls-co/harden-llm/blob/research/issue-186-gateway-rca/plans/protocol-aware-option-forwarding-plan.md).
+- Configuration: implementation base `dev@29cdd3d`, historical reproduction at `9554f5f`, qualified application source `3afc814`. [Approved plan](https://github.com/prls-co/harden-llm/blob/fe063863dda92ecb99fceed2a41f2cbcdba107d1/plans/protocol-aware-option-forwarding-plan.md) · [Implementation](https://github.com/prls-co/harden-llm/tree/3afc814415515d91cdcc053d1373d2303c2b0f83).
 
-Fix three defects in [issue #186](https://github.com/prls-co/harden-llm/issues/186) and replace manual native-option forwarding on ordinary Responses and Chat Completions. Harden consumes its controls, forwards eligible native JSON to matching endpoints and translates supported options at the selected destination. The two tool fixes can ship independently. Ship the expanded forwarding contract after ingress, translation, recovery and schema qualification pass together. This document specifies future work. [Historical reproduction and evidence](issue-186-gateway-contract-rca-and-plan.md)
+Fix three defects in [issue #186](https://github.com/prls-co/harden-llm/issues/186) and replace manual native-option forwarding on ordinary Responses and Chat Completions. Harden consumes its controls, forwards eligible native JSON to matching endpoints and translates supported options at the selected destination. The two tool fixes can ship independently. Ingress, translation, recovery and the published schema were qualified together. Section 11 records the checkpoints and test results. [Historical reproduction and evidence](issue-186-gateway-contract-rca-and-plan.md)
 
 ## 2. Design consensus and trade-offs
 
 | Topic | Verdict | Decision and rationale |
 | --- | --- | --- |
-| Forwarding | FOR | Keep one Go execution path. Preserve the JSON members the engine does not own. Both scalar-copy lists in `internal/gateway/httpapi/handlers.go` omit an explicitly decoded `store: false`. |
+| Forwarding | FOR | Keep one Go execution path. Preserve the JSON members the engine does not own. The original scalar-copy lists in `internal/gateway/httpapi/handlers.go` lost an explicitly decoded `store: false`. |
 | Translation | DECISION | Use the destination switch in `internal/providers/payload.go`. A matching format admits native tuning. A different endpoint requires a known equivalent for every forwarded option. Perplexity `/agent` is distinct from `/responses` even when the connection label says Responses. |
 | Compatibility switches | AGAINST | Dropping fields, retrying a reduced request, or selecting another provider on a translation error could return success for different instructions. Keep one public policy. |
 | Scope of typed fields | DECISION | Type what Harden executes or renders. Native tuning can evolve independently. Chat token probabilities and Responses reasoning summaries require output that the public renderers cannot return. Reject each at admission and name the requested field. |
@@ -521,7 +521,7 @@ Native Responses example; exchange `input` for a valid `messages` array and use 
 
 ## 9. Reproducibility
 
-Use the trusted Linux checkout or hosted `ubuntu-latest` with Go 1.26.11, Node 22.22.1, Elixir 1.20.2 and OTP 28.4.3. On the reference host prefix PATH with `/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin`. Use repository dependencies and the existing private Go module provisioning. The selected gates use CPU, synthetic credentials and loopback only. No accelerator, driver or container image is required. Record source SHA, tool versions, fixture labels, command, exit status and elapsed time. Keep historical overlay results attached to their original SHA; current acceptance uses the forward assertions.
+Use the trusted Linux checkout or hosted `ubuntu-latest` with Go 1.26.11, Node 22.22.1, Elixir 1.20.2 and OTP 28.4.3. On the reference host prefix PATH with `/home/kirill/.local/elixir-1.20.2/bin:/home/kirill/.local/otp-28.4.3/bin`. Use repository dependencies and the existing private Go module provisioning. The phase gates use CPU, synthetic credentials and loopback fixtures. The additional backend qualification runs `make verify`, which uses Docker for PostgreSQL and Garage and queries the Go vulnerability database. Local verification used Docker 29.1.3. Record source SHA, tool versions, fixture labels, command, exit status and elapsed time. Keep historical overlay results attached to their original SHA; current acceptance uses the forward assertions.
 
 ## 10. Requirements Traceability Matrix
 
@@ -548,7 +548,7 @@ Use the trusted Linux checkout or hosted `ubuntu-latest` with Go 1.26.11, Node 2
 
 ## 11. Execution log template
 
-P00–P04 are Done. P05 qualification is in progress.
+P00 through P05 are Done on `feat/issue-186-option-forwarding`. The phase checkpoints are `264ca9e`, `fca9c47`, `69b8a45`, `90210eb`, `5c06195` and `3afc814`, respectively. Qualification applies to the feature branch.
 
 - P00.S01–S02 / REQ-608 / TEST-475 / EVAL-600. On the production code from `29cdd3d`, two independent `make test-api` runs passed (httpapi 12.303 s and 12.444 s). The existing batch writer produced the pinned bytes both times, with zero additional submissions on rejection. The snapshot includes the worker stream, default timeout, normalized temperature and caller token limit. The test and this entry form the P00 checkpoint. No deviation or ADR change.
 
@@ -566,7 +566,13 @@ P00–P04 are Done. P05 qualification is in progress.
 
 - Full backend qualification caught the existing TEST-442 17 MiB history insert exceeding its 2-second budget (3.24 s on the frozen `393ade6` checkout). On identical 17,823,496-byte recorded-result fixtures with the race detector, the replacement decoder alone took 2.12–2.79 s. Restoring the repository's existing number-preserving GJSON parser with the new compiled schema took 0.70–1.07 s across three samples. Retained the compiled contract and the original decoder. The history payload, database operation, assertions and budgets are unchanged. A prior verification started during source edits also produced a mixed-build error; only frozen candidate runs count for qualification.
 
-Copy this blank entry for each remaining phase. Record observed values only. For a single deterministic observation, record its count and mark dispersion and interval inapplicable.
+- P05.S04 / REQ-609 / EVAL-604. On frozen source `3afc814415515d91cdcc053d1373d2303c2b0f83`, `make test-fast` passed all 10 tasks in 167 s. Hosted fast CI also passed. Local `make verify` passed, including ordinary and race-enabled Docker integration (40 s and 154 s), API and observability tests, default-tag race tests and the vulnerability check. Both integration runners reported zero cleanup errors or warnings. The original history insert/readback timing assertions passed on the 17 MiB fixture. The published and bundled OpenAPI documents compare byte-for-byte. Qualification used local upstream fixtures. No feature-branch deployment or live-provider request was performed. [Hosted fast run](https://github.com/prls-co/harden-llm/actions/runs/45355464322).
+
+- One preceding integration run on `e14927d` recorded SQL cancellations, HTTP 503s and 988 of 1,000 expected provider dispatches in TEST-495. The diagnostic run sampled PostgreSQL activity, observed checkpoint and WAL waits, and passed the full 1,000-call assertion in both integration suites. The first run did not capture wait events, so the cause of those particular cancellations remains unconfirmed. The repository previously recorded the same registration failure under load. Request-tracking code, transaction budgets, generator concurrency and pass criteria were unchanged. [Earlier tracking qualification](implementation/cpa-acceptance-audit-2026-10-31.md#10-exact-main-release-scheduling-correction).
+
+- The additional vulnerability scan on `e14927d` found GO-2026-6974 in existing OpenTelemetry trace and log dependencies. The Go advisory was published on November 23. Commit `3afc814` updates the affected modules to 1.47.0 and their required dependencies. The gateway and observability tests passed against the upgraded modules. The final scan reported zero reachable vulnerabilities. [Go vulnerability entry](https://pkg.go.dev/vuln/GO-2026-6974).
+
+Use the blank entry below if this plan is extended. Record observed values only. For a single deterministic observation, record its count and mark dispersion and interval inapplicable.
 
 | Field | Entry |
 | --- | --- |
