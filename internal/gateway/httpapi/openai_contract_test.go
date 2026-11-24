@@ -368,6 +368,8 @@ func TestOpenAIContractOrdinaryPreparation(t *testing.T) {
 	for _, tc := range []struct{ extra, want string }{
 		{`"store":false,"temperature":0,"max_output_tokens":128,"fixture_option":{"values":[null,false,9007199254740993]}`, `{"fixture_option":{"values":[null,false,9007199254740993]},"max_output_tokens":128,"store":false,"temperature":0}`},
 		{`"text":{"verbosity":"low"}`, `{"text":{"verbosity":"low"}}`},
+		{`"text":{}, "reasoning":{}`, `{"reasoning":{},"text":{}}`},
+		{`"reasoning":null`, `{"reasoning":null}`},
 		{`"text":{"verbosity":"low","format":{"type":"json_object"}}`, `{"text":{"verbosity":"low"}}`},
 		{`"reasoning":{"effort":"low","fixture_sibling":false}`, `{"reasoning":{"fixture_sibling":false}}`},
 	} {
@@ -411,6 +413,7 @@ func TestOpenAIContractOrdinaryAdmission(t *testing.T) {
 	api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
 	for _, tc := range []struct{ path, input, extra, field string }{
 		{"/v1/responses", `"input":"hello"`, `"reasoning":{"summary":"auto"}`, "reasoning.summary"},
+		{"/v1/responses", `"input":"hello"`, `"text":null`, "text"},
 		{"/v1/responses", `"input":"hello"`, `"reasoning":{"effort":"low","summary":"auto"}`, "reasoning.summary"},
 		{"/v1/responses", `"input":"hello"`, `"reasoning":{"effort":"low"}`, ""},
 		{"/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}]`, `"logprobs":true`, "logprobs"},

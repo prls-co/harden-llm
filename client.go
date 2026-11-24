@@ -163,6 +163,9 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 		OptionProtocol: request.OptionProtocol, ProviderOptions: cloneAnyMap(request.ProviderOptions), Context: runtimeContext(request.Context),
 		Observer: client.observer,
 	}
+	if call.OptionProtocol != "" {
+		call.OrdinaryOptions, call.ProviderOptions = call.ProviderOptions, nil
+	}
 	if request.Progress != nil {
 		call.Progress = func(snapshot coreruntime.ProgressSnapshot) {
 			progressAttempts := make([]Attempt, 0, len(snapshot.Attempts))

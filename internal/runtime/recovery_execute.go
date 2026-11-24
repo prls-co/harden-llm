@@ -495,15 +495,9 @@ func preparePlannedWork(ctx context.Context, executor Executor, connection Conne
 				connection = binding.Connection
 				credential = binding.Credential
 			}
-			if call.OptionProtocol == "" {
-				// Direct Go, reference and batch settings belong to their model.
-				call.ProviderOptions = cloneMap(target.ProviderOptions)
+			call.ProviderOptions = cloneMap(target.ProviderOptions)
+			if call.OptionProtocol == "" || target.ReasoningEffort != "" {
 				call.ReasoningEffort = target.ReasoningEffort
-			} else {
-				call.TargetOptions = cloneMap(target.ProviderOptions)
-				if target.ReasoningEffort != "" {
-					call.ReasoningEffort = target.ReasoningEffort
-				}
 			}
 			if target.ModelID != "" {
 				call.ModelID = target.ModelID

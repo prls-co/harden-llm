@@ -113,10 +113,6 @@ type chatJSONSchemaFormat struct {
 	Strict *bool           `json:"strict,omitempty"`
 }
 
-type responsesTextFormat struct {
-	Format json.RawMessage `json:"format"`
-}
-
 type responsesSchemaFormat struct {
 	Type   string          `json:"type"`
 	Name   string          `json:"name"`
@@ -225,36 +221,46 @@ func decodeGeneration(w http.ResponseWriter, body []byte, target generationInput
 	return true
 }
 
-// Keep native siblings while the existing public validators consume the one
-// member that affects execution or projection.
-func (o *requestOptions) consumeMember(w http.ResponseWriter, name, member string, raw *json.RawMessage) bool {
-	if len(*raw) == 0 {
-		return true
+// Consume only the leaf used by the engine. A batch object must contain
+// exactly that member; ordinary objects retain all native siblings.
+func (o *requestOptions) consumeMember(w http.ResponseWriter, name, member string, raw json.RawMessage) (json.RawMessage, bool) {
+	if name == "reasoning" && bytes.Equal(raw, []byte("null")) {
+		if o.ordinary {
+			o.options[name] = nil
+		}
+		return nil, true
+	}
+	if len(raw) == 0 {
+		return nil, true
 	}
 	var object map[string]any
-	if err := decodeJSONValue(*raw, &object); err != nil {
+	if err := decodeJSONValue(raw, &object); err != nil || object == nil {
 		writeRequestError(w, errors.New("field must be an object"), name)
-		return false
+		return nil, false
+	}
+	value, found := object[member]
+	delete(object, member)
+	if !o.ordinary && (!found || len(object) > 0) {
+		writeRequestError(w, fmt.Errorf("%s requires only %s", name, member), name)
+		return nil, false
+	}
+	if _, summary := object["summary"]; name == "reasoning" && summary {
+		writeRequestError(w, errors.New("reasoning summaries cannot be returned"), "reasoning.summary")
+		return nil, false
 	}
 	if verbosity, supplied := object["verbosity"]; name == "text" && supplied {
 		if _, ok := verbosity.(string); !ok {
 			writeRequestError(w, errors.New("verbosity must be a string"), "text.verbosity")
-			return false
+			return nil, false
 		}
 	}
-	if _, summary := object["summary"]; name == "reasoning" && summary {
-		writeRequestError(w, errors.New("reasoning summaries cannot be returned"), "reasoning.summary")
-		return false
-	}
-	*raw = nil
-	if value, found := object[member]; found {
-		*raw = marshalRaw(map[string]any{member: value})
-		delete(object, member)
-	}
-	if len(object) > 0 {
+	if !found || len(object) > 0 {
 		o.options[name] = object
 	}
-	return true
+	if !found {
+		return nil, true
+	}
+	return marshalRaw(value), true
 }
 
 func reservedOrdinaryOption(key string) bool {

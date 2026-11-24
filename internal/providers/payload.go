@@ -27,13 +27,7 @@ func buildPayload(connection runtime.Connection, call runtime.Call) (string, str
 			return "", "", "", nil, nil, repairErr
 		}
 	}
-	// Ordinary options belong to the source protocol. Native configuration
-	// belongs to the selected target and retains its existing validation.
-	var incoming ordinaryMembers
-	if call.OptionProtocol != "" {
-		incoming = maps.Clone(call.ProviderOptions)
-		call.ProviderOptions = call.NativeOptions()
-	}
+	incoming := ordinaryMembers(maps.Clone(call.OrdinaryOptions))
 	options, err := mergedOptions(connection, call)
 	if err != nil {
 		return "", "", "", nil, nil, err

@@ -94,9 +94,9 @@ type Call struct {
 	WebSearchTool   json.RawMessage
 	// SearchMemo is owned by one logical call and shared by retries and repairs.
 	SearchMemo *sync.Map
-	// With an ordinary source protocol, ProviderOptions is immutable caller
-	// input. Only TargetOptions is replaced when recovery changes models.
-	TargetOptions      map[string]any
+	// OrdinaryOptions retains the caller's wire format across all attempts.
+	// ProviderOptions below always belongs to the currently selected target.
+	OrdinaryOptions    map[string]any
 	OptionProtocol     string
 	ProviderOptions    map[string]any
 	Context            ObservabilityContext
@@ -147,14 +147,6 @@ type ProgressSnapshot struct {
 	Origin              Origin
 	Attempts            []AttemptRecord
 	Accounting          *Accounting
-}
-
-// NativeOptions returns the configuration of the currently selected target.
-func (c Call) NativeOptions() map[string]any {
-	if c.OptionProtocol != "" {
-		return c.TargetOptions
-	}
-	return c.ProviderOptions
 }
 
 type RepairRequest struct {

@@ -20,16 +20,17 @@ type planExecutor struct {
 }
 
 type planPrepared struct {
-	connection     string
-	model          string
-	stage          string
-	history        []RepairHistoryEntry
-	reasoning      string
-	webSearch      bool
-	webSearchTool  json.RawMessage
-	toolChoice     ToolChoice
-	providerOption map[string]any
-	messages       []Message
+	connection      string
+	model           string
+	stage           string
+	history         []RepairHistoryEntry
+	reasoning       string
+	webSearch       bool
+	webSearchTool   json.RawMessage
+	toolChoice      ToolChoice
+	providerOption  map[string]any
+	ordinaryOptions map[string]any
+	messages        []Message
 }
 
 func (executor *planExecutor) Prepare(_ context.Context, connection Connection, _ Credential, call Call) (PreparedOperation, error) {
@@ -41,7 +42,7 @@ func (executor *planExecutor) Prepare(_ context.Context, connection Connection, 
 	}
 	executor.prepared = append(executor.prepared, planPrepared{
 		connection: connection.ID, model: call.ModelID, stage: stage, history: history, reasoning: call.ReasoningEffort,
-		webSearch: call.WebSearch, webSearchTool: append(json.RawMessage(nil), call.WebSearchTool...), toolChoice: call.ToolChoice, providerOption: cloneMap(call.ProviderOptions),
+		webSearch: call.WebSearch, webSearchTool: append(json.RawMessage(nil), call.WebSearchTool...), toolChoice: call.ToolChoice, providerOption: cloneMap(call.ProviderOptions), ordinaryOptions: cloneMap(call.OrdinaryOptions),
 		messages: append([]Message(nil), call.Messages...),
 	})
 	return PreparedOperation{Operation: cachekey.Operation{
@@ -191,7 +192,7 @@ func TestExplicitRecoveryPlanDoesNotPreparePastGlobalAttemptBudget(t *testing.T)
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-008
 func TestOrdinaryOptionsSurviveModelRecovery(t *testing.T) {
 	caller := map[string]any{"max_output_tokens": 128, "temperature": 0}
-	call := Call{ModelID: "first", CallType: "structured", OptionProtocol: "responses", ProviderOptions: caller, Messages: []Message{{Role: "user", Content: json.RawMessage(`"hello"`)}}, ValidateStructured: func(v any) error {
+	call := Call{ModelID: "first", CallType: "structured", OptionProtocol: "responses", OrdinaryOptions: caller, Messages: []Message{{Role: "user", Content: json.RawMessage(`"hello"`)}}, ValidateStructured: func(v any) error {
 		if v == "ok" {
 			return nil
 		}
@@ -204,8 +205,8 @@ func TestOrdinaryOptionsSurviveModelRecovery(t *testing.T) {
 		t.Fatalf("attempts %v error %v", record.Attempts, err)
 	}
 	for _, stage := range executor.prepared {
-		if !reflect.DeepEqual(stage.providerOption, caller) {
-			t.Errorf("%s lost original caller options: %v", stage.model, stage.providerOption)
+		if !reflect.DeepEqual(stage.ordinaryOptions, caller) {
+			t.Errorf("%s lost original caller options: %v", stage.model, stage.ordinaryOptions)
 		}
 	}
 	if caller["max_output_tokens"] != 128 || record.Accounting.Provider.Usage.InputTokens != 3 {

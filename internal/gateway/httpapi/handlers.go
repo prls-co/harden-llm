@@ -300,12 +300,12 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 	protocol := ""
 	if input.ordinary {
 		protocol = "responses"
-		if !input.consumeMember(writer, "text", "format", &input.Text) ||
-			!input.consumeMember(writer, "reasoning", "effort", &input.Reasoning) {
-			return preparedResponses{}, false
-		}
 	}
-	callType, schema, err := responsesOutputContract(input.Text)
+	format, ok := input.consumeMember(writer, "text", "format", input.Text)
+	if !ok {
+		return preparedResponses{}, false
+	}
+	callType, schema, err := responsesOutputContract(format)
 	if err != nil {
 		writeRequestError(writer, err, "text")
 		return preparedResponses{}, false
@@ -326,9 +326,13 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "Only service_tier=default is supported.", "service_tier")
 		return preparedResponses{}, false
 	}
-	reasoningEffort, err := responsesReasoningEffort(input.Reasoning)
-	if err != nil {
-		writeRequestError(writer, err, "reasoning")
+	effort, ok := input.consumeMember(writer, "reasoning", "effort", input.Reasoning)
+	if !ok {
+		return preparedResponses{}, false
+	}
+	var reasoningEffort string
+	if len(effort) > 0 && (json.Unmarshal(effort, &reasoningEffort) != nil || reasoningEffort == "") {
+		writeRequestError(writer, errors.New("reasoning requires a supported effort"), "reasoning")
 		return preparedResponses{}, false
 	}
 	return preparedResponses{Request: hardenllm.Request{
@@ -532,14 +536,8 @@ func responsesOutputContract(encoded json.RawMessage) (hardenllm.CallType, json.
 	if len(encoded) == 0 {
 		return hardenllm.CallTypeText, nil, nil
 	}
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.DisallowUnknownFields()
-	var value responsesTextFormat
-	if err := decoder.Decode(&value); err != nil || len(value.Format) == 0 {
-		return "", nil, errors.New("text requires a supported format")
-	}
 	var format responsesSchemaFormat
-	strictDecoder := json.NewDecoder(bytes.NewReader(value.Format))
+	strictDecoder := json.NewDecoder(bytes.NewReader(encoded))
 	strictDecoder.DisallowUnknownFields()
 	if err := strictDecoder.Decode(&format); err != nil {
 		return "", nil, errors.New("text.format has an unsupported shape")
@@ -552,19 +550,4 @@ func responsesOutputContract(encoded json.RawMessage) (hardenllm.CallType, json.
 	default:
 		return "", nil, errors.New("text.format type must be json_schema or json_object")
 	}
-}
-
-func responsesReasoningEffort(encoded json.RawMessage) (string, error) {
-	if len(encoded) == 0 || bytes.Equal(bytes.TrimSpace(encoded), []byte("null")) {
-		return "", nil
-	}
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.DisallowUnknownFields()
-	var value struct {
-		Effort string `json:"effort"`
-	}
-	if err := decoder.Decode(&value); err != nil || value.Effort == "" {
-		return "", errors.New("reasoning requires a supported effort")
-	}
-	return value.Effort, nil
 }

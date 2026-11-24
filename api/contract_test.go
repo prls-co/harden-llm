@@ -91,7 +91,7 @@ func TestOrdinaryOptionContract(t *testing.T) {
 		{"ResponseRequest", `"tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}],"harden":{"cache":"cache"}`, false},
 		{"ResponseRequest", `"store":false`, true}, {"ResponseRequest", `"store":true`, false},
 		{"ResponseRequest", `"text":{"verbosity":"low"}`, true}, {"ResponseRequest", `"text":{"verbosity":"low","format":{"type":"json_object"}}`, true},
-		{"ResponseRequest", `"reasoning":{"effort":"low"}`, true}, {"ResponseRequest", `"reasoning":{"effort":"low","fixture_sibling":false}`, true},
+		{"ResponseRequest", `"reasoning":null`, true}, {"ResponseRequest", `"reasoning":{"effort":"low"}`, true}, {"ResponseRequest", `"reasoning":{"effort":"low","fixture_sibling":false}`, true},
 		{"ResponseRequest", `"reasoning":{"summary":"auto"}`, false}, {"ResponseRequest", `"reasoning":{"summary":"auto","effort":"low"}`, false},
 		{"ResponseRequest", `"harden":{"typo":true}`, false}, {"ResponseRequest", `"previous_response_id":null`, false},
 		{"ResponseRequest", `"timeout":1200`, false}, {"ResponseRequest", `"cacheMode":"off"`, false},

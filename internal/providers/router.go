@@ -152,7 +152,7 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 	if err != nil {
 		return runtime.PreparedOperation{}, fmt.Errorf("providers: encode request payload: %w", err)
 	}
-	timeout, err := requestTimeout(call.NativeOptions())
+	timeout, err := requestTimeout(call.ProviderOptions)
 	if err != nil {
 		return runtime.PreparedOperation{}, err
 	}

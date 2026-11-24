@@ -1092,7 +1092,7 @@ func TestProviderRequestParityOrdinaryTranslation(t *testing.T) {
 		{"chat-completions", "responses", "openai", "stop", "", []any{"stop"}},
 	} {
 		t.Run(tc.dest+"/"+tc.provider+"/"+tc.key, func(t *testing.T) {
-			call := runtime.Call{ModelID: "fixture", Messages: providerMessages("instruction", "hello"), CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`), OptionProtocol: tc.source, ProviderOptions: map[string]any{tc.key: tc.val}}
+			call := runtime.Call{ModelID: "fixture", Messages: providerMessages("instruction", "hello"), CallType: "structured", Schema: json.RawMessage(`{"type":"object"}`), OptionProtocol: tc.source, OrdinaryOptions: map[string]any{tc.key: tc.val}}
 			_, _, _, payload, _, err := buildPayload(runtime.Connection{Provider: tc.provider, APIInferenceType: tc.dest}, call)
 			if tc.wire == "" {
 				var invalid *retry.ValidationError

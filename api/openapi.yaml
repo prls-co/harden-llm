@@ -2389,7 +2389,7 @@ components:
         temperature: {type: number, minimum: 0, maximum: 2}
         top_p: {type: number, minimum: 0, maximum: 1}
         reasoning:
-          type: object
+          type: [object, 'null']
           properties:
             effort: {type: string, minLength: 1, maxLength: 128}
             summary: false
