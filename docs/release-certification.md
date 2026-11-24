@@ -1,6 +1,6 @@
 # Release Certification
 
-The latest production qualification covers [ordinary options and complete response caching](#2026-11-24-ordinary-options-and-complete-response-caching).
+The latest production qualification covers [native Responses and Chat output](#2026-11-24-native-responses-and-chat-output).
 
 Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
 
@@ -3570,3 +3570,13 @@ The first tagged Go module release, `v0.1.0`, and the production gateway, batch 
 | Deployment | The worker registered fresh workflow, control and provider pollers before gateway and web promotion. TEST-435, Portal login and the configuration comparisons passed. The existing PostgreSQL, Garage, Temporal and five support containers retained their identities. [Production receipt](../plans/evidence/harden-llm/issue-186/production-release/receipt.json) |
 | Go publication | The public proxy resolves `@latest` to `v0.1.0` at the deployed source. The module ZIP and `go.mod` matched the checksum database. A fresh consumer compiled, validated an ordinary request, and installed the gateway executable. Its Go build information identifies the tag. The plain `go install` binary prints `dev` for the CLI version command. The production build embeds the release SHA. [Release]( https://github.com/prls-co/harden-llm/releases/tag/v0.1.0 ) · [Checksum record]( https://sum.golang.org/lookup/github.com/prls-co/harden-llm@v0.1.0 ) |
 | Model Recall | Its installed product image uses a configured Harden HTTP endpoint. In the preparation workflow its request reached a recording upstream with boolean `store: false` and its client accepted the returned schema. The installed product also completed one authorized production request through CPA. It returned HTTP 200 with 473 input and 190 output tokens, estimated at USD 0.0003226. Browser layout was not checked. |
+
+## 2026-11-24 native Responses and Chat output
+
+Version `v0.2.0` and the production gateway, batch worker and web application use `4cdb11c3fcabf22a2d902ae55a36514d63138f63`. Matching ordinary protocols preserve accepted provider IDs, item order, reasoning summaries and extension fields across initial responses and cache hits. Diagnostics identify the current delivery. [Issue #188]( https://github.com/prls-co/harden-llm/issues/188 ) · [API contract](api-and-library.md)
+
+| Boundary | Verification |
+| --- | --- |
+| Source | All ten clean-checkout fast tasks passed. The hosted release, integration and race reports passed for the application SHA. [Release run]( https://github.com/prls-co/harden-llm/actions/runs/45451917153/attempts/1 ) |
+| Production | Gateway and web passed health checks. The new worker registered workflow, control and provider pollers. TEST-435 passed. A deliberately invalid effort let the same request demonstrate the change in summary admission before and after deployment without inference. The authenticated loopback tests exercised complete successful responses and replay. [Deployment and test receipt](../plans/evidence/harden-llm/issue-188/production-release/receipt.json) |
+| Publication | Verified the public Go module archive, checksums, installed gateway and native gateway/client regressions from the downloaded module. [Release]( https://github.com/prls-co/harden-llm/releases/tag/v0.2.0 ) |

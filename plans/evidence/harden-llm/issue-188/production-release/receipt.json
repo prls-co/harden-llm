@@ -1,0 +1,411 @@
+{
+  "issue": 188,
+  "version": "v0.2.0",
+  "branch": "main",
+  "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+  "verifiedAt": "2026-11-24T18:11:46.772403+00:00",
+  "previousProductionSource": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+  "tests": {
+    "localFast": {
+      "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+      "accepted": true,
+      "tasks": [
+        "go-static",
+        "runner-contracts",
+        "go-unit",
+        "go-parity",
+        "go-api",
+        "go-observability",
+        "frontend-ui-package",
+        "frontend-deterministic",
+        "client-core",
+        "run-progress-client"
+      ]
+    },
+    "mainChecks": [
+      {
+        "id": 45451917797,
+        "name": "Push on main",
+        "html_url": "https://github.com/prls-co/harden-llm/actions/runs/45451917797",
+        "conclusion": "success",
+        "head_sha": "4cdb11c3fcabf22a2d902ae55a36514d63138f63"
+      },
+      {
+        "id": 45451918626,
+        "name": "Harden-LLM test hierarchy",
+        "html_url": "https://github.com/prls-co/harden-llm/actions/runs/45451918626",
+        "conclusion": "success",
+        "head_sha": "4cdb11c3fcabf22a2d902ae55a36514d63138f63"
+      }
+    ],
+    "hostedRelease": {
+      "runId": 45451917153,
+      "attempt": 1,
+      "url": "https://github.com/prls-co/harden-llm/actions/runs/45451917153/attempts/1",
+      "artifact": {
+        "id": 14950616224,
+        "name": "harden-llm-runner-reports-45451917153-1-release",
+        "digest": "sha256:b66e98d3881189df1fa5dfa37a9554c643d6910d6bed7209cff77f2db17b387e",
+        "size_in_bytes": 19471
+      },
+      "artifactDigestVerified": true
+    },
+    "suites": [
+      {
+        "selector": "go-integration",
+        "tasks": 1,
+        "sha256": "79017f9c464347d74203920b3eca6d4be6a7fe117211071b7e97316edf5d067c",
+        "results": [
+          {
+            "task": "go-integration",
+            "exitStatus": 0,
+            "wallTimeMs": 35591
+          }
+        ]
+      },
+      {
+        "selector": "go-integration-race",
+        "tasks": 1,
+        "sha256": "ee7586e520b3c8c6d2c52098853cfb8b306569dae94cb348700d864a690142a0",
+        "results": [
+          {
+            "task": "go-integration-race",
+            "exitStatus": 0,
+            "wallTimeMs": 108676
+          }
+        ]
+      },
+      {
+        "selector": "release",
+        "tasks": 30,
+        "sha256": "31d212d3c209c9ae8634837560317d0468245ef4ccb00ce6f69da506c96ea37c",
+        "results": [
+          {
+            "task": "go-format",
+            "exitStatus": 0,
+            "wallTimeMs": 953
+          },
+          {
+            "task": "go-lint",
+            "exitStatus": 0,
+            "wallTimeMs": 31986
+          },
+          {
+            "task": "go-build",
+            "exitStatus": 0,
+            "wallTimeMs": 19977
+          },
+          {
+            "task": "go-static",
+            "exitStatus": 0,
+            "wallTimeMs": 21780
+          },
+          {
+            "task": "runner-contracts",
+            "exitStatus": 0,
+            "wallTimeMs": 92025
+          },
+          {
+            "task": "production-config-compose",
+            "exitStatus": 0,
+            "wallTimeMs": 792
+          },
+          {
+            "task": "go-unit",
+            "exitStatus": 0,
+            "wallTimeMs": 53353
+          },
+          {
+            "task": "go-parity",
+            "exitStatus": 0,
+            "wallTimeMs": 41732
+          },
+          {
+            "task": "go-integration",
+            "exitStatus": 0,
+            "wallTimeMs": 38785
+          },
+          {
+            "task": "go-temporal-integration",
+            "exitStatus": 0,
+            "wallTimeMs": 97351
+          },
+          {
+            "task": "go-integration-race",
+            "exitStatus": 0,
+            "wallTimeMs": 107303
+          },
+          {
+            "task": "go-api",
+            "exitStatus": 0,
+            "wallTimeMs": 39572
+          },
+          {
+            "task": "go-observability",
+            "exitStatus": 0,
+            "wallTimeMs": 25053
+          },
+          {
+            "task": "go-compose",
+            "exitStatus": 0,
+            "wallTimeMs": 212289
+          },
+          {
+            "task": "go-compose-contract",
+            "exitStatus": 0,
+            "wallTimeMs": 1404
+          },
+          {
+            "task": "go-race",
+            "exitStatus": 0,
+            "wallTimeMs": 464769
+          },
+          {
+            "task": "go-vulnerability",
+            "exitStatus": 0,
+            "wallTimeMs": 20313
+          },
+          {
+            "task": "frontend-ui-package",
+            "exitStatus": 0,
+            "wallTimeMs": 60793
+          },
+          {
+            "task": "frontend-format",
+            "exitStatus": 0,
+            "wallTimeMs": 119402
+          },
+          {
+            "task": "frontend-compile",
+            "exitStatus": 0,
+            "wallTimeMs": 143449
+          },
+          {
+            "task": "frontend-deterministic",
+            "exitStatus": 0,
+            "wallTimeMs": 224545
+          },
+          {
+            "task": "client-core",
+            "exitStatus": 0,
+            "wallTimeMs": 216
+          },
+          {
+            "task": "run-progress-client",
+            "exitStatus": 0,
+            "wallTimeMs": 496
+          },
+          {
+            "task": "frontend-deps-audit",
+            "exitStatus": 0,
+            "wallTimeMs": 134624
+          },
+          {
+            "task": "frontend-hex-audit",
+            "exitStatus": 0,
+            "wallTimeMs": 1576
+          },
+          {
+            "task": "frontend-assets-deploy",
+            "exitStatus": 0,
+            "wallTimeMs": 100265
+          },
+          {
+            "task": "frontend-pagination-asset-check",
+            "exitStatus": 0,
+            "wallTimeMs": 91858
+          },
+          {
+            "task": "frontend-release",
+            "exitStatus": 0,
+            "wallTimeMs": 38379
+          },
+          {
+            "task": "backend-verify-baseline",
+            "exitStatus": 0,
+            "wallTimeMs": 333862
+          },
+          {
+            "task": "frontend-gateway-workflows",
+            "exitStatus": 0,
+            "wallTimeMs": 344926
+          }
+        ]
+      }
+    ],
+    "nativeFixtures": [
+      "matching Responses JSON and upstream SSE",
+      "matching Chat Completions",
+      "ordered summary, unknown item and message, exact number and extension",
+      "initial result, cache hit, one provider execution and fresh diagnostics",
+      "public Go client, incompatible route, encrypted-content omission",
+      "PostgreSQL cache payload with ordered native items, escaped NUL and exact number"
+    ]
+  },
+  "rollback": {
+    "previousBinaryVersion": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+    "previousImage": "sha256:932b3e9aa750d2aa6ef3bdb602ea411f1441031adf55215d7e8c8e1a114732c1",
+    "cacheKeys": {
+      "previous": {
+        "responses native": {
+          "version": "v6",
+          "hash": "863def7aee9be452f4546a642b9532c54b82f5ae75637d052c4a8e2322ee31f1"
+        },
+        "responses normalized": {
+          "version": "v6",
+          "hash": "863def7aee9be452f4546a642b9532c54b82f5ae75637d052c4a8e2322ee31f1"
+        },
+        "chat-completions native": {
+          "version": "v6",
+          "hash": "f72652e71eef42111407520e97e46c3c8a4eb3e554b39e5048f206064f1f6160"
+        },
+        "chat-completions normalized": {
+          "version": "v6",
+          "hash": "f72652e71eef42111407520e97e46c3c8a4eb3e554b39e5048f206064f1f6160"
+        }
+      },
+      "candidate": {
+        "responses native": {
+          "version": "v7-native",
+          "hash": "c5207004bc07381a266ddafbe0a18b40c304b615550f2f0b9644e62f8908fcfc"
+        },
+        "responses normalized": {
+          "version": "v6",
+          "hash": "863def7aee9be452f4546a642b9532c54b82f5ae75637d052c4a8e2322ee31f1"
+        },
+        "chat-completions native": {
+          "version": "v7-native",
+          "hash": "436d9868f42ba38d3e91d31eef1f388bea877082816cde58b550a77f4f2f2c50"
+        },
+        "chat-completions normalized": {
+          "version": "v6",
+          "hash": "f72652e71eef42111407520e97e46c3c8a4eb3e554b39e5048f206064f1f6160"
+        }
+      }
+    }
+  },
+  "dev": {
+    "branch": "dev",
+    "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+    "url": "https://harden-llm-dev.prls.co",
+    "deploymentID": 8036084838,
+    "components": {
+      "gateway": {
+        "image": "sha256:f46374d36273288057d6a8bc9de11b7807444340c9fd85e748d682b863e74063",
+        "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63"
+      },
+      "web": {
+        "image": "sha256:f74a79684b5cfc4c45349fea4b4f525370dd38eba8a935dc512edc27d3171fc2",
+        "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63"
+      }
+    },
+    "http": {
+      "/healthz": 200,
+      "/readyz": 200,
+      "/": 302,
+      "/v1/models": 401
+    },
+    "workflowRun": 45452397555
+  },
+  "production": {
+    "url": "https://harden-llm.prls.co",
+    "components": {
+      "harden-llm-gateway": {
+        "image": "sha256:9b3390072de959e218e59b70d4d3fd8854d939540e0f824a3138d1e9770a4eed",
+        "tag": "harden-llm-gateway:release-4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+        "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+        "status": "running",
+        "health": "healthy",
+        "restartCount": 0
+      },
+      "harden-llm-batch-worker": {
+        "image": "sha256:9b3390072de959e218e59b70d4d3fd8854d939540e0f824a3138d1e9770a4eed",
+        "tag": "harden-llm-gateway:release-4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+        "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+        "status": "running",
+        "health": null,
+        "restartCount": 0
+      },
+      "harden-llm-web": {
+        "image": "sha256:11f26505e22d01eba483ae3628d3ca12d3956a2ad8e484d0c3de48197d514c2e",
+        "tag": "harden-llm-web:release-4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+        "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+        "status": "running",
+        "health": "healthy",
+        "restartCount": 0
+      }
+    },
+    "worker": {
+      "pollerTypes": [
+        "workflow",
+        "control",
+        "provider"
+      ],
+      "generation": 2,
+      "outstanding": 0
+    },
+    "retainedSupportContainers": [
+      "grafana",
+      "loki",
+      "otel-collector",
+      "prometheus",
+      "tempo"
+    ],
+    "test435": "passed",
+    "admissionBefore": {
+      "source": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+      "probesWithInvalidEffort": {
+        "auto": {
+          "status": 400,
+          "param": "reasoning.summary"
+        },
+        "invalid-summary": {
+          "status": 400,
+          "param": "reasoning.summary"
+        }
+      }
+    },
+    "admissionAfter": {
+      "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+      "probesWithInvalidEffort": {
+        "auto": {
+          "status": 400,
+          "param": "reasoning"
+        },
+        "invalid-summary": {
+          "status": 400,
+          "param": "reasoning.summary"
+        }
+      }
+    },
+    "liveInference": false,
+    "browser": false
+  },
+  "publication": {
+    "releaseURL": "https://github.com/prls-co/harden-llm/releases/tag/v0.2.0",
+    "publishedAt": "2026-11-24T18:10:28Z",
+    "tag": "v0.2.0",
+    "module": {
+      "source": "4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+      "version": "v0.2.0",
+      "module": "github.com/prls-co/harden-llm",
+      "goProxyLatest": "v0.2.0",
+      "registryOrigin": "4cdb11c3fcabf22a2d902ae55a36514d63138f63",
+      "sum": "h1:zZiLWqduj9+Pn6h6c83/W1Ja93IGdlhvmaUB4Y3u00g=",
+      "goModSum": "h1:KRN9tw2adFQ+BrhOTF8gISe9gS1bsfIUyuO6UnvhUBQ=",
+      "sumdbRecord": 72138862,
+      "zipSHA256": "87f7e3bad1811637e33feb46158d44099f743a396f10c35945413925b8768dec",
+      "zipBytes": 4739633,
+      "installedConsumerContract": "accepted Responses reasoning summary and cached function declaration",
+      "freshInstall": "github.com/prls-co/harden-llm/cmd/harden-llm-gateway",
+      "installedBuildInfo": {
+        "Path": "github.com/prls-co/harden-llm",
+        "Version": "v0.2.0",
+        "Sum": "h1:zZiLWqduj9+Pn6h6c83/W1Ja93IGdlhvmaUB4Y3u00g="
+      },
+      "versionCommand": "dev",
+      "checksumsVerified": true,
+      "nativeRegressionFromDownloadedModule": true
+    }
+  }
+}
