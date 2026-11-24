@@ -1,6 +1,6 @@
 # 1. Harden LLM ordinary API option forwarding
 
-- Document ID: PLAN-HLLM-186. Version: 3.0. Date: 2026-11-23. Status: Pending implementation.
+- Document ID: PLAN-HLLM-186. Version: 3.1. Date: 2026-11-23. Status: Pending implementation.
 - Owners: gateway maintainers for ingress and public responses, provider/runtime maintainers for translation and recovery, stateful maintainers for batch identity. CPA owns its Codex translator.
 - Configuration: implementation base `dev@29cdd3d`; historical reproduction at `9554f5f`; plan branch [research/issue-186-gateway-rca](https://github.com/prls-co/harden-llm/blob/research/issue-186-gateway-rca/plans/protocol-aware-option-forwarding-plan.md).
 
@@ -13,7 +13,7 @@ Fix three defects in [issue #186](https://github.com/prls-co/harden-llm/issues/1
 | Forwarding | FOR | Keep one Go execution path. Preserve the JSON members the engine does not own. Both scalar-copy lists in `internal/gateway/httpapi/handlers.go` omit an explicitly decoded `store: false`. |
 | Translation | DECISION | Use the destination switch in `internal/providers/payload.go`. A matching format admits native tuning. A different endpoint requires a known equivalent for every forwarded option. Perplexity `/agent` is distinct from `/responses` even when the connection label says Responses. |
 | Compatibility switches | AGAINST | Dropping fields, retrying a reduced request, or selecting another provider on a translation error could return success for different instructions. Keep one public policy. |
-| Scope of typed fields | DECISION | Type what Harden executes or renders. Native tuning can evolve independently. Chat token probabilities require public result data that the existing choice renderer cannot supply. |
+| Scope of typed fields | DECISION | Type what Harden executes or renders. Native tuning can evolve independently. Chat token probabilities and Responses reasoning summaries require output that the public renderers cannot return. Reject each at admission and name the requested field. |
 | Search and cache | DECISION | Validate declarations while the selected tool still has its type. Valid search uses the existing native/Jina capability decision. Block the unsupported combination of functions and explicit caching at admission. A cache-codec redesign would also affect Go clients and existing records. |
 | Persistence | DECISION | Share Responses preparation with jobs. The job snapshot and inference cache answer different identity questions. Retain their respective writers and equality rules. |
 
@@ -21,20 +21,20 @@ Fix three defects in [issue #186](https://github.com/prls-co/harden-llm/issues/1
 
 - **Problem and users.** In authenticated loopback reproductions, the upstream lost an explicit storage opt-out, a search selector became a request for a function, and a cache hit returned a function call as text. Ordinary HTTP callers, pinned SDK consumers and batch submitters need predictable wire and replay behavior.
 - **Value and success.** All three issue cases pass. One invented native tuning field reaches a matching endpoint without a production registration. Invalid requests make zero prohibited calls. Existing job submissions retain their serialized identity.
-- **Scope and non-goals.** Cover `POST /v1/responses` and `POST /v1/chat/completions`, their shared Go path and contracts. The batch boundary is a preservation requirement. Stored-response retrieval, token-probability rendering, new hosted tools, cache migrations and production promotion are outside this change.
-- **Dependencies and assumption.** Explicit `store: false` must reach native Responses. Omission delegates to the upstream default. Harden rejects `store: true`. Direct OpenAI Responses documents a default of true. The pinned CPA translator sets false independently, removes `temperature` and preserves `max_output_tokens`. Evidence of delivery stops at each owner's boundary. A universal upstream storage ban would require a separate decision. [OpenAI Responses](https://developers.openai.com/api/reference/resources/responses/methods/create) · [Pinned CPA translator](https://github.com/router-for-me/CLIProxyAPI/blob/f7ae8feeb3710319f524730849fbe32fde1751e4/internal/translator/codex/openai/responses/codex_openai-responses_request.go#L31-L46)
+- **Scope and non-goals.** Cover `POST /v1/responses` and `POST /v1/chat/completions`, their shared Go path and contracts. The batch boundary is a preservation requirement. Stored-response retrieval, token-probability and reasoning-summary rendering, new hosted tools, cache migrations and production promotion are outside this change.
+- **Storage decision and upstream behavior.** Harden forwards explicit `store: false` to native Responses, leaves an omitted `store` absent on the wire and rejects explicit `store: true` at admission. The selected upstream owns the default. Direct OpenAI Responses documents a default of true. The pinned CPA translator sets false independently, removes `temperature` and preserves `max_output_tokens`. Evidence of delivery stops at each owner's boundary. [OpenAI Responses](https://developers.openai.com/api/reference/resources/responses/methods/create) · [Pinned CPA translator](https://github.com/router-for-me/CLIProxyAPI/blob/f7ae8feeb3710319f524730849fbe32fde1751e4/internal/translator/codex/openai/responses/codex_openai-responses_request.go#L31-L46)
 
 ## 4. SRS and acceptance requirements
 
 | ID | Type | Accepted outcome |
 | --- | --- | --- |
-| REQ-600 | int | Matching Responses and Chat endpoints receive eligible caller values with presence, object contents, array order and integer precision intact. Omitted `store` stays absent. |
-| REQ-601 | func | Ordinary Responses accepts `text.verbosity` alone and beside a normalized `text.format`. Chat `logprobs: true` fails with HTTP 400 naming `logprobs` before cache, search or model access. A lone `top_logprobs` names that field. |
+| REQ-600 | int | Matching Responses and Chat endpoints receive eligible caller values with presence, object contents, array order and integer precision intact. On native Responses, explicit `store: false` reaches the upstream as a boolean, omission leaves the key absent, and explicit true yields HTTP 400 naming `store` before dispatch. |
+| REQ-601 | func | Ordinary Responses accepts `text.verbosity` alone and beside a normalized `text.format`. Responses `reasoning.summary` and Chat `logprobs: true` each return HTTP 400 before cache, search or model access. Set `error.param` to `reasoning.summary` or `logprobs`, respectively. A lone `top_logprobs` names that field. |
 | REQ-602 | func | An explicit Responses search selector requires a declared search tool. A contradiction yields 400 naming `tool_choice` with zero search/model calls. Valid aliases, named functions and generic function-only `required` retain their meanings. |
 | REQ-603 | func | Either public endpoint rejects declared functions plus explicit `cache` or `refresh` with 400 naming `harden.cache`, before cache access, dispatch or stream headers. Omitted cache and `off` yield an SDK-readable function call. |
 | REQ-604 | security | Existing authentication, key scope, single-object/body limits and stateless exclusions hold. Strict `harden` controls stay local. Caller options cannot set credentials, URL, transport settings or internal cache markers. Field errors identify the caller path and exclude opaque values. |
 | REQ-605 | int | Each translated option has an equivalent on the actual destination or a local 400 naming the original field before that attempt dispatches. Existing schema, tool and search semantics survive. |
-| REQ-606 | reliability | Ordinary options survive same-target retries and target switches. Explicit target tuning applies only to its attempt. Recovery preserves prior accounting and avoids preparation beyond the attempt budget. |
+| REQ-606 | reliability | Ordinary options survive same-target retries and target switches. An explicit recovery-target output-token limit may raise or lower the caller’s limit for that attempt. A target without an override inherits the caller’s original limit. Recovery preserves prior accounting and avoids preparation beyond the attempt budget. |
 | REQ-607 | data | The prepared operation determines inference-cache identity. Changed semantic values separate entries, reordered object keys preserve identity, and a valid hit skips model and search. |
 | REQ-608 | data | Batch admission stays closed, shares Responses preparation and produces the same serialized generation for a previously valid item. |
 | REQ-609 | int | Canonical OpenAPI, its bundled copy and public behavior agree. Guidance accurately distinguishes Harden delivery, CPA translation and model enforcement. |
@@ -202,7 +202,7 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
 - Estimated phase metrics: 88/91/5/0/55/12/8/5/Must/non-local/1. Two public codecs and a durable consumer share preparation.
 
 - P02.S01 Expose field loss at preparation
-  - Action: Add ingress assertions for the section 8 fixture, both verbosity shapes, probability requests, reserved names and batch isolation.
+  - Action: Add ingress assertions for the section 8 fixture, both verbosity shapes, summary requests with and without a valid `reasoning.effort`, Chat probability requests, reserved names and batch isolation.
   - Why now: Separate decoder loss from downstream translation.
   - Files/surfaces: `internal/gateway/httpapi/openai_contract_test.go`, `internal/gateway/httpapi/jobs_test.go`.
   - Requirement link: REQ-600, REQ-601, REQ-604, REQ-608, REQ-610
@@ -215,7 +215,7 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
   - Unlocks: P02.S02.
 
 - P02.S02 Carry native members through shared preparation
-  - Action: Use one bounded member collection with number preservation. Consume Harden and execution-owned leaves. Carry source format beside `Request.ProviderOptions` into runtime. Reject unsupported public output at admission.
+  - Action: Use one bounded member collection with number preservation. Consume Harden and execution-owned leaves. Carry source format beside `Request.ProviderOptions` into runtime. Reject `reasoning.summary` at Responses admission while the original field path is available. Preserve the supported effort-only request and the Chat output checks.
   - Why now: Preparation evidence identifies which values are lost.
   - Files/surfaces: `internal/gateway/httpapi/requests.go`, `internal/gateway/httpapi/handlers.go`, `types.go`, `client.go`, `internal/runtime/types.go`.
   - Requirement link: REQ-600, REQ-601, REQ-604, REQ-608, REQ-610
@@ -320,7 +320,7 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
 - Estimated phase metrics: 87/93/4/0/54/8/7/5/Must/non-local/1. Two option lifetimes and two target formats interact.
 
 - P04.S01 Expose option loss on a model switch
-  - Action: Add a deterministic target switch and public two-target wire capture. Add cache identity controls before changing recovery.
+  - Action: Exercise a caller limit of 128 in two model-switch cases. Give the recovery target an explicit limit of 512 in one case and omit its limit in the other. Capture both attempts in each case. Add cache identity controls before changing recovery.
   - Why now: Current model-target replacement clears generation options.
   - Files/surfaces: `internal/runtime/recovery_plan_test.go`, `internal/gateway/httpapi/openai_contract_test.go`, `client_cache_test.go`.
   - Requirement link: REQ-606, REQ-607
@@ -333,14 +333,14 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
   - Unlocks: P04.S02.
 
 - P04.S02 Bind original options to every reached target
-  - Action: Retain immutable ordinary options, replace target-specific options, and apply explicit tuning only on that target. Reject contradictory protected overrides in request-local validation. Reuse the prepared operation on same-target retry.
+  - Action: Retain immutable ordinary options, replace target-specific options, and apply explicit tuning only on that target. Use the existing tuning precedence for output-token limits. Reject a protected override such as `store: true` in request-local validation. Reuse the prepared operation on same-target retry.
   - Why now: A failing switch identifies the lifetime defect.
   - Files/surfaces: `client.go`, `internal/runtime/types.go`, `internal/runtime/recovery_execute.go`, `internal/providers/router.go`.
   - Requirement link: REQ-606, REQ-607
   - Verification link: TEST-008, TEST-403, TEST-011
   - Verification mode: GREEN
   - Command/procedure: `make test-observability` then `make test-api` then `make test-parity`
-  - Expected result: False reaches both matching targets; temperature changes only on the override. Unused branches stay unprepared.
+  - Expected result: The two cases send limits of 128 then 512, and 128 then 128, respectively. The caller’s original limit stays 128. Explicit false reaches both matching targets and temperature changes only on the configured target. Unused branches stay unprepared.
   - Evidence produced: Wire and accounting assertions.
   - Stop/escalate condition: Stop if a failed translation replays prior work.
   - Unlocks: P04.S03.
@@ -379,7 +379,7 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
 - Estimated phase metrics: 95/94/4/1/29/4/3/5/Must/non-local/0. One canonical schema already has a bundled-copy parity gate.
 
 - P05.S01 Expose ordinary and batch schema differences
-  - Action: Add contract cases for the native fixture, verbosity, named output restrictions, closed batch text and strict Harden controls. Retain package-copy parity.
+  - Action: Add contract cases for the native fixture, omitted and explicit storage settings, verbosity, the forbidden Responses `reasoning.summary` property, Chat output restrictions, closed batch text and strict Harden controls. Retain package-copy parity.
   - Why now: Contract changes are observable even when runtime code passes.
   - Files/surfaces: `api/contract_test.go`, `internal/testkit/reference_history_contract_test.go`.
   - Requirement link: REQ-609
@@ -498,11 +498,11 @@ All commands run from the repository root with section 9's toolchain. Use fixed 
 
 - TEST-475 — Batch admission and snapshot. Type: integration. Verifies: REQ-608. Location: `internal/gateway/httpapi/jobs_test.go`. Command: `make test-api`. Fixtures, controls and pass criteria: Existing job fixture, configured CPA model, one item with false store, numeric 1.0, token limit, worker stream and default timeout. Assert the serialized generation matches the fixed baseline, including historical omission of store. Reject fixture-only fields and verbosity before Submit. Expected runtime: 15–90 s.
 - TEST-535 — Search declaration and choice. Type: integration. Verifies: REQ-602. Location: `internal/gateway/httpapi/web_search_request_test.go`. Command: `make test-api`. Fixtures, controls and pass criteria: Extend the existing WebSearchRequestParity cases. Pair a lookup function or empty tools with explicit search. Assert the named 400 and zero search/model calls. Cover standard/preview aliases, native and Jina fixtures, mixed declarations, generic required and named function. Expected runtime: 15–90 s.
-- TEST-403 — Ordinary public contract and provider wire. Type: integration. Verifies: REQ-600, REQ-601, REQ-603, REQ-604, REQ-606, REQ-610. Location: `internal/gateway/httpapi/openai_contract_test.go`. Command: `make test-api`. Fixtures, controls and pass criteria: Extend TestOpenAIContract cases using real authenticated handlers, loopback TLS, a counting cache and the pinned SDK with retries disabled. Check section 8 values and absent keys, both text shapes, named probability errors, protected controls and both recovery captures. Preload a function entry. Cache/refresh fail before effects even with choice none or streaming. Omitted/off preserve ID, call ID, name, arguments and Chat finish reason. Text, schema, search and JSON containing a tool_calls property retain their projections. Expected runtime: 15–90 s.
+- TEST-403 — Ordinary public contract and provider wire. Type: integration. Verifies: REQ-600, REQ-601, REQ-603, REQ-604, REQ-606, REQ-610. Location: `internal/gateway/httpapi/openai_contract_test.go`. Command: `make test-api`. Fixtures, controls and pass criteria: Extend TestOpenAIContract cases using real authenticated handlers, loopback TLS, a counting cache and the pinned SDK with retries disabled. Vary only `store` in the native Responses fixture: inspect the absent key, the explicit boolean false and the named rejection of true before dispatch. Check both text shapes. For `reasoning.summary: "auto"` alone and beside `reasoning.effort: "low"`, require `error.param="reasoning.summary"`, HTTP 400 and zero cache reads/writes, searches or model calls. Effort alone must still succeed. Verify the named Chat probability errors, protected controls and recovery wire limits from P04.S02. Preload a function entry. Cache/refresh fail before effects even with choice none or streaming. Omitted/off preserve ID, call ID, name, arguments and Chat finish reason. Text, schema, search and JSON containing a tool_calls property retain their projections. Expected runtime: 15–90 s.
 - TEST-012 — Destination payload parity. Type: integration. Verifies: REQ-605, REQ-610. Location: `internal/providers/requests_test.go`. Command: `make test-parity`. Fixtures, controls and pass criteria: Extend TestProviderRequestParity. Capture matching formats, Chat to Responses including false store, Gemini token limit 128 and responseJsonSchema, Anthropic and Perplexity /agent. Unrepresentable fixture and storage options name the original field and make zero calls. Keep provider-specific search semantics. Expected runtime: 30–150 s.
-- TEST-008 — Recovery option lifetime. Type: unit. Verifies: REQ-606. Location: `internal/runtime/recovery_plan_test.go`. Command: `make test-observability`. Fixtures, controls and pass criteria: Use the process-local executor with a fixed attempt budget, deterministic failures and distinct native target settings. Assert same-target reuse, target-specific override, original options intact, no preparation past budget, accounting retained on later failure, and existing Go/reference replacement semantics. Expected runtime: 15–90 s.
+- TEST-008 — Recovery option lifetime. Type: unit. Verifies: REQ-606. Location: `internal/runtime/recovery_plan_test.go`. Command: `make test-observability`. Fixtures, controls and pass criteria: Use the process-local executor with a fixed attempt budget, deterministic failures and distinct native target settings. Assert same-target reuse, 512 on the explicitly overridden target and the original 128 when the target omits its override, original options intact, no preparation past budget, accounting retained on later failure, and existing Go/reference replacement semantics. Expected runtime: 15–90 s.
 - TEST-011 — Effective cache identity and replay. Type: integration. Verifies: REQ-607. Location: `client_cache_test.go`. Command: `make test-parity`. Fixtures, controls and pass criteria: Extend TestCacheReplay with injected cache and counting provider/search. Change native values and omission versus false, reorder object keys, exercise native and Jina identity. Assert semantic differences split keys, equivalent operations hit, and hits cause zero dispatches. Expected runtime: 30–150 s.
-- TEST-600 — Ordinary versus durable schema. Type: unit. Verifies: REQ-609. Location: `api/contract_test.go`. Command: `make test-parity`. Fixtures, controls and pass criteria: Add TestOrdinaryOptionContract under the existing parity selector. Validate section 8 fixtures through api.Validate. Accept ordinary native fields and standalone verbosity, reject unsupported output settings and reserved controls, and keep batch and Harden objects closed. Expected runtime: 30–150 s.
+- TEST-600 — Ordinary versus durable schema. Type: unit. Verifies: REQ-609. Location: `api/contract_test.go`. Command: `make test-parity`. Fixtures, controls and pass criteria: Add TestOrdinaryOptionContract under the existing parity selector. Validate section 8 fixtures through api.Validate. Accept omitted store, explicit false, standalone verbosity and effort-only reasoning on ordinary Responses. Reject explicit true, reasoning summaries with or without effort, unsupported Chat output settings and reserved controls. Keep batch and Harden objects closed. Expected runtime: 30–150 s.
 - TEST-436 — Packaged contract parity. Type: static. Verifies: REQ-609. Location: `internal/testkit/reference_history_contract_test.go`. Command: `go test ./internal/testkit/... -count=1`. Fixtures, controls and pass criteria: Use existing TestReferenceHistoryContract. Read repository YAML files, require byte equality and retain existing reference schema assertions. Expected runtime: 5–45 s.
 
 ## 8. Data contract
@@ -514,8 +514,8 @@ Native Responses example; exchange `input` for a valid `messages` array and use 
 ```
 
 - Assert presence as well as value with a number-preserving decoder. Remove only locally owned fields from the forwarded members. Authenticated scope and transport settings are server-owned. Reserve existing internal controls including `timeout`, `cacheMode`, `useResponsesApi` and `__harden_llm_web_search`. Treat names inside user schemas and prompts as data. Keep diagnostics free of prompts, opaque values and credentials.
-- `{"text":{"verbosity":"low"}}` as a request fragment produces ordinary text without injecting a format. With a supported schema, write only `text.format` and retain verbosity. Apply the same ownership rule to `reasoning.effort` and eligible siblings. Keep function declarations and unsupported output projections strict.
-- Use existing `Request.ProviderOptions` and source-format metadata on the Go handoff. Preserve native settings for direct Go, reference and stored batch calls. During recovery the ordinary input is immutable. A target can override tuning, e.g. temperature from 0 to 0.7. A target cannot enable storage on the stateless API. An incompatibility discovered later leaves earlier accounting intact.
+- `{"text":{"verbosity":"low"}}` as a request fragment produces ordinary text without injecting a format. With a supported schema, write only `text.format` and retain verbosity. Preserve `reasoning.effort` and eligible native siblings. A supplied `reasoning.summary` requests additional output and receives the field-specific admission error in REQ-601. Keep function declarations and unsupported output projections strict.
+- Use existing `Request.ProviderOptions` and source-format metadata on the Go handoff. Preserve native settings for direct Go, reference and stored batch calls. During recovery the ordinary input is immutable. Use the same target-local precedence for temperature and `max_output_tokens`. A configured recovery limit of 512 overrides a caller limit of 128 on that attempt alone. Each subsequent target starts from 128 unless it has its own override. A target cannot enable storage on the stateless API. An incompatibility discovered later leaves earlier accounting intact.
 - Share `prepareResponses` and keep job admission closed at its current boundaries. Preserve explicit sampling, token limit, forced worker streaming, default timeout and historical omission of false store from the job snapshot. Existing key scopes, generic expiration and cached search provenance continue under their existing identities.
 - Document `BatchGenerationRequest.max_output_tokens` as the requested output limit sent to CPA. The pinned owner test observes 128 in the completed response. Only that owner can qualify its translation. [CPA qualification record](https://github.com/prls-co/CLIProxyAPI-setup/blob/572119cae42d4b345549baa6b3cf0a6ec83f5235/docs/patched-cpa-image.md#L73-L76)
 
