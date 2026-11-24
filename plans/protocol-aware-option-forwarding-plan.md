@@ -1,6 +1,6 @@
 # 1. Harden LLM ordinary API option forwarding
 
-- Document ID: PLAN-HLLM-186. Version: 3.1. Date: 2026-11-23. Status: Pending implementation.
+- Document ID: PLAN-HLLM-186. Version: 3.1. Date: 2026-11-23. Status: Implementation in progress.
 - Owners: gateway maintainers for ingress and public responses, provider/runtime maintainers for translation and recovery, stateful maintainers for batch identity. CPA owns its Codex translator.
 - Configuration: implementation base `dev@29cdd3d`; historical reproduction at `9554f5f`; plan branch [research/issue-186-gateway-rca](https://github.com/prls-co/harden-llm/blob/research/issue-186-gateway-rca/plans/protocol-aware-option-forwarding-plan.md).
 
@@ -548,7 +548,11 @@ Use the trusted Linux checkout or hosted `ubuntu-latest` with Go 1.26.11, Node 2
 
 ## 11. Execution log template
 
-All phases are Pending. Copy this blank entry for each phase. Record observed values only. For a single deterministic observation, record its count and mark dispersion and interval inapplicable.
+P00 is Done. P01–P05 are Pending.
+
+- P00.S01–S02 / REQ-608 / TEST-475 / EVAL-600. On the production code from `29cdd3d`, two independent `make test-api` runs passed (httpapi 12.303 s and 12.444 s). The existing batch writer produced the pinned bytes both times, with zero additional submissions on rejection. The snapshot includes the worker stream, default timeout, normalized temperature and caller token limit. The test and this entry form the P00 checkpoint. No deviation or ADR change.
+
+Copy this blank entry for each remaining phase. Record observed values only. For a single deterministic observation, record its count and mark dispersion and interval inapplicable.
 
 | Field | Entry |
 | --- | --- |

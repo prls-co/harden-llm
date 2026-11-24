@@ -40,11 +40,11 @@ func TestJobAPIValidatesBeforeAdmissionAndUsesBearerScope(t *testing.T) {
 	t.Parallel()
 	f := &jobFixture{status: batch.Status{JobID: "job", Status: "queued", StatusURL: "/v1/jobs/job", ResultURL: "/v1/jobs/job/result", Counts: batch.Counts{Total: 1, Queued: 1}}}
 	api := &API{jobs: f}
-	good := `{"items":[{"custom_id":"one","request":{"model":"gpt-6-luna","input":"Return ok","reasoning":{"effort":"low"}}}]}`
+	good := `{"items":[{"custom_id":"one","request":{"model":"gpt-6-luna","input":"Return ok","store":false,"stream":false,"temperature":1.0,"max_output_tokens":128,"reasoning":{"effort":"low"}}}]}`
 	for _, tc := range []struct {
 		body, key string
 		want      int
-	}{{good, "key", 202}, {good, "", 400}, {strings.Replace(good, "gpt-6-luna", "other", 1), "key", 400}, {strings.Replace(good, `"input":"Return ok"`, `"input":"Return ok","harden":{"recovery":{"maxAttempts":2,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`, 1), "key", 400}} {
+	}{{good, "key", 202}, {good, "", 400}, {strings.Replace(good, `"model":`, `"fixture_option":false,"model":`, 1), "key", 400}, {strings.Replace(good, "gpt-6-luna", "other", 1), "key", 400}, {strings.Replace(good, `"input":"Return ok"`, `"input":"Return ok","harden":{"recovery":{"maxAttempts":2,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`, 1), "key", 400}} {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "/v1/jobs", strings.NewReader(tc.body))
 		r.Header.Set("Content-Type", "application/json")
@@ -64,6 +64,15 @@ func TestJobAPIValidatesBeforeAdmissionAndUsesBearerScope(t *testing.T) {
 	}
 	if f.items[0].Generation.ProviderOptions["stream"] != true {
 		t.Fatal("native streaming not requested")
+	}
+	// Store.Submit hashes these exact bytes for an idempotent replay.
+	got, err := json.Marshal(f.items)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `[{"custom_id":"one","generation":{"upstream":"cpa","model":"gpt-6-luna","messages":[{"role":"user","content":"Return ok"}],"callType":"text","toolChoice":{},"reasoning_effort":"low","providerOptions":{"max_output_tokens":128,"stream":true,"temperature":1},"parallel_tool_calls":true,"timeout_ms":300000,"timeout_defaulted":true}}]`
+	if string(got) != want {
+		t.Fatalf("batch snapshot bytes changed: %s", got)
 	}
 }
 func TestJobResultWaitsThenDeliversTerminalResults(t *testing.T) {
