@@ -194,6 +194,8 @@ result, err := client.Call(ctx, hardenllm.Request{
 })
 ```
 
+Install the tagged Go module with `go get github.com/prls-co/harden-llm@v0.1.0`.
+
 Import `github.com/prls-co/harden-llm` as `hardenllm` and
 `github.com/prls-co/harden-llm/stateful`. Libraries do not read `.env`.
 `stateful.NewClient` creates the provider effects; `stateful.NewService` adds

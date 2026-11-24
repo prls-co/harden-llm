@@ -1,6 +1,6 @@
 # Release Certification
 
-Latest production qualification: [Search citation evidence and partial-result warnings, November 15 UTC](#2026-11-15-search-citation-evidence-and-partial-result-warnings).
+The latest production qualification covers [ordinary options and complete response caching](#2026-11-24-ordinary-options-and-complete-response-caching).
 
 Repository completion: [CPA history, consumer fixtures and checkout closeout, November 4](../plans/implementation/cpa-repository-closeout-2026-11-04.md).
 
@@ -3558,3 +3558,15 @@ After the audit passed, full Go integration found nine test fixtures calling the
 | Verification scope | The production smoke used HTTP and issued zero paid inference calls. Browser layout was not checked. The prior preset matrix passed 58 calls across 29 configured presets and observed search on 56. Twenty direct-provider cases lacked credentials. |
 
 The public Go module is `v0.0.0-20261121005541-c86895c24b82`. Its archive and `go.mod` hashes matched the public checksum database in a fresh cache. [Production receipt](../plans/evidence/harden-llm/issue-184/2026-11-20-production/deployment.json) · [Module checksum record](https://sum.golang.org/lookup/github.com/prls-co/harden-llm@v0.0.0-20261121005541-c86895c24b82)
+
+## 2026-11-24 ordinary options and complete response caching
+
+The first tagged Go module release, `v0.1.0`, and the production gateway, batch worker and web application use `6fe81e8dbc6e0b842271610eb6429be34390acec`. The gateway forwards an explicit `store: false` to a matching Responses upstream, rejects an undeclared search selection before dispatch, and replays complete successful function-call responses on both ordinary endpoints. [API contract](api-and-library.md) · [Native response preservation follow-up]( https://github.com/prls-co/harden-llm/issues/188 )
+
+| Boundary | Verified result |
+| --- | --- |
+| Hosted release | All 30 browser-free tasks passed on the deployed source. The downloaded artifact matched GitHub's SHA-256 digest. The release and both integration reports recorded zero cleanup errors and warnings. [Exact-source run]( https://github.com/prls-co/harden-llm/actions/runs/45429285601/attempts/1 ) |
+| Security patch | The preceding release attempt stopped at `mix hex.audit` on Phoenix 1.8.9. Both manifests and lock files now select Phoenix 1.8.17 and its required PubSub 2.4.1. The running web image contains these versions. [Earlier attempt]( https://github.com/prls-co/harden-llm/actions/runs/45427256835/attempts/1 ) · [Phoenix release]( https://github.com/phoenixframework/phoenix/releases/tag/v1.8.17 ) |
+| Deployment | The worker registered fresh workflow, control and provider pollers before gateway and web promotion. TEST-435, Portal login and the configuration comparisons passed. The existing PostgreSQL, Garage, Temporal and five support containers retained their identities. [Production receipt](../plans/evidence/harden-llm/issue-186/production-release/receipt.json) |
+| Go publication | The public proxy resolves `@latest` to `v0.1.0` at the deployed source. The module ZIP and `go.mod` matched the checksum database. A fresh consumer compiled, validated an ordinary request, and installed the gateway executable. Its Go build information identifies the tag. The plain `go install` binary prints `dev` for the CLI version command. The production build embeds the release SHA. [Release]( https://github.com/prls-co/harden-llm/releases/tag/v0.1.0 ) · [Checksum record]( https://sum.golang.org/lookup/github.com/prls-co/harden-llm@v0.1.0 ) |
+| Model Recall | Its installed product image uses a configured Harden HTTP endpoint. In the preparation workflow its request reached a recording upstream with boolean `store: false` and its client accepted the returned schema. The installed product also completed one authorized production request through CPA. It returned HTTP 200 with 473 input and 190 output tokens, estimated at USD 0.0003226. Browser layout was not checked. |

@@ -1,0 +1,244 @@
+{
+  "issue": 186,
+  "followUp": 188,
+  "branch": "main",
+  "source": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+  "version": "v0.1.0",
+  "previousProductionSource": "c86895c24b82a35ebac2e91399c2f2c7f2404fc3",
+  "verifiedAt": "2026-11-24T16:18:12.550227+00:00",
+  "environment": "https://harden-llm.prls.co/",
+  "certification": {
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/45429285601/attempts/1",
+    "attempt": 1,
+    "job": 138569870939,
+    "artifact": {
+      "id": 14940387259,
+      "name": "harden-llm-runner-reports-45429285601-1-release",
+      "digest": "sha256:30cf43a0c62e9707492be598c67eec546a36018a095393c8e0b3049754049e16",
+      "size_in_bytes": 19481
+    },
+    "downloadedArtifactDigestMatched": true,
+    "reports": [
+      {
+        "selector": "go-integration",
+        "tasks": 1,
+        "sha256": "bb3d99a250a53f5dba6b8140565a401c4694a0ed1805e1b4e7065e37b6877f87",
+        "cleanupErrors": 0,
+        "cleanupWarnings": 0
+      },
+      {
+        "selector": "go-integration-race",
+        "tasks": 1,
+        "sha256": "9e24942fc064fb2cf3e6d15d2f5dfc40cee69581ea7b0a240dd87539fd457813",
+        "cleanupErrors": 0,
+        "cleanupWarnings": 0
+      },
+      {
+        "selector": "release",
+        "tasks": 30,
+        "sha256": "f93d1d3097b36e59333e3c44a7b7881399025c1439ff246f756061bca202bd34",
+        "cleanupErrors": 0,
+        "cleanupWarnings": 0
+      }
+    ]
+  },
+  "otherMainChecks": [
+    {
+      "id": 45429288387,
+      "name": "Push on main",
+      "html_url": "https://github.com/prls-co/harden-llm/actions/runs/45429288387",
+      "conclusion": "success",
+      "head_sha": "6fe81e8dbc6e0b842271610eb6429be34390acec"
+    },
+    {
+      "id": 45429285568,
+      "name": "Harden-LLM test hierarchy",
+      "html_url": "https://github.com/prls-co/harden-llm/actions/runs/45429285568",
+      "conclusion": "success",
+      "head_sha": "6fe81e8dbc6e0b842271610eb6429be34390acec"
+    }
+  ],
+  "githubRelease": "https://github.com/prls-co/harden-llm/releases/tag/v0.1.0",
+  "module": {
+    "source": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+    "version": "v0.1.0",
+    "module": "github.com/prls-co/harden-llm",
+    "goProxyLatest": "v0.1.0",
+    "registryOrigin": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+    "sum": "h1:KiAMYSUu7H++pScF8217vLkH7sd4S4zLdTefNg7uIgE=",
+    "goModSum": "h1:KRN9tw2adFQ+BrhOTF8gISe9gS1bsfIUyuO6UnvhUBQ=",
+    "sumdbRecord": 72130461,
+    "zipSHA256": "e9b15d03eb65f8e0112f89a35c21620f3d4bed4a8a9b974d9978d480881c8c6b",
+    "zipBytes": 4721824,
+    "installedConsumerContract": "accepted Responses with store false and cached function declaration",
+    "freshInstall": "github.com/prls-co/harden-llm/cmd/harden-llm-gateway",
+    "installedBuildInfo": {
+      "Path": "github.com/prls-co/harden-llm",
+      "Version": "v0.1.0",
+      "Sum": "h1:KiAMYSUu7H++pScF8217vLkH7sd4S4zLdTefNg7uIgE="
+    },
+    "versionCommand": "dev",
+    "checksumsVerified": true
+  },
+  "components": {
+    "harden-llm-gateway": {
+      "imageReference": "harden-llm-gateway:release-6fe81e8dbc6e0b842271610eb6429be34390acec",
+      "image": "sha256:932b3e9aa750d2aa6ef3bdb602ea411f1441031adf55215d7e8c8e1a114732c1",
+      "release": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+      "state": "running",
+      "dockerHealth": "healthy",
+      "restartCount": 0
+    },
+    "harden-llm-batch-worker": {
+      "imageReference": "harden-llm-gateway:release-6fe81e8dbc6e0b842271610eb6429be34390acec",
+      "image": "sha256:932b3e9aa750d2aa6ef3bdb602ea411f1441031adf55215d7e8c8e1a114732c1",
+      "release": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+      "state": "running",
+      "dockerHealth": null,
+      "restartCount": 0
+    },
+    "harden-llm-web": {
+      "imageReference": "harden-llm-web:release-6fe81e8dbc6e0b842271610eb6429be34390acec",
+      "image": "sha256:a7d1c99d51bb869e05d6ca70cddd1ad63378b43aeda27f27a1ae8a6fa446d753",
+      "release": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+      "state": "running",
+      "dockerHealth": "healthy",
+      "restartCount": 0
+    }
+  },
+  "worker": {
+    "freshTypedQueuePollers": [
+      "workflow",
+      "control",
+      "provider"
+    ],
+    "generation": 2,
+    "status": "v2_ready",
+    "outstanding": 0
+  },
+  "http": {
+    "TEST-435": "passed",
+    "catalogMatches": true,
+    "presets": 39,
+    "portalLoginHTTP": 200
+  },
+  "preservation": {
+    "managedSupportContainersIdentical": 5,
+    "sharedPostgresGarageTemporalIdentical": true,
+    "previousImagesAvailable": true,
+    "descriptorChangedFields": [
+      "serviceImageOverrides.harden-llm-gateway",
+      "services.harden-llm-gateway.expectedImage",
+      "services.harden-llm-gateway.identityEnvironment.HARDEN_LLM_RELEASE",
+      "serviceEnvironmentOverrides.harden-llm-gateway.HARDEN_LLM_RELEASE",
+      "serviceImageOverrides.harden-llm-batch-worker",
+      "services.harden-llm-batch-worker.expectedImage",
+      "services.harden-llm-batch-worker.identityEnvironment.HARDEN_LLM_RELEASE",
+      "serviceEnvironmentOverrides.harden-llm-batch-worker.HARDEN_LLM_RELEASE",
+      "serviceImageOverrides.harden-llm-web",
+      "services.harden-llm-web.expectedImage",
+      "services.harden-llm-web.identityEnvironment.HARDEN_LLM_RELEASE",
+      "serviceEnvironmentOverrides.harden-llm-web.HARDEN_LLM_RELEASE",
+      "services.harden-llm-web.identityEnvironment.HARDEN_LLM_WEB_RELEASE",
+      "serviceEnvironmentOverrides.harden-llm-web.HARDEN_LLM_WEB_RELEASE"
+    ]
+  },
+  "consumer": {
+    "product": "Model Recall",
+    "revision": "0f0c25a6798fea392f63e0ae0d40292309f381c5",
+    "image": "sha256:9d72d6e687841fc53f34323f30e886769f8a42d89f30743fb744b4ff6ad8f543",
+    "dependency": "Configured Harden HTTP endpoint. The product has no Harden package pin.",
+    "installedImageWorkflow": {
+      "workflow": "Model Recall preparation discovery",
+      "fixture": true,
+      "model": "gpt-5.6-luna",
+      "posts": 1,
+      "status": 200,
+      "schema": "2.0",
+      "suggestions": 0,
+      "entityProposals": 0,
+      "outputLimit": 512,
+      "store": false,
+      "search": false,
+      "retries": 0
+    },
+    "fixtureUpstreamStore": false,
+    "fixtureUpstreamRequests": 1,
+    "hostedAdmission": {
+      "workflow": "authenticated contradictory selection",
+      "origin": "http://harden-llm-gateway:8080",
+      "status": 400,
+      "param": "tool_choice",
+      "route": "intentionally unconfigured",
+      "providerCalls": 0
+    },
+    "productionProviderAcceptance": {
+      "workflow": "Model Recall preparation discovery",
+      "fixture": false,
+      "model": "gpt-5.6-luna",
+      "posts": 1,
+      "status": 200,
+      "schema": "2.0",
+      "suggestions": 1,
+      "entityProposals": 0,
+      "outputLimit": 512,
+      "store": false,
+      "search": false,
+      "retries": 0,
+      "producer": "cpa",
+      "usage": {
+        "input_tokens": 473,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 190,
+        "output_tokens_details": {
+          "reasoning_tokens": 123
+        },
+        "total_tokens": 663
+      },
+      "estimatedStandardUSD": 0.0003226,
+      "conservativeBudgetEstimateUSD": 0.0023574,
+      "authorizedUSD": 1
+    }
+  },
+  "browserRun": false,
+  "deploymentSmokeProviderCalls": 0,
+  "localFast": {
+    "source": "6fe81e8dbc6e0b842271610eb6429be34390acec",
+    "tasks": 10,
+    "cleanCheckout": true,
+    "earlierPrimaryCheckoutFailure": "Traceability scanned an ignored issue-154/158 research fixture in the working directory. That file is absent from the Git tree. It was preserved; the same checks ran from a clean checkout.",
+    "cleanupErrors": 0,
+    "cleanupWarnings": 0
+  },
+  "priorRelease": {
+    "source": "af659f3cf4fb0fc9456e791ca60f8c56bd2fdee2",
+    "url": "https://github.com/prls-co/harden-llm/actions/runs/45427256835/attempts/1",
+    "failedTask": "frontend-hex-audit",
+    "cause": "Phoenix 1.8.9 had two high-severity Hex advisories. The upstream fix for both is 1.8.17.",
+    "advisories": [
+      "EEF-CVE-2026-128361",
+      "EEF-CVE-2026-129344"
+    ],
+    "productionModified": false
+  },
+  "otherConsumerPinsReviewed": {
+    "NER-Go": "The ordinary HTTP client sends structured messages with cache off, without function tools or an explicit store member. Its existing encoder does not require a new pin for these gateway fixes.",
+    "Query Analytics and Clustering-Go": "The production structured-call clients use the reference Run API. Their existing pins continue to address the configured gateway."
+  },
+  "verifiedInstalledWebPackages": {
+    "phoenix": "1.8.17",
+    "phoenix_pubsub": "2.4.1",
+    "phoenix_live_view": "1.2.14",
+    "plug": "1.20.4"
+  },
+  "cleanup": {
+    "releaseReportsClean": true,
+    "temporaryVerificationAndBuildWorktreesRemoved": true,
+    "mergedIssueResearchAndImplementationBranchesRemoved": true,
+    "featurePreviewDeployments": 0,
+    "consumerFixtureContainerRemoved": true,
+    "ordinaryConsumerWorkflowCacheMode": "off"
+  }
+}

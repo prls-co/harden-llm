@@ -26,7 +26,9 @@ decision.
 
 ## 2. Artifact and production identity
 
-The production gateway, worker and frontend run `c86895c24b82a35ebac2e91399c2f2c7f2404fc3`. The
+The production gateway, worker and frontend run `6fe81e8dbc6e0b842271610eb6429be34390acec`. The [issue #186 production receipt](evidence/harden-llm/issue-186/production-release/receipt.json) records the immutable images and exact-source qualification.
+
+The preceding application release used `c86895c24b82a35ebac2e91399c2f2c7f2404fc3`. The
 [issue #184 production receipt](evidence/harden-llm/issue-184/2026-11-20-production/deployment.json)
 and [release certification](../docs/release-certification.md#2026-11-21-preset-search-diagnostics-and-frontend-security-patches)
 record both images, the worker-first rollout and the authenticated HTTP checks.
