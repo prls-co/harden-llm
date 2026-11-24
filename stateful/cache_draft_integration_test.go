@@ -87,6 +87,26 @@ func TestCacheDraftContract(t *testing.T) {
 			t.Fatal("foreign credential namespace received cache")
 		}
 	})
+	t.Run("cache payload preserves exact JSON through PostgreSQL", func(t *testing.T) {
+		p, _ := referencePool(t, true)
+		cache := newPostgresCache(p, keyHashA, "wire", time.Hour, clock)
+		key := strings.Repeat("d", 64)
+		record := cacheFixtureRecord(key, now)
+		for _, payload := range []string{
+			`{"output":{"value":1.25e3,"id":9007199254740993},"items":[false,null]}`,
+			`{"output":"before\u0000after"}`,
+		} {
+			record.ProviderResult = json.RawMessage(payload)
+			if err := cache.Set(context.Background(), key, record); err != nil {
+				t.Errorf("store payload %q: %v", payload, err)
+				continue
+			}
+			got, found, err := cache.Get(context.Background(), key)
+			if err != nil || !found || string(got.ProviderResult) != payload {
+				t.Errorf("replayed %s, want exact %s (hit=%t err=%v)", got.ProviderResult, payload, found, err)
+			}
+		}
+	})
 	t.Run("two ordinary clients with same key share cached response", func(t *testing.T) {
 		p, _ := referencePool(t, true)
 		s, _ := serviceFixture(t, p, nil)

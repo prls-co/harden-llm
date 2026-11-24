@@ -31,8 +31,9 @@ func (c *PostgresCache) Get(ctx context.Context, key string) (hardenllm.CacheRec
 	}
 	bounded, cancel := context.WithTimeout(ctx, storageStatementTimeout)
 	defer cancel()
-	var data []byte
-	err := c.pool.QueryRow(bounded, "SELECT record FROM cache_entries WHERE api_key_hash=$1 AND namespace=$2 AND operation_hash=$3 AND expires_at>$4", c.hash, c.namespace, key, c.now().UTC()).Scan(&data)
+	var data, payload []byte
+	err := c.pool.QueryRow(bounded, `SELECT record - 'providerResult', record->>'providerResult'
+		FROM cache_entries WHERE api_key_hash=$1 AND namespace=$2 AND operation_hash=$3 AND expires_at>$4`, c.hash, c.namespace, key, c.now().UTC()).Scan(&data, &payload)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return hardenllm.CacheRecord{}, false, nil
 	}
@@ -43,10 +44,19 @@ func (c *PostgresCache) Get(ctx context.Context, key string) (hardenllm.CacheRec
 	if err = decodeStrict(data, &record); err != nil {
 		return hardenllm.CacheRecord{}, false, &OperationError{Code: "cache_record_invalid", Message: "Stored cache envelope cannot be decoded."}
 	}
+	record.ProviderResult = payload
 	return record, true, nil
 }
 func (c *PostgresCache) Set(ctx context.Context, key string, record hardenllm.CacheRecord) error {
-	data, err := json.Marshal(record)
+	// Keep the serialized result opaque to jsonb, which would otherwise rewrite
+	// JSON numbers and reject valid JSON strings containing an escaped NUL.
+	if !json.Valid(record.ProviderResult) {
+		return &OperationError{Code: "cache_record_invalid", Message: "Cache result is not valid JSON."}
+	}
+	data, err := json.Marshal(struct {
+		hardenllm.CacheRecord
+		Payload string `json:"providerResult"`
+	}{record, string(record.ProviderResult)})
 	if err != nil {
 		return &OperationError{Code: "cache_record_invalid", Message: "Cache envelope is not JSON safe."}
 	}
