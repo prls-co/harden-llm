@@ -18,9 +18,21 @@ type Cache interface {
 }
 
 type CachedResult struct {
-	ProjectionCallID string          `json:"projectionCallId,omitempty"`
-	ProviderResult   ProviderResult  `json:"providerResult"`
+	ProjectionCallID  string `json:"projectionCallId,omitempty"`
+	ResponseCreatedAt int64  `json:"responseCreatedAt"`
+	ProviderResult
 	Producer         ExecutionTarget `json:"producer"`
 	GenerationTarget ExecutionTarget `json:"generationTarget,omitempty"`
 	CompletedBy      string          `json:"completedBy,omitempty"`
+}
+
+// serveCached restores the producing response while keeping this execution's identity and accounting.
+func (record *CallRecord) serveCached(cached CachedResult) {
+	record.Output, record.Search = cached.Output, cached.Search
+	record.AssistantText = cached.AssistantText
+	record.ProjectionCallID = cached.ProjectionCallID
+	record.ResponseCreatedAt = cached.ResponseCreatedAt
+	record.Accounting.Result = cached.Accounting
+	record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &cached.Producer}
+	record.Cache.Status, record.Cache.Served = "hit", true
 }

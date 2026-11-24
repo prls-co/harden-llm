@@ -25,7 +25,7 @@ The custom /api/v1/run contract accepts string prompts. Ordinary OpenAI clients 
 
 The gateway consumes fields it executes or renders and forwards remaining JSON to a matching wire protocol. The existing provider builder performs each known cross-protocol translation. An unrepresentable field yields a named local error for that attempt. Ordinary caller options survive model changes, and a recovery target's native tuning applies to that attempt. Inference cache identity continues to describe the prepared operation. Batch idempotency continues to describe the serialized job items.
 
-Explicit false storage is forwarded and omission delegates to the upstream. Function declarations require cache off. Explicit search selection requires a search declaration. Supported output formats preserve sibling tuning; unsupported output requests name the rejected field. REQ-600–610 and TEST-600 cover this amendment. [Implementation plan](../../plans/protocol-aware-option-forwarding-plan.md)
+Explicit false storage is forwarded and omission delegates to the upstream. Ordinary function declarations support all three cache modes. The operation cache persists the complete accepted result and the producing response identity. Replay preserves function-call types and arguments, timestamps and response IDs. Harden diagnostics describe each execution. Explicit search selection requires a search declaration. Supported output formats preserve sibling tuning; unsupported output requests name the rejected field. REQ-600–610 and TEST-600 cover this amendment. [Implementation plan](../../plans/protocol-aware-option-forwarding-plan.md)
 
 ## Consequences and verification
 

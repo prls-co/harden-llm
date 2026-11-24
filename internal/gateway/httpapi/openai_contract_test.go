@@ -293,74 +293,97 @@ func (c *countedContractCache) Set(ctx context.Context, key string, record harde
 	return c.projectionCache.Set(ctx, key, record)
 }
 
-func TestOpenAIContractFunctionCacheAdmission(t *testing.T) {
+func TestOpenAIContractFunctionCacheReplay(t *testing.T) {
 	var calls atomic.Int32
 	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"status":"completed","output":[{"type":"function_call","id":"fc_fixture","call_id":"call_fixture","name":"lookup","arguments":"{}"}]}`)
+		if r.URL.Path == "/v1/chat/completions" {
+			io.WriteString(w, `{"choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":null,"tool_calls":[{"id":"call_fixture","type":"function","function":{"name":"lookup","arguments":"{}"}}]}}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}`)
+			return
+		}
+		io.WriteString(w, `{"status":"completed","usage":{"input_tokens":4,"output_tokens":2,"total_tokens":6},"output":[{"type":"function_call","id":"fc_fixture","call_id":"call_fixture","name":"lookup","arguments":"{}"}]}`)
 	}))
 	defer upstream.Close()
-	cache := &countedContractCache{projectionCache: projectionCache{records: map[string]hardenllm.CacheRecord{}}}
-	opts := contractClientOptions(upstream)
-	opts.Cache = cache
-	client, err := stateful.NewClient(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	api := newContractAPI(t, upstream)
-	api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
-	_, err = client.Call(context.Background(), hardenllm.Request{CallType: hardenllm.CallTypeText, RecoveryPolicy: hardenllm.DefaultRecoveryPolicy(), ModelID: "fixture", Messages: []hardenllm.Message{{Role: "user", Content: json.RawMessage(`"hello"`)}}, Tools: []hardenllm.FunctionTool{{Name: "lookup", Parameters: json.RawMessage(`{"type":"object"}`)}}, CacheMode: hardenllm.CacheModeRefresh})
-	if err != nil || cache.writes != 1 {
-		t.Fatalf("seed function entry: writes=%d err=%v", cache.writes, err)
-	}
-	for _, tc := range []struct{ path, fields string }{
-		{"/v1/responses", `"input":"hello","tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}]`},
-		{"/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}],"tools":[{"type":"function","function":{"name":"lookup","parameters":{"type":"object"}}}]`},
+	const chatFields = `"messages":[{"role":"user","content":"hello"}],"tools":[{"type":"function","function":{"name":"lookup","parameters":{"type":"object"}}}]`
+	for _, tc := range []struct{ path, protocol, fields string }{
+		{"/v1/responses", "responses", `"input":"hello","tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}]`},
+		{"/v1/chat/completions", "responses", chatFields},
+		{"/v1/chat/completions", "chat-completions", chatFields},
 	} {
-		for _, mode := range []string{"", "off", "cache", "refresh"} {
-			options := ""
-			if mode != "" {
-				options = fmt.Sprintf(`,"harden":{"cache":%q}`, mode)
+		t.Run(tc.path+"/"+tc.protocol, func(t *testing.T) {
+			cache := &countedContractCache{projectionCache: projectionCache{records: map[string]hardenllm.CacheRecord{}}}
+			opts := contractClientOptions(upstream)
+			opts.Connections[0].Protocol = tc.protocol
+			opts.Cache = cache
+			client, err := stateful.NewClient(opts)
+			if err != nil {
+				t.Fatal(err)
 			}
-			variants := []string{""}
-			reject := mode == "cache" || mode == "refresh"
-			if reject {
-				variants = append(variants, `,"tool_choice":"none","stream":true`)
+			api := newContractAPI(t, upstream)
+			api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
+			send := func(mode string, stream bool) *httptest.ResponseRecorder {
+				t.Helper()
+				body := fmt.Sprintf(`{"model":"fixture",%s,"harden":{"cache":%q},"stream":%t}`, tc.fields, mode, stream)
+				w := postOrdinary(api, tc.path, body)
+				if w.Code != 200 {
+					t.Fatalf("%s stream=%t: HTTP %d %s", mode, stream, w.Code, w.Body)
+				}
+				return w
 			}
-			for _, extra := range variants {
-				before, reads, writes := calls.Load(), cache.reads, cache.writes
-				w := postOrdinary(api, tc.path, `{"model":"fixture",`+tc.fields+options+extra+"}")
-				if reject {
-					if w.Code != 400 || !strings.Contains(w.Body.String(), `"param":"harden.cache"`) || !strings.HasPrefix(w.Header().Get("Content-Type"), "application/json") || calls.Load() != before || reads != cache.reads || writes != cache.writes {
-						t.Errorf("%s %s %s: HTTP %d, model/read/write %d/%d/%d", tc.path, mode, extra, w.Code, calls.Load()-before, cache.reads-reads, cache.writes-writes)
-					}
-					continue
+			start := calls.Load()
+			off := send("off", false)
+			if cache.reads != 0 || cache.writes != 0 || calls.Load() != start+1 {
+				t.Fatal("off accessed cache or changed dispatch count")
+			}
+			fresh := send("cache", false)
+			hit := send("cache", false)
+			if hit.Header().Get("Cache-Status") != "harden-llm; hit" || calls.Load() != start+2 || cache.reads != 2 || cache.writes != 1 || hit.Body.String() != fresh.Body.String() {
+				t.Fatalf("cache did not replay complete response: fresh=%s hit=%s", fresh.Body, hit.Body)
+			}
+			if tc.path == "/v1/responses" {
+				var res responses.Response
+				if json.Unmarshal(hit.Body.Bytes(), &res) != nil || len(res.Output) != 1 || res.Usage.TotalTokens != 6 {
+					t.Fatal(hit.Body)
 				}
-				if w.Code != 200 || calls.Load() != before+1 || reads != cache.reads || writes != cache.writes {
-					t.Fatalf("uncached %s %s: %d %s", tc.path, mode, w.Code, w.Body.String())
+				call := res.Output[0].AsFunctionCall()
+				if call.ID != "fc_fixture" || call.CallID != "call_fixture" || call.Name != "lookup" || call.Arguments != "{}" {
+					t.Fatal(call)
 				}
-				if tc.path == "/v1/responses" {
-					var res responses.Response
-					if json.Unmarshal(w.Body.Bytes(), &res) != nil || len(res.Output) != 1 {
-						t.Fatal(w.Body.String())
-					}
-					call := res.Output[0].AsFunctionCall()
-					if call.ID != "fc_fixture" || call.CallID != "call_fixture" || call.Name != "lookup" || call.Arguments != "{}" {
-						t.Fatal(call)
-					}
-				} else {
-					var res openai.ChatCompletion
-					if json.Unmarshal(w.Body.Bytes(), &res) != nil || len(res.Choices) != 1 || res.Choices[0].FinishReason != "tool_calls" || len(res.Choices[0].Message.ToolCalls) != 1 {
-						t.Fatal(w.Body.String())
-					}
-					call := res.Choices[0].Message.ToolCalls[0]
-					if call.ID != "call_fixture" || call.Function.Name != "lookup" || call.Function.Arguments != "{}" {
-						t.Fatal(call)
-					}
+			} else {
+				var res openai.ChatCompletion
+				if json.Unmarshal(hit.Body.Bytes(), &res) != nil || res.Usage.TotalTokens != 6 || len(res.Choices) != 1 || res.Choices[0].FinishReason != "tool_calls" || len(res.Choices[0].Message.ToolCalls) != 1 {
+					t.Fatal(hit.Body)
+				}
+				call := res.Choices[0].Message.ToolCalls[0]
+				if call.ID != "call_fixture" || call.Function.Name != "lookup" || call.Function.Arguments != "{}" {
+					t.Fatal(call)
 				}
 			}
-		}
+			if off.Body.String() == fresh.Body.String() {
+				t.Fatal("independent generations shared a response identity")
+			}
+			refreshed := send("refresh", true)
+			streamHit := send("cache", true)
+			if refreshed.Body.String() == "" || !strings.Contains(refreshed.Body.String(), "call_fixture") || refreshed.Body.String() != streamHit.Body.String() || streamHit.Header().Get("Cache-Status") != "harden-llm; hit" || calls.Load() != start+3 || cache.writes != 2 || cache.reads != 3 {
+				t.Fatal("refresh and cached stream differ or performed unexpected work")
+			}
+			// Replaying the same generation still produces fresh per-request diagnostics.
+			body := fmt.Sprintf(`{"model":"fixture",%s,"harden":{"cache":"cache","diagnostics":true}}`, tc.fields)
+			var report struct {
+				ID     string
+				Harden struct {
+					ExecutionID string `json:"execution_id"`
+					Cache       struct {
+						Served bool `json:"served"`
+					} `json:"cache"`
+				}
+			}
+			w := postOrdinary(api, tc.path, body)
+			if err := json.Unmarshal(w.Body.Bytes(), &report); err != nil || w.Code != 200 || !report.Harden.Cache.Served || report.Harden.ExecutionID == "" || strings.HasSuffix(report.ID, report.Harden.ExecutionID) || calls.Load() != start+3 {
+				t.Fatalf("replay diagnostics or execution identity: %s", w.Body)
+			}
+		})
 	}
 }
 

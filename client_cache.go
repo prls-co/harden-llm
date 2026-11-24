@@ -12,22 +12,17 @@ import (
 	coreruntime "github.com/prls-co/harden-llm/internal/runtime"
 )
 
-const cacheRecordSchemaVersion = 3
+const cacheRecordSchemaVersion = 4
 
 type cacheAdapter struct {
 	store CacheStore
 }
 
+// Keep the complete accepted result in one record. The typed alternative distinguishes
+// an assistant turn from structured JSON that happens to contain a tool_calls field.
 type cachedProviderProjection struct {
-	ProjectionCallID string                        `json:"projectionCallId,omitempty"`
-	AssistantText    string                        `json:"assistantText,omitempty"`
-	Search           *coreruntime.SearchResult     `json:"search,omitempty"`
-	Output           any                           `json:"output"`
-	Accounting       coreruntime.Ledger            `json:"accounting"`
-	Stream           coreruntime.StreamDiagnostics `json:"stream,omitempty"`
-	Producer         coreruntime.ExecutionTarget   `json:"producer"`
-	GenerationTarget coreruntime.ExecutionTarget   `json:"generationTarget,omitempty"`
-	CompletedBy      string                        `json:"completedBy,omitempty"`
+	coreruntime.CachedResult
+	Assistant *AssistantOutput `json:"assistant,omitempty"`
 }
 
 func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersion string) (coreruntime.CachedResult, bool, error) {
@@ -35,7 +30,15 @@ func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersio
 	if err != nil || !found {
 		return coreruntime.CachedResult{}, found, err
 	}
-	if record.SchemaVersion != cacheRecordSchemaVersion || record.OperationHash != operationHash || record.CacheVersion != cacheVersion {
+	if record.OperationHash != operationHash || record.CacheVersion != cacheVersion {
+		return coreruntime.CachedResult{}, false, coreruntime.NewCacheIntegrityError()
+	}
+	// Custom executors own their operation keys and may still address a v3 record.
+	// That format cannot distinguish a function call from ordinary JSON.
+	if record.SchemaVersion == 3 {
+		return coreruntime.CachedResult{}, false, nil
+	}
+	if record.SchemaVersion != cacheRecordSchemaVersion {
 		return coreruntime.CachedResult{}, false, coreruntime.NewCacheIntegrityError()
 	}
 	var projection cachedProviderProjection
@@ -47,39 +50,36 @@ func (adapter *cacheAdapter) Get(ctx context.Context, operationHash, cacheVersio
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return coreruntime.CachedResult{}, false, coreruntime.NewCacheIntegrityError()
 	}
+	if projection.Assistant != nil {
+		if projection.Output != nil {
+			return coreruntime.CachedResult{}, false, coreruntime.NewCacheIntegrityError()
+		}
+		projection.Output = *projection.Assistant
+	}
 	if projection.Output == nil {
 		return coreruntime.CachedResult{}, false, coreruntime.NewCacheIntegrityError()
 	}
-	return coreruntime.CachedResult{
-		ProjectionCallID: projection.ProjectionCallID,
-		ProviderResult: coreruntime.ProviderResult{
-			AssistantText: projection.AssistantText,
-			Search:        projection.Search,
-			Output:        projection.Output, Accounting: projection.Accounting,
-			Stream: projection.Stream,
-		},
-		Producer: projection.Producer, GenerationTarget: projection.GenerationTarget, CompletedBy: projection.CompletedBy,
-	}, true, nil
+	return projection.CachedResult, true, nil
 }
 
 func (adapter *cacheAdapter) Set(ctx context.Context, operationHash, cacheVersion string, result coreruntime.CachedResult) error {
-	if result.ProviderResult.Output == nil {
+	projection := cachedProviderProjection{CachedResult: result}
+	switch output := projection.Output.(type) {
+	case AssistantOutput:
+		projection.Assistant, projection.Output = &output, nil
+	case *AssistantOutput:
+		projection.Assistant, projection.Output = output, nil
+	}
+	if projection.Output == nil && projection.Assistant == nil {
 		return errors.New("hardenllm: cannot cache a provider result without output")
 	}
-	providerJSON, err := json.Marshal(cachedProviderProjection{
-		ProjectionCallID: result.ProjectionCallID,
-		AssistantText:    result.ProviderResult.AssistantText,
-		Search:           result.ProviderResult.Search,
-		Output:           result.ProviderResult.Output, Accounting: result.ProviderResult.Accounting, Producer: result.Producer,
-		Stream:           result.ProviderResult.Stream,
-		GenerationTarget: result.GenerationTarget, CompletedBy: result.CompletedBy,
-	})
+	providerJSON, err := json.Marshal(projection)
 	if err != nil {
 		return fmt.Errorf("hardenllm: encode cached provider result: %w", err)
 	}
 	record := CacheRecord{
 		SchemaVersion: cacheRecordSchemaVersion, CacheVersion: cacheVersion, OperationHash: operationHash,
-		ProviderResult: append(json.RawMessage(nil), providerJSON...),
+		ProviderResult: providerJSON,
 		CreatedAt:      time.Now().UTC(),
 	}
 	if err := adapter.store.Set(ctx, operationHash, record); err != nil {

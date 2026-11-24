@@ -38,7 +38,7 @@ var cpaCorrelationSuffix = regexp.MustCompile(`(?i)-([a-f0-9]{8})$`)
 const (
 	defaultMaxResponseBytes   = 16 << 20
 	defaultAnthropicVersion   = "2023-06-01"
-	responseProjectionVersion = "v5"
+	responseProjectionVersion = "v6"
 )
 
 var (

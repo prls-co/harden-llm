@@ -291,14 +291,8 @@ func TestResponsesSearchProjection(t *testing.T) {
 		if second.Header().Get("Cache-Status") != "harden-llm; hit" || dispatches.Load() != before+1 {
 			t.Fatalf("cache was not served: header=%q dispatches=%d", second.Header().Get("Cache-Status"), dispatches.Load()-before)
 		}
-		var a, b map[string]any
-		_ = json.Unmarshal(first.Body.Bytes(), &a)
-		_ = json.Unmarshal(second.Body.Bytes(), &b)
-		if a["id"] == b["id"] {
-			t.Fatal("cache replay must retain a distinct response identity")
-		}
-		if !reflect.DeepEqual(a["output"], b["output"]) {
-			t.Fatalf("cache changed output: first=%#v second=%#v", a["output"], b["output"])
+		if first.Body.String() != second.Body.String() {
+			t.Fatalf("cache changed the complete response: first=%s replay=%s", first.Body, second.Body)
 		}
 	})
 }
@@ -317,7 +311,7 @@ func TestResponsesSearchProjectionGeneratedIDsOnCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a["id"] == b["id"] || !reflect.DeepEqual(a["output"], b["output"]) {
+	if a["id"] != b["id"] || !reflect.DeepEqual(a["output"], b["output"]) {
 		t.Fatalf("generated IDs do not preserve the producing output: first=%#v replay=%#v", a, b)
 	}
 	items := b["output"].([]any)

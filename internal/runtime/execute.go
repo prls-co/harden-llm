@@ -121,6 +121,7 @@ func Execute(
 		Cache:    CacheFacts{Mode: cacheMode, Status: "skipped", Version: cacheVersion},
 	}
 	startedAt := config.Now()
+	record.ResponseCreatedAt = startedAt.Unix()
 	if deadline, ok := ctx.Deadline(); ok {
 		deadlineUTC := deadline.UTC()
 		record.Diagnostics.DeadlineAt = &deadlineUTC
@@ -190,13 +191,7 @@ func Execute(
 					return record, NewCacheIntegrityError()
 				}
 				endCache("hit", nil)
-				record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
-				record.AssistantText = cached.ProviderResult.AssistantText
-				record.ProjectionCallID = cached.ProjectionCallID
-				record.Accounting.Result = cached.ProviderResult.Accounting
-				producer := cached.Producer
-				record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
-				record.Cache.Status, record.Cache.Served = "hit", true
+				record.serveCached(cached)
 				record.Diagnostics.BranchCaches = append(record.Diagnostics.BranchCaches, BranchCache{Branch: "original", GenerationTarget: target, Cache: record.Cache})
 				return record, nil
 			}
@@ -323,7 +318,7 @@ func Execute(
 				if cacheResult.Search == nil {
 					cacheResult.Search = record.Search
 				}
-				cacheErr := cache.Set(cacheContext, record.Cache.OperationHash, cacheVersion, CachedResult{ProjectionCallID: record.CallID, ProviderResult: cacheResult, Producer: target, GenerationTarget: target, CompletedBy: "generation"})
+				cacheErr := cache.Set(cacheContext, record.Cache.OperationHash, cacheVersion, CachedResult{ProjectionCallID: record.CallID, ResponseCreatedAt: record.ResponseCreatedAt, ProviderResult: cacheResult, Producer: target, GenerationTarget: target, CompletedBy: "generation"})
 				if cacheErr != nil {
 					record.Cache.Status = "write_failed"
 					endCache(record.Cache.Status, cacheErr)

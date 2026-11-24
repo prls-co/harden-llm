@@ -753,6 +753,68 @@ func TestSearchProvenanceCacheProjection(t *testing.T) {
 	}
 }
 
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-011
+func TestCachePriorRecordIsColdForInjectedExecutor(t *testing.T) {
+	store := &memoryCache{records: make(map[string]CacheRecord)}
+	executor := &fixedExecutor{result: fixtureProviderResult()}
+	client, err := New(testOptionsWith(store))
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.executor = executor
+	request := Request{ModelID: "gpt-test", Messages: testMessages("old entry"), CallType: CallTypeText, CacheMode: CacheModeCache, RecoveryPolicy: DefaultRecoveryPolicy()}
+	seed, err := client.Call(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := store.records[seed.Cache.OperationHash]
+	old.SchemaVersion = 3
+	old.ProviderResult = json.RawMessage(`{"output":{"tool_calls":[]}}`)
+	store.records[seed.Cache.OperationHash] = old
+	fresh, err := client.Call(context.Background(), request)
+	if err != nil || fresh.Cache.Served || !fresh.Cache.Written || fresh.Output != executor.result.Output {
+		t.Fatalf("old record did not become a clean miss: %+v %v", fresh.Cache, err)
+	}
+	hit, err := client.Call(context.Background(), request)
+	if err != nil || !hit.Cache.Served || executor.executed != 2 {
+		t.Fatalf("replacement record did not replay: %+v %v calls=%d", hit.Cache, err, executor.executed)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-011
+func TestCacheCompleteProviderResult(t *testing.T) {
+	assistant := AssistantOutput{Content: "Looking up results", ToolCalls: []AssistantToolCall{
+		{ID: "call_1", ItemID: "fc_1", Type: "function", Function: FunctionCall{Name: "first", Arguments: `{"n":9007199254740993}`}},
+		{ID: "call_2", ItemID: "fc_2", Type: "function", Function: FunctionCall{Name: "second", Arguments: "{}"}},
+	}}
+	object := map[string]any{"tool_calls": []any{}, "content": "user-defined JSON", "n": json.Number("9007199254740993")}
+	for _, tc := range []struct {
+		name         string
+		output, want any
+	}{
+		{"assistant", assistant, assistant}, {"assistant pointer", &assistant, assistant},
+		{"assistant message without tools", AssistantOutput{Content: "done"}, AssistantOutput{Content: "done"}},
+		{"structured object resembling a tool call", object, object},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			adapter := cacheAdapter{store: &memoryCache{records: make(map[string]CacheRecord)}}
+			result := fixtureProviderResult()
+			result.AssistantText = "original"
+			result.Output = tc.output
+			result.Stream = coreruntime.StreamDiagnostics{TerminalState: "completed", EventCount: 9}
+			saved := coreruntime.CachedResult{ProjectionCallID: "producer", ResponseCreatedAt: 123456789, ProviderResult: result, CompletedBy: "generation"}
+			if err := adapter.Set(context.Background(), "hash", "v", saved); err != nil {
+				t.Fatal(err)
+			}
+			got, found, err := adapter.Get(context.Background(), "hash", "v")
+			saved.Output = tc.want
+			if err != nil || !found || !reflect.DeepEqual(got, saved) {
+				t.Fatalf("whole result replay: got %#v, want %#v, error %v", got, saved, err)
+			}
+		})
+	}
+}
+
 type optionCacheSearcher struct{ calls int }
 
 func (s *optionCacheSearcher) Search(context.Context, string) (string, error) {

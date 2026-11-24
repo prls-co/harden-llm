@@ -80,8 +80,8 @@ produced no further placement evidence, so placement remains unverified against
 OpenAI. Search lifecycle events reflect the final status, not the timing of
 upstream work. A
 `Cache-Status: harden-llm; hit` header means the search evidence and answer
-were replayed from cache; generated output item IDs retain the producing call's
-identity. Each response retains its own response and execution IDs.
+were replayed from cache. The response ID, creation time and output item IDs
+belong to the producing call. Each request has its own Harden execution ID.
 
 Search answers use the same manual cache controls as other answers. Callers
 accept saved answers when using `cache` and select `refresh` or `off` when they
@@ -135,7 +135,7 @@ when the caller needs one of these controls:
 ```
 
 `harden.cache` accepts `off`, `cache`, or `refresh`; the default is `off`.
-When declaring function tools on either ordinary endpoint, omit `harden.cache` or set it to `off`. An explicit `cache` or `refresh` returns HTTP 400 with `error.param` set to `harden.cache`, including for streaming requests and `tool_choice: "none"`.
+Both ordinary endpoints cache the complete successful Harden result, including function calls. For the same request, a hit reproduces the original response body or final-only stream, including the creation time, IDs, arguments, item order, usage and finish reason. The optional `harden` diagnostics describe the current execution. The client executes any requested function and submits its output separately.
 
 - `cache` reads a saved answer and writes successful misses.
 - `refresh` bypasses reads and replaces the saved answer after successful execution.

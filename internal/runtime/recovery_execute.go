@@ -94,6 +94,7 @@ func executeRecoveryPlan(
 		return record, errors.New("runtime cache is required when cache mode is active")
 	}
 	startedAt := config.Now()
+	record.ResponseCreatedAt = startedAt.Unix()
 	if deadline, ok := ctx.Deadline(); ok {
 		deadlineUTC := deadline.UTC()
 		record.Diagnostics.DeadlineAt = &deadlineUTC
@@ -155,13 +156,7 @@ func executeRecoveryPlan(
 				if err := admitPlannedCachedResult(ctx, work.connection, work.generationTarget, cached, baseCall); err != nil {
 					return record, NewCacheIntegrityError()
 				}
-				record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
-				record.AssistantText = cached.ProviderResult.AssistantText
-				record.ProjectionCallID = cached.ProjectionCallID
-				record.Accounting.Result = cached.ProviderResult.Accounting
-				producer := cached.Producer
-				record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
-				record.Cache.Status, record.Cache.Served = "hit", true
+				record.serveCached(cached)
 				record.Diagnostics.BranchCaches = append(record.Diagnostics.BranchCaches, BranchCache{Branch: "original", GenerationTarget: work.generationTarget, Cache: record.Cache})
 				record.Diagnostics.Stage = work.stage
 				record.Diagnostics.Branch = work.branch
@@ -320,7 +315,7 @@ func executeRecoveryPlan(
 					cacheContext, endCache = call.Observer.StartCache(ctx, "write")
 				}
 				cacheErr := cache.Set(cacheContext, work.generationHash, cacheVersion, CachedResult{
-					ProjectionCallID: record.CallID, ProviderResult: cacheResult, Producer: producer,
+					ProjectionCallID: record.CallID, ResponseCreatedAt: record.ResponseCreatedAt, ProviderResult: cacheResult, Producer: producer,
 					GenerationTarget: work.generationTarget, CompletedBy: map[bool]string{true: "repair", false: "generation"}[work.call.Repair != nil],
 				})
 				if cacheErr != nil {
@@ -378,13 +373,7 @@ func executeRecoveryPlan(
 							if cacheErr := admitPlannedCachedResult(ctx, next.connection, next.generationTarget, cached, baseCall); cacheErr != nil {
 								return record, NewCacheIntegrityError()
 							}
-							record.Output, record.Search = cached.ProviderResult.Output, cached.ProviderResult.Search
-							record.AssistantText = cached.ProviderResult.AssistantText
-							record.ProjectionCallID = cached.ProjectionCallID
-							record.Accounting.Result = cached.ProviderResult.Accounting
-							producer := cached.Producer
-							record.ResultSource = ResultSource{Kind: ResultSourceCache, Producer: &producer}
-							record.Cache.Status, record.Cache.Served = "hit", true
+							record.serveCached(cached)
 							record.Diagnostics.BranchCaches = append(record.Diagnostics.BranchCaches, BranchCache{Branch: "rerun", GenerationTarget: next.generationTarget, Cache: record.Cache})
 							record.Diagnostics.Stage = next.stage
 							record.Diagnostics.Branch = next.branch

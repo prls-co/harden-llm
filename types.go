@@ -154,8 +154,9 @@ type Origin struct {
 type SchemaContractError = contractschema.ContractError
 
 type Result struct {
-	// ProjectionCallID is the producer call identity used for cached output item IDs.
-	ProjectionCallID string `json:"-"`
+	// ProjectionCallID and ResponseCreatedAt identify the producing response across cache hits.
+	ProjectionCallID  string `json:"-"`
+	ResponseCreatedAt int64  `json:"-"`
 	// AssistantText is original model evidence for protocol projections.
 	AssistantText    string `json:"-"`
 	Search           *SearchResult

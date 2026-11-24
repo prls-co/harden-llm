@@ -337,7 +337,7 @@ func resultFromRecord(record coreruntime.CallRecord) Result {
 	}
 	return Result{
 		Search: record.Search, AssistantText: record.AssistantText,
-		Output: record.Output, CallID: record.CallID, TraceID: record.TraceID, ProjectionCallID: record.ProjectionCallID,
+		Output: record.Output, CallID: record.CallID, TraceID: record.TraceID, ProjectionCallID: record.ProjectionCallID, ResponseCreatedAt: record.ResponseCreatedAt,
 		Origin: Origin{Client: record.Origin.Client, Component: record.Origin.Component, OperationID: record.Origin.OperationID,
 			ParentRunID: record.Origin.ParentRunID, JobID: record.Origin.JobID, TestRunID: record.Origin.TestRunID,
 			TestID: record.Origin.TestID, SourceRevision: record.Origin.SourceRevision},

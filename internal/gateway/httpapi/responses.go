@@ -77,7 +77,7 @@ func chatResponse(model string, result hardenllm.Result, created int64, includeU
 		finish = "tool_calls"
 	}
 	response := chatCompletionResponse{
-		ID: "chatcmpl-" + result.CallID, Object: "chat.completion", Created: created, Model: model,
+		ID: "chatcmpl-" + projectionCallID(result), Object: "chat.completion", Created: created, Model: model,
 		Choices: []chatCompletionChoice{{Index: 0, Message: message, FinishReason: finish}},
 	}
 	if includeUsage {
@@ -99,10 +99,9 @@ func outputItemID(id, prefix, callID string, index int) string {
 	return prefix + "_" + callID + "_" + strconv.Itoa(index)
 }
 
-// Cached search items retain the producer's item IDs while the response keeps
-// the current call ID for request tracking.
+// The public response belongs to the producer. Harden diagnostics identify the current execution.
 func projectionCallID(result hardenllm.Result) string {
-	if result.Search != nil && result.Cache.Served && result.ProjectionCallID != "" {
+	if result.ProjectionCallID != "" {
 		return result.ProjectionCallID
 	}
 	return result.CallID
@@ -169,7 +168,7 @@ func responsesResponse(model string, result hardenllm.Result, created int64, dia
 	if err != nil {
 		return nil, err
 	}
-	id := "resp_" + result.CallID
+	id := "resp_" + projectionCallID(result)
 	output := searchCallItems(result, includeSources)
 	if content != "" || len(calls) == 0 {
 		output = append(output, map[string]any{
@@ -178,7 +177,7 @@ func responsesResponse(model string, result hardenllm.Result, created int64, dia
 		})
 	}
 	for index, call := range calls {
-		itemID := outputItemID(call.ItemID, "fc", result.CallID, index)
+		itemID := outputItemID(call.ItemID, "fc", projectionCallID(result), index)
 		output = append(output, map[string]any{
 			"id": itemID, "type": "function_call", "status": "completed", "call_id": call.ID,
 			"name": call.Function.Name, "arguments": call.Function.Arguments,

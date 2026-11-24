@@ -2122,23 +2122,9 @@ components:
                    cache, cacheMode, cacheVersion, search, webSearch, modelId, reasoningEffort, modalities, audio, functions, function_call]
           - pattern: '^(__harden_llm_|[Aa][Uu][Tt][Hh][Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Ss][Ee][Cc][Rr][Ee][Tt])'
           - pattern: '^(([Aa]ccess|[Aa]uth|[Bb]earer|[Cc]lient|[Ii][Dd]|[Rr]efresh|[Ss]ession)[_-]?)?[Tt][Oo][Kk][Ee][Nn]$'
-    OrdinaryFunctionCache:
-      description: Function results require cache off for either ordinary response renderer.
-      if:
-        required: [tools]
-        properties:
-          tools:
-            contains: {type: object, required: [type], properties: {type: {const: function}}}
-      then:
-        properties:
-          harden:
-            properties:
-              cache: {const: off}
     ChatCompletionRequest:
       type: object
       propertyNames: {$ref: '#/components/schemas/OrdinaryOptionName'}
-      allOf:
-        - {$ref: '#/components/schemas/OrdinaryFunctionCache'}
       required: [model, messages]
       properties:
         model: {type: string, minLength: 1, maxLength: 512}
@@ -2337,7 +2323,6 @@ components:
       type: object
       propertyNames: {$ref: '#/components/schemas/OrdinaryOptionName'}
       allOf:
-        - {$ref: '#/components/schemas/OrdinaryFunctionCache'}
         - if:
             required: [tool_choice]
             properties:

@@ -136,7 +136,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 			return
 		}
 	}
-	if !validateFunctionTools(writer, tools, cache, callType) {
+	if !validateFunctionTools(writer, tools, callType) {
 		return
 	}
 	ctx, tracked, cancel, ok := api.beginTrackedCall(writer, request, timeout)
@@ -156,9 +156,8 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 		api.writeCallError(writer, callErr, result, diagnostics)
 		return
 	}
-	created := time.Now().Unix()
 	includeUsage := !input.Stream || input.StreamOptions != nil && input.StreamOptions.IncludeUsage
-	response, err := chatResponse(input.Model, result, created, includeUsage, diagnostics)
+	response, err := chatResponse(input.Model, result, result.ResponseCreatedAt, includeUsage, diagnostics)
 	if err != nil {
 		if tracked != nil {
 			tracked.session.Finish("failed", "response_projection_error", true)
@@ -206,12 +205,11 @@ func (api *API) responses(writer http.ResponseWriter, request *http.Request) {
 		api.writeCallError(writer, callErr, result, diagnostics)
 		return
 	}
-	created := time.Now().Unix()
 	parallelToolCalls := true
 	if input.ParallelToolCalls != nil {
 		parallelToolCalls = *input.ParallelToolCalls
 	}
-	response, err := responsesResponse(input.Model, result, created, diagnostics, parallelToolCalls, prepared.IncludeSearchSources)
+	response, err := responsesResponse(input.Model, result, result.ResponseCreatedAt, diagnostics, parallelToolCalls, prepared.IncludeSearchSources)
 	if err != nil {
 		if tracked != nil {
 			tracked.session.Finish("failed", "response_projection_error", true)
@@ -319,7 +317,7 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 		writeRequestError(writer, errors.New("web search cannot be combined with function tools"), "tools")
 		return preparedResponses{}, false
 	}
-	if !validateFunctionTools(writer, tools, cache, callType) {
+	if !validateFunctionTools(writer, tools, callType) {
 		return preparedResponses{}, false
 	}
 	if input.ServiceTier != "" && input.ServiceTier != "default" {
@@ -342,15 +340,8 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 	}, Connection: connection, Cache: cache, Timeout: timeout, Recovery: recovery, Diagnostics: diagnostics, IncludeSearchSources: len(input.Include) > 0}, true
 }
 
-func validateFunctionTools(w http.ResponseWriter, tools []hardenllm.FunctionTool, cache hardenllm.CacheMode, callType hardenllm.CallType) bool {
-	if len(tools) == 0 {
-		return true
-	}
-	if cache != hardenllm.CacheModeOff {
-		writeRequestError(w, errors.New("function tools require cache to be off"), "harden.cache")
-		return false
-	}
-	if callType == hardenllm.CallTypeStructured {
+func validateFunctionTools(w http.ResponseWriter, tools []hardenllm.FunctionTool, callType hardenllm.CallType) bool {
+	if len(tools) > 0 && callType == hardenllm.CallTypeStructured {
 		writeRequestError(w, errors.New("structured output and function tools cannot be combined"), "tools")
 		return false
 	}

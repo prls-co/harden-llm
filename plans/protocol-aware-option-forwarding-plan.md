@@ -1,6 +1,6 @@
 # 1. Harden LLM ordinary API option forwarding
 
-- Document ID: PLAN-HLLM-186. Version: 3.1. Approved 2026-11-23. Qualified 2026-11-24 on the implementation branch. All six phases are complete.
+- Document ID: PLAN-HLLM-186. Version: 3.1. Approved 2026-11-23. The six original phases were qualified on 2026-11-24. Section 11 records the subsequent REQ-603 cache replay amendment.
 - Owners: gateway maintainers for ingress and public responses, provider/runtime maintainers for translation and recovery, stateful maintainers for batch identity. CPA owns its Codex translator.
 - Configuration: implementation base `dev@29cdd3d`, historical reproduction at `9554f5f`, qualified application source `3afc814`. [Approved plan](https://github.com/prls-co/harden-llm/blob/fe063863dda92ecb99fceed2a41f2cbcdba107d1/plans/protocol-aware-option-forwarding-plan.md) · [Implementation](https://github.com/prls-co/harden-llm/tree/3afc814415515d91cdcc053d1373d2303c2b0f83).
 
@@ -14,7 +14,7 @@ Fix three defects in [issue #186](https://github.com/prls-co/harden-llm/issues/1
 | Translation | DECISION | Use the destination switch in `internal/providers/payload.go`. A matching format admits native tuning. A different endpoint requires a known equivalent for every forwarded option. Perplexity `/agent` is distinct from `/responses` even when the connection label says Responses. |
 | Compatibility switches | AGAINST | Dropping fields, retrying a reduced request, or selecting another provider on a translation error could return success for different instructions. Keep one public policy. |
 | Scope of typed fields | DECISION | Type what Harden executes or renders. Native tuning can evolve independently. Chat token probabilities and Responses reasoning summaries require output that the public renderers cannot return. Reject each at admission and name the requested field. |
-| Search and cache | DECISION | Validate declarations while the selected tool still has its type. Valid search uses the existing native/Jina capability decision. Block the unsupported combination of functions and explicit caching at admission. A cache-codec redesign would also affect Go clients and existing records. |
+| Search and cache | DECISION | Validate explicit search selection while its type is available. Cache the complete accepted result for both ordinary endpoints, including function calls. The same cache serves Go and HTTP. Each render uses the original response identity and current execution diagnostics. |
 | Persistence | DECISION | Share Responses preparation with jobs. The job snapshot and inference cache answer different identity questions. Retain their respective writers and equality rules. |
 
 ## 3. Stakeholder and system needs
@@ -31,7 +31,7 @@ Fix three defects in [issue #186](https://github.com/prls-co/harden-llm/issues/1
 | REQ-600 | int | Matching Responses and Chat endpoints receive eligible caller values with presence, object contents, array order and integer precision intact. On native Responses, explicit `store: false` reaches the upstream as a boolean, omission leaves the key absent, and explicit true yields HTTP 400 naming `store` before dispatch. |
 | REQ-601 | func | Ordinary Responses accepts `text.verbosity` alone and beside a normalized `text.format`. Responses `reasoning.summary` and Chat `logprobs: true` each return HTTP 400 before cache, search or model access. Set `error.param` to `reasoning.summary` or `logprobs`, respectively. A lone `top_logprobs` names that field. |
 | REQ-602 | func | An explicit Responses search selector requires a declared search tool. A contradiction yields 400 naming `tool_choice` with zero search/model calls. Valid aliases, named functions and generic function-only `required` retain their meanings. |
-| REQ-603 | func | Either public endpoint rejects declared functions plus explicit `cache` or `refresh` with 400 naming `harden.cache`, before cache access, dispatch or stream headers. Omitted cache and `off` yield an SDK-readable function call. |
+| REQ-603 | func | Both endpoints accept declared functions with `cache`, `refresh`, and `off`. Replay the same complete response and final-only stream, preserve the function item and its IDs, and make zero provider calls on a hit. Each request retains independent Harden tracking and diagnostics. |
 | REQ-604 | security | Existing authentication, key scope, single-object/body limits and stateless exclusions hold. Strict `harden` controls stay local. Caller options cannot set credentials, URL, transport settings or internal cache markers. Field errors identify the caller path and exclude opaque values. |
 | REQ-605 | int | Each translated option has an equivalent on the actual destination or a local 400 naming the original field before that attempt dispatches. Existing schema, tool and search semantics survive. |
 | REQ-606 | reliability | Ordinary options survive same-target retries and target switches. An explicit recovery-target output-token limit may raise or lower the caller’s limit for that attempt. A target without an override inherits the caller’s original limit. Recovery preserves prior accounting and avoids preparation beyond the attempt budget. |
@@ -110,6 +110,8 @@ Phase score order: confidence %, long-term robustness %, internal interfaces, ex
   - Unlocks: phase exit.
 
 ### Phase P01: Contradictory tool requests fail before effects
+
+The original P01 cache rejection steps below record the prior scope. The amended REQ-603 supersedes them. Its replay coverage is `TestOpenAIContractFunctionCacheReplay` (TEST-403) and `TestCacheCompleteProviderResult` (TEST-011).
 
 - Goal and scope: Contradictory tool requests fail before effects. REQ-602, REQ-603.
 - Design/code surfaces: `internal/gateway/httpapi/requests.go`, `internal/gateway/httpapi/handlers.go`, `client_cache.go`.
@@ -571,6 +573,8 @@ P00 through P05 are Done on `feat/issue-186-option-forwarding`. The phase checkp
 - One preceding integration run on `e14927d` recorded SQL cancellations, HTTP 503s and 988 of 1,000 expected provider dispatches in TEST-495. The diagnostic run sampled PostgreSQL activity, observed checkpoint and WAL waits, and passed the full 1,000-call assertion in both integration suites. The first run did not capture wait events, so the cause of those particular cancellations remains unconfirmed. The repository previously recorded the same registration failure under load. Request-tracking code, transaction budgets, generator concurrency and pass criteria were unchanged. [Earlier tracking qualification](implementation/cpa-acceptance-audit-2026-10-31.md#10-exact-main-release-scheduling-correction).
 
 - The additional vulnerability scan on `e14927d` found GO-2026-6974 in existing OpenTelemetry trace and log dependencies. The Go advisory was published on November 23. Commit `3afc814` updates the affected modules to 1.47.0 and their required dependencies. The gateway and observability tests passed against the upgraded modules. The final scan reported zero reachable vulnerabilities. [Go vulnerability entry](https://pkg.go.dev/vuln/GO-2026-6974).
+
+- REQ-603 follow-up. Both the original schema and gateway rejected functions with caching. Once admitted, the old persisted representation lost the function-call type and the gateway assigned a fresh response identity on hits. The current operation stores the accepted result with typed assistant output and the producer's response ID and creation time. Operation projection v6 isolates earlier v5 entries for normal expiration. TEST-403 compares ordinary JSON and final-only SSE across misses, refreshes and hits. TEST-011 distinguishes a structured object with a `tool_calls` member from an actual assistant tool call.
 
 Use the blank entry below if this plan is extended. Record observed values only. For a single deterministic observation, record its count and mark dispersion and interval inapplicable.
 
