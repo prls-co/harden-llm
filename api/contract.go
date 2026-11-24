@@ -2,9 +2,10 @@
 package api
 
 import (
-	"bytes"
 	_ "embed"
+	"encoding/json"
 	"fmt"
+	"github.com/tidwall/gjson"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -62,12 +63,38 @@ func Decode(name string, data []byte) (any, error) {
 	if schema == nil {
 		return nil, fmt.Errorf("api: unknown schema %q", name)
 	}
-	value, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
-	if err != nil {
-		return nil, fmt.Errorf("api: expected one valid JSON value: %w", err)
+	if !gjson.ValidBytes(data) {
+		return nil, fmt.Errorf("api: expected one valid JSON value")
 	}
+	value := jsonValue(gjson.ParseBytes(data))
 	if err := schema.Validate(value); err != nil {
 		return nil, err
 	}
 	return value, nil
+}
+
+// Preserve number lexemes while converting the parser tree into the JSON value
+// types expected by the canonical schema validator and accounting consumers.
+func jsonValue(value gjson.Result) any {
+	switch value.Type {
+	case gjson.Number:
+		return json.Number(value.Raw)
+	case gjson.JSON:
+		if value.IsArray() {
+			items := []any{}
+			value.ForEach(func(_, item gjson.Result) bool {
+				items = append(items, jsonValue(item))
+				return true
+			})
+			return items
+		}
+		fields := map[string]any{}
+		value.ForEach(func(key, item gjson.Result) bool {
+			fields[key.Str] = jsonValue(item)
+			return true
+		})
+		return fields
+	default:
+		return value.Value()
+	}
 }

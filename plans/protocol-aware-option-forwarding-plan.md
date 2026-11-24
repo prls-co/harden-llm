@@ -564,6 +564,8 @@ P00–P04 are Done. P05 qualification is in progress.
 
 - Final architecture review after `3ecc348`. The core binds ordinary input and target-native options once at entry. Every provider builder sees one meaning for each map, and recovery replaces only the native target settings. Responses preparation extracts the owned nested leaf directly, including for jobs. Additional RED fixtures demonstrated that explicit empty objects disappeared and invalid null text reached the model. GREEN preserved empty native objects and explicit null reasoning, rejected null text before dispatch, and preserved the existing batch golden. `make test-api`, `make test-parity`, `make test-observability` and packaged parity passed during this review.
 
+- Full backend qualification caught the existing TEST-442 17 MiB history insert exceeding its 2-second budget (3.24 s on the frozen `393ade6` checkout). On identical 17,823,496-byte recorded-result fixtures with the race detector, the replacement decoder alone took 2.12–2.79 s. Restoring the repository's existing number-preserving GJSON parser with the new compiled schema took 0.70–1.07 s across three samples. Retained the compiled contract and the original decoder. The history payload, database operation, assertions and budgets are unchanged. A prior verification started during source edits also produced a mixed-build error; only frozen candidate runs count for qualification.
+
 Copy this blank entry for each remaining phase. Record observed values only. For a single deterministic observation, record its count and mark dispersion and interval inapplicable.
 
 | Field | Entry |
