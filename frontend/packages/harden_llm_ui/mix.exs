@@ -9,7 +9,7 @@ defmodule HardenLlmUI.MixProject do
       elixirc_paths: if(Mix.env() == :test, do: ["lib", "test/support"], else: ["lib"]),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       deps: [
-        {:phoenix, "== 1.8.9"},
+        {:phoenix, "== 1.8.17"},
         {:phoenix_html, "~> 4.4.0"},
         {:phoenix_live_view, "== 1.2.14"},
         {:phoenix_template,

@@ -48,3 +48,11 @@ pinned `prls_web` dependency. Both lockfiles use Plug 1.20.4 for
 EEF-CVE-2026-120287. The host's test dependency Hackney resolves idna 8.0.0
 for EEF-CVE-2026-117678. WEB-TEST-001 checks the LiveView pin. Both projects
 can be audited independently with `mix hex.audit`.
+
+## 2026-11-24 Phoenix patch
+
+The host and reusable UI package pin Phoenix 1.8.17. Both November 24 Hex
+audit findings on the 1.8 series are fixed in this version. The host overrides
+the exact 1.8.9 requirement in its pinned `prls_web` dependency. WEB-TEST-001
+checks the selected version, and both lock files can be audited with
+`mix hex.audit`. [Phoenix 1.8.17 release]( https://github.com/phoenixframework/phoenix/releases/tag/v1.8.17 )

@@ -13,7 +13,7 @@ defmodule HardenLlmWeb.BoundaryTest do
     lock = Mix.Dep.Lock.read()
 
     for {name, version} <- %{
-          phoenix: "1.8.9",
+          phoenix: "1.8.17",
           phoenix_live_view: "1.2.14",
           req: "0.6.1",
           prom_ex: "1.12.0",

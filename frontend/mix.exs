@@ -46,7 +46,8 @@ defmodule HardenLlm.MixProject do
   defp deps do
     [
       {:harden_llm_ui, path: "packages/harden_llm_ui"},
-      {:phoenix, "== 1.8.9"},
+      # The pinned prls_web still requires Phoenix 1.8.9.
+      {:phoenix, "== 1.8.17", override: true},
       # The pinned prls_web revision requests 4.3.0; its public API is retained
       # while the host selects the patched attribute-escaping implementation.
       {:phoenix_html, "~> 4.4.0", override: true},

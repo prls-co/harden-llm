@@ -21,7 +21,7 @@
 | Layer | Canonical choice | Responsibility |
 | --- | --- | --- |
 | Language/runtime | Elixir 1.20.2 on Erlang/OTP 28.4 | Supervised web runtime and server-side concurrency. |
-| Web framework | Phoenix 1.8.9 | Endpoint, router, controllers, secure browser sessions, CSRF, assets, and releases. |
+| Web framework | Phoenix 1.8.17 | Endpoint, router, controllers, secure browser sessions, CSRF, assets, and releases. |
 | Interactive UI | Phoenix LiveView 1.2.14 | Authenticated workspace, profile editing, runs, history, traces, and live state updates. |
 | HTTP client | Req 0.6.1 | The only Phoenix-to-Go REST client. |
 | API contract | Backend OpenAPI 3.1 document at `api/openapi.yaml` | Canonical operations, bearer security, request/response schemas, errors, and examples. |

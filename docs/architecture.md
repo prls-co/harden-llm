@@ -68,7 +68,7 @@ expiry scheduler or Laminar history integration exists.
 
 Read-only review on 2026-10-12 inspected `masked-recall/web/mix.exs`,
 `web/lib/model_recall_web_web/router.ex`, `live/experiment_live.ex` and
-`components/operation_status.ex`. Its Phoenix 1.8.9/LiveView 1.2.14 host uses
+`components/operation_status.ex`. Its Phoenix 1.8.17/LiveView 1.2.14 host uses
 shared PrlsWeb product admission, server-owned `start_async` orchestration and
 function components. Reusable HLLM components need only Phoenix/Req and a
 host-supplied REST context (`api_key`, `draft_key`, base URL), explicit component
