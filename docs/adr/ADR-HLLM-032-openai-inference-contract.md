@@ -27,6 +27,10 @@ The gateway consumes fields it executes or renders and forwards remaining JSON t
 
 Explicit false storage is forwarded and omission delegates to the upstream. Ordinary function declarations support all three cache modes. The operation cache persists the complete accepted result and the producing response identity. Replay preserves function-call types and arguments, timestamps and response IDs. Harden diagnostics describe each execution. Explicit search selection requires a search declaration. Supported output formats preserve sibling tuning; unsupported output requests name the rejected field. REQ-600–610 and TEST-600 cover this amendment. [Implementation plan](../../plans/protocol-aware-option-forwarding-plan.md)
 
+## 2026-11-24 amendment for issue 188
+
+Matching ordinary routes carry the admitted native response through the existing engine and operation cache. Missing compatibility fields are filled at delivery, and optional Harden diagnostics describe each request. The prepared endpoint and producing attempt determine eligibility. Batch, translation, JSON repair and Jina keep their normalized representations. Native search applies its established answer and evidence rules. Exclude upstream `harden` and opaque encrypted reasoning from the native cache payload. A separate response projection identity isolates older or translated records. [Public contract](../api-and-library.md) · [TEST-403](../../internal/gateway/httpapi/native_response_test.go)
+
 ## Consequences and verification
 
 Requests become conversation-aware. Adapters preserve supported order/tool linkage. Native reasoning survives or is rejected. Default structured repair uses the selected model with no implicit alternate. The custom REST path/diagnostic stream retire. TEST-403 exercises local handlers with the pinned OpenAI SDK and retries disabled.

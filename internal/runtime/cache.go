@@ -29,6 +29,7 @@ type CachedResult struct {
 // serveCached restores the producing response while keeping this execution's identity and accounting.
 func (record *CallRecord) serveCached(cached CachedResult) {
 	record.Output, record.Search = cached.Output, cached.Search
+	record.NativeResponse = cached.NativeResponse
 	record.AssistantText = cached.AssistantText
 	record.ProjectionCallID = cached.ProjectionCallID
 	record.ResponseCreatedAt = cached.ResponseCreatedAt

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"unicode/utf8"
 
@@ -92,6 +93,34 @@ func chatResponse(model string, result hardenllm.Result, created int64, includeU
 	return response, nil
 }
 
+// Native maps are owned by this delivery. Preserve provider values and fill only
+// compatibility fields missing from an otherwise accepted response.
+func fillField(object map[string]any, key string, value any) {
+	if _, present := object[key]; !present {
+		object[key] = value
+	}
+}
+
+func nativeChatBody(native map[string]any, projected chatCompletionResponse) map[string]any {
+	fillField(native, "id", projected.ID)
+	fillField(native, "model", projected.Model)
+	fillField(native, "created", projected.Created)
+	fillField(native, "object", projected.Object)
+	choices, _ := native["choices"].([]any)
+	if len(choices) == 1 {
+		if choice, ok := choices[0].(map[string]any); ok {
+			fillField(choice, "index", 0)
+			if message, ok := choice["message"].(map[string]any); ok {
+				fillField(message, "role", "assistant")
+			}
+		}
+	}
+	if projected.Harden != nil {
+		native["harden"] = projected.Harden
+	}
+	return native
+}
+
 func outputItemID(id, prefix, callID string, index int) string {
 	if id != "" {
 		return id
@@ -168,27 +197,41 @@ func responsesResponse(model string, result hardenllm.Result, created int64, dia
 	if err != nil {
 		return nil, err
 	}
-	id := "resp_" + projectionCallID(result)
-	output := searchCallItems(result, includeSources)
-	if content != "" || len(calls) == 0 {
-		output = append(output, map[string]any{
-			"id": "msg_" + projectionCallID(result), "type": "message", "status": "completed", "role": "assistant",
-			"content": []any{map[string]any{"type": "output_text", "text": content, "annotations": annotations(result, content, responsesCitation)}},
-		})
+	response := maps.Clone(result.NativeResponse)
+	if response == nil {
+		response = make(map[string]any)
 	}
-	for index, call := range calls {
-		itemID := outputItemID(call.ItemID, "fc", projectionCallID(result), index)
-		output = append(output, map[string]any{
-			"id": itemID, "type": "function_call", "status": "completed", "call_id": call.ID,
-			"name": call.Function.Name, "arguments": call.Function.Arguments,
-		})
+	fillField(response, "id", "resp_"+projectionCallID(result))
+	fillField(response, "object", "response")
+	fillField(response, "created_at", created)
+	fillField(response, "status", "completed")
+	fillField(response, "model", model)
+	fillField(response, "output_text", content)
+	fillField(response, "parallel_tool_calls", parallelToolCalls)
+	if _, present := response["usage"]; !present {
+		if usage := responsesUsage(result.Accounting.Result.Usage); usage != nil {
+			response["usage"] = usage
+		}
 	}
-	response := map[string]any{
-		"id": id, "object": "response", "created_at": created, "status": "completed", "model": model,
-		"output": output, "output_text": content, "parallel_tool_calls": parallelToolCalls,
-	}
-	if usage := responsesUsage(result.Accounting.Result.Usage); usage != nil {
-		response["usage"] = usage
+	if items, ok := response["output"].([]any); ok {
+		if err := completeNativeItems(items, result, includeSources, content); err != nil {
+			return nil, err
+		}
+	} else {
+		output := searchCallItems(result, includeSources)
+		if content != "" || len(calls) == 0 {
+			output = append(output, map[string]any{
+				"id": "msg_" + projectionCallID(result), "type": "message", "status": "completed", "role": "assistant",
+				"content": []any{map[string]any{"type": "output_text", "text": content, "annotations": annotations(result, content, responsesCitation)}},
+			})
+		}
+		for index, call := range calls {
+			output = append(output, map[string]any{
+				"id": outputItemID(call.ItemID, "fc", projectionCallID(result), index), "type": "function_call", "status": "completed", "call_id": call.ID,
+				"name": call.Function.Name, "arguments": call.Function.Arguments,
+			})
+		}
+		response["output"] = output
 	}
 	if diagnostics {
 		extension := hardenExtension(result)
@@ -198,6 +241,60 @@ func responsesResponse(model string, result hardenllm.Result, created int64, dia
 		response["harden"] = extension
 	}
 	return response, nil
+}
+
+func completeNativeItems(items []any, result hardenllm.Result, includeSources bool, text string) error {
+	calls := searchCallItems(result, includeSources)
+	callIndex := 0
+	for i, raw := range items {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			return errors.New("invalid native output item")
+		}
+		if _, ok := item["content"].([]any); ok {
+			fillField(item, "type", "message")
+		}
+		switch item["type"] {
+		case "message":
+			fillField(item, "id", outputItemID("", "msg", projectionCallID(result), i))
+			fillField(item, "status", "completed")
+			fillField(item, "role", "assistant")
+			parts, _ := item["content"].([]any)
+			for _, rawPart := range parts {
+				part, ok := rawPart.(map[string]any)
+				if !ok {
+					return errors.New("invalid native message part")
+				}
+				if _, ok := part["text"].(string); ok {
+					fillField(part, "type", "output_text")
+				}
+				if part["type"] == "output_text" {
+					fillField(part, "annotations", []any{})
+					if result.Search != nil {
+						part["annotations"] = []any{}
+						if part["text"] == text {
+							part["annotations"] = annotations(result, text, responsesCitation)
+						}
+					}
+				}
+			}
+		case "function_call":
+			fillField(item, "id", outputItemID("", "fc", projectionCallID(result), i))
+			fillField(item, "status", "completed")
+		case "web_search_call":
+			if callIndex < len(calls) {
+				canonical := calls[callIndex].(map[string]any)
+				fillField(item, "id", canonical["id"])
+				if action, ok := canonical["action"].(map[string]any); ok {
+					if original, ok := item["action"].(map[string]any); ok {
+						maps.Copy(original, action)
+					}
+				}
+				callIndex++
+			}
+		}
+	}
+	return nil
 }
 
 func outputContent(result hardenllm.Result) (string, []hardenllm.AssistantToolCall, error) {

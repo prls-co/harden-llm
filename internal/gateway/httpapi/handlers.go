@@ -165,21 +165,25 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 		writeRequestError(writer, err, "response")
 		return
 	}
+	var body any = response
+	if result.NativeResponse != nil {
+		body = nativeChatBody(result.NativeResponse, response)
+	}
 	writeCacheStatus(writer, result)
 	if input.Stream {
-		if err := validateResponseSize(response); err != nil {
+		if err := validateResponseSize(body); err != nil {
 			if tracked != nil {
 				tracked.session.Finish("failed", "response_projection_error", true)
 			}
 			writeRequestError(writer, err, "response")
 			return
 		}
-		tracked.project(response)
-		api.streamChat(writer, request, response)
+		tracked.project(body)
+		api.streamChat(writer, request, response, result.NativeResponse)
 		return
 	}
-	tracked.project(response)
-	writeJSON(writer, http.StatusOK, response, maximumResponseBytes)
+	tracked.project(body)
+	writeJSON(writer, http.StatusOK, body, maximumResponseBytes)
 }
 
 func (api *API) responses(writer http.ResponseWriter, request *http.Request) {

@@ -154,6 +154,8 @@ type Origin struct {
 type SchemaContractError = contractschema.ContractError
 
 type Result struct {
+	// NativeResponse is the matching ordinary endpoint body for the accepted attempt.
+	NativeResponse map[string]any `json:"-"`
 	// ProjectionCallID and ResponseCreatedAt identify the producing response across cache hits.
 	ProjectionCallID  string `json:"-"`
 	ResponseCreatedAt int64  `json:"-"`

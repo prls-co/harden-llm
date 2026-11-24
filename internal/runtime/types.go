@@ -191,6 +191,8 @@ type Ledger = accounting.Ledger
 type Accounting = accounting.Accounting
 
 type ProviderResult struct {
+	// NativeResponse carries an accepted ordinary response across the operation cache.
+	NativeResponse map[string]any `json:"nativeResponse,omitempty"`
 	// AssistantText preserves original provider text alongside parsed output.
 	AssistantText string            `json:"assistantText,omitempty"`
 	Search        *SearchResult     `json:"search,omitempty"`
@@ -295,6 +297,7 @@ type ResultSource struct {
 }
 
 type CallRecord struct {
+	NativeResponse       map[string]any `json:"-"`
 	ProjectionCallID     string
 	ResponseCreatedAt    int64
 	AssistantText        string

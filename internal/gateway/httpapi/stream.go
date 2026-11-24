@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, final chatCompletionResponse) {
+func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, final chatCompletionResponse, native map[string]any) {
 	if request.Context().Err() != nil {
 		return
 	}
@@ -16,6 +16,9 @@ func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, fi
 	flusher := http.NewResponseController(writer)
 	writeChunk := func(chunk map[string]any) bool {
 		chunk["id"], chunk["object"], chunk["created"], chunk["model"] = final.ID, "chat.completion.chunk", final.Created, final.Model
+		if native != nil {
+			chunk["id"], chunk["created"], chunk["model"] = native["id"], native["created"], native["model"]
+		}
 		return writeSSEData(writer, flusher, chunk)
 	}
 	if !writeChunk(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]any{"role": "assistant"}, "finish_reason": nil}}}) {
@@ -58,7 +61,11 @@ func (api *API) streamChat(writer http.ResponseWriter, request *http.Request, fi
 		return
 	}
 	if final.Usage != nil {
-		if !writeChunk(map[string]any{"choices": []any{}, "usage": final.Usage}) {
+		var usage any = final.Usage
+		if reported, ok := native["usage"]; ok {
+			usage = reported
+		}
+		if !writeChunk(map[string]any{"choices": []any{}, "usage": usage}) {
 			return
 		}
 	}
@@ -84,13 +91,40 @@ func (api *API) streamResponses(writer http.ResponseWriter, request *http.Reques
 	}
 	for index, raw := range final["output"].([]any) {
 		item := raw.(map[string]any)
-		id := item["id"].(string)
+		id, _ := item["id"].(string)
 		added := make(map[string]any, len(item))
 		for key, value := range item {
 			added[key] = value
 		}
 		added["status"] = "in_progress"
 		switch item["type"] {
+		case "reasoning":
+			added["summary"] = []any{}
+			if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.added", map[string]any{"output_index": index, "item": added}) {
+				return
+			}
+			summaries, _ := item["summary"].([]any)
+			for summaryIndex, rawPart := range summaries {
+				part, _ := rawPart.(map[string]any)
+				text, ok := part["text"].(string)
+				if !ok || part["type"] != "summary_text" {
+					continue
+				}
+				emit := func(event, key string, value any) bool {
+					return writeResponseEvent(writer, flusher, &sequence, event, map[string]any{"item_id": id, "output_index": index, "summary_index": summaryIndex, key: value})
+				}
+				if !emit("response.reasoning_summary_part.added", "part", map[string]any{"type": "summary_text", "text": ""}) {
+					return
+				}
+				for _, chunk := range outputChunks(text, 64<<10) {
+					if !emit("response.reasoning_summary_text.delta", "delta", chunk) {
+						return
+					}
+				}
+				if !emit("response.reasoning_summary_text.done", "text", text) || !emit("response.reasoning_summary_part.done", "part", part) {
+					return
+				}
+			}
 		case "web_search_call":
 			if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.added", map[string]any{"output_index": index, "item": added}) {
 				return
@@ -113,8 +147,12 @@ func (api *API) streamResponses(writer http.ResponseWriter, request *http.Reques
 			if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.added", map[string]any{"output_index": index, "item": added}) {
 				return
 			}
-			for partIndex, partRaw := range item["content"].([]any) {
+			parts, _ := item["content"].([]any)
+			for partIndex, partRaw := range parts {
 				part := partRaw.(map[string]any)
+				if part["type"] != "output_text" {
+					continue
+				}
 				text, _ := part["text"].(string)
 				blank := map[string]any{"type": "output_text", "text": "", "annotations": []any{}}
 				fields := func() map[string]any {
@@ -132,7 +170,8 @@ func (api *API) streamResponses(writer http.ResponseWriter, request *http.Reques
 						return
 					}
 				}
-				for annotationIndex, annotation := range part["annotations"].([]any) {
+				annotations, _ := part["annotations"].([]any)
+				for annotationIndex, annotation := range annotations {
 					f = fields()
 					f["annotation_index"] = annotationIndex
 					f["annotation"] = annotation
@@ -166,7 +205,10 @@ func (api *API) streamResponses(writer http.ResponseWriter, request *http.Reques
 				return
 			}
 		default:
-			return
+			// Unknown native items still participate in the ordered final-only lifecycle.
+			if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.added", map[string]any{"output_index": index, "item": item}) {
+				return
+			}
 		}
 		if !writeResponseEvent(writer, flusher, &sequence, "response.output_item.done", map[string]any{"output_index": index, "item": item}) {
 			return

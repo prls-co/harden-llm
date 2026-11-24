@@ -301,6 +301,7 @@ func Execute(
 		emitProgress("run.progress", number, false)
 		endAttempt(failure)
 		if failure == nil {
+			record.NativeResponse = result.NativeResponse
 			record.Output = result.Output
 			if result.Search != nil {
 				record.Search = result.Search

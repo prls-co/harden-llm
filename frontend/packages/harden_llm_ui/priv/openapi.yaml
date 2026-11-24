@@ -1027,7 +1027,7 @@ components:
         custom_id:
           type: string
         response:
-          $ref: '#/components/schemas/Response'
+          $ref: '#/components/schemas/BatchResponse'
         error:
           $ref: '#/components/schemas/BatchItemError'
         diagnostics:
@@ -2377,7 +2377,7 @@ components:
           type: [object, 'null']
           properties:
             effort: {type: string, minLength: 1, maxLength: 128}
-            summary: false
+            summary: {enum: [auto, concise, detailed, null]}
           additionalProperties: true
         truncation: {type: string, enum: [auto, disabled]}
         parallel_tool_calls: {type: boolean}
@@ -2479,49 +2479,85 @@ components:
                   content: {type: [string, 'null']}
                   tool_calls:
                     type: array
-                    items: {$ref: '#/components/schemas/ChatToolCall'}
-                  annotations:
-                    type: array
                     items:
                       type: object
-                      required: [type, url_citation]
-                      additionalProperties: false
+                      required: [id, type, function]
                       properties:
-                        type: {type: string, enum: [url_citation]}
-                        url_citation:
+                        id: {type: string}
+                        type: {const: function}
+                        function:
                           type: object
-                          required: [start_index, end_index, url, title]
-                          additionalProperties: false
+                          required: [name, arguments]
                           properties:
-                            start_index: {type: integer, minimum: 0}
-                            end_index: {type: integer, minimum: 1}
-                            url: {type: string, format: uri}
-                            title: {type: string}
-                additionalProperties: false
+                            name: {type: string}
+                            arguments: {type: string}
+                  annotations:
+                    type: array
+                    items: {type: object}
+                additionalProperties: true
               finish_reason: {type: string, enum: [stop, tool_calls]}
-            additionalProperties: false
-        usage: {$ref: '#/components/schemas/ChatUsage'}
+            additionalProperties: true
+        usage: {anyOf: [{$ref: '#/components/schemas/ChatUsage'}, {type: 'null'}]}
         harden: {$ref: '#/components/schemas/HardenResult'}
-      additionalProperties: false
+      additionalProperties: true
     ChatUsage:
       type: object
-      required: [prompt_tokens, completion_tokens, total_tokens]
       properties:
         prompt_tokens: {type: integer}
         completion_tokens: {type: integer}
         total_tokens: {type: integer}
         prompt_tokens_details:
-          type: object
+          type: [object, 'null']
           properties:
             cached_tokens: {type: integer}
-          additionalProperties: false
+          additionalProperties: true
         completion_tokens_details:
-          type: object
+          type: [object, 'null']
           properties:
             reasoning_tokens: {type: integer}
-          additionalProperties: false
-      additionalProperties: false
+          additionalProperties: true
+      additionalProperties: true
     Response:
+      description: Admitted ordinary response. Matching endpoints preserve native fields and output order. Harden supplies compatibility fields for sparse responses.
+      type: object
+      required: [id, object, created_at, status, model, output, output_text, parallel_tool_calls]
+      properties:
+        id: {type: string}
+        object: {const: response}
+        created_at: {type: integer}
+        status: {const: completed}
+        model: {type: string}
+        output:
+          type: array
+          items:
+            type: object
+            properties:
+              type: {type: string}
+              id: {type: string}
+              role: {type: string}
+              status: {type: [string, 'null']}
+              call_id: {type: string}
+              name: {type: string}
+              arguments: {type: string}
+              content:
+                type: [array, 'null']
+                items: {type: object}
+            if: {required: [type], properties: {type: {const: reasoning}}}
+            then:
+              properties:
+                summary:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type: {type: string}
+                      text: {type: string}
+        output_text: {type: [string, 'null']}
+        parallel_tool_calls: {type: boolean}
+        usage: {type: [object, 'null']}
+        harden: {$ref: '#/components/schemas/HardenResult'}
+      additionalProperties: true
+    BatchResponse:
       type: object
       required: [id, object, created_at, status, model, output, output_text, parallel_tool_calls]
       properties:

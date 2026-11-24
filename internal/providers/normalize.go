@@ -76,10 +76,60 @@ func normalizeDecodedResponse(prepared preparedRequest, response map[string]any,
 	} else if output == nil {
 		output = text
 	}
+	if prepared.nativeResponse && prepared.searchMode != "jina" {
+		if prepared.protocol != "openai.responses" && len(arrayValue(response["choices"])) != 1 {
+			return partial, &retry.ProviderError{Err: errors.New("expected one completed choice"), Code: "OUTPUT_MALFORMED", Category: retry.CategoryOther}
+		}
+		partial.NativeResponse = acceptedNativeResponse(prepared, response, partial.Search)
+	}
 	return runtime.ProviderResult{
-		Search: partial.Search,
+		NativeResponse: partial.NativeResponse, Search: partial.Search,
 		Output: output, AssistantText: text, Accounting: ledger,
 	}, nil
+}
+
+// The decoded map belongs to this attempt. Remove private fields before cache serialization.
+func acceptedNativeResponse(prepared preparedRequest, response map[string]any, search *runtime.SearchResult) map[string]any {
+	delete(response, "harden")
+	if prepared.protocol != "openai.responses" {
+		return response
+	}
+	items, ok := response["output"].([]any)
+	if !ok {
+		return response
+	}
+	final, searchIndex := -1, 0
+	if search != nil {
+		final = finalResponseOutput(response)
+	}
+	kept := items[:0]
+	for index, raw := range items {
+		item := objectValue(raw)
+		switch item["type"] {
+		case "reasoning":
+			delete(item, "encrypted_content")
+		case "message", nil:
+			if search != nil && index != final {
+				continue
+			}
+		case "web_search_call":
+			if search != nil {
+				if searchIndex >= len(search.Calls) {
+					continue
+				}
+				call := search.Calls[searchIndex]
+				if call.ID != stringValue(item["id"]) || call.Status != stringValue(item["status"]) {
+					continue
+				}
+				searchIndex++
+			}
+			// Source inclusion is a delivery option. Validated sources live in Search.
+			delete(objectValue(item["action"]), "sources")
+		}
+		kept = append(kept, raw)
+	}
+	response["output"] = kept
+	return response
 }
 
 // normalizeResponseAccounting is the single protocol accounting extraction

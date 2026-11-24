@@ -192,8 +192,9 @@ func (api *API) jobResult(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// EncodeBatchResponse reuses the ordinary Responses output contract in workers.
+// EncodeBatchResponse renders the normalized Responses shape used by batch artifacts.
 func EncodeBatchResponse(g batch.Generation, result hardenllm.Result, at time.Time) (json.RawMessage, error) {
+	result.NativeResponse = nil
 	v, err := responsesResponse(g.ModelID, result, at.Unix(), true, g.ParallelToolCalls, false)
 	if err != nil {
 		return nil, err

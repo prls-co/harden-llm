@@ -29,7 +29,8 @@ type ResponseText struct {
 	Format ResponseFormat `json:"format"`
 }
 type ResponseReasoning struct {
-	Effort string `json:"effort"`
+	Effort  string `json:"effort,omitempty"`
+	Summary string `json:"summary,omitempty"`
 }
 type ResponseControls struct {
 	Upstream    string                    `json:"upstream,omitempty"`
@@ -55,7 +56,13 @@ type ResponsesOutput struct {
 	Output     []ResponseOutputItem `json:"output"`
 }
 
+type ResponseSummaryPart struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
 type ResponseOutputItem struct {
+	Summary []ResponseSummaryPart   `json:"summary,omitempty"`
 	ID      string                  `json:"id"`
 	Type    string                  `json:"type"`
 	Status  string                  `json:"status"`
@@ -201,6 +208,19 @@ func (client *Client) Responses(ctx context.Context, input ResponsesInput) (Resp
 	}
 	if err := decodeWire("Response", raw, &out); err != nil {
 		return ResponsesOutput{}, &UnknownOutcomeError{Cause: err}
+	}
+	if out.OutputText == "" {
+		var text strings.Builder
+		for _, item := range out.Output {
+			if item.Type == "message" {
+				for _, part := range item.Content {
+					if part.Type == "output_text" {
+						text.WriteString(part.Text)
+					}
+				}
+			}
+		}
+		out.OutputText = text.String()
 	}
 	if _, _, err := schema.ParseAndValidate(out.OutputText, normalizedSchema); err != nil {
 		return ResponsesOutput{}, &ResponsesInvalidOutput{Model: out.Model, Harden: out.Harden}

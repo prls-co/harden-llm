@@ -38,7 +38,7 @@ An OpenAI Chat Completions client can use `/chat/completions` with ordinary
 
 For example, `{"store":false,"max_output_tokens":128}` reaches a matching Responses endpoint with both members present. Omitting `store` delegates storage behavior to the upstream. Explicit true requests server-side state and receives HTTP 400. The pinned CPA Codex translator sets `store` to false independently, removes `temperature` and retains the requested token limit. Delivery at the CPA boundary and enforcement by the model are separate observations. [CPA translator](https://github.com/router-for-me/CLIProxyAPI/blob/f7ae8feeb3710319f524730849fbe32fde1751e4/internal/translator/codex/openai/responses/codex_openai-responses_request.go#L31-L46)
 
-Responses accepts `text.verbosity` alone or beside `text.format`. Requests for Responses `reasoning.summary`, Chat `logprobs: true`, or `top_logprobs` receive a field-specific 400 because the public result omits that data. Model IDs come directly from the upstream. Durable jobs retain their closed request format.
+Responses accepts `text.verbosity` alone or beside `text.format`. Ordinary Responses forwards `reasoning.summary` (auto, concise, detailed or null) on matching endpoints. An incompatible target rejects that option before dispatch. Chat requests for `logprobs: true` or `top_logprobs` receive a field-specific 400. Model IDs come directly from the upstream. Durable jobs retain their closed request format.
 
 ## Web search
 
@@ -135,6 +135,12 @@ when the caller needs one of these controls:
 ```
 
 `harden.cache` accepts `off`, `cache`, or `refresh`; the default is `off`.
+On matching ordinary Responses and Chat Completions routes the admitted provider body supplies the response ID, timestamp, model, usage, extensions and ordered items. Harden fills missing compatibility fields on sparse envelopes, including aggregate `output_text`. The provider's model can differ from the requested alias. The top-level `harden` member belongs to the current execution. Harden strips any upstream collision and omits reasoning-item `encrypted_content` before caching. Readers should accept additional fields and item types.
+
+Cross-protocol calls, structured repairs and Jina-assisted generations use the normalized public representation. This binds the answer to the accepted attempt and retains validated search evidence without replaying repair instructions or injected context. Native search retains its final-answer selection, citation validation and opt-in URL source list. The new cache projection naturally misses older matching-route records.
+
+Responses final-only streams deliver summaries, item order and the accepted terminal object. Items with a new type receive the generic added/done events. Chat streams retain their chunk format, native response identity and optional usage. Arbitrary response-level Chat extensions are available in buffered JSON.
+
 Both ordinary endpoints cache the complete successful Harden result, including function calls. For the same request, a hit reproduces the original response body or final-only stream, including the creation time, IDs, arguments, item order, usage and finish reason. The optional `harden` diagnostics describe the current execution. The client executes any requested function and submits its output separately.
 
 - `cache` reads a saved answer and writes successful misses.

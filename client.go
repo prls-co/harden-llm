@@ -336,7 +336,7 @@ func resultFromRecord(record coreruntime.CallRecord) Result {
 		attempts = append(attempts, publicAttempt(item))
 	}
 	return Result{
-		Search: record.Search, AssistantText: record.AssistantText,
+		Search: record.Search, AssistantText: record.AssistantText, NativeResponse: record.NativeResponse,
 		Output: record.Output, CallID: record.CallID, TraceID: record.TraceID, ProjectionCallID: record.ProjectionCallID, ResponseCreatedAt: record.ResponseCreatedAt,
 		Origin: Origin{Client: record.Origin.Client, Component: record.Origin.Component, OperationID: record.Origin.OperationID,
 			ParentRunID: record.Origin.ParentRunID, JobID: record.Origin.JobID, TestRunID: record.Origin.TestRunID,

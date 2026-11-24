@@ -244,8 +244,8 @@ func (o *requestOptions) consumeMember(w http.ResponseWriter, name, member strin
 		writeRequestError(w, fmt.Errorf("%s requires only %s", name, member), name)
 		return nil, false
 	}
-	if _, summary := object["summary"]; name == "reasoning" && summary {
-		writeRequestError(w, errors.New("reasoning summaries cannot be returned"), "reasoning.summary")
+	if summary, supplied := object["summary"]; name == "reasoning" && supplied && summary != nil && summary != "auto" && summary != "concise" && summary != "detailed" {
+		writeRequestError(w, errors.New("unsupported reasoning summary setting"), "reasoning.summary")
 		return nil, false
 	}
 	if verbosity, supplied := object["verbosity"]; name == "text" && supplied {

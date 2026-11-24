@@ -297,6 +297,7 @@ func executeRecoveryPlan(
 		emit(work, "run.progress", attempt, false)
 		endAttempt(failure)
 		if failure == nil {
+			record.NativeResponse = result.NativeResponse
 			record.Output = result.Output
 			if result.Search != nil {
 				record.Search = result.Search

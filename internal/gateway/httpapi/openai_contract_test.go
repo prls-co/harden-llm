@@ -435,9 +435,9 @@ func TestOpenAIContractOrdinaryAdmission(t *testing.T) {
 	}
 	api.clientForKey = func(string) (*hardenllm.Client, error) { return client, nil }
 	for _, tc := range []struct{ path, input, extra, field string }{
-		{"/v1/responses", `"input":"hello"`, `"reasoning":{"summary":"auto"}`, "reasoning.summary"},
+		{"/v1/responses", `"input":"hello"`, `"reasoning":{"summary":"auto"}`, ""},
 		{"/v1/responses", `"input":"hello"`, `"text":null`, "text"},
-		{"/v1/responses", `"input":"hello"`, `"reasoning":{"effort":"low","summary":"auto"}`, "reasoning.summary"},
+		{"/v1/responses", `"input":"hello"`, `"reasoning":{"effort":"low","summary":"auto"}`, ""},
 		{"/v1/responses", `"input":"hello"`, `"reasoning":{"effort":"low"}`, ""},
 		{"/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}]`, `"logprobs":true`, "logprobs"},
 		{"/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}]`, `"top_logprobs":2`, "top_logprobs"},

@@ -95,6 +95,7 @@ func TestCacheDraftContract(t *testing.T) {
 		for _, payload := range []string{
 			`{"output":{"value":1.25e3,"id":9007199254740993},"items":[false,null]}`,
 			`{"output":"before\u0000after"}`,
+			`{"output":"ok","nativeResponse":{"id":"resp_x","output":[{"type":"reasoning","summary":[{"type":"summary_text","text":"before\u0000after"}]},{"type":"message"}],"extension":9007199254740993}}`,
 		} {
 			record.ProviderResult = json.RawMessage(payload)
 			if err := cache.Set(context.Background(), key, record); err != nil {

@@ -16,6 +16,7 @@ import (
 
 func TestResponsesClientContract(t *testing.T) {
 	input := ResponsesInput{Model: "test-model", Input: []ResponseMessage{{"system", "rules"}, {"user", "input"}, {"assistant", "invalid"}, {"user", "correct"}}, Text: ResponseText{Format: ResponseFormat{Type: "json_schema", Name: "entity", Schema: json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`), Strict: true}}, Harden: ResponseControls{Diagnostics: true}}
+	input.Reasoning = &ResponseReasoning{Summary: "auto"}
 	client, calls := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/v1/responses" || r.Header.Get("Accept") != "application/json" {
 			t.Errorf("unexpected HTTP request %s %s", r.Method, r.URL.Path)
@@ -36,13 +37,13 @@ func TestResponsesClientContract(t *testing.T) {
 			t.Errorf("request changed: %#v", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"id":"resp_x","object":"response","created_at":1,"status":"completed","model":"test-model","output":[],"output_text":"{}","parallel_tool_calls":false,"harden":{}}`)
+		io.WriteString(w, `{"id":"resp_x","object":"response","created_at":1,"status":"completed","model":"test-model","extra":true,"output":[{"type":"reasoning","id":"rs_1","summary":[{"type":"summary_text","text":"summary"}]},{"type":"message","content":[{"type":"output_text","text":"{}"}]}],"output_text":null,"parallel_tool_calls":false,"harden":{}}`)
 	})
 	got, err := client.Responses(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Responses: %v", err)
 	}
-	if got.OutputText != "{}" || got.Model != "test-model" || len(got.Harden) == 0 || calls.Load() != 1 {
+	if len(got.Output) != 2 || len(got.Output[0].Summary) != 1 || got.Output[0].Summary[0].Text != "summary" || got.OutputText != "{}" || got.Model != "test-model" || len(got.Harden) == 0 || calls.Load() != 1 {
 		t.Fatalf("result=%+v calls=%d", got, calls.Load())
 	}
 }

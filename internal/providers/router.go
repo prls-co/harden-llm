@@ -69,16 +69,17 @@ type Router struct {
 }
 
 type preparedRequest struct {
-	url        *url.URL
-	headers    http.Header
-	body       []byte
-	provider   string
-	protocol   string
-	callType   string
-	timeout    time.Duration
-	operation  cachekey.Operation
-	webSearch  *preparedWebSearch
-	searchMode string
+	url            *url.URL
+	headers        http.Header
+	body           []byte
+	provider       string
+	protocol       string
+	callType       string
+	timeout        time.Duration
+	operation      cachekey.Operation
+	webSearch      *preparedWebSearch
+	searchMode     string
+	nativeResponse bool
 }
 
 // NewRouter creates a router with one hardened, reusable egress client.
@@ -156,6 +157,12 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 	if err != nil {
 		return runtime.PreparedOperation{}, err
 	}
+	// The same upstream payload can serve translated, batch, or reference requests.
+	nativeResponse := call.OptionProtocol == connection.APIInferenceType && (path == "/responses" || path == "/chat/completions") && call.Repair == nil
+	version := responseProjectionVersion
+	if nativeResponse {
+		version = "v7-native"
+	}
 	operation := cachekey.Operation{
 		SchemaVersion: cachekey.OperationSchemaVersion,
 		Protocol:      protocol,
@@ -164,12 +171,12 @@ func (router *Router) Prepare(ctx context.Context, connection runtime.Connection
 		},
 		Model: call.ModelID, Payload: operationPayload(payload, connection, call), SemanticHeaders: semanticHeaders,
 		ResponseProjection: cachekey.ResponseProjection{
-			Provider: provider, Kind: responseKind(call.CallType), Version: responseProjectionVersion,
+			Provider: provider, Kind: responseKind(call.CallType), Version: version,
 		},
 	}
 	request := preparedRequest{
 		url: requestURL, headers: headers, body: body, provider: provider, protocol: protocol,
-		callType: call.CallType, timeout: timeout, operation: operation,
+		callType: call.CallType, timeout: timeout, operation: operation, nativeResponse: nativeResponse,
 		webSearch: fallbackWebSearch(connection, call),
 	}
 	if searchRequested(call) {
@@ -489,7 +496,7 @@ func clearProviderOutput(result *runtime.ProviderResult) {
 	if result == nil {
 		return
 	}
-	result.Output, result.Search = nil, nil
+	result.Output, result.Search, result.NativeResponse = nil, nil, nil
 }
 
 func collectResponsesEventStreamIfPresent(contentType string, body []byte) (map[string]any, error) {
