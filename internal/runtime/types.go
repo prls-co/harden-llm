@@ -94,6 +94,7 @@ type Call struct {
 	WebSearchTool   json.RawMessage
 	// SearchMemo is owned by one logical call and shared by retries and repairs.
 	SearchMemo         *sync.Map
+	OptionProtocol     string
 	ProviderOptions    map[string]any
 	Context            ObservabilityContext
 	Origin             Origin

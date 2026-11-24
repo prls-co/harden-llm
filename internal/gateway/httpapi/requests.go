@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/prls-co/harden-llm/internal/retry"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 
 	hardenllm "github.com/prls-co/harden-llm"
@@ -20,7 +22,21 @@ type hardenRequest struct {
 	Diagnostics bool                      `json:"diagnostics,omitempty"`
 }
 
+// Tagged fields are validated locally and also forwarded. Untagged fields
+// belong to the gateway's execution or response contract.
+type requestOptions struct {
+	options  map[string]any
+	ordinary bool
+}
+
+func (o *requestOptions) nativeOptions() *requestOptions { return o }
+
+type generationInput interface{ nativeOptions() *requestOptions }
+
 type chatRequest struct {
+	requestOptions
+	Logprobs            *bool                 `json:"logprobs,omitempty"`
+	TopLogprobs         json.RawMessage       `json:"top_logprobs,omitempty"`
 	Model               string                `json:"model"`
 	Messages            []json.RawMessage     `json:"messages"`
 	Tools               []json.RawMessage     `json:"tools,omitempty"`
@@ -29,15 +45,15 @@ type chatRequest struct {
 	Stream              bool                  `json:"stream,omitempty"`
 	StreamOptions       *streamOptions        `json:"stream_options,omitempty"`
 	N                   *int                  `json:"n,omitempty"`
-	Store               *bool                 `json:"store,omitempty"`
-	MaxTokens           *int                  `json:"max_tokens,omitempty"`
-	MaxCompletionTokens *int                  `json:"max_completion_tokens,omitempty"`
-	Temperature         *float64              `json:"temperature,omitempty"`
-	TopP                *float64              `json:"top_p,omitempty"`
-	FrequencyPenalty    *float64              `json:"frequency_penalty,omitempty"`
-	PresencePenalty     *float64              `json:"presence_penalty,omitempty"`
-	Seed                *int64                `json:"seed,omitempty"`
-	Stop                json.RawMessage       `json:"stop,omitempty"`
+	Store               *bool                 `json:"store,omitempty" forward:"ordinary"`
+	MaxTokens           *int                  `json:"max_tokens,omitempty" forward:"true"`
+	MaxCompletionTokens *int                  `json:"max_completion_tokens,omitempty" forward:"true"`
+	Temperature         *float64              `json:"temperature,omitempty" forward:"true"`
+	TopP                *float64              `json:"top_p,omitempty" forward:"true"`
+	FrequencyPenalty    *float64              `json:"frequency_penalty,omitempty" forward:"true"`
+	PresencePenalty     *float64              `json:"presence_penalty,omitempty" forward:"true"`
+	Seed                *int64                `json:"seed,omitempty" forward:"true"`
+	Stop                json.RawMessage       `json:"stop,omitempty" forward:"true"`
 	ReasoningEffort     string                `json:"reasoning_effort,omitempty"`
 	WebSearchOptions    *chatWebSearchOptions `json:"web_search_options,omitempty"`
 	Harden              hardenRequest         `json:"harden,omitempty"`
@@ -63,7 +79,8 @@ type streamOptions struct {
 }
 
 type responsesRequest struct {
-	ServiceTier        string            `json:"service_tier,omitempty"`
+	requestOptions
+	ServiceTier        string            `json:"service_tier,omitempty" forward:"true"`
 	Model              string            `json:"model"`
 	Input              json.RawMessage   `json:"input"`
 	Instructions       string            `json:"instructions,omitempty"`
@@ -71,16 +88,16 @@ type responsesRequest struct {
 	ToolChoice         json.RawMessage   `json:"tool_choice,omitempty"`
 	Text               json.RawMessage   `json:"text,omitempty"`
 	Stream             bool              `json:"stream,omitempty"`
-	Store              *bool             `json:"store,omitempty"`
+	Store              *bool             `json:"store,omitempty" forward:"ordinary"`
 	PreviousResponseID string            `json:"previous_response_id,omitempty"`
 	Background         *bool             `json:"background,omitempty"`
-	MaxOutputTokens    *int              `json:"max_output_tokens,omitempty"`
-	Temperature        *float64          `json:"temperature,omitempty"`
-	TopP               *float64          `json:"top_p,omitempty"`
+	MaxOutputTokens    *int              `json:"max_output_tokens,omitempty" forward:"true"`
+	Temperature        *float64          `json:"temperature,omitempty" forward:"true"`
+	TopP               *float64          `json:"top_p,omitempty" forward:"true"`
 	Reasoning          json.RawMessage   `json:"reasoning,omitempty"`
 	Include            []string          `json:"include,omitempty"`
-	Truncation         string            `json:"truncation,omitempty"`
-	ParallelToolCalls  *bool             `json:"parallel_tool_calls,omitempty"`
+	Truncation         string            `json:"truncation,omitempty" forward:"true"`
+	ParallelToolCalls  *bool             `json:"parallel_tool_calls,omitempty" forward:"true"`
 	N                  *int              `json:"n,omitempty"`
 	Harden             hardenRequest     `json:"harden,omitempty"`
 }
@@ -133,7 +150,7 @@ type namedFunction struct {
 	Name string `json:"name"`
 }
 
-func (api *API) decodeRequest(writer http.ResponseWriter, request *http.Request, target any) bool {
+func (api *API) decodeRequest(writer http.ResponseWriter, request *http.Request, target generationInput) bool {
 	mediaType := strings.TrimSpace(strings.Split(request.Header.Get("Content-Type"), ";")[0])
 	if mediaType != "application/json" {
 		writeError(writer, http.StatusUnsupportedMediaType, "invalid_request_error", "unsupported_media_type", "Content-Type must be application/json.", "content_type")
@@ -152,27 +169,93 @@ func (api *API) decodeRequest(writer http.ResponseWriter, request *http.Request,
 		writeError(writer, http.StatusRequestEntityTooLarge, "invalid_request_error", "request_too_large", "The request body exceeds the configured size limit.", nil)
 		return false
 	}
-	if rejectStoredOrStateful(writer, body) {
+	return decodeGeneration(writer, body, target, true)
+}
+
+// Decode declared fields strictly. The remaining ordinary members are native
+// options. Batch items use the same declarations with a closed boundary.
+func decodeGeneration(w http.ResponseWriter, body []byte, target generationInput, ordinary bool) bool {
+	if len(body) > maximumRequestBytes {
+		writeError(w, 413, "invalid_request_error", "request_too_large", "The request body exceeds the configured size limit.", nil)
 		return false
 	}
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		writeError(writer, http.StatusBadRequest, "invalid_request_error", "invalid_request", "The request contains malformed or unsupported fields.", nil)
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err != nil || fields == nil {
+		writeError(w, 400, "invalid_request_error", "invalid_json", "The request body must contain one JSON object.", nil)
 		return false
 	}
-	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
-		writeError(writer, http.StatusBadRequest, "invalid_request_error", "invalid_json", "The request body must contain one JSON object.", nil)
+	if rejectStoredOrStateful(w, fields) {
 		return false
+	}
+	opts := target.nativeOptions()
+	opts.ordinary, opts.options = ordinary, make(map[string]any)
+	object := reflect.ValueOf(target).Elem()
+	for i := 0; i < object.NumField(); i++ {
+		field := object.Type().Field(i)
+		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
+		raw, found := fields[name]
+		if name == "" || !found {
+			continue
+		}
+		value := object.Field(i)
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(value.Addr().Interface()); err != nil {
+			writeRequestError(w, errors.New("field has an invalid value or unsupported member"), name)
+			return false
+		}
+		forward := field.Tag.Get("forward")
+		if ordinary && forward != "" {
+			continue
+		}
+		delete(fields, name)
+		if !ordinary && forward == "true" && !value.IsZero() {
+			// Durable snapshots use the original typed numeric representation.
+			opts.options[name] = reflect.Indirect(value).Interface()
+		}
+	}
+	for key, raw := range fields {
+		if !ordinary || retry.ReservedOrdinaryOption(key) {
+			writeRequestError(w, errors.New("field is not available on this endpoint"), key)
+			return false
+		}
+		var value any
+		if err := decodeJSONValue(raw, &value); err != nil {
+			writeRequestError(w, errors.New("invalid JSON option"), key)
+			return false
+		}
+		opts.options[key] = value
 	}
 	return true
 }
 
-func rejectStoredOrStateful(writer http.ResponseWriter, body []byte) bool {
-	var fields map[string]json.RawMessage
-	if json.Unmarshal(body, &fields) != nil {
+// Keep native siblings while the existing public validators consume the one
+// member that affects execution or projection.
+func (o *requestOptions) consumeMember(w http.ResponseWriter, name, member string, raw *json.RawMessage) bool {
+	if len(*raw) == 0 {
+		return true
+	}
+	var object map[string]any
+	if err := decodeJSONValue(*raw, &object); err != nil {
+		writeRequestError(w, errors.New("field must be an object"), name)
 		return false
 	}
+	if _, summary := object["summary"]; name == "reasoning" && summary {
+		writeRequestError(w, errors.New("reasoning summaries cannot be returned"), "reasoning.summary")
+		return false
+	}
+	*raw = nil
+	if value, found := object[member]; found {
+		*raw = marshalRaw(map[string]any{member: value})
+		delete(object, member)
+	}
+	if len(object) > 0 {
+		o.options[name] = object
+	}
+	return true
+}
+
+func rejectStoredOrStateful(writer http.ResponseWriter, fields map[string]json.RawMessage) bool {
 	for _, field := range []string{"previous_response_id", "conversation"} {
 		if _, present := fields[field]; present {
 			writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", fmt.Sprintf("The %s field is not supported by this stateless API.", field), field)
@@ -188,7 +271,7 @@ func rejectStoredOrStateful(writer http.ResponseWriter, body []byte) bool {
 	}
 	if value, present := fields["store"]; present {
 		var stored bool
-		if json.Unmarshal(value, &stored) == nil && stored {
+		if json.Unmarshal(value, &stored) != nil || stored || string(value) == "null" {
 			writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_field", "Server-side response storage is not supported.", "store")
 			return true
 		}

@@ -44,7 +44,7 @@ func TestJobAPIValidatesBeforeAdmissionAndUsesBearerScope(t *testing.T) {
 	for _, tc := range []struct {
 		body, key string
 		want      int
-	}{{good, "key", 202}, {good, "", 400}, {strings.Replace(good, `"model":`, `"fixture_option":false,"model":`, 1), "key", 400}, {strings.Replace(good, "gpt-6-luna", "other", 1), "key", 400}, {strings.Replace(good, `"input":"Return ok"`, `"input":"Return ok","harden":{"recovery":{"maxAttempts":2,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`, 1), "key", 400}} {
+	}{{good, "key", 202}, {good, "", 400}, {strings.Replace(good, `"model":`, `"text":{"verbosity":"low"},"model":`, 1), "key", 400}, {strings.Replace(good, `"model":`, `"fixture_option":false,"model":`, 1), "key", 400}, {strings.Replace(good, "gpt-6-luna", "other", 1), "key", 400}, {strings.Replace(good, `"input":"Return ok"`, `"input":"Return ok","harden":{"recovery":{"maxAttempts":2,"retryOn":[],"backoff":{"baseDelayMs":0,"maxDelayMs":0}}}`, 1), "key", 400}} {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "/v1/jobs", strings.NewReader(tc.body))
 		r.Header.Set("Content-Type", "application/json")

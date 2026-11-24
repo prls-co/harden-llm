@@ -363,3 +363,66 @@ func TestOpenAIContractFunctionCacheAdmission(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenAIContractOrdinaryPreparation(t *testing.T) {
+	for _, tc := range []struct{ extra, want string }{
+		{`"store":false,"temperature":0,"max_output_tokens":128,"fixture_option":{"values":[null,false,9007199254740993]}`, `{"fixture_option":{"values":[null,false,9007199254740993]},"max_output_tokens":128,"store":false,"temperature":0}`},
+		{`"text":{"verbosity":"low"}`, `{"text":{"verbosity":"low"}}`},
+		{`"text":{"verbosity":"low","format":{"type":"json_object"}}`, `{"text":{"verbosity":"low"}}`},
+		{`"reasoning":{"effort":"low","fixture_sibling":false}`, `{"reasoning":{"fixture_sibling":false}}`},
+	} {
+		r := httptest.NewRequest("POST", "/v1/responses", strings.NewReader(`{"model":"fixture","input":"hello","harden":{"cache":"off"},`+tc.extra+"}"))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		var input responsesRequest
+		if !(&API{}).decodeRequest(w, r, &input) {
+			t.Errorf("%s: %s", tc.extra, w.Body.String())
+			continue
+		}
+		prepared, ok := prepareResponses(w, input)
+		if !ok {
+			t.Errorf("%s: %s", tc.extra, w.Body.String())
+			continue
+		}
+		got, err := json.Marshal(prepared.Request.ProviderOptions)
+		if err != nil || string(got) != tc.want {
+			t.Errorf("%s: options=%s, want %s (%v)", tc.extra, got, tc.want, err)
+		}
+	}
+}
+
+func TestOpenAIContractOrdinaryAdmission(t *testing.T) {
+	var calls atomic.Int32
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"ok"}]}]}`)
+	}))
+	defer upstream.Close()
+	api := newContractAPI(t, upstream)
+	for _, tc := range []struct{ path, input, extra, field string }{
+		{"/v1/responses", `"input":"hello"`, `"reasoning":{"summary":"auto"}`, "reasoning.summary"},
+		{"/v1/responses", `"input":"hello"`, `"reasoning":{"effort":"low","summary":"auto"}`, "reasoning.summary"},
+		{"/v1/responses", `"input":"hello"`, `"reasoning":{"effort":"low"}`, ""},
+		{"/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}]`, `"logprobs":true`, "logprobs"},
+		{"/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}]`, `"top_logprobs":2`, "top_logprobs"},
+		{"/v1/chat/completions", `"messages":[{"role":"user","content":"hello"}]`, `"logprobs":false`, ""},
+	} {
+		before := calls.Load()
+		w := postOrdinary(api, tc.path, `{"model":"fixture",`+tc.input+","+tc.extra+"}")
+		if tc.field == "" {
+			if w.Code != 200 || calls.Load() != before+1 {
+				t.Errorf("%s: HTTP %d %s", tc.extra, w.Code, w.Body.String())
+			}
+		} else if w.Code != 400 || !strings.Contains(w.Body.String(), `"param":"`+tc.field+`"`) || calls.Load() != before {
+			t.Errorf("%s: HTTP %d, calls %d, %s", tc.extra, w.Code, calls.Load()-before, w.Body.String())
+		}
+	}
+	for _, field := range []string{"timeout", "cacheMode", "useResponsesApi", "__harden_llm_web_search", "maxRetries", "api_key", "baseURL", "headers"} {
+		before := calls.Load()
+		w := postOrdinary(api, "/v1/responses", fmt.Sprintf(`{"model":"fixture","input":"hello",%q:"opaque-sensitive-value"}`, field))
+		if w.Code != 400 || !strings.Contains(w.Body.String(), `"param":"`+field+`"`) || strings.Contains(w.Body.String(), "opaque-sensitive-value") || calls.Load() != before {
+			t.Errorf("%s: HTTP %d %s", field, w.Code, w.Body.String())
+		}
+	}
+}

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -71,10 +70,8 @@ func (api *API) createJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		seen[v.CustomID] = true
-		req, _ := http.NewRequestWithContext(r.Context(), http.MethodPost, "http://internal/v1/responses", bytes.NewReader(v.Request))
-		req.Header.Set("Content-Type", "application/json")
 		var native responsesRequest
-		if !api.decodeRequest(w, req, &native) {
+		if !decodeGeneration(w, v.Request, &native, false) {
 			return
 		}
 		if native.Model != "gpt-6-luna" {

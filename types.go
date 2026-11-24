@@ -90,12 +90,14 @@ type Request struct {
 	ReasoningEffort    ReasoningEffort         `json:"reasoning_effort,omitempty"`
 	WebSearch          bool                    `json:"webSearch,omitempty"`
 	WebSearchTool      json.RawMessage         `json:"webSearchTool,omitempty"`
-	ProviderOptions    map[string]any          `json:"providerOptions,omitempty"`
-	Context            ObservabilityContext    `json:"-"`
-	CacheMode          CacheMode               `json:"cacheMode,omitempty"`
-	CacheVersion       string                  `json:"cacheVersion,omitempty"`
-	RecoveryPolicy     RecoveryPolicy          `json:"recoveryPolicy,omitempty"`
-	Origin             Origin                  `json:"origin,omitempty"`
+	// OptionProtocol identifies ordinary HTTP options in their original wire format.
+	OptionProtocol  string               `json:"-"`
+	ProviderOptions map[string]any       `json:"providerOptions,omitempty"`
+	Context         ObservabilityContext `json:"-"`
+	CacheMode       CacheMode            `json:"cacheMode,omitempty"`
+	CacheVersion    string               `json:"cacheVersion,omitempty"`
+	RecoveryPolicy  RecoveryPolicy       `json:"recoveryPolicy,omitempty"`
+	Origin          Origin               `json:"origin,omitempty"`
 	// Progress receives best-effort cumulative snapshots. The runtime never
 	// closes this caller-owned channel and never blocks provider execution on it.
 	Progress chan<- ProgressEvent

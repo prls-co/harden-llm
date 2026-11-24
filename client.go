@@ -134,8 +134,10 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 	if client.options.Cache != nil {
 		runtimeCache = &cacheAdapter{store: client.options.Cache}
 	}
-	if err := request.RecoveryPolicy.ValidateProviderOptions(request.ProviderOptions); err != nil {
-		return Result{}, err
+	if request.OptionProtocol == "" {
+		if err := request.RecoveryPolicy.ValidateProviderOptions(request.ProviderOptions); err != nil {
+			return Result{}, err
+		}
 	}
 	if err := request.RecoveryPolicy.Validate(); err != nil {
 		return Result{}, err
@@ -158,7 +160,7 @@ func (client *Client) Call(ctx context.Context, request Request) (result Result,
 			ParentRunID: request.Origin.ParentRunID, JobID: request.Origin.JobID, TestRunID: request.Origin.TestRunID,
 			TestID: request.Origin.TestID, SourceRevision: request.Origin.SourceRevision,
 		},
-		ProviderOptions: cloneAnyMap(request.ProviderOptions), Context: runtimeContext(request.Context),
+		OptionProtocol: request.OptionProtocol, ProviderOptions: cloneAnyMap(request.ProviderOptions), Context: runtimeContext(request.Context),
 		Observer: client.observer,
 	}
 	if request.Progress != nil {

@@ -122,21 +122,19 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 		writeRequestError(writer, err, "harden")
 		return
 	}
-	options := make(map[string]any)
-	putValue(options, "max_tokens", input.MaxTokens)
-	putValue(options, "max_completion_tokens", input.MaxCompletionTokens)
-	putValue(options, "temperature", input.Temperature)
-	putValue(options, "top_p", input.TopP)
-	putValue(options, "frequency_penalty", input.FrequencyPenalty)
-	putValue(options, "presence_penalty", input.PresencePenalty)
-	putValue(options, "seed", input.Seed)
+	if input.Logprobs != nil && *input.Logprobs {
+		writeRequestError(writer, errors.New("token probabilities cannot be returned"), "logprobs")
+		return
+	}
+	if len(input.TopLogprobs) > 0 {
+		writeRequestError(writer, errors.New("token probabilities cannot be returned"), "top_logprobs")
+		return
+	}
 	if len(input.Stop) > 0 {
-		value, err := decodeStopSequences(input.Stop)
-		if err != nil {
-			writeRequestError(writer, errors.New("stop must be a string or an array of strings"), "stop")
+		if _, err := decodeStopSequences(input.Stop); err != nil {
+			writeRequestError(writer, err, "stop")
 			return
 		}
-		options["stop"] = value
 	}
 	if !validateFunctionTools(writer, tools, cache, callType) {
 		return
@@ -150,7 +148,7 @@ func (api *API) chatCompletions(writer http.ResponseWriter, request *http.Reques
 	result, callErr := api.execute(ctx, connection, cache, timeout, recovery, hardenllm.Request{
 		ModelID: input.Model, Messages: messages, CallType: callType, Schema: schema, Tools: tools,
 		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(input.ReasoningEffort), WebSearch: input.WebSearchOptions != nil, WebSearchTool: webSearchTool,
-		ProviderOptions: options,
+		ProviderOptions: input.options, OptionProtocol: "chat-completions",
 	})
 	tracked.observeResult(result)
 	if callErr != nil {
@@ -299,6 +297,14 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 		writeRequestError(writer, err, "tool_choice")
 		return preparedResponses{}, false
 	}
+	protocol := ""
+	if input.ordinary {
+		protocol = "responses"
+		if !input.consumeMember(writer, "text", "format", &input.Text) ||
+			!input.consumeMember(writer, "reasoning", "effort", &input.Reasoning) {
+			return preparedResponses{}, false
+		}
+	}
 	callType, schema, err := responsesOutputContract(input.Text)
 	if err != nil {
 		writeRequestError(writer, err, "text")
@@ -320,13 +326,6 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 		writeError(writer, http.StatusBadRequest, "invalid_request_error", "unsupported_value", "Only service_tier=default is supported.", "service_tier")
 		return preparedResponses{}, false
 	}
-	options := make(map[string]any)
-	putValue(options, "service_tier", input.ServiceTier)
-	putValue(options, "max_output_tokens", input.MaxOutputTokens)
-	putValue(options, "temperature", input.Temperature)
-	putValue(options, "top_p", input.TopP)
-	putValue(options, "truncation", input.Truncation)
-	putValue(options, "parallel_tool_calls", input.ParallelToolCalls)
 	reasoningEffort, err := responsesReasoningEffort(input.Reasoning)
 	if err != nil {
 		writeRequestError(writer, err, "reasoning")
@@ -335,7 +334,7 @@ func prepareResponses(writer http.ResponseWriter, input responsesRequest) (prepa
 	return preparedResponses{Request: hardenllm.Request{
 		ModelID: input.Model, Messages: messages, CallType: callType, Schema: schema, Tools: tools,
 		ToolChoice: choice, ReasoningEffort: hardenllm.ReasoningEffort(reasoningEffort), WebSearch: webSearch, WebSearchTool: webSearchTool,
-		ProviderOptions: options,
+		ProviderOptions: input.options, OptionProtocol: protocol,
 	}, Connection: connection, Cache: cache, Timeout: timeout, Recovery: recovery, Diagnostics: diagnostics, IncludeSearchSources: len(input.Include) > 0}, true
 }
 
@@ -446,35 +445,6 @@ func safeCode(value, fallback string) string {
 		}
 	}
 	return value
-}
-
-func putValue(target map[string]any, key string, value any) {
-	switch item := value.(type) {
-	case string:
-		if item != "" {
-			target[key] = item
-		}
-	case []string:
-		if item != nil {
-			target[key] = item
-		}
-	case *int:
-		if item != nil {
-			target[key] = *item
-		}
-	case *int64:
-		if item != nil {
-			target[key] = *item
-		}
-	case *float64:
-		if item != nil {
-			target[key] = *item
-		}
-	case *bool:
-		if item != nil {
-			target[key] = *item
-		}
-	}
 }
 
 func decodeJSONValue(encoded []byte, target any) error {
