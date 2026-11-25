@@ -51,7 +51,7 @@ func executeRecoveryPlan(
 		// while a fresh rerun may reuse the generation's memoized fallback.
 		baseCall.SearchMemo = &sync.Map{}
 	}
-	record = newCallRecord(callID, traceID, selected, call.Origin, cacheMode, cacheVersion, min(config.Policy.MaxAttempts, 10))
+	record = newCallRecord(callID, traceID, selected, call.Origin, cacheMode, cacheVersion)
 	if err := executionContextError(ctx, config.Now()); err != nil {
 		record.StopReason = stopReasonFor(err)
 		return record, err

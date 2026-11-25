@@ -55,7 +55,7 @@ func Execute(
 	selected := targetFromConnection(connection, call.ModelID)
 	ctx, finishRuntime := startRuntime(ctx, call.Observer, selected, call.CallType)
 	defer func() { finishRuntime(err) }()
-	record = newCallRecord(callID, traceID, selected, call.Origin, cacheMode, cacheVersion, 0)
+	record = newCallRecord(callID, traceID, selected, call.Origin, cacheMode, cacheVersion)
 	startedAt := config.Now()
 	record.startTiming(ctx, startedAt)
 	progress := newProgressEmitter(ctx, call, config, &record, startedAt)
@@ -176,13 +176,13 @@ func Execute(
 	}
 }
 
-func newCallRecord(callID, traceID string, target ExecutionTarget, origin Origin, cacheMode cachekey.Mode, cacheVersion string, attemptCapacity int) CallRecord {
+func newCallRecord(callID, traceID string, target ExecutionTarget, origin Origin, cacheMode cachekey.Mode, cacheVersion string) CallRecord {
 	return CallRecord{
 		CallID: callID, TraceID: traceID, SelectedTarget: target, GenerationTarget: target, Branch: "original",
 		Origin:       origin,
 		ResultSource: ResultSource{Kind: ResultSourceNone},
 		Accounting:   Accounting{Result: accounting.EmptyLedger(), Provider: accounting.EmptyLedger()},
-		Attempts:     make([]AttemptRecord, 0, attemptCapacity),
+		Attempts:     []AttemptRecord{},
 		Cache:        CacheFacts{Mode: cacheMode, Status: "skipped", Version: cacheVersion},
 	}
 }
