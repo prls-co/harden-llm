@@ -145,12 +145,16 @@ func TestExecutionIdentityAndGlobalAttemptBudget(t *testing.T) {
 type identityExecutor struct{ executes int }
 
 func (*identityExecutor) Prepare(_ context.Context, connection Connection, _ Credential, call Call) (PreparedOperation, error) {
-	return PreparedOperation{Operation: cachekey.Operation{
+	return PreparedOperation{Operation: fixtureOperation(connection, call.ModelID, "v1")}, nil
+}
+
+func fixtureOperation(connection Connection, modelID, version string) cachekey.Operation {
+	return cachekey.Operation{
 		SchemaVersion: cachekey.OperationSchemaVersion, Protocol: connection.APIInferenceType,
 		Endpoint: cachekey.Endpoint{Identity: connection.BaseURL, Method: "POST", Path: "/run"},
-		Model:    call.ModelID, Payload: map[string]any{}, SemanticHeaders: map[string]any{},
-		ResponseProjection: cachekey.ResponseProjection{Provider: connection.Provider, Kind: "fixture", Version: "v1"},
-	}}, nil
+		Model:    modelID, Payload: map[string]any{}, SemanticHeaders: map[string]any{},
+		ResponseProjection: cachekey.ResponseProjection{Provider: connection.Provider, Kind: "fixture", Version: version},
+	}
 }
 
 func (executor *identityExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
@@ -262,8 +266,10 @@ func TestRecoveryExecution(t *testing.T) {
 		if !record.Attempts[1].Repair || !record.Attempts[2].Repair || !reflect.DeepEqual(executor.dispatched[1].Repair, executor.dispatched[2].Repair) {
 			t.Fatalf("repair context/identity reset: attempts=%#v dispatched=%#v", record.Attempts, executor.dispatched)
 		}
+		wantTransportRetryOf := []int{0, 0, 2}
 		for index, attempt := range record.Attempts {
-			if attempt.Number != index+1 || attempt.Target.ModelID != "selected-model" || !attempt.ProviderUsed {
+			if attempt.Number != index+1 || attempt.Target.ModelID != "selected-model" || !attempt.ProviderUsed ||
+				attempt.TransportRetryOf != wantTransportRetryOf[index] {
 				t.Errorf("incorrect dispatched facts: %#v", attempt)
 			}
 		}
@@ -300,7 +306,7 @@ type recoveryExecutor struct {
 
 func (executor *recoveryExecutor) Prepare(_ context.Context, connection Connection, _ Credential, call Call) (PreparedOperation, error) {
 	executor.prepares++
-	return PreparedOperation{Operation: cachekey.Operation{SchemaVersion: cachekey.OperationSchemaVersion, Protocol: connection.APIInferenceType, Endpoint: cachekey.Endpoint{Identity: connection.BaseURL, Method: "POST", Path: "/run"}, Model: call.ModelID, Payload: map[string]any{}, SemanticHeaders: map[string]any{}, ResponseProjection: cachekey.ResponseProjection{Provider: connection.Provider, Kind: "fixture", Version: "v1"}}, Opaque: call}, nil
+	return PreparedOperation{Operation: fixtureOperation(connection, call.ModelID, "v1"), Opaque: call}, nil
 }
 func (executor *recoveryExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
 	call := operation.Opaque.(Call)
@@ -542,11 +548,7 @@ type accountingSequenceExecutor struct {
 }
 
 func (executor *accountingSequenceExecutor) Prepare(_ context.Context, connection Connection, _ Credential, call Call) (PreparedOperation, error) {
-	return PreparedOperation{Operation: cachekey.Operation{
-		SchemaVersion: cachekey.OperationSchemaVersion, Protocol: connection.APIInferenceType,
-		Endpoint: cachekey.Endpoint{Identity: connection.BaseURL, Method: "POST", Path: "/run"}, Model: call.ModelID,
-		Payload: map[string]any{}, SemanticHeaders: map[string]any{}, ResponseProjection: cachekey.ResponseProjection{Provider: connection.Provider, Kind: "fixture", Version: "v3"},
-	}}, nil
+	return PreparedOperation{Operation: fixtureOperation(connection, call.ModelID, "v3")}, nil
 }
 
 func (executor *accountingSequenceExecutor) Execute(context.Context, PreparedOperation) (ProviderResult, error) {
