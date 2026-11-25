@@ -1,6 +1,11 @@
 # Issue #184 decisions for PR #185
 
-Reply with **1A or 1B**, **2A or 2B**, and the name of any report reader that needs compatibility. I recommend **1A and 2A**. Both decisions concern PR head `9c401a6`. [PR #185](https://github.com/prls-co/harden-llm/pull/185)
+`9c401a6` was the initial implementation. The owner accepted **1A** and **2A** during review, and PR #185 shipped both when it merged into `dev` at `cc6002b`. The options below record the choices considered during review. [PR #185](https://github.com/prls-co/harden-llm/pull/185)
+
+- **1A. Responses answer selection.** An explicit `final_answer` takes precedence even when empty. When phase labels are absent and a web search completed, only assistant text after the last completed search qualifies. If the only text came before that search, both JSON and streamed Responses yield `empty_response`. [Implementation plan](../plans/issue-184-provider-diagnostics-and-search-fixes-plan.md)
+- **2A. Preset qualification.** In new reports, count only rows with `qualificationStatus=passed`. A row with `status=succeeded` and `qualificationStatus=invalid_diagnostics` records a successful call that failed qualification. In archived reports that predate `qualificationStatus`, count `status=succeeded` under the original rules. Those counts do not establish that the diagnostics meet the newer requirements. [Qualification guide](../docs/preset-live-qualification.md)
+
+## 1. Historical options for Responses answer selection
 
 ### 1.1 Question
 
@@ -10,7 +15,7 @@ If the only unlabeled assistant text comes **before** a completed web search and
 
 In the OpenAI Responses API, an assistant message can carry a `phase` of `commentary` for a progress update or `final_answer` for the answer. The field is optional. When it is absent, using item order to interpret the message is a Harden LLM compatibility decision. [OpenAI Responses API reference](https://developers.openai.com/api/reference/resources/responses/methods/create)
 
-Today `finalResponseOutput` selects the last item with nonempty content. The local tests cover an unlabeled preamble, a search, and a later answer. The RCA also reproduced a caller receiving `Searching...` when explicitly labeled commentary was the only text. Both options honor explicit phases and accept a valid answer when optional search was never used. The decision below concerns **unlabeled** text. [Final-message selector](../internal/providers/search_result.go) · [Search contract tests](../internal/providers/web_search_contract_test.go)
+At `9c401a6`, `finalResponseOutput` selected the last item with nonempty content. The tests covered an unlabeled preamble, a search, and a later answer. The RCA also reproduced a caller receiving `Searching...` when explicitly labeled commentary was the only text. Both proposals honored explicit phases and allowed a valid answer when optional search was never used. They differed on **unlabeled** text. [Final-message selector](../internal/providers/search_result.go) · [Final-answer regression tests](../internal/providers/transport_diagnostics_test.go)
 
 ### 1.3 Options
 
@@ -25,7 +30,7 @@ Today `finalResponseOutput` selects the last item with nonempty content. The loc
 - **System limits** One linear scan of the response items with constant selection state. The selector performs no I/O.
 - **Trade-offs** Prevents a progress update from qualifying as an answer. A provider that lists a genuine unlabeled answer before its search item could have that answer rejected. The frequency of that ordering is unknown.
 
-**Option B · Preserve the current ordering rule for unlabeled messages**
+**Option B · Preserve the initial ordering rule for unlabeled messages**
 
 `Conf:90% | Invest:ii | Blast:ii | Reversal:ii | Fit:i | Reuse:i | Obs:ii | Surface:i | Perf:na`
 
@@ -36,17 +41,19 @@ Today `finalResponseOutput` selects the last item with nonempty content. The loc
 - **System limits** One linear scan with constant selection state and no I/O.
 - **Trade-offs** Preserves compatibility for providers that omit phases. An ambiguous progress update can still qualify as a successful text answer.
 
-### 1.4 Recommendation
+### 1.4 Decision
 
-**1A.** A completed search followed by no answer is more useful to expose as an empty response than as a successful progress update. This is stricter than the tested prototype. Add the exact unlabeled sequence as a regression in both JSON and streaming modes.
+The owner chose **1A** so a progress update alone could not qualify as an answer after a completed search. The JSON and streaming regression tests cover that sequence.
+
+## 2. Historical options for preset qualification
 
 ### 2.1 Question
 
-Does a dashboard, script, or manual workflow use `status == "succeeded"` to count preset test passes? If so, which reader owns that check, and can it change alongside the report?
+Did any dashboard, script, or manual workflow depend on `status == "succeeded"` to count preset test passes, and could its owner update it alongside the report?
 
 ### 2.2 Context & clarification
 
-`TestLivePresetMatrix` runs each selected model preset and output mode. **Inference outcome** records what happened to the call. **Qualification** records whether the run met the test requirements, including sufficient diagnostic evidence. Today `recordLivePresetOutcome` starts with `RunOutput.Status` and can replace a successful outcome with `invalid_diagnostics`. A dispatched call whose remote outcome is unknown is recorded as `unconfirmed`. I found no independent reader in the sibling repositories searched. A private dashboard or manual workflow is still possible. [Matrix reporter](../cmd/harden-llm-gateway/preset_matrix_helpers_test.go) · [Qualification guide](../docs/preset-live-qualification.md)
+`TestLivePresetMatrix` runs each selected model preset and output mode. At `9c401a6`, `recordLivePresetOutcome` used one field for the call outcome and the qualification verdict. It initialized `status` from `RunOutput.Status` and could overwrite `succeeded` with `invalid_diagnostics` when evidence was missing. It recorded a dispatched call with an unknown remote outcome as `unconfirmed`. The review found no independent reader in the sibling repositories searched. [Matrix reporter](../cmd/harden-llm-gateway/preset_matrix_helpers_test.go)
 
 ### 2.3 Options
 
@@ -72,6 +79,6 @@ Does a dashboard, script, or manual workflow use `status == "succeeded"` to coun
 - **System limits** The same per-row scan applies, with no provider requests or additional workers.
 - **Trade-offs** Supports readers that cannot migrate now. Readers investigating a failure must interpret the combined field alongside `runStatus`.
 
-### 2.4 Recommendation
+### 2.4 Decision
 
-**2A** if readers can migrate together. It gives “did the call succeed?” and “did the test pass?” stable meanings. Choose **2B** if you identify an existing reader that must keep counting passes through `status`. Historical reports remain evidence under the format that produced them.
+The owner chose **2A** so readers can distinguish a successful call from a qualified preset run. The reporter writes the call outcome to `status` and the verdict for each evaluated row to `qualificationStatus`.
