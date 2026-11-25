@@ -72,6 +72,9 @@ func executeRecoveryPlan(
 		})
 	}
 	defer func() {
+		if work != nil {
+			record.Diagnostics.Stage = work.stage
+		}
 		record.finishDiagnostics(config, startedAt, err)
 		emit(work, "run.terminal", len(record.Attempts), true)
 	}()
@@ -199,20 +202,20 @@ func executeRecoveryPlan(
 				record.StopReason = "recovery_exhausted"
 				return record, failure
 			}
-			if next.branch != work.branch {
-				next.generationTarget = next.target
-				record.Branch = next.branch
-				record.GenerationTarget = next.generationTarget
+			work = next
+			if work.branch != record.Branch {
+				work.generationTarget = work.target
+				record.Branch = work.branch
+				record.GenerationTarget = work.generationTarget
 				if cacheMode != cachekey.ModeOff {
-					if err := record.prepareBranchCache(next); err != nil {
+					if err := record.prepareBranchCache(work); err != nil {
 						return record, err
 					}
-					if served, err := record.lookupPlannedCache(ctx, cache, next, baseCall); served || err != nil {
+					if served, err := record.lookupPlannedCache(ctx, cache, work, baseCall); served || err != nil {
 						return record, err
 					}
 				}
 			}
-			work = next
 			continue
 		}
 		if !transportRetry {

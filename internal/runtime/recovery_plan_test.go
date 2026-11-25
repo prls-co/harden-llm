@@ -165,13 +165,19 @@ func TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory(t *testing.T) {
 	}
 }
 
-// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
-func TestExplicitRecoveryPlanReplaysRerunRepair(t *testing.T) {
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217 TEST-244 TEST-246
+func TestRecoveryBoundaryAccountingCacheReplaysRerunRepair(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	call := decisionCall()
+	rerunConnection := planConnection()
+	rerunConnection.ID = "secondary"
+	call.Connections = map[string]ResolvedConnection{rerunConnection.ID: {Connection: rerunConnection}}
 	policy := decisionPlan()
 	policy.JSONRepair = nil
 	policy.MaxAttempts = 3
+	policy.Rerun.Target.ConnectionID = rerunConnection.ID
+	policy.Rerun.Target.ReasoningEffort = "high"
 	config := retry.Config{Policy: policy}
 	cache := &progressContractCache{}
 	producer := &orderedPlanExecutor{succeedAt: 3}
@@ -187,6 +193,8 @@ func TestExplicitRecoveryPlanReplaysRerunRepair(t *testing.T) {
 
 	cache.found = true
 	replayExecutor := &orderedPlanExecutor{}
+	var last ProgressSnapshot
+	call.Progress = func(snapshot ProgressSnapshot) { last = snapshot }
 	replay, err := Execute(ctx, replayExecutor, planConnection(), Credential{}, call, config, cache, cachekey.ModeCache, "v1", "replay", "trace")
 	if err != nil || !replay.Cache.Served || replay.Cache.Written || len(replayExecutor.dispatches) != 1 ||
 		!reflect.DeepEqual(attemptStages(replay.Attempts), []string{"original.generate"}) {
@@ -200,6 +208,27 @@ func TestExplicitRecoveryPlanReplaysRerunRepair(t *testing.T) {
 		branches[1].Branch != "rerun" || branches[1].Cache.Status != "hit" {
 		t.Fatalf("rerun replay lost result or branch identity: %+v", replay)
 	}
+	if fresh.Accounting.Provider.Usage.InputTokens != 3 || replay.Accounting.Provider.Usage.InputTokens != 1 {
+		t.Fatalf("provider input tokens: fresh=%d replay=%d", fresh.Accounting.Provider.Usage.InputTokens, replay.Accounting.Provider.Usage.InputTokens)
+	}
+	assertRerunTerminal := func(record CallRecord, reason string) {
+		t.Helper()
+		if record.Diagnostics.Branch != "rerun" || record.Diagnostics.Stage != "rerun.generate" ||
+			last.Type != "run.terminal" || !last.Terminal || last.Branch != "rerun" || last.Stage != "rerun.generate" ||
+			last.ConnectionID != rerunConnection.ID || last.ReasoningEffort != "high" || last.AttemptsUsed != 1 || last.StopReason != reason {
+			t.Errorf("terminal diagnostics=%s/%s progress=%+v", record.Diagnostics.Branch, record.Diagnostics.Stage, last)
+		}
+	}
+	assertRerunTerminal(replay, "succeeded")
+
+	cache.record.CompletedBy = "invalid"
+	last = ProgressSnapshot{}
+	replayExecutor = &orderedPlanExecutor{}
+	rejected, err := Execute(ctx, replayExecutor, planConnection(), Credential{}, call, config, cache, cachekey.ModeCache, "v1", "rejected", "trace")
+	if !errors.Is(err, ErrCacheIntegrity) || rejected.Cache.Served || rejected.Cache.Written || len(replayExecutor.dispatches) != 1 {
+		t.Fatalf("invalid cache replay: cache=%+v dispatches=%d err=%v", rejected.Cache, len(replayExecutor.dispatches), err)
+	}
+	assertRerunTerminal(rejected, "terminal_error")
 }
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-242 TEST-243

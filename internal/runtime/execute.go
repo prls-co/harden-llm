@@ -156,6 +156,7 @@ func Execute(
 		}
 		attemptRecord.setOutcome(result, classification, started, finished, max(0, config.Now().Sub(started)))
 		record.Attempts = append(record.Attempts, attemptRecord)
+		record.Diagnostics.Stage = attemptRecord.Stage
 		emitProgress("run.progress", number, false)
 		observation.finishAttempt(failure)
 		if failure == nil {
@@ -204,10 +205,6 @@ func (record *CallRecord) finishDiagnostics(config retry.Config, startedAt time.
 	record.Diagnostics.AttemptsUsed = used
 	record.Diagnostics.AttemptsRemaining = max(config.Policy.MaxAttempts-used, 0)
 	record.Diagnostics.Elapsed = max(config.Now().Sub(startedAt), 0)
-	record.Diagnostics.Stage = ""
-	if used > 0 {
-		record.Diagnostics.Stage = record.Attempts[used-1].Stage
-	}
 	record.Diagnostics.Branch = record.Branch
 	record.Diagnostics.StopReason = record.StopReason
 }
