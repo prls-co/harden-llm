@@ -31,6 +31,7 @@ type plannedWork struct {
 	generationCall    Call
 	branch            string
 	stage             string
+	lastAttempt       int
 	history           []RepairHistoryEntry
 	generationTarget  ExecutionTarget
 	generationHash    string
@@ -62,21 +63,18 @@ func executeRecoveryPlan(
 	record.startTiming(ctx, startedAt)
 	var work *plannedWork
 	progress := newProgressEmitter(ctx, baseCall, config, &record, startedAt)
-	emit := func(work *plannedWork, eventType string, attempt int, terminal bool) {
-		if work == nil {
-			return
-		}
+	emit := func(eventType string, attempt int, terminal bool) {
 		progress.emit(ProgressSnapshot{
 			Type: eventType, Stage: work.stage, Branch: work.branch, ConnectionID: work.connection.ID,
 			ReasoningEffort: work.call.ReasoningEffort, Attempt: attempt, Terminal: terminal,
 		})
 	}
 	defer func() {
+		record.finishDiagnostics(config, startedAt, err)
 		if work != nil {
 			record.Diagnostics.Stage = work.stage
+			emit("run.terminal", work.lastAttempt, true)
 		}
-		record.finishDiagnostics(config, startedAt, err)
-		emit(work, "run.terminal", len(record.Attempts), true)
 	}()
 
 	work, err = preparePlannedWork(ctx, executor, connection, credential, baseCall, "original", stageOriginalGenerate, nil, nil)
@@ -91,7 +89,7 @@ func executeRecoveryPlan(
 		}
 	}
 	// A cache hit has the same start event and correlation IDs as a provider run.
-	emit(work, "run.started", 0, false)
+	emit("run.started", 0, false)
 	if cacheMode != cachekey.ModeOff {
 		if served, err := record.lookupPlannedCache(ctx, cache, work, baseCall); served || err != nil {
 			return record, err
@@ -107,10 +105,8 @@ func executeRecoveryPlan(
 
 	providerAccumulator := accounting.NewProviderAccumulator()
 	attempt := 0
-	lastWorkStage := ""
-	lastWorkAttempt := 0
 	for {
-		emit(work, "run.progress", attempt, false)
+		emit("run.progress", attempt, false)
 		if err := executionContextError(ctx, config.Now()); err != nil {
 			record.StopReason = stopReasonFor(err)
 			return record, err
@@ -123,7 +119,7 @@ func executeRecoveryPlan(
 		started := config.Now().UTC()
 		prepared := work.prepared
 		prepared.StreamProgress = progress.streamCallback(func() {
-			emit(work, "run.progress", attempt, false)
+			emit("run.progress", attempt, false)
 		})
 		result, failure, observation := dispatchAttempt(ctx, executor, prepared, work.call, work.target, attempt)
 		record.AssistantText = result.AssistantText
@@ -158,16 +154,13 @@ func executeRecoveryPlan(
 		attemptRecord := AttemptRecord{
 			Number: attempt, Target: work.target,
 			Repair: work.call.Repair != nil, Stage: work.stage, Branch: work.branch,
-			TriggerAttempt: triggerAttempt(work.history), InputAttempts: inputAttempts,
+			TriggerAttempt: triggerAttempt(work.history), InputAttempts: inputAttempts, TransportRetryOf: work.lastAttempt,
 			ReasoningEffort: work.call.ReasoningEffort,
 		}
 		attemptRecord.setOutcome(result, classification, started, finished, max(0, config.Now().Sub(started)))
-		if lastWorkStage == work.stage {
-			attemptRecord.TransportRetryOf = lastWorkAttempt
-		}
 		record.Attempts = append(record.Attempts, attemptRecord)
-		lastWorkStage, lastWorkAttempt = work.stage, attempt
-		emit(work, "run.progress", attempt, false)
+		work.lastAttempt = attempt
+		emit("run.progress", attempt, false)
 		observation.finishAttempt(failure)
 		if failure == nil {
 			result = record.acceptProviderResult(result, attempt, work.target)

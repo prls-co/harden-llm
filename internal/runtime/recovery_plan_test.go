@@ -215,7 +215,8 @@ func TestRecoveryBoundaryAccountingCacheReplaysRerunRepair(t *testing.T) {
 		t.Helper()
 		if record.Diagnostics.Branch != "rerun" || record.Diagnostics.Stage != "rerun.generate" ||
 			last.Type != "run.terminal" || !last.Terminal || last.Branch != "rerun" || last.Stage != "rerun.generate" ||
-			last.ConnectionID != rerunConnection.ID || last.ReasoningEffort != "high" || last.AttemptsUsed != 1 || last.StopReason != reason {
+			last.ConnectionID != rerunConnection.ID || last.ReasoningEffort != "high" ||
+			last.Attempt != 0 || last.AttemptsUsed != 1 || last.StopReason != reason {
 			t.Errorf("terminal diagnostics=%s/%s progress=%+v", record.Diagnostics.Branch, record.Diagnostics.Stage, last)
 		}
 	}
