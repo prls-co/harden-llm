@@ -266,8 +266,10 @@ func TestRecoveryExecution(t *testing.T) {
 		if !record.Attempts[1].Repair || !record.Attempts[2].Repair || !reflect.DeepEqual(executor.dispatched[1].Repair, executor.dispatched[2].Repair) {
 			t.Fatalf("repair context/identity reset: attempts=%#v dispatched=%#v", record.Attempts, executor.dispatched)
 		}
+		wantTransportRetryOf := []int{0, 0, 2}
 		for index, attempt := range record.Attempts {
-			if attempt.Number != index+1 || attempt.Target.ModelID != "selected-model" || !attempt.ProviderUsed {
+			if attempt.Number != index+1 || attempt.Target.ModelID != "selected-model" || !attempt.ProviderUsed ||
+				attempt.TransportRetryOf != wantTransportRetryOf[index] {
 				t.Errorf("incorrect dispatched facts: %#v", attempt)
 			}
 		}
