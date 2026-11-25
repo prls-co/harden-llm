@@ -14,57 +14,6 @@ import (
 	"github.com/prls-co/harden-llm/internal/retry"
 )
 
-func buildProgressSnapshot(
-	ctx context.Context,
-	now func() time.Time,
-	startedAt time.Time,
-	record *CallRecord,
-	activeStream *StreamDiagnostics,
-	event ProgressSnapshot,
-) ProgressSnapshot {
-	var accountingSnapshot *Accounting
-	if len(record.Attempts) > 0 {
-		value := record.Accounting
-		accountingSnapshot = &value
-	}
-	var effectiveTimeout *time.Duration
-	if record.Diagnostics.EffectiveTimeout != nil {
-		value := *record.Diagnostics.EffectiveTimeout
-		effectiveTimeout = &value
-	}
-
-	receivedBytes := record.Diagnostics.ReceivedBytes
-	eventCount := record.Diagnostics.EventCount
-	outputBytes := record.Diagnostics.OutputBytes
-	outputCodePoints := record.Diagnostics.OutputCodePoints
-	if activeStream != nil {
-		receivedBytes += activeStream.ReceivedBytes
-		eventCount += activeStream.EventCount
-		outputBytes += activeStream.OutputBytes
-		outputCodePoints += activeStream.OutputCodePoints
-	}
-
-	event.AttemptsUsed = len(record.Attempts)
-	event.AttemptsRemaining = max(event.MaxAttempts-len(record.Attempts), 0)
-	event.ElapsedMs = max(now().Sub(startedAt).Milliseconds(), 0)
-	event.StopReason = record.StopReason
-	event.ReceivedBytes = receivedBytes
-	event.EventCount = eventCount
-	event.OutputBytes = outputBytes
-	event.OutputCodePoints = outputCodePoints
-	event.LastActivity = now()
-	event.EffectiveTimeout = effectiveTimeout
-	event.Origin = record.Origin
-	event.Attempts = append([]AttemptRecord(nil), record.Attempts...)
-	event.Accounting = accountingSnapshot
-
-	if deadline, ok := ctx.Deadline(); ok {
-		remaining := max(deadline.Sub(now()).Milliseconds(), 0)
-		event.DeadlineRemainingMs = &remaining
-	}
-	return event
-}
-
 func Execute(
 	ctx context.Context, executor Executor, connection Connection, credential Credential,
 	call Call, config retry.Config,
@@ -94,65 +43,30 @@ func Execute(
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if call.CallType == "structured" && hasExplicitRecoveryPlan(config.Policy) {
+	if cacheVersion == "" {
+		cacheVersion = cachekey.DefaultVersion
+	}
+	if call.CallType == "structured" && config.Policy.UsesExplicitPlan() {
 		return executeRecoveryPlan(ctx, executor, connection, credential, call, config, cache, cacheMode, cacheVersion, callID, traceID)
 	}
 	if call.WebSearch {
 		call.SearchMemo = &sync.Map{}
 	}
-	if call.Observer != nil {
-		var finish func(error)
-		ctx, finish = call.Observer.StartRuntime(ctx, CallObservation{ConnectionID: connection.ID, Provider: connection.Provider, ModelID: call.ModelID, CallType: call.CallType})
-		defer func() { finish(err) }()
-	}
-	if cacheVersion == "" {
-		cacheVersion = cachekey.DefaultVersion
-	}
-	record = CallRecord{
-		CallID: callID, TraceID: traceID, SelectedTarget: targetFromConnection(connection, call.ModelID),
-		GenerationTarget: targetFromConnection(connection, call.ModelID), Branch: "original",
-		Origin:       call.Origin,
-		ResultSource: ResultSource{Kind: ResultSourceNone},
-		Accounting:   Accounting{Result: accounting.EmptyLedger(), Provider: accounting.EmptyLedger()},
-		// Keep the slice capacity independent of request data. Policy.Validate
-		// bounds MaxAttempts for execution, but a user-controlled value should
-		// never determine an allocation size.
-		Attempts: make([]AttemptRecord, 0),
-		Cache:    CacheFacts{Mode: cacheMode, Status: "skipped", Version: cacheVersion},
-	}
+	selected := targetFromConnection(connection, call.ModelID)
+	ctx, finishRuntime := startRuntime(ctx, call.Observer, selected, call.CallType)
+	defer func() { finishRuntime(err) }()
+	record = newCallRecord(callID, traceID, selected, call.Origin, cacheMode, cacheVersion, 0)
 	startedAt := config.Now()
-	record.ResponseCreatedAt = startedAt.Unix()
-	if deadline, ok := ctx.Deadline(); ok {
-		deadlineUTC := deadline.UTC()
-		record.Diagnostics.DeadlineAt = &deadlineUTC
-		effective := max(deadline.Sub(startedAt).Milliseconds(), 0)
-		record.Diagnostics.EffectiveTimeout = durationPointer(time.Duration(effective) * time.Millisecond)
-	}
-	var progressSequence uint64
-	var activeStream *StreamDiagnostics
+	record.startTiming(ctx, startedAt)
+	progress := newProgressEmitter(ctx, call, config, &record, startedAt)
 	emitProgress := func(eventType string, attempt int, terminal bool) {
-		if call.Progress == nil {
-			return
-		}
-		progressSequence++
-		event := buildProgressSnapshot(ctx, config.Now, startedAt, &record, activeStream, ProgressSnapshot{
-			Sequence: progressSequence, RunID: call.Context.RunID, CallID: callID, TraceID: traceID,
-			Type: eventType, Stage: "original.generate", Branch: "original", ConnectionID: connection.ID,
+		progress.emit(ProgressSnapshot{
+			Type: eventType, Stage: stageOriginalGenerate, Branch: "original", ConnectionID: connection.ID,
 			ReasoningEffort: call.ReasoningEffort, Attempt: attempt, Terminal: terminal,
-			MaxAttempts: config.Policy.MaxAttempts,
 		})
-		call.Progress(event)
 	}
 	defer func() {
-		if record.StopReason == "" {
-			record.StopReason = stopReasonFor(err)
-		}
-		record.Diagnostics.AttemptsUsed = len(record.Attempts)
-		record.Diagnostics.AttemptsRemaining = max(config.Policy.MaxAttempts-len(record.Attempts), 0)
-		record.Diagnostics.Elapsed = max(config.Now().Sub(startedAt), 0)
-		record.Diagnostics.Stage = recordLastStage(record.Attempts)
-		record.Diagnostics.Branch = "original"
-		record.Diagnostics.StopReason = record.StopReason
+		record.finishDiagnostics(config, startedAt, err)
 		emitProgress("run.terminal", len(record.Attempts), true)
 	}()
 	emitProgress("run.started", 0, false)
@@ -175,11 +89,7 @@ func Execute(
 			return record, err
 		}
 		if cacheMode == cachekey.ModeCache {
-			cacheContext := ctx
-			endCache := func(string, error) {}
-			if call.Observer != nil {
-				cacheContext, endCache = call.Observer.StartCache(ctx, "lookup")
-			}
+			cacheContext, endCache := startCache(ctx, call.Observer, "lookup")
 			cached, found, cacheErr := cache.Get(cacheContext, record.Cache.OperationHash, cacheVersion)
 			if cacheErr != nil {
 				endCache("unknown", cacheErr)
@@ -192,7 +102,7 @@ func Execute(
 				}
 				endCache("hit", nil)
 				record.serveCached(cached)
-				record.Diagnostics.BranchCaches = append(record.Diagnostics.BranchCaches, BranchCache{Branch: "original", GenerationTarget: target, Cache: record.Cache})
+				record.rememberBranchCache("original", target)
 				return record, nil
 			}
 			endCache("miss", nil)
@@ -200,84 +110,39 @@ func Execute(
 		} else {
 			record.Cache.Status = "refresh"
 		}
-		record.Diagnostics.BranchCaches = append(record.Diagnostics.BranchCaches, BranchCache{Branch: "original", GenerationTarget: target, Cache: record.Cache})
+		record.rememberBranchCache("original", target)
 	}
 
-	// The prepared request and its operation context advance together. A
-	// transport retry leaves this work intact; only invalid output creates repair.
-	work := struct {
-		call     Call
-		prepared PreparedOperation
-	}{call, prepared}
 	providerAccumulator := accounting.NewProviderAccumulator()
 	for number := 1; ; number++ {
 		if err := executionContextError(ctx, config.Now()); err != nil {
 			return record, err
 		}
 		started := config.Now()
-		startedUTC := started.UTC()
-		attemptContext := ctx
-		endAttempt := func(error) {}
-		if call.Observer != nil {
-			attemptContext, endAttempt = call.Observer.StartAttempt(ctx, target, call.CallType, number)
-		}
-		providerContext := attemptContext
-		endProvider := func(bool, error) {}
-		if call.Observer != nil {
-			providerContext, endProvider = call.Observer.StartProvider(attemptContext, target, call.CallType)
-		}
-		activeStream = &StreamDiagnostics{}
-		preparedAttempt := work.prepared
-		preparedAttempt.StreamProgress = func(snapshot StreamDiagnostics) {
-			value := snapshot
-			activeStream = &value
+		preparedAttempt := prepared
+		preparedAttempt.StreamProgress = progress.streamCallback(func() {
 			emitProgress("run.progress", number, false)
-		}
-		result, failure := executor.Execute(providerContext, preparedAttempt)
+		})
+		result, failure, observation := dispatchAttempt(ctx, executor, preparedAttempt, call, target, number)
 		record.AssistantText = result.AssistantText
-		activeStream = nil
-		finishedUTC := config.Now().UTC()
-		providerUsed := result.ProviderDispatched
-		record.Diagnostics.ReceivedBytes += result.Stream.ReceivedBytes
-		record.Diagnostics.EventCount += result.Stream.EventCount
-		record.Diagnostics.OutputBytes += result.Stream.OutputBytes
-		record.Diagnostics.OutputCodePoints += result.Stream.OutputCodePoints
-		result.Accounting = normalizedLedger(result.Accounting)
-		if providerUsed {
-			cost, costErr := resolveAttemptCost(result.Accounting, connection)
-			if costErr != nil {
-				failure = combineAccountingFailure(failure)
-			} else {
-				result.Accounting.Cost = cost
-			}
-		}
-		if accountingErr := providerAccumulator.Observe(providerUsed, result.Accounting); accountingErr != nil {
-			failure = combineAccountingFailure(failure)
-		}
-		record.Accounting.Provider = providerAccumulator.Ledger()
+		progress.activeStream = nil
+		finished := config.Now().UTC()
+		failure = record.accountAttempt(&providerAccumulator, connection, &result, failure)
 		previousOutput := ""
 		if failure == nil {
-			validateStructured := func(value any) error {
-				return validateStructuredValue(attemptContext, call.Observer, connection, work.call.Repair != nil, call.ValidateStructured, value)
-			}
-			admissionErr := admitResult(result, work.call.CallType, validateStructured)
-			if admissionErr != nil {
-				var providerError *retry.ProviderError
-				if work.call.CallType == "structured" && !errors.As(admissionErr, &providerError) {
-					failure = &retry.ProviderError{Err: admissionErr, Code: "STRUCTURED_SCHEMA", Category: retry.CategoryParse}
-					encoded, marshalErr := json.Marshal(result.Output)
-					if marshalErr != nil {
-						failure = marshalErr
-					} else {
-						previousOutput = string(encoded)
-						captureParseFailureResponse(&record, previousOutput)
-					}
+			var schemaRejected bool
+			failure, schemaRejected = admitProviderResult(observation.context, connection, call, result)
+			if schemaRejected {
+				encoded, marshalErr := json.Marshal(result.Output)
+				if marshalErr != nil {
+					failure = marshalErr
 				} else {
-					failure = admissionErr
+					previousOutput = string(encoded)
+					captureParseFailureResponse(&record, previousOutput)
 				}
 			}
 		}
-		endProvider(result.ProviderDispatched, failure)
+		observation.finishProvider(result.ProviderDispatched, failure)
 		if failure != nil {
 			captureProviderParseFailure(&record, failure, &previousOutput)
 		}
@@ -286,70 +151,81 @@ func Execute(
 		}
 		classification := retry.Classify(failure, config.Policy)
 		attemptRecord := AttemptRecord{
-			Number: number, ConnectionID: connection.ID, Target: target, ProviderUsed: providerUsed,
-			Category: classification.Category, Status: classification.Status, Retryable: classification.Retryable,
-			Duration: max(0, config.Now().Sub(started)), Repair: work.call.Repair != nil, Stage: "original.generate", Branch: "original",
-			Code: classification.Code, Type: classification.Type, ProviderRequestID: classification.ProviderRequestID,
-			StartedAt: &startedUTC, FinishedAt: &finishedUTC, ReasoningEffort: work.call.ReasoningEffort,
-			DispatchObserved: providerUsed,
+			Number: number, Target: target, Repair: call.Repair != nil, Stage: stageOriginalGenerate,
+			Branch: "original", ReasoningEffort: call.ReasoningEffort,
 		}
-		if result.Stream.ReceivedBytes > 0 || result.Stream.EventCount > 0 || result.Stream.OutputBytes > 0 || result.Stream.OutputCodePoints > 0 || result.Stream.TerminalState != "" {
-			stream := result.Stream
-			attemptRecord.Stream = &stream
-		}
+		attemptRecord.setOutcome(result, classification, started, finished, max(0, config.Now().Sub(started)))
 		record.Attempts = append(record.Attempts, attemptRecord)
 		emitProgress("run.progress", number, false)
-		endAttempt(failure)
+		observation.finishAttempt(failure)
 		if failure == nil {
-			record.NativeResponse = result.NativeResponse
-			record.Output = result.Output
-			if result.Search != nil {
-				record.Search = result.Search
-			}
-			record.Accounting.Result = result.Accounting
-			producer := target
-			record.ResultSource = ResultSource{Kind: ResultSourceProvider, AttemptNumber: number, Producer: &producer}
-			if cacheMode != cachekey.ModeOff {
-				cacheContext := ctx
-				endCache := func(string, error) {}
-				if call.Observer != nil {
-					cacheContext, endCache = call.Observer.StartCache(ctx, "write")
-				}
-				cacheResult := result
-				if cacheResult.Search == nil {
-					cacheResult.Search = record.Search
-				}
-				cacheErr := cache.Set(cacheContext, record.Cache.OperationHash, cacheVersion, CachedResult{ProjectionCallID: record.CallID, ResponseCreatedAt: record.ResponseCreatedAt, ProviderResult: cacheResult, Producer: target, GenerationTarget: target, CompletedBy: "generation"})
-				if cacheErr != nil {
-					record.Cache.Status = "write_failed"
-					endCache(record.Cache.Status, cacheErr)
-					return record, nil
-				}
-				endCache(record.Cache.Status, nil)
-				record.Cache.Written = true
-			}
+			result = record.acceptProviderResult(result, number, target)
+			record.writeCachedResult(ctx, cache, call.Observer, result, record.Cache.OperationHash, target, "generation")
 			return record, nil
 		}
 		if number == config.Policy.MaxAttempts || !classification.Retryable {
 			return record, failure
 		}
-		delay := retry.Delay(number, classification.RetryAfter, config.Policy.Backoff, config.Random())
-		if deadline, ok := ctx.Deadline(); ok && delay >= deadline.Sub(config.Now()) {
-			return record, context.DeadlineExceeded
-		}
-		record.Attempts[len(record.Attempts)-1].Delay = delay
-		waitStarted := config.Now()
-		err = waitForRetry(ctx, call.Observer, target, call.CallType, classification, delay, config.Wait)
-		actualWait := max(0, config.Now().Sub(waitStarted))
-		record.Diagnostics.TotalActualWait += actualWait
-		record.Attempts[len(record.Attempts)-1].WaitDiagnostics = &WaitDiagnostics{Reason: string(classification.Category), Planned: delay, Actual: actualWait, RetryAfter: classification.RetryAfter}
-		if err != nil {
+		if err := record.waitBeforeRetry(ctx, call, classification, config); err != nil {
 			return record, err
 		}
 		if err := executionContextError(ctx, config.Now()); err != nil {
 			return record, err
 		}
 	}
+}
+
+func newCallRecord(callID, traceID string, target ExecutionTarget, origin Origin, cacheMode cachekey.Mode, cacheVersion string, attemptCapacity int) CallRecord {
+	return CallRecord{
+		CallID: callID, TraceID: traceID, SelectedTarget: target, GenerationTarget: target, Branch: "original",
+		Origin:       origin,
+		ResultSource: ResultSource{Kind: ResultSourceNone},
+		Accounting:   Accounting{Result: accounting.EmptyLedger(), Provider: accounting.EmptyLedger()},
+		Attempts:     make([]AttemptRecord, 0, attemptCapacity),
+		Cache:        CacheFacts{Mode: cacheMode, Status: "skipped", Version: cacheVersion},
+	}
+}
+
+func (record *CallRecord) startTiming(ctx context.Context, startedAt time.Time) {
+	record.ResponseCreatedAt = startedAt.Unix()
+	if deadline, ok := ctx.Deadline(); ok {
+		deadlineUTC := deadline.UTC()
+		record.Diagnostics.DeadlineAt = &deadlineUTC
+		effective := max(deadline.Sub(startedAt).Milliseconds(), 0)
+		record.Diagnostics.EffectiveTimeout = durationPointer(time.Duration(effective) * time.Millisecond)
+	}
+}
+
+func (record *CallRecord) finishDiagnostics(config retry.Config, startedAt time.Time, err error) {
+	if record.StopReason == "" {
+		record.StopReason = stopReasonFor(err)
+	}
+	used := len(record.Attempts)
+	record.Diagnostics.AttemptsUsed = used
+	record.Diagnostics.AttemptsRemaining = max(config.Policy.MaxAttempts-used, 0)
+	record.Diagnostics.Elapsed = max(config.Now().Sub(startedAt), 0)
+	record.Diagnostics.Stage = ""
+	if used > 0 {
+		record.Diagnostics.Stage = record.Attempts[used-1].Stage
+	}
+	record.Diagnostics.Branch = record.Branch
+	record.Diagnostics.StopReason = record.StopReason
+}
+
+func (record *CallRecord) setResultPayload(result ProviderResult) {
+	record.Output, record.Search = result.Output, result.Search
+	record.NativeResponse = result.NativeResponse
+	record.AssistantText = result.AssistantText
+	record.Accounting.Result = result.Accounting
+}
+
+func (record *CallRecord) acceptProviderResult(result ProviderResult, number int, producer ExecutionTarget) ProviderResult {
+	if result.Search == nil {
+		result.Search = record.Search
+	}
+	record.setResultPayload(result)
+	record.ResultSource = ResultSource{Kind: ResultSourceProvider, AttemptNumber: number, Producer: &producer}
+	return result
 }
 
 // Preserve effect-owned uncertainty while the logical context still determines

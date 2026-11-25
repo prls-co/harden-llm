@@ -63,15 +63,26 @@ func (executor *planExecutor) Execute(_ context.Context, operation PreparedOpera
 }
 
 func planLedger() Ledger {
-	usage, err := accounting.CompleteUsage(1, 0, 0, 1, 0)
-	if err != nil {
-		panic(err)
-	}
-	return Ledger{Usage: usage, Cost: accounting.UnavailableCost()}
+	return Ledger{Usage: completeUsageWithoutTest(1, 0, 0, 1, 0), Cost: accounting.UnavailableCost()}
 }
 
 func planConnection() Connection {
 	return Connection{ID: "primary", Provider: "fixture", APIInferenceType: "chat-completions", BaseURL: "https://fixture.example"}
+}
+
+func recoveryStageOrder() []string {
+	return []string{
+		"original.generate", "original.repair.initial", "original.repair.escalation",
+		"rerun.generate", "rerun.repair.initial", "rerun.repair.escalation",
+	}
+}
+
+func attemptStages(attempts []AttemptRecord) []string {
+	stages := make([]string, 0, len(attempts))
+	for _, attempt := range attempts {
+		stages = append(stages, attempt.Stage)
+	}
+	return stages
 }
 
 // SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-535
@@ -119,11 +130,8 @@ func TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory(t *testing.T) {
 	if record.Output.(map[string]any)["ok"] != true || record.ResultSource.Producer == nil || record.ResultSource.Producer.ConnectionID != "primary" || record.ResultSource.Producer.ModelID != "rerun-high" {
 		t.Fatalf("result=%#v source=%#v", record.Output, record.ResultSource)
 	}
-	wantStages := []string{stageOriginalGenerate, stageOriginalRepairInitial, stageOriginalRepairEscalate, stageRerunGenerate, stageRerunRepairInitial, stageRerunRepairEscalate}
-	gotStages := make([]string, 0, len(record.Attempts))
-	for _, attempt := range record.Attempts {
-		gotStages = append(gotStages, attempt.Stage)
-	}
+	wantStages := recoveryStageOrder()
+	gotStages := attemptStages(record.Attempts)
 	if !reflect.DeepEqual(gotStages, wantStages) {
 		t.Fatalf("stages=%v want=%v", gotStages, wantStages)
 	}
@@ -154,6 +162,43 @@ func TestExplicitRecoveryPlanRunsBothBranchesWithFlatHistory(t *testing.T) {
 	}
 	if !reflect.DeepEqual(executor.prepared[3].messages, call.Messages) {
 		t.Fatalf("rerun generation inherited repair context: %#v", executor.prepared[3].messages)
+	}
+}
+
+// SPEC-HARDEN-LLM-SELF-HOSTED-TESTS-001 TEST-217
+func TestExplicitRecoveryPlanReplaysRerunRepair(t *testing.T) {
+	ctx := context.Background()
+	call := decisionCall()
+	policy := decisionPlan()
+	policy.JSONRepair = nil
+	policy.MaxAttempts = 3
+	config := retry.Config{Policy: policy}
+	cache := &progressContractCache{}
+	producer := &orderedPlanExecutor{succeedAt: 3}
+	fresh, err := Execute(ctx, producer, planConnection(), Credential{}, call, config, cache, cachekey.ModeCache, "v1", "fresh", "trace")
+	if err != nil || !fresh.Cache.Written || len(producer.dispatches) != 3 {
+		t.Fatalf("rerun repair did not write: cache=%+v dispatches=%d err=%v", fresh.Cache, len(producer.dispatches), err)
+	}
+	if fresh.Cache.OriginalOperationHash == "" || fresh.Cache.OriginalOperationHash == cache.hash ||
+		fresh.Cache.RerunOperationHash != cache.hash || cache.record.CompletedBy != "repair" ||
+		cache.record.GenerationTarget.ModelID != "rerun" || cache.record.Producer.ModelID != "rerun-initial" {
+		t.Fatalf("rerun cache identity: cache=%+v stored=%+v", fresh.Cache, cache.record)
+	}
+
+	cache.found = true
+	replayExecutor := &orderedPlanExecutor{}
+	replay, err := Execute(ctx, replayExecutor, planConnection(), Credential{}, call, config, cache, cachekey.ModeCache, "v1", "replay", "trace")
+	if err != nil || !replay.Cache.Served || replay.Cache.Written || len(replayExecutor.dispatches) != 1 ||
+		!reflect.DeepEqual(attemptStages(replay.Attempts), []string{"original.generate"}) {
+		t.Fatalf("rerun cache hit: cache=%+v stages=%v dispatches=%d err=%v", replay.Cache, attemptStages(replay.Attempts), len(replayExecutor.dispatches), err)
+	}
+	branches := replay.Diagnostics.BranchCaches
+	if replay.Branch != "rerun" || replay.ProjectionCallID != "fresh" || replay.GenerationTarget != cache.record.GenerationTarget ||
+		replay.ResultSource.Kind != ResultSourceCache || !reflect.DeepEqual(replay.ResultSource.Producer, fresh.ResultSource.Producer) ||
+		replay.Accounting.Result != fresh.Accounting.Result || !reflect.DeepEqual(replay.Output, fresh.Output) ||
+		len(branches) != 2 || branches[0].Branch != "original" || branches[0].Cache.Status != "miss" ||
+		branches[1].Branch != "rerun" || branches[1].Cache.Status != "hit" {
+		t.Fatalf("rerun replay lost result or branch identity: %+v", replay)
 	}
 }
 

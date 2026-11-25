@@ -203,61 +203,63 @@ func TestProgressSnapshotContracts(t *testing.T) {
 	})
 
 	t.Run("cache hits emit start and terminal without attempt events", func(t *testing.T) {
-		t.Run("simple execution", func(t *testing.T) {
-			connection := progressConnection("primary")
-			cache := &progressContractCache{}
-			call := Call{CallType: "text", ModelID: "fixture-model", Messages: []Message{{Role: "user", Content: json.RawMessage(`"cache fixture"`)}}, Context: ObservabilityContext{RunID: "simple-cache"}}
-			freshExecutor := &progressContractExecutor{outcomes: []progressContractOutcome{{
-				result: progressResult("cached", StreamDiagnostics{}, 1),
-			}}}
-			config := retry.Config{Policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}}}
-			_, err := Execute(context.Background(), freshExecutor, connection, progressCredential, call, config, cache,
-				cachekey.ModeCache, "v1", "fresh-call", "trace")
-			if err != nil {
-				t.Fatal(err)
-			}
-			cache.found = true
-			var snapshots []ProgressSnapshot
-			call.Progress = func(snapshot ProgressSnapshot) { snapshots = append(snapshots, snapshot) }
-			cacheExecutor := &progressContractExecutor{}
-			record, err := Execute(context.Background(), cacheExecutor, connection, progressCredential, call, config, cache,
-				cachekey.ModeCache, "v1", "cached-call", "trace")
-			if err != nil || !record.Cache.Served || len(record.Attempts) != 0 || cacheExecutor.executes != 0 {
-				t.Fatalf("cache record=%#v executes=%d error=%v", record, cacheExecutor.executes, err)
-			}
-			assertProgressEvents(t, snapshots, "simple-cache", "cached-call", "trace", []progressEventExpectation{
-				{eventType: "run.started", stage: stageOriginalGenerate, profileID: connection.ID, remaining: 2},
-				{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: connection.ID, remaining: 2, terminal: true},
-			})
-		})
+		for _, tc := range []struct {
+			name       string
+			connection Connection
+			call       Call
+			policy     retry.Policy
+			output     any
+			events     []progressEventExpectation
+		}{
+			{
+				name: "simple execution", connection: progressConnection("primary"),
+				call: Call{
+					CallType: "text", ModelID: "fixture-model", Context: ObservabilityContext{RunID: "simple-cache"},
+					Messages: []Message{{Role: "user", Content: json.RawMessage(`"cache fixture"`)}},
+				},
+				policy: retry.Policy{MaxAttempts: 2, RetryOn: []retry.Category{}, Backoff: retry.Backoff{}},
+				output: "cached",
+				events: []progressEventExpectation{
+					{eventType: "run.started", stage: stageOriginalGenerate, profileID: "primary", remaining: 2},
+					{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: "primary", remaining: 2, terminal: true},
+				},
+			},
+			{
+				name: "explicit recovery", connection: progressConnection("original"),
+				call: progressStructuredCall("explicit-cache"), policy: progressExplicitPolicy(),
+				output: map[string]any{"answer": true},
+				events: []progressEventExpectation{
+					{eventType: "run.started", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", remaining: 2},
+					{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", remaining: 2, terminal: true},
+				},
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				ctx := context.Background()
+				cache := &progressContractCache{}
+				call := tc.call
+				config := retry.Config{Policy: tc.policy}
+				freshExecutor := &progressContractExecutor{outcomes: []progressContractOutcome{{
+					result: progressResult(tc.output, StreamDiagnostics{}, 1),
+				}}}
+				_, err := Execute(ctx, freshExecutor, tc.connection, progressCredential, call, config, cache,
+					cachekey.ModeCache, "v1", "fresh-call", "trace")
+				if err != nil {
+					t.Fatal(err)
+				}
 
-		t.Run("explicit recovery", func(t *testing.T) {
-			connection := progressConnection("original")
-			cache := &progressContractCache{}
-			call := progressStructuredCall("explicit-cache")
-			freshExecutor := &progressContractExecutor{outcomes: []progressContractOutcome{{
-				result: progressResult(map[string]any{"answer": true}, StreamDiagnostics{}, 1),
-			}}}
-			config := retry.Config{Policy: progressExplicitPolicy()}
-			_, err := Execute(context.Background(), freshExecutor, connection, progressCredential,
-				call, config, cache, cachekey.ModeCache, "v1", "fresh-call", "trace")
-			if err != nil {
-				t.Fatal(err)
-			}
-			cache.found = true
-			var snapshots []ProgressSnapshot
-			call.Progress = func(snapshot ProgressSnapshot) { snapshots = append(snapshots, snapshot) }
-			cacheExecutor := &progressContractExecutor{}
-			record, err := Execute(context.Background(), cacheExecutor, connection, progressCredential,
-				call, config, cache, cachekey.ModeCache, "v1", "cached-call", "trace")
-			if err != nil || !record.Cache.Served || len(record.Attempts) != 0 || cacheExecutor.executes != 0 {
-				t.Fatalf("cache record=%#v executes=%d error=%v", record, cacheExecutor.executes, err)
-			}
-			assertProgressEvents(t, snapshots, "explicit-cache", "cached-call", "trace", []progressEventExpectation{
-				{eventType: "run.started", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", remaining: 2},
-				{eventType: "run.terminal", stage: stageOriginalGenerate, profileID: "original", reasoning: "high", remaining: 2, terminal: true},
+				cache.found = true
+				var snapshots []ProgressSnapshot
+				call.Progress = func(snapshot ProgressSnapshot) { snapshots = append(snapshots, snapshot) }
+				cacheExecutor := &progressContractExecutor{}
+				record, err := Execute(ctx, cacheExecutor, tc.connection, progressCredential, call, config, cache,
+					cachekey.ModeCache, "v1", "cached-call", "trace")
+				if err != nil || !record.Cache.Served || len(record.Attempts) != 0 || cacheExecutor.executes != 0 {
+					t.Fatalf("cache record=%#v executes=%d error=%v", record, cacheExecutor.executes, err)
+				}
+				assertProgressEvents(t, snapshots, tc.call.Context.RunID, "cached-call", "trace", tc.events)
 			})
-		})
+		}
 	})
 }
 
@@ -292,15 +294,7 @@ type progressContractExecutor struct {
 
 func (executor *progressContractExecutor) Prepare(_ context.Context, connection Connection, _ Credential, call Call) (PreparedOperation, error) {
 	executor.prepares++
-	return PreparedOperation{
-		Operation: cachekey.Operation{
-			SchemaVersion: cachekey.OperationSchemaVersion, Protocol: connection.APIInferenceType,
-			Endpoint: cachekey.Endpoint{Identity: connection.BaseURL, Method: "POST", Path: "/run"},
-			Model:    call.ModelID, Payload: map[string]any{}, SemanticHeaders: map[string]any{},
-			ResponseProjection: cachekey.ResponseProjection{Provider: connection.Provider, Kind: "fixture", Version: "v1"},
-		},
-		Opaque: call,
-	}, nil
+	return PreparedOperation{Operation: fixtureOperation(connection, call.ModelID, "v1"), Opaque: call}, nil
 }
 
 func (executor *progressContractExecutor) Execute(_ context.Context, operation PreparedOperation) (ProviderResult, error) {
@@ -329,31 +323,25 @@ func progressResult(output any, stream StreamDiagnostics, inputTokens int64) Pro
 		Output:             output,
 		Stream:             stream,
 		Accounting: Ledger{
-			Usage: progressUsage(inputTokens),
+			Usage: completeUsageWithoutTest(inputTokens, 0, 0, 1, 0),
 			Cost:  accounting.UnavailableCost(),
 		},
 	}
 }
 
-func progressUsage(inputTokens int64) Usage {
-	usage, err := accounting.CompleteUsage(inputTokens, 0, 0, 1, 0)
-	if err != nil {
-		panic(err)
-	}
-	return usage
-}
-
 type progressContractCache struct {
-	record CachedResult
-	found  bool
+	record  CachedResult
+	found   bool
+	hash    string
+	version string
 }
 
-func (cache *progressContractCache) Get(context.Context, string, string) (CachedResult, bool, error) {
-	return cache.record, cache.found, nil
+func (cache *progressContractCache) Get(_ context.Context, hash, version string) (CachedResult, bool, error) {
+	return cache.record, cache.found && hash == cache.hash && version == cache.version, nil
 }
 
-func (cache *progressContractCache) Set(_ context.Context, _, _ string, result CachedResult) error {
-	cache.record = result
+func (cache *progressContractCache) Set(_ context.Context, hash, version string, result CachedResult) error {
+	cache.record, cache.hash, cache.version = result, hash, version
 	return nil
 }
 

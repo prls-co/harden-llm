@@ -42,6 +42,22 @@ func Summarize(record CallRecord, started, completed time.Time, err error) CallS
 	return CallSummary{CallID: record.CallID, TraceID: record.TraceID, SelectedTarget: record.SelectedTarget, GenerationTarget: record.GenerationTarget, Status: status, Duration: max(completed.Sub(started), 0), WaitDuration: record.Diagnostics.TotalActualWait, AttemptCount: len(record.Attempts), Cache: record.Cache, Accounting: record.Accounting}
 }
 
+func startRuntime(ctx context.Context, observer Observer, target ExecutionTarget, callType string) (context.Context, func(error)) {
+	if observer == nil {
+		return ctx, func(error) {}
+	}
+	return observer.StartRuntime(ctx, CallObservation{
+		ConnectionID: target.ConnectionID, Provider: target.Provider, ModelID: target.ModelID, CallType: callType,
+	})
+}
+
+func startCache(ctx context.Context, observer Observer, action string) (context.Context, func(string, error)) {
+	if observer == nil {
+		return ctx, func(string, error) {}
+	}
+	return observer.StartCache(ctx, action)
+}
+
 func waitForRetry(ctx context.Context, observer Observer, target ExecutionTarget, callType string, classification retry.Classification, delay time.Duration, wait func(context.Context, time.Duration) error) (err error) {
 	if observer != nil {
 		var finish func(error)

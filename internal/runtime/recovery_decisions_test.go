@@ -7,11 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/prls-co/harden-llm/internal/cachekey"
-	"github.com/prls-co/harden-llm/internal/retry"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/prls-co/harden-llm/internal/cachekey"
+	"github.com/prls-co/harden-llm/internal/retry"
 )
 
 type orderedPlanExecutor struct {
@@ -44,16 +45,13 @@ func decisionCall() Call {
 
 func TestRecoveryDecisionWitnesses(t *testing.T) {
 	t.Parallel()
-	stages := []string{stageOriginalGenerate, stageOriginalRepairInitial, stageOriginalRepairEscalate, stageRerunGenerate, stageRerunRepairInitial, stageRerunRepairEscalate}
-	for success := 1; success <= 6; success++ {
+	stages := recoveryStageOrder()
+	for success := 1; success <= len(stages); success++ {
 		t.Run(fmt.Sprintf("success at %s", stages[success-1]), func(t *testing.T) {
 			executor := &orderedPlanExecutor{succeedAt: success}
 			waits := 0
 			result, err := Execute(context.Background(), executor, planConnection(), Credential{APIKey: "synthetic"}, decisionCall(), retry.Config{Policy: decisionPlan(), Wait: func(context.Context, time.Duration) error { waits++; return nil }}, nil, cachekey.ModeOff, "v1", "call", "trace")
-			got := []string{}
-			for _, attempt := range result.Attempts {
-				got = append(got, attempt.Stage)
-			}
+			got := attemptStages(result.Attempts)
 			if err != nil || !reflect.DeepEqual(got, stages[:success]) || len(executor.prepared) != success || len(executor.dispatches) != success || waits != 0 || result.StopReason != "succeeded" || result.ResultSource.AttemptNumber != success {
 				t.Fatalf("unexpected early exit: stages=%v prepares=%d calls=%d waits=%d result=%#v err=%v", got, len(executor.prepared), len(executor.dispatches), waits, result, err)
 			}
@@ -88,10 +86,7 @@ func TestRecoveryDecisionWitnesses(t *testing.T) {
 			executor := &orderedPlanExecutor{}
 			waits := 0
 			result, err := Execute(context.Background(), executor, planConnection(), Credential{}, decisionCall(), retry.Config{Policy: policy, Wait: func(context.Context, time.Duration) error { waits++; return nil }}, nil, cachekey.ModeOff, "v1", "call", "trace")
-			got := []string{}
-			for _, attempt := range result.Attempts {
-				got = append(got, attempt.Stage)
-			}
+			got := attemptStages(result.Attempts)
 			if err == nil || !reflect.DeepEqual(got, tc.want) || len(executor.prepared) != len(tc.want) || len(executor.dispatches) != len(tc.want) || waits != 0 || result.Output != nil {
 				t.Fatalf("disabled branch differs: stages=%v want=%v err=%v", got, tc.want, err)
 			}
@@ -101,26 +96,48 @@ func TestRecoveryDecisionWitnesses(t *testing.T) {
 
 func TestRecoveryDeadlineIndependence(t *testing.T) {
 	t.Parallel()
-	for _, delta := range []time.Duration{-time.Nanosecond, 0, time.Nanosecond} {
-		t.Run(delta.String(), func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-			deadline, _ := ctx.Deadline()
-			executor := &recoveryExecutor{failures: []error{&retry.ProviderError{Status: 503, RetryAfter: 500 * time.Millisecond}, nil}}
-			waits := 0
-			policy := retry.DefaultPolicy()
-			policy.MaxAttempts = 2
-			policy.JSONRepair = nil
-			result, err := Execute(ctx, executor, planConnection(), Credential{}, Call{CallType: "text", ModelID: "generation"}, retry.Config{Policy: policy, Now: func() time.Time { return deadline.Add(-500*time.Millisecond + delta) }, Wait: func(context.Context, time.Duration) error { waits++; return nil }}, nil, cachekey.ModeOff, "v1", "call", "trace")
-			if delta < 0 {
-				if err != nil || waits != 1 || len(executor.dispatched) != 2 || executor.prepares != 1 {
-					t.Fatalf("fitting retry changed: waits=%d prepares=%d calls=%d err=%v", waits, executor.prepares, len(executor.dispatched), err)
+	for _, callType := range []string{"text", "structured"} {
+		for _, delta := range []time.Duration{-time.Nanosecond, 0, time.Nanosecond} {
+			t.Run(callType+"/"+delta.String(), func(t *testing.T) {
+				const planned, actual = 500 * time.Millisecond, 100 * time.Millisecond
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				deadline, _ := ctx.Deadline()
+				now := deadline.Add(-planned + delta)
+				executor := &recoveryExecutor{failures: []error{&retry.ProviderError{Status: 503, RetryAfter: planned}}}
+				var waits []time.Duration
+				policy := retry.DefaultPolicy()
+				policy.MaxAttempts = 2
+				policy.JSONRepair = nil
+				call := Call{CallType: callType, ModelID: "generation", ValidateStructured: func(any) error { return nil }}
+				config := retry.Config{
+					Policy: policy, Now: func() time.Time { return now }, Random: func() float64 { return 0 },
+					Wait: func(_ context.Context, delay time.Duration) error {
+						waits = append(waits, delay)
+						now = now.Add(actual)
+						return nil
+					},
 				}
-			} else {
-				if !errors.Is(err, context.DeadlineExceeded) || waits != 0 || len(executor.dispatched) != 1 || executor.prepares != 1 || result.StopReason != "deadline_exceeded" {
-					t.Fatalf("unfitting wait admitted: result=%#v waits=%d err=%v", result, waits, err)
+				result, err := Execute(ctx, executor, planConnection(), Credential{}, call, config, nil, cachekey.ModeOff, "v1", "call", "trace")
+				if delta < 0 {
+					if err != nil || !reflect.DeepEqual(waits, []time.Duration{planned}) || len(executor.dispatched) != 2 || executor.prepares != 1 || len(result.Attempts) != 2 {
+						t.Fatalf("fitting retry changed: waits=%v prepares=%d calls=%d attempts=%d err=%v", waits, executor.prepares, len(executor.dispatched), len(result.Attempts), err)
+					}
+					want := WaitDiagnostics{Reason: string(retry.CategoryServer), Planned: planned, Actual: actual, RetryAfter: planned}
+					first := result.Attempts[0]
+					if first.Delay != planned || first.WaitDiagnostics == nil || *first.WaitDiagnostics != want || result.Diagnostics.TotalActualWait != actual {
+						t.Fatalf("wait diagnostics=%#v delay=%v total=%v", first.WaitDiagnostics, first.Delay, result.Diagnostics.TotalActualWait)
+					}
+				} else {
+					if !errors.Is(err, context.DeadlineExceeded) || len(waits) != 0 || len(executor.dispatched) != 1 || executor.prepares != 1 || len(result.Attempts) != 1 || result.StopReason != "deadline_exceeded" {
+						t.Fatalf("unfitting wait admitted: result=%#v waits=%v err=%v", result, waits, err)
+					}
+					first := result.Attempts[0]
+					if first.Delay != 0 || first.WaitDiagnostics != nil || result.Diagnostics.TotalActualWait != 0 {
+						t.Fatalf("unattempted wait diagnostics=%#v delay=%v total=%v", first.WaitDiagnostics, first.Delay, result.Diagnostics.TotalActualWait)
+					}
 				}
-			}
-		})
+			})
+		}
 	}
 }
